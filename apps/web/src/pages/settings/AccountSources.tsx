@@ -1,4 +1,12 @@
-import { accountMode, type Integration, type SyncPolicy } from "@3d-maker-suite/core";
+import {
+  accountMode,
+  defaultPolicy,
+  type Integration,
+  isCatalogType,
+  isPresetType,
+  type SyncPolicy,
+  type SyncRun,
+} from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Cable, TriangleAlert } from "lucide-react";
 import { useState } from "react";
@@ -44,17 +52,29 @@ const EMPTY: Record<AccountType, { title: string; body: string }> = {
   spools: { title: "settings:sources.empty.spools", body: "settings:sources.empty.spoolsBody" },
 };
 // Each block is its own table: the same widths keep the columns in line from one to the next.
-const COL = {
-  item: "min-w-28",
+export const COL = {
+  item: "min-w-44",
   when: "min-w-48",
   what: "inline-block min-w-44",
   how: "inline-block min-w-48",
 };
 // Prints and spools both take the filament a print used: one of them should (`doubleTracking`).
-const OTHER: Partial<Record<AccountType, AccountType>> = { prints: "spools", spools: "prints" };
+const OTHER: Partial<Record<string, AccountType>> = { prints: "spools", spools: "prints" };
 
 /** What a block calls the account: its email, else its name. */
-const accountName = (i: Integration) => i.account?.email || i.account?.name || null;
+export const accountName = (i: Integration) => i.account?.email || i.account?.name || null;
+
+/** A block's title for an account: "Bambu Cloud · ana@example.com". */
+export function useAccountTitle() {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  return (i: Integration) => {
+    const name = accountName(i);
+    return name
+      ? t("settings:sources.account", { adapter: adapterName(i.adapterId), account: name })
+      : adapterName(i.adapterId);
+  };
+}
 
 /**
  * Printers, Prints or Filament settings → Sources: Share to the hub, one block per account that
@@ -74,42 +94,52 @@ export function AccountSources({ type, settings }: { type: AccountType; settings
         icon={Cable}
         title={t(EMPTY[type].title)}
         description={t(EMPTY[type].body)}
-        action={
-          admin && (
-            <Link
-              to="/integrations"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
-            >
-              <Cable className="size-4" aria-hidden="true" />
-              {t("settings:sources.integrations")}
-            </Link>
-          )
-        }
+        action={admin && <IntegrationsLink />}
       />
     );
   return (
     <SourcesSection direction="share">
       {rows.map((i) => (
-        <AccountBlock key={i.id} integration={i} type={type} />
+        <AccountBlock key={i.id} integration={i} types={[type]} />
       ))}
     </SourcesSection>
   );
 }
 
-function AccountBlock({ integration: i, type }: { integration: Integration; type: AccountType }) {
+/** The empty state's way to Integrations, where a source allows a type. */
+export function IntegrationsLink() {
   const { t } = useTranslation();
-  const adapterName = useAdapterName();
+  return (
+    <Link
+      to="/integrations"
+      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
+    >
+      <Cable className="size-4" aria-hidden="true" />
+      {t("settings:sources.integrations")}
+    </Link>
+  );
+}
+
+/** One account's block: its photo, name and sign-in state, the link back, and its lines. */
+export function AccountBlock({
+  integration: i,
+  types,
+  children,
+}: {
+  integration: Integration;
+  types: SyncPolicy["type"][];
+  /** In place of the lines, e.g. a slicer heading around them. */
+  children?: React.ReactNode;
+}) {
+  const { t } = useTranslation();
   const admin = useCan("integrations.manage");
   const account = i.account;
-  const name = accountName(i);
-  const title = name
-    ? t("settings:sources.account", { adapter: adapterName(i.adapterId), account: name })
-    : adapterName(i.adapterId);
+  const title = useAccountTitle()(i);
   // `hasSecrets` is an admin's; anyone sees an expired sign-in.
   const signedOut =
     (admin && !i.hasSecrets) || i.lastError === "auth_expired" || i.lastError === "auth_required";
-  const policy = i.policies.find((p) => p.type === type);
-  if (!policy) return null;
+  if (!i.policies.some((p) => types.includes(p.type))) return null;
+  const prints = types.length === 1 && types[0] === "prints";
   return (
     <SourceBlock
       icon={<Avatar integration={i} text={account?.name || account?.email || title} />}
@@ -131,50 +161,81 @@ function AccountBlock({ integration: i, type }: { integration: Integration; type
           : undefined
       }
     >
-      <Line integration={i} policy={policy} type={type} title={title} />
+      {children ?? (
+        // Prints never change once imported: nothing to choose about what or how.
+        <PolicyLines integration={i} types={types} title={title} what={!prints} how={!prints} />
+      )}
     </SourceBlock>
   );
 }
 
-/** The account's one line: its switch, schedule, what and how, Edit and `⋯`. */
-function Line({
+type LineType = SyncPolicy["type"];
+
+/** Who edits a line: catalog lines catalog manage (ADR-0020), preset lines presets manage (ADR-0021). */
+export const useManagesLine = (type: LineType) =>
+  useCan(
+    isPresetType(type) ? "presets" : isCatalogType(type) ? "catalog" : "integrations.manage",
+    "manage",
+  );
+
+/**
+ * A source's lines of one integration in one table: per type its switch, schedule, what and how,
+ * Edit and `⋯` (ADR-0021). The switch off is the policy `off`; on again, the type's default mode.
+ * Only the lines the caller may change or run.
+ */
+export function PolicyLines({
   integration: i,
-  policy: p,
-  type,
+  types,
   title,
+  what = true,
+  how = true,
 }: {
   integration: Integration;
-  policy: SyncPolicy;
-  type: AccountType;
+  types: LineType[];
+  /** The source, as its block names it. */
   title: string;
+  what?: boolean;
+  how?: boolean;
 }) {
   const { t } = useTranslation();
-  const admin = useCan("integrations.manage");
+  const admin = useManagesLine(types[0] ?? "printers");
+  const may = useMayTask();
   const patch = usePatchIntegration(i.id);
   const sync = useSyncIntegration(i.id);
-  const summary = useSummary(p, false);
-  const [editing, setEditing] = useState(false);
-  const name = t(CAPS[type]);
-  const other = OTHER[type];
+  const [editing, setEditing] = useState<LineType>();
+  const rows = types.flatMap(
+    (type) => i.policies.find((p) => p.type === type && (admin || may(i.id, type, "any"))) ?? [],
+  );
+  if (!rows.length) return null;
+  const name = (type: LineType) => t(CAPS[type]);
+  // An account's types run on a schedule; a slicer's follow its files (ADR-0019).
+  const files = i.kind !== "cloud";
+  const mode = (type: LineType) => (files ? defaultPolicy(type).mode : accountMode(type));
+  const failed = patch.isError || sync.isError || sync.data?.status === "error";
+  const edited = rows.find((p) => p.type === editing);
+  const other = edited && OTHER[edited.type];
   const otherTracks =
     !!other && i.policies.some((x) => x.type === other && x.mode !== "off" && x.trackUsage);
-  const failed = patch.isError || sync.isError || sync.data?.status === "error";
-  const on = p.mode !== "off";
 
   return (
-    <div id={`source-${i.id}-${type}`} className="grid scroll-mt-4 gap-2">
+    <div
+      id={types.length === 1 ? `source-${i.id}-${types[0]}` : undefined}
+      className="grid scroll-mt-4 gap-2"
+    >
       <DataTable
         label={t("settings:sources.lines", { source: title })}
-        rows={[p]}
+        rows={rows}
         rowKey={(r) => r.type}
         columns={[
           {
             id: "item",
             header: t("settings:sources.columns.item"),
             cell: (r) => (
-              <span className={cx(COL.item, "inline-flex items-center gap-2 font-medium")}>
-                {name}
-                {r.pending > 0 && on && (
+              <span
+                className={cx(COL.item, "inline-flex flex-wrap items-center gap-x-2 font-medium")}
+              >
+                {name(r.type)}
+                {r.pending > 0 && r.mode !== "off" && (
                   <span className="inline-flex items-center gap-1 text-warn">
                     <TriangleAlert aria-hidden className="size-4 shrink-0" />
                     {t("integrations:policies.pending", { count: r.pending })}
@@ -186,15 +247,15 @@ function Line({
           {
             id: "on",
             header: t("settings:sources.columns.on"),
-            cell: () => (
+            cell: (r) => (
               <Switch
-                label={t("settings:sources.lineOn", { type: name, source: title })}
+                label={t("settings:sources.lineOn", { type: name(r.type), source: title })}
                 labelClassName="sr-only"
-                checked={on}
+                checked={r.mode !== "off"}
                 disabled={!admin || patch.isPending}
                 onChange={(e) =>
                   patch.mutate({
-                    policies: [{ type, mode: e.target.checked ? accountMode(type) : "off" }],
+                    policies: [{ type: r.type, mode: e.target.checked ? mode(r.type) : "off" }],
                   })
                 }
               />
@@ -205,46 +266,35 @@ function Line({
             header: t("settings:sources.columns.when"),
             // The schedule, and under it the last run: one column, so the line fits a laptop.
             cell: (r) => (
-              <span className={cx(COL.when, "grid py-1.5")}>
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    aria-hidden
-                    className={cx(
-                      "size-2 shrink-0 rounded-full",
-                      r.mode === "auto"
-                        ? "bg-ok"
-                        : r.mode === "off"
-                          ? "border border-muted"
-                          : "bg-border",
-                    )}
-                  />
-                  {sync.isPending ? t("integrations:card.syncing") : summary}
-                </span>
-                <span className="ps-4 text-sm text-muted">
-                  <LastSync at={r.lastRunAt} />
-                </span>
-              </span>
+              <When
+                policy={r}
+                files={files}
+                syncing={sync.isPending && sync.variables?.type === r.type}
+              />
             ),
           },
-          // Prints never change once imported: nothing to choose about what or how.
-          ...(type === "prints"
-            ? []
-            : [
+          ...(what
+            ? [
                 {
                   id: "what",
                   header: t("settings:sources.columns.what"),
                   cell: (r: SyncPolicy) => (
-                    <span className={COL.what}>{on && t(scopeLabel(r.scope))}</span>
+                    <span className={COL.what}>{r.mode !== "off" && t(scopeLabel(r.scope))}</span>
                   ),
                 },
+              ]
+            : []),
+          ...(how
+            ? [
                 {
                   id: "how",
                   header: t("settings:sources.columns.how"),
                   cell: (r: SyncPolicy) => (
-                    <span className={COL.how}>{on && t(mergeLabel(r.merge))}</span>
+                    <span className={COL.how}>{r.mode !== "off" && t(mergeLabel(r.merge))}</span>
                   ),
                 },
-              ]),
+              ]
+            : []),
           {
             id: "actions",
             header: t("settings:sources.columns.actions"),
@@ -253,8 +303,8 @@ function Line({
               <span className="flex items-center justify-end gap-1">
                 {admin && (
                   <Button
-                    aria-label={t("settings:sources.editOf", { type: name, source: title })}
-                    onClick={() => setEditing(true)}
+                    aria-label={t("settings:sources.editOf", { type: name(r.type), source: title })}
+                    onClick={() => setEditing(r.type)}
                   >
                     {t("settings:sources.edit")}
                   </Button>
@@ -262,10 +312,10 @@ function Line({
                 <LineMenu
                   integration={i}
                   policy={r}
-                  type={type}
-                  name={name}
+                  name={name(r.type)}
                   title={title}
                   sync={sync}
+                  admin={admin}
                 />
               </span>
             ),
@@ -277,16 +327,50 @@ function Line({
           {t("integrations:card.actionError")}
         </p>
       )}
-      {editing && (
+      {edited && (
         <PolicyEditDialog
           integration={i}
-          policy={p}
-          title={t("settings:sources.editTitle", { type: name, source: accountName(i) ?? title })}
+          policy={edited}
+          title={t("settings:sources.editTitle", {
+            type: name(edited.type),
+            source: accountName(i) ?? title,
+          })}
           otherTracks={otherTracks}
-          onClose={() => setEditing(false)}
+          onClose={() => setEditing(undefined)}
         />
       )}
     </div>
+  );
+}
+
+/** A line's schedule ("Automatic when the files change", "Auto, every day at 03:00") and last run. */
+function When({
+  policy: r,
+  files,
+  syncing,
+}: {
+  policy: SyncPolicy;
+  files: boolean;
+  syncing: boolean;
+}) {
+  const { t } = useTranslation();
+  const summary = useSummary(r, files);
+  return (
+    <span className={cx(COL.when, "grid py-1.5")}>
+      <span className="inline-flex items-center gap-2">
+        <span
+          aria-hidden
+          className={cx(
+            "size-2 shrink-0 rounded-full",
+            r.mode === "auto" ? "bg-ok" : r.mode === "off" ? "border border-muted" : "bg-border",
+          )}
+        />
+        {syncing ? t("integrations:card.syncing") : summary}
+      </span>
+      <span className="ps-4 text-sm text-muted">
+        <LastSync at={r.lastRunAt} />
+      </span>
+    </span>
   );
 }
 
@@ -294,24 +378,23 @@ function Line({
 function LineMenu({
   integration: i,
   policy: p,
-  type,
   name,
   title,
   sync,
+  admin,
 }: {
   integration: Integration;
   policy: SyncPolicy;
-  type: AccountType;
   name: string;
   title: string;
   sync: ReturnType<typeof useSyncIntegration>;
+  admin: boolean;
 }) {
   const { t } = useTranslation();
-  const admin = useCan("integrations.manage");
   const { review, reviewOf, canSync, canReview, run } = useRunPolicy(i, p, sync);
   const [dialog, setDialog] = useState<"period" | "log">();
   const on = p.mode !== "off";
-  const period = type === "prints" && canReview;
+  const period = p.type === "prints" && canReview;
   // An off line can't run; its log still tells what it did.
   if (!(on && (canSync || canReview)) && !admin) return null;
   const item = "justify-start";
@@ -356,7 +439,8 @@ function LineMenu({
         title={t("settings:sources.logTitle", { type: name, source: title })}
         onClose={() => setDialog(undefined)}
       >
-        <SyncLog id={i.id} types={[type]} type={type} />
+        {/* A line is never an action (open in the slicer, slice): those are switches. */}
+        <SyncLog id={i.id} types={[p.type as NonNullable<SyncRun["type"]>]} type={p.type} />
       </AddDialog>
     </>
   );

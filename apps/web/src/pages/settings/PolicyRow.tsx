@@ -6,21 +6,17 @@ import {
   type Integration,
   isAction,
   isCatalogType,
-  isPresetType,
   isUserPresetType,
   type NewSpoolField,
   REVIEWED_TYPES,
   type ReviewedType,
-  SLICER_CATALOG_ROW_TYPES,
-  SLICER_PRESET_TYPES,
   type SyncFrequency,
   type SyncMerge,
   type SyncPolicy,
   type SyncRequest,
   type SyncScope,
 } from "@3d-maker-suite/core";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, TriangleAlert } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -30,15 +26,13 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { TimeInput } from "../../components/TimeInput.tsx";
-import { useCan, useMe } from "../../lib/auth.ts";
-import { cx } from "../../lib/cx.ts";
+import { useMe } from "../../lib/auth.ts";
 import { formatDateTime, formatNumber, formatRelative, formatTime } from "../../lib/format.ts";
 import {
   useMayTask,
   usePatchIntegration,
   type useSyncIntegration,
 } from "../../lib/integrations.ts";
-import { ChooseBrands } from "./ChooseBrands.tsx";
 import { CAPS } from "./integrationLabels.ts";
 
 const RANGES = {
@@ -116,20 +110,6 @@ const NEW_OPENED_AT_HINTS: Record<NewSpoolField, string> = {
   unset: "integrations:policies.newSpools.openedAtHints.unset",
   review: "integrations:policies.newSpools.openedAtHints.review",
 };
-// An account's printers, prints and spools are lines on their Sources tabs (ADR-0021).
-const GROUPS = {
-  catalog: "integrations:policies.groups.catalog",
-  systemPresets: "integrations:policies.groups.systemPresets",
-  userPresets: "integrations:policies.groups.userPresets",
-};
-const groupOf = (c: Capability): keyof typeof GROUPS | null =>
-  (SLICER_CATALOG_ROW_TYPES as readonly string[]).includes(c)
-    ? "catalog"
-    : (SLICER_PRESET_TYPES as readonly string[]).includes(c)
-      ? "systemPresets"
-      : isUserPresetType(c)
-        ? "userPresets"
-        : null;
 // Types whose rows are reviewed and confirmed. They can also run straight from here: a run
 // imports the rows that need no decision (catalog rows, spools with one matching preset, presets,
 // with the brand and material they need) and leaves the rest pending for the review page.
@@ -153,7 +133,6 @@ const weekdayName = (lang: string | undefined, d: number) =>
   new Intl.DateTimeFormat(lang, { weekday: "long" }).format(new Date(2000, 0, 2 + d));
 const hourAt = (h: number | null, m = 0) => formatTime(new Date(2000, 0, 1, h ?? 0, m));
 
-type Patch = ReturnType<typeof usePatchIntegration>;
 type Sync = ReturnType<typeof useSyncIntegration>;
 
 const startOfDay = (daysAgo: number) => {
@@ -182,68 +161,6 @@ function rangeFor(
     ...(from && { from: new Date(`${from}T00:00:00`).toISOString() }),
     ...(to && { to: new Date(`${to}T23:59:59.999`).toISOString() }),
   };
-}
-
-/**
- * The data types an integration imports, in groups, one row each, on Presets settings → Sources
- * (ADR-0020): `catalog` (the catalog source's Catalog and System presets) and `userPresets` (each
- * route's). An account's printers, prints and spools are on their own Sources tabs (ADR-0021).
- */
-const PARTS: Record<"catalog" | "userPresets", (keyof typeof GROUPS)[]> = {
-  catalog: ["catalog", "systemPresets"],
-  userPresets: ["userPresets"],
-};
-export function Policies({
-  integration: i,
-  sync,
-  part,
-}: {
-  integration: Integration;
-  sync: Sync;
-  part: keyof typeof PARTS;
-}) {
-  const { t } = useTranslation();
-  const patch = usePatchIntegration(i.id);
-  const may = useMayTask();
-  // Choose brands is a Sources setting (ADR-0020).
-  const chooseBrands = useCan("catalog", "manage");
-  return (
-    // The rows follow the card's width, not the screen's.
-    <div className="@container grid gap-4">
-      {/* Once per library on Sources: above its catalog cards. */}
-      {part === "catalog" && <p className="text-muted">{t("integrations:policies.hint")}</p>}
-      {patch.isError && (
-        <p role="alert" className="text-bad">
-          {t("integrations:card.actionError")}
-        </p>
-      )}
-      {part === "catalog" && chooseBrands && i.capabilities.includes("brands") && (
-        <ChooseBrands integration={i} />
-      )}
-      {PARTS[part].map((g) => {
-        const rows = i.policies.filter(
-          (p) => !isAction(p.type) && may(i.id, p.type, "any") && groupOf(p.type) === g,
-        );
-        if (!rows.length) return null;
-        const id = `${i.id}-${g}`;
-        return (
-          <section key={g} aria-labelledby={id} className="grid gap-2">
-            <h5 id={id} className="font-medium text-muted">
-              {t(GROUPS[g])}
-            </h5>
-            <ul className="divide-y divide-border rounded-lg border border-border">
-              {rows.map((p) => (
-                <PolicyRow key={p.type} integration={i} policy={p} sync={sync} patch={patch} />
-              ))}
-            </ul>
-            {g === "userPresets" && i.kind === "cloud" && (
-              <p className="text-muted">{t("integrations:policies.cloudPresetsRoute")}</p>
-            )}
-          </section>
-        );
-      })}
-    </div>
-  );
 }
 
 /** Slicer actions (open in the slicer, slice): just on or off. */
@@ -628,115 +545,6 @@ export function PolicyEditDialog({
         otherTracks={otherTracks}
       />
     </FormDialog>
-  );
-}
-
-/**
- * A data type: name, schedule and last sync, Sync now and Review and import. Its settings open
- * below: when it runs, what and how it imports, alerts.
- */
-function PolicyRow({
-  integration: i,
-  policy: p,
-  sync,
-  patch,
-}: {
-  integration: Integration;
-  policy: SyncPolicy;
-  sync: Sync;
-  patch: Patch;
-}) {
-  const { t } = useTranslation();
-  const detailsId = useId();
-  const [open, setOpen] = useState(false);
-  // An editor gets the buttons their flags allow and no settings (ADR-0012); catalog cards are
-  // catalog manage (ADR-0020), preset cards presets manage (ADR-0021).
-  const admin = useCan(
-    isPresetType(p.type) ? "presets" : isCatalogType(p.type) ? "catalog" : "integrations.manage",
-    "manage",
-  );
-  const name = t(CAPS[p.type]);
-  const summary = useSummary(p, i.kind !== "cloud");
-  const { review, canSync, canReview, run, waiting } = useRunPolicy(i, p, sync);
-  // Actions are switches in the slicer part, not rows (`Policies` leaves them out).
-  if (isAction(p.type)) return null;
-  const auto = p.mode === "auto";
-
-  return (
-    <li>
-      {/* Narrow: name and chevron on one line, the actions below. Wide: one line, chevron last. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{name}</p>
-          <p className="flex flex-wrap items-center gap-x-3 text-muted">
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className={cx("size-2 shrink-0 rounded-full", auto ? "bg-ok" : "bg-border")}
-              />
-              {summary}
-            </span>
-            <LastSync at={p.lastRunAt} />
-          </p>
-        </div>
-        <span className="order-last flex w-full flex-wrap items-center gap-2 @xl:order-0 @xl:w-auto">
-          {waiting && (
-            <span className="flex items-center gap-1 font-medium text-warn">
-              <TriangleAlert aria-hidden className="size-4 shrink-0" />
-              {t("integrations:policies.pending", { count: p.pending })}
-            </span>
-          )}
-          {canSync && (
-            <Button disabled={sync.isPending} onClick={() => run()}>
-              {t("integrations:policies.syncNow")}
-            </Button>
-          )}
-          {review && canReview && (
-            <Link
-              {...review}
-              className={cx(
-                "inline-flex h-9 items-center justify-center rounded-md border px-3 font-medium transition-colors",
-                waiting
-                  ? "border-warn bg-warn/15 text-warn hover:bg-warn/25"
-                  : "border-border bg-surface hover:bg-surface-2",
-              )}
-            >
-              {t("integrations:policies.importNow")}
-            </Link>
-          )}
-        </span>
-        {admin && (
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={detailsId}
-            aria-label={t("integrations:policies.detailsOf", { type: name })}
-            onClick={() => setOpen(!open)}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-surface-2 @xl:order-last"
-          >
-            <ChevronRight
-              aria-hidden
-              className={cx("size-4 transition-transform", open && "rotate-90")}
-            />
-          </button>
-        )}
-      </div>
-
-      {admin && (
-        <div
-          id={detailsId}
-          hidden={!open}
-          className="mx-3 mb-3 grid gap-5 rounded-md bg-surface-2 p-4 @2xl:grid-cols-2"
-        >
-          <PolicyFields
-            integration={i}
-            policy={p}
-            set={(change) => patch.mutate({ policies: [{ type: p.type, ...change }] })}
-            disabled={patch.isPending}
-          />
-        </div>
-      )}
-    </li>
   );
 }
 

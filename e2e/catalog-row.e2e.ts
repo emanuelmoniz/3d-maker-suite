@@ -45,27 +45,31 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   await expect(page.getByText("When active, this integration can be used")).toBeVisible();
   await expect(page.getByRole("button", { name: "Choose brands" })).toHaveCount(0);
 
-  // The summary line leads to the import cards on Presets settings → Sources.
+  // The summary line leads to the slicer's lines on Catalog settings → Sources.
   await page.getByRole("link", { name: /^Catalog: / }).click();
-  await expect(page).toHaveURL(/\/presets\/settings\/sources#library-orca-slicer$/);
-
-  // The slicer's cards, grouped; no schedule, because a change in the files runs them.
-  const group = (name: string) => page.getByRole("region", { name, exact: true });
+  await expect(page).toHaveURL(/\/catalog\/settings\/sources#server-orca-slicer$/);
+  const lines = page.getByRole("table", { name: "What OrcaSlicer syncs" });
   for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
-    await expect(group("Catalog").getByText(name, { exact: true })).toBeVisible();
-  for (const name of ["Printer presets", "Process presets", "Filament presets"])
-    await expect(group("System presets").getByText(name, { exact: true })).toBeVisible();
-  for (const name of ["User printer presets", "User process presets", "User filament presets"])
-    await expect(group("User presets").getByText(name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Settings: Printer presets" }).click();
-  const whenOf = (name: string) =>
-    page.getByRole("switch", { name: `Automatic when the files change: ${name}` });
-  await expect(whenOf("Printer presets")).not.toBeChecked();
-  await expect(page.getByRole("combobox", { name: "Frequency: Printer presets" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Settings: Printer presets" }).click();
-  await page.getByRole("button", { name: "Settings: User printer presets" }).click();
-  await expect(whenOf("User printer presets")).toBeChecked();
-  await page.getByRole("button", { name: "Settings: User printer presets" }).click();
+    await expect(lines.getByText(name, { exact: true })).toBeVisible();
+
+  // Its presets are on Presets settings; no schedule, because a change in the files runs them.
+  await page.goto("/presets/settings/sources");
+  const presets = page.getByRole("table", { name: "What OrcaSlicer syncs" });
+  for (const kind of ["printer", "process", "filament"])
+    for (const name of [`System ${kind} presets`, `User ${kind} presets`])
+      await expect(presets.getByText(name, { exact: true })).toBeVisible();
+  const whenOf = async (name: string) => {
+    await page.getByRole("button", { name: `Edit ${name} from OrcaSlicer` }).click();
+    const dialog = page.getByRole("dialog", { name: `${name} from OrcaSlicer` });
+    await expect(dialog.getByRole("combobox", { name: `Frequency: ${name}` })).toHaveCount(0);
+    const when = dialog.getByRole("switch", { name: `Automatic when the files change: ${name}` });
+    const on = await when.isChecked();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    return on;
+  };
+  expect(await whenOf("System printer presets")).toBe(false);
+  expect(await whenOf("User printer presets")).toBe(true);
+  await page.goto("/catalog/settings/sources");
 
   // Nothing yet in your catalog; select all takes both of a list, and you can take one back.
   await expect(page.getByText(/Printer brands in your catalog/)).toHaveCount(0);

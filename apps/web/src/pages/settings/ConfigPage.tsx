@@ -16,8 +16,9 @@ import { Tabs } from "../../components/Tabs.tsx";
 import { meQuery } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { PresetsTab } from "../presets/LibraryTab.tsx";
-import { SourcesTab } from "../presets/SourcesTab.tsx";
 import { AccountSources } from "./AccountSources.tsx";
+import { CatalogSources } from "./CatalogSources.tsx";
+import { PresetSources } from "./PresetSources.tsx";
 
 /** Data types: their settings have General and Sources tabs (ADR-0021). */
 const SOURCE_MODULES: SettingsModule[] = [
@@ -163,10 +164,13 @@ export function ConfigPage({
       )}
       {tab === "sources" && accountType ? (
         <AccountSources type={accountType} settings={allowed} />
-      ) : tab === "sources" && module === "presets" ? (
-        // The former Catalog → Sources, until Step 10 splits it per data type (ADR-0021).
+      ) : tab === "sources" && module === "catalog" ? (
         <div className="grid gap-10">
-          <SourcesTab />
+          <CatalogSources />
+        </div>
+      ) : tab === "sources" && module === "presets" ? (
+        <div className="grid gap-10">
+          <PresetSources />
         </div>
       ) : tab === "sources" ? (
         <EmptyState

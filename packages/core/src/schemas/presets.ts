@@ -160,6 +160,9 @@ export const presetDeviceLibrarySchema = presetSwitchesSchema.extend({
   library: z.string(),
   /** It still reports this slicer; false = a row kept with its values. */
   reported: z.boolean(),
+  /** The kinds its Share and Receive lines take (Presets settings → Sources). */
+  shareKinds: z.array(slicerPresetKindSchema),
+  receiveKinds: z.array(slicerPresetKindSchema),
   /** When a preset it sent was last stored. */
   sentAt: isoDate.nullable(),
   /** Its removals held for a person (Catalog → Presets). */
@@ -172,15 +175,12 @@ export const presetDeviceLibrarySchema = presetSwitchesSchema.extend({
 export const presetDeviceSchema = z.object({
   id,
   name: z.string(),
+  /** Its user: the one who may edit its switches with `machine.presets` (ADR-0021). */
+  userId: z.uuid(),
   online: z.boolean(),
   /** Its connector is older than the hub: its removals are only shown, and it receives no deletes. */
   outdated: z.boolean(),
   libraries: z.array(presetDeviceLibrarySchema),
-});
-export const presetDeviceUpdateSchema = z.strictObject({
-  library: z.string().max(100),
-  send: z.boolean().optional(),
-  install: z.boolean().optional(),
 });
 
 /**
@@ -256,7 +256,6 @@ export const presetRestoreSchema = z.strictObject({ version: z.number().int().op
 export const presetHeldActionSchema = z.strictObject({ action: z.enum(["delete", "keep"]) });
 
 export type PresetDevice = z.infer<typeof presetDeviceSchema>;
-export type PresetDeviceUpdate = z.infer<typeof presetDeviceUpdateSchema>;
 export type PresetInstallItem = z.infer<typeof presetInstallItemSchema>;
 export type PresetSkipped = z.infer<typeof presetSkippedSchema>;
 export type PresetInstallSlicer = z.infer<typeof presetInstallSlicerSchema>;

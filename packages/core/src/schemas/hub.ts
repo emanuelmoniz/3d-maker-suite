@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { slicerInstallStatusSchema } from "./integrations.ts";
-import { devicePresetLibrarySchema, presetSwitchesSchema } from "./presets.ts";
+import {
+  devicePresetLibrarySchema,
+  presetSwitchesSchema,
+  SLICER_PRESET_KINDS,
+  slicerPresetKindSchema,
+} from "./presets.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
 
 /**
@@ -151,11 +156,24 @@ export const deviceUpdateSchema = z
   })
   .partial()
   .strict();
+const presetKinds = z
+  .array(slicerPresetKindSchema)
+  .max(SLICER_PRESET_KINDS.length)
+  .transform((k) => [...new Set(k)]);
 /** A machine page's switches for one slicer library (`PATCH /api/hub/devices/:id/slicers/:library`). */
 export const deviceLibraryUpdateSchema = z.strictObject({
   useAsSlicer: z.boolean().optional(),
   catalog: z.strictObject({ receive: z.boolean(), share: z.boolean() }).partial().optional(),
-  presets: z.strictObject({ receive: z.boolean(), share: z.boolean() }).partial().optional(),
+  presets: z
+    .strictObject({
+      receive: z.boolean(),
+      share: z.boolean(),
+      // A line per kind in Presets settings → Sources; the hub filters, the connector doesn't know.
+      receiveKinds: presetKinds,
+      shareKinds: presetKinds,
+    })
+    .partial()
+    .optional(),
 });
 export type DeviceLibraryUpdate = z.infer<typeof deviceLibraryUpdateSchema>;
 /** One of the user's online devices, for a project's Open and Open folder. */

@@ -2,7 +2,6 @@ import type {
   CatalogSourcePick,
   LibrarySources,
   PresetDevice,
-  PresetDeviceUpdate,
   SlicerPreset,
   SlicerPresetDetail,
 } from "@3d-maker-suite/core";
@@ -27,7 +26,7 @@ export const usePresetDetail = (id: string, enabled: boolean) =>
 export const presetDownloadUrl = (id: string, version?: number) =>
   `/api/presets/${id}/download${version === undefined ? "" : `?version=${version}`}`;
 
-/** Presets settings → Sources: each slicer library's routes and catalog source (ADR-0020). */
+/** Catalog and Presets settings → Sources: each slicer library's routes, catalog source and machines. */
 export const useCatalogSources = () =>
   useQuery({
     queryKey: ["catalog-sources"],
@@ -61,7 +60,7 @@ export function usePickCatalogSource() {
   });
 }
 
-/** Devices with a slicer, their switches per slicer and install status; `enabled`: catalog write. */
+/** Devices with a slicer, their switches and kinds per slicer and install status; `enabled`: presets write. */
 export const usePresetDevices = (enabled: boolean) =>
   useQuery({
     queryKey: [...KEY, "devices"],
@@ -69,15 +68,6 @@ export const usePresetDevices = (enabled: boolean) =>
     enabled,
     refetchInterval: 30_000,
   });
-
-export function useUpdatePresetDevice() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...body }: PresetDeviceUpdate & { id: string }) =>
-      api("PATCH", `/api/presets/devices/${id}`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-  });
-}
 
 export function useDeletePreset() {
   const qc = useQueryClient();

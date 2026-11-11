@@ -40,10 +40,11 @@ for (const width of [375, 1440])
       width,
     );
 
-    // Its catalog cards are on Presets settings → Sources.
+    // Its catalog lines are on Catalog settings → Sources, under This server.
     await page.goto("/integrations");
     await card.getByRole("link", { name: /^Catalog: / }).click();
-    await expect(page).toHaveURL(/\/presets\/settings\/sources#library-bambu-studio$/);
-    const sources = page.getByRole("region", { name: "Where your presets come from" });
-    await expect(sources.getByRole("heading", { name: where, level: 4 })).toBeVisible();
+    await expect(page).toHaveURL(/\/catalog\/settings\/sources#server-bambu-studio$/);
+    const slicer = page.locator("#server-bambu-studio");
+    await expect(slicer.getByRole("heading", { name: "Bambu Studio", level: 4 })).toBeVisible();
+    await expect(slicer.getByText("Catalog source", { exact: true })).toBeVisible();
   });

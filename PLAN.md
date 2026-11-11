@@ -2518,14 +2518,14 @@ Back up the DB before editing schema.ts.
 Do Step 9 of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Catalog and Presets: Sources  **[plan mode]**
+### [x] Step 10 - Catalog and Presets: Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Both tabs use Step 6's Sources layout.
 - **Catalog settings → Sources.** Share to the hub: per library, the server's slicer and each machine with Catalog Share. The catalog source's block has four lines (printer brands, printer models, filament brands, filament materials: switch, When, What, Edit, `⋯`) and **Choose brands**; the others show **Use as catalog source**. Receive from the hub: machines with Catalog Receive, per slicer, one `system/` folder line with its state (Step 11 makes it work).
 - **Presets settings → Sources.** Share to the hub: the server's slicer (system and user lines per kind), accounts with Allow user presets (user lines per kind), machines with Presets Share per slicer (a line per kind: switch and state, no Edit), and "No connector? Upload a zip" on the section. Receive from the hub: machines with Presets Receive per slicer, a line per kind with its state (up to date, waiting for the slicer to close, last backup). Choose brands shows read-only with a link to Catalog settings.
 - **Per kind:** a machine's kind lines write `shareKinds` / `receiveKinds`. The hub filters, so an older connector needs no change: an upload of a kind that's off is ignored, and Install sends only the kinds that are on.
-- `SourcesTab.tsx`, `DeviceSlicers.tsx` and `PresetsCard` go.
+- `SourcesTab.tsx` and `DeviceSlicers.tsx` go (`PresetsCard` went with Step 8).
 - Remove the account card's Sync log collapsible (`AccountCard.tsx`): every account line's `⋯` now has its own log.
 - `docs/import.md`, `docs/hub.md`.
 

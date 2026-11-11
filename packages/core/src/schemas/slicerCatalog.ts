@@ -111,6 +111,10 @@ export const librarySourcesSchema = z.object({
       z.object({ deviceId: z.uuid(), name: z.string() }),
     ]),
   ),
+  /** Machines with Catalog Share (or the source) or Catalog Receive on for it (ADR-0021). */
+  machines: z.array(
+    z.object({ deviceId: z.uuid(), name: z.string(), share: z.boolean(), receive: z.boolean() }),
+  ),
   /** The row whose Catalog and System presets cards the source fills; null = none yet. */
   cardsOf: z.uuid().nullable(),
   /**

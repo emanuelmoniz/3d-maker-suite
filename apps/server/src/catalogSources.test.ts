@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import {
   BUILT_IN_ROLE_IDS,
+  emptyPresetLibrary,
   type FilamentLibrary,
   type IntegrationAdapter,
 } from "@3d-maker-suite/core";
@@ -115,6 +116,7 @@ describe("catalog source (ADR-0020)", () => {
           { integrationId: first, readable: true },
           { integrationId: second, readable: true },
         ],
+        machines: [],
         cardsOf: first,
         noDevices: null,
       },
@@ -145,6 +147,15 @@ describe("catalog source (ADR-0020)", () => {
     });
 
     db.update(integrations).set({ adapterId: "slicer-worker" }).run();
+    // A machine is offered once its Catalog Share is on (ADR-0021); the default source stays one.
+    expect(sources()[0]?.options).toEqual([{ deviceId: ws1, name: "WS-1" }]);
+    await expect(pickCatalogSource(db, adapters, "fake", { deviceId: ws2 })).rejects.toMatchObject({
+      code: "not_a_source",
+    });
+    const share = { ...emptyPresetLibrary(), catalog: { receive: false, share: true } };
+    db.update(devices)
+      .set({ presetLibraries: { fake: share } })
+      .run();
     expect(sources()[0]?.options).toEqual([
       { deviceId: ws1, name: "WS-1" },
       { deviceId: ws2, name: "WS-2" },

@@ -34,7 +34,7 @@ test("old catalog addresses land on their Catalog or Presets tab", async ({ page
     [`/printers/machine-profiles/${machine.id}`, `/presets/printer/${machine.id}`],
     ["/catalog/presets", "/presets/settings/library"],
     ["/hub/presets", "/presets/settings/library"],
-    ["/catalog/sources", "/presets/settings/sources"],
+    ["/catalog/sources", "/catalog/settings/sources"],
     ["/presets", "/presets/printer"],
   ]) {
     await page.goto(from);

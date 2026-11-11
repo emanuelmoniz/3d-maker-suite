@@ -162,23 +162,14 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     await tab.click();
   };
 
-  // Editor: from the navigation.
-  await signInAs("eva@example.com");
-  await page.goto("/");
-  await expect(side.getByRole("link", { name: "Hub management" })).toHaveCount(0);
-  await openPresets();
-  await expect(page.getByText("Farm PLA")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
-  // The switches are per slicer, in Sources (ADR-0020).
-  await expect(page.getByRole("switch")).toHaveCount(0);
-  await tabs.getByRole("link", { name: "Sources" }).click();
-  const install = page.getByRole("switch", { name: "Install presets in OrcaSlicer on Desk PC" });
-  await expect(install).not.toBeChecked();
+  // Receive is the machine's switch (ADR-0021); its owner, here the admin, turns it on.
   expect((await device("GET", "/presets", undefined)).status).toBe(403);
-  await install.click({ force: true });
-  await expect(install).toBeChecked();
-
-  // What the connector reports shows in the device's row.
+  const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
+  const slicer = `/api/hub/devices/${id}/slicers/orca-slicer`;
+  const receive = { data: { presets: { receive: true } } };
+  expect((await page.request.patch(slicer, receive)).status()).toBe(204);
+  expect((await device("GET", "/presets", undefined)).status).toBe(200);
+  // What the connector reports shows on the machine's lines.
   expect(
     (
       await device("PUT", "/presets/install", [
@@ -194,18 +185,33 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
       ])
     ).status,
   ).toBe(204);
-  await page.reload();
-  const row = page.getByRole("row", { name: /Desk PC/ });
-  await expect(row.getByText("1 preset waits for this slicer to close:")).toBeVisible();
-  await expect(row.getByRole("list", { name: "Presets waiting for OrcaSlicer" })).toContainText(
+
+  // Editor: from the navigation; sees the machine's lines, which aren't theirs to switch.
+  await signInAs("eva@example.com");
+  await page.goto("/");
+  await expect(side.getByRole("link", { name: "Hub management" })).toHaveCount(0);
+  await openPresets();
+  await expect(page.getByText("Farm PLA")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
+  await tabs.getByRole("link", { name: "Sources" }).click();
+  const machine = page
+    .getByRole("region", { name: "Receive from the hub" })
+    .getByRole("region", { name: "OrcaSlicer", exact: true });
+  const filament = machine.getByRole("row", { name: /Filament presets/ });
+  await expect(filament).toContainText("1 waiting for the slicer to close");
+  await expect(machine.getByRole("row", { name: /Printer presets/ })).toContainText("Up to date");
+  await expect(
+    machine.getByRole("switch", { name: "Receive Filament presets in OrcaSlicer on Desk PC" }),
+  ).toBeDisabled();
+  await expect(machine.getByRole("list", { name: "Presets waiting for OrcaSlicer" })).toContainText(
     "Farm PLA",
   );
-  await expect(row.getByText("An edit from the hub stays on this PC")).toBeVisible();
-  await row.getByText("Folder and backup").click();
+  await expect(machine.getByText("An edit from the hub stays on this PC")).toBeVisible();
+  await machine.getByText("Folder and backup").click();
   await expect(
-    row.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
+    machine.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
   ).toBeVisible();
-  await expect(row.getByText("No backup yet.")).toBeVisible();
+  await expect(machine.getByText("No backup yet.")).toBeVisible();
 
   // Viewer: sees the presets and Sources, without the switches or delete.
   await signInAs("vic@example.com");
@@ -214,20 +220,18 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
   await page.goto("/presets/settings/sources");
-  await expect(page.getByRole("heading", { name: "OrcaSlicer" })).toBeVisible();
   await expect(page.getByRole("switch")).toHaveCount(0);
-  const patch = { data: { library: "orca-slicer", send: true } };
-  expect((await page.request.patch("/api/presets/devices/x", patch)).status()).toBe(403);
+  // Someone else's machine is as unknown as a missing one.
+  expect((await page.request.patch(slicer, receive)).status()).toBe(404);
 
-  // The machine page has the same switch, and a link to the rest of the presets' settings.
+  // The machine page has the switch, and a link to its lines.
   await signInAs("ana@example.com");
-  const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   await page.goto(`/hub/devices/${id}`);
   await expect(
     page.getByRole("switch", { name: "Receive OrcaSlicer presets from the hub" }),
   ).toBeChecked();
   await page.getByRole("link", { name: "Presets settings" }).click();
-  await expect(page).toHaveURL(/\/presets\/settings\/sources#devices-orca-slicer$/);
+  await expect(page).toHaveURL(new RegExp(`/presets/settings/sources#receive-${id}$`));
 
   // Hub off: hidden for all.
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
@@ -271,9 +275,6 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
 
   await page.goto("/catalog/presets");
   await expect(page.getByText("No slicer presets yet")).toBeVisible();
-  await page.goto("/presets/settings/sources");
-  const toggle = page.getByRole("switch", { name: "Send Bambu Studio presets from Desk PC" });
-  await expect(toggle).not.toBeChecked();
   const preset = (cost: string) =>
     device("PUT", "/presets", {
       library: "bambu-studio",
@@ -283,13 +284,17 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
       text: JSON.stringify({ name: "Farm PLA", filament_cost: [cost] }),
     });
   expect((await preset("20")).status).toBe(403);
-  await toggle.click({ force: true });
-  await expect(toggle).toBeChecked();
+  // Share is the machine's switch (ADR-0021).
+  const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
+  const share = { data: { presets: { share: true } } };
+  expect(
+    (await page.request.patch(`/api/hub/devices/${id}/slicers/bambu-studio`, share)).status(),
+  ).toBe(204);
 
   // New, then the next version from base 1, then a stale edit, still from base 1.
   for (const cost of ["20", "21", "22"]) expect((await preset(cost)).status).toBe(200);
-  await page.reload();
-  await expect(page.getByRole("row", { name: /Desk PC/ })).toContainText("Last sent");
+  await page.goto("/presets/settings/sources");
+  await expect(page.locator(`#machine-${id}-bambu-studio`)).toContainText("Last sent");
   await page.goto("/catalog/presets");
   const row = page.getByRole("listitem").filter({ hasText: /^Farm PLA(?! \()/ });
   await expect(row).toContainText("Version 2, saved");

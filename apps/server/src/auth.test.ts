@@ -230,7 +230,7 @@ describe("permissions", () => {
     expect(can(read, "/api/catalog/sources", "GET")).toBe(true);
     const write = rights({ presets: "write" });
     expect(can(write, "/api/presets/abc", "DELETE")).toBe(true);
-    expect(can(write, "/api/presets/devices/abc", "PATCH")).toBe(true);
+    expect(can(write, "/api/presets/devices/abc/held", "POST")).toBe(true);
     expect(can(write, "/api/machine-presets/abc", "DELETE")).toBe(false);
     expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
     expect(can(rights({ presets: "manage" }), "/api/bulk/machine-presets", "POST")).toBe(true);

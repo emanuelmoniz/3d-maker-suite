@@ -658,12 +658,11 @@ describe("hub events", () => {
     const { app, send, open, token, deviceId, db } = await live({
       adapters: adapters({ mock: false }),
     });
-    const url = `/api/presets/devices/${deviceId}`;
-    expect((await send("PATCH", url, { library: "nope", send: true })).statusCode).toBe(404);
+    const url = (lib: string) => `/api/hub/devices/${deviceId}/slicers/${lib}`;
+    const on = { presets: { share: true } };
+    expect((await send("PATCH", url("nope"), on)).statusCode).toBe(404);
     // Offline: stored, and told when it connects.
-    expect((await send("PATCH", url, { library: "bambu-studio", send: true })).statusCode).toBe(
-      204,
-    );
+    expect((await send("PATCH", url("bambu-studio"), on)).statusCode).toBe(204);
     const s = await open();
     await s.until(": open");
     expect(JSON.parse(s.res.headers.get("x-preset-libraries") ?? "")).toEqual({
@@ -674,7 +673,7 @@ describe("hub events", () => {
     expect(s.res.headers.get("x-install-presets")).toBe("0");
 
     // Online: asked first; one that doesn't know the request keeps its values.
-    const patch = send("PATCH", url, { library: "orca-slicer", install: true });
+    const patch = send("PATCH", url("orca-slicer"), { presets: { receive: true } });
     const text = (await s.until((t) => t.includes('"presets.set"'))) ?? "";
     const requestId = /"requestId":"([^"]+)"/.exec(text)?.[1];
     await app.inject({

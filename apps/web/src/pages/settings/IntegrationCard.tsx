@@ -67,10 +67,10 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2";
 
-/** Its catalog import cards, now on Presets settings → Sources: how many run on their own, how many wait. */
+/** Its catalog lines, on Catalog settings → Sources: how many run on their own, how many wait. */
 function CatalogLine({ library, rows }: { library: string; rows: Integration[] }) {
   const { t } = useTranslation();
-  const sources = useCanSettings("presets");
+  const sources = useCanSettings("catalog");
   const s = catalogSummary(rows);
   if (!s.cards) return null;
   const line =
@@ -86,8 +86,8 @@ function CatalogLine({ library, rows }: { library: string; rows: Integration[] }
     );
   return sources ? (
     <Link
-      to="/presets/settings/sources"
-      hash={`library-${library}`}
+      to="/catalog/settings/sources"
+      hash={`server-${library}`}
       className="text-muted underline-offset-2 hover:text-fg hover:underline"
     >
       {line}

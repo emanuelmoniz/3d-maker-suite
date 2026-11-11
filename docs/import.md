@@ -19,7 +19,7 @@ A file names the brands, models and materials a row needs, and they must already
 - **Printers:** brands and printer models.
 - **Filament:** filament brands and filament materials.
 
-**Presets** in the menu (with the presets permission at read) holds the slicer presets, one tab per kind: **Printer**, **Process** and **Filament**. Its settings (the gear) have **Sources**, where the catalog and the presets come from, and with the hub on the **Library** ([hub presets](hub.md#slicer-presets)).
+**Presets** in the menu (with the presets permission at read) holds the slicer presets, one tab per kind: **Printer**, **Process** and **Filament**. Its settings (the gear) have **Sources**, where the presets come from, and with the hub on the **Library**. Where the catalog (brands, models, materials) comes from is on **Catalog → Settings → Sources** ([hub presets](hub.md#slicer-presets)).
 
 Brands, printer models, filament brands and materials can be added **by hand** or come **from a slicer**. A row a slicer brought keeps its name: that is how the next import finds it, so the name can't be edited. Its other fields (logo, website, power, picture, density, default price) stay yours: an import only fills the ones that are empty, it never overwrites one. A row you made by hand whose name later comes in a slicer's files is linked to it: it keeps your values and shows the slicer as its source from then on.
 
@@ -133,7 +133,7 @@ Before an import saves anything, the app takes a backup, so you can restore it f
 
 ## From an integration
 
-For an account's printers, prints and spools, **Review and import** in the **⋯** menu of the type's line on its **Settings → Sources** tab opens the same review screen with the rows the account offers. For the catalog and presets, it's the button on the type's row in **Presets → Settings → Sources**. Automatic runs import only what needs no decision from you; everything else waits there. For print history it shows every print not imported yet. With **Review and import a period…** in the same menu, pick a period (since the last sync, the last 7 / 30 / 90 days, this year or your own dates) to review every print in it, imported or not.
+For an account's printers, prints and spools, **Review and import** in the **⋯** menu of the type's line on its **Settings → Sources** tab opens the same review screen with the rows the account offers. For the catalog and presets, it's the same **⋯** menu on the type's line in **Catalog** or **Presets → Settings → Sources**. Automatic runs import only what needs no decision from you; everything else waits there. For print history it shows every print not imported yet. With **Review and import a period…** in the same menu, pick a period (since the last sync, the last 7 / 30 / 90 days, this year or your own dates) to review every print in it, imported or not.
 
 Importing from the review is not a sync: **Sync now** and automatic runs always continue from the last sync, so a print you skipped in the review still comes in with the next one.
 
@@ -147,7 +147,7 @@ Prints that wait raise a **Sync needs review** alert when the type's alert is on
 
 ### What to sync and how to sync
 
-Every type except print history has two more settings. For an account's printers and spools, they are under **Edit** on the type's line in **Printers** or **Filament → Settings → Sources**. For the catalog and presets, open the type's row on **Presets → Settings → Sources**. Each card on the Integrations page has a line such as *Catalog: 5 automatic · 2 waiting for review* that leads there. Print history has neither: an imported print never changes.
+Every type except print history has two more settings. For an account's printers and spools, they are under **Edit** on the type's line in **Printers** or **Filament → Settings → Sources**. For the catalog and presets, it's **Edit** on the type's line in **Catalog** or **Presets → Settings → Sources**. Each slicer card on the Integrations page has a line such as *Catalog: 5 automatic · 2 waiting for review* that leads to Catalog settings. Print history has neither: an imported print never changes.
 
 **What to sync**
 
@@ -156,14 +156,23 @@ Every type except print history has two more settings. For an account's printers
 | Everything | Adds every row the source offers and keeps them up to date. |
 | Only what I already have | Keeps the rows you have up to date. A new row is added only when you have its brand: a new model of your printer brand still arrives, a brand you never imported doesn't. Brands, filament brands and materials themselves are never added. Rows it leaves out don't wait for review and raise no alert. |
 
-**Presets → Settings → Sources has one section per slicer** (Bambu Studio, OrcaSlicer):
+**Catalog → Settings → Sources** lists, under **Share to the hub**, this server's slicer and each machine with **Catalog Share** on its page, one slicer at a time:
 
-- **Catalog source**: where the slicer's system presets, brands and printer models are read from. Only one place reads them, so two PCs on different slicer versions don't keep changing the catalog. It can be this computer's or this server's slicer folder, or, with the hub on, a workstation's connector. Until you pick one, the oldest install with a readable folder is used, else the first workstation that has the slicer. Picking one turns its **Catalog** and **System presets** rows on (Manual), and they sit right under the pick. A workstation sends its catalog from a later release; until then the catalog stays as it is.
-- **Where your presets come from**: each place the slicer runs and each account (Bambu Cloud's user presets sit under Bambu Studio), with how many presets it brought and its **User presets** rows. The first one to bring a preset keeps it.
+- The **catalog source** of each slicer: where its system presets, brands and printer models are read from. Only one place reads them, so two PCs on different slicer versions don't keep changing the catalog. Until you pick one, the oldest install with a readable folder is used (marked *Picked for you*), else the first machine that has the slicer. The source has four lines: **Printer brands**, **Printer models**, **Filament brands** and **Filament materials**, each with its switch, **Edit** and **⋯** (Sync now, Review and import, the sync log). Picking a source turns them on (Manual).
+- Every other one says it isn't the catalog source and offers **Use as catalog source**. A machine can be picked only with its Catalog Share on.
+
+**Receive from the hub** lists the machines with **Catalog Receive** on, one `system/` folder line per slicer. Sending the catalog to them comes in a later release.
+
+**Presets → Settings → Sources** lists, under **Share to the hub**:
+
+- **This server**: per slicer, its **User printer**, **process** and **filament presets** lines, and while it is the catalog source its **System** preset lines too. **Choose brands** links to Catalog settings.
+- Each account that allows user presets, with its user preset lines (Bambu Cloud's sit under Bambu Studio). The first source to bring a preset keeps it.
+- Each machine with **Presets Share**, per slicer: one line per kind (printer, process, filament) with its own switch, and when it last sent ([hub.md](hub.md#slicer-presets)).
 - **No connector? Upload a zip**: brings the presets of a desktop install that isn't connected, for example to a slicer on this server, which has no folder of yours to read (see [below](#slicer-catalog-from-a-zip)). Every slicer that can take a zip shows it, even before anything is connected. **How presets arrive** under the preset tables and the zip card on **Import | Export** lead here.
-- **Devices** (hub on): each workstation's **Send presets** and **Install** for this slicer ([hub.md](hub.md#slicer-presets)).
 
-**Choose brands** sits above the catalog rows and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, printer and process presets, and for filament brands their materials and filament presets, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
+**Receive from the hub** lists the machines with **Presets Receive**, per slicer and kind, with what waits there.
+
+A line turned off keeps what it brought. **Choose brands** sits on the catalog source in Catalog settings and lists the slicer's printer brands and filament brands (the ones you have are checked, and **Select all** ticks every one). Pick the ones you use and **Import**: you get those brands with their models, printer and process presets, and for filament brands their materials and filament presets, after a backup. Then **Only what I already have** is switched on for all the catalog types at once; switch it off for **Everything**. The rows' links open the review of each type, where the slicer's changes wait.
 
 **When** on the card is one switch:
 
@@ -194,7 +203,7 @@ In the review of an integration, a column left on **Don't change** follows the t
 
 ## Slicer catalog from a zip
 
-For a server with no slicer installed (a NAS, for example), you can import the filament and printer presets from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload it from **No connector? Upload a zip** in the slicer's section on **Presets → Settings → Sources**.
+For a server with no slicer installed (a NAS, for example), you can import the filament and printer presets from your slicer's config folder. Zip the folder on the PC where the slicer is installed, then upload it from **No connector? Upload a zip** on **Presets → Settings → Sources**.
 
 1. Open the slicer's config folder: in Bambu Studio or OrcaSlicer, **Help → Show Configuration Folder**. Or find it yourself:
    - Windows: `%APPDATA%\BambuStudio` or `%APPDATA%\OrcaSlicer` (paste it into the File Explorer address bar)

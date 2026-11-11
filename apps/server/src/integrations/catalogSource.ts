@@ -156,6 +156,8 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
       .where(like(presetRoutes.source, `${library}:%`))
       .all())
       counts.set(r.id, (counts.get(r.id) ?? 0) + 1);
+    const sharing = (d: typeof devices.$inferSelect) => !!d.presetLibraries[library]?.catalog.share;
+    const isSource = (id: string) => !!source && "deviceId" in source && source.deviceId === id;
     return {
       library,
       routes: all
@@ -169,11 +171,19 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
           .map((r) => ({ id: r.row.id, kind: r.adapter.kind, readable: feeds(db, r) }))
           .filter((r) => r.kind !== "worker" || r.readable)
           .map(({ id, readable }) => ({ integrationId: id, readable })),
-        ...sourceDevices(db, adapters, library, rows).map((d) => ({
+        // A machine is picked only with its Catalog Share on (ADR-0021); a default source stays.
+        ...sourceDevices(db, adapters, library, rows)
+          .filter((d) => sharing(d) || isSource(d.id))
+          .map((d) => ({ deviceId: d.id, name: d.name })),
+      ],
+      machines: (hub ? db.select().from(devices).orderBy(asc(devices.createdAt)).all() : [])
+        .filter((d) => sharing(d) || isSource(d.id) || d.presetLibraries[library]?.catalog.receive)
+        .map((d) => ({
           deviceId: d.id,
           name: d.name,
+          share: sharing(d) || isSource(d.id),
+          receive: !!d.presetLibraries[library]?.catalog.receive,
         })),
-      ],
       cardsOf: cardsOf(rows, source),
       noDevices: reporting(db, adapters, library).length ? devicesBlocked(rows) : null,
     };

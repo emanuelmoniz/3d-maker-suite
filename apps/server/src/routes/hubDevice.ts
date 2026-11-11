@@ -31,9 +31,11 @@ import {
   presetUploadResultSchema,
   presetUploadSchema,
   ROOT_HUB,
+  type SlicerPresetKind,
   sliceFileName,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { parsePreset, presetName } from "@3d-maker-suite/host";
 import { and, asc, count, eq, isNotNull } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
@@ -42,6 +44,7 @@ import { HttpError } from "../errors.ts";
 import { presetLibrary } from "../integrations/capabilities.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import {
+  namedPreset,
   presetRemovedOn,
   presetSkipped,
   presetsRemoved,
@@ -302,6 +305,13 @@ export const hubDeviceRoutes =
         throw new HttpError(404, "not_found", "No such preset library");
       return device;
     };
+    // A kind's Share line off in Presets settings → Sources: the hub takes none of it, so an older
+    // connector needs no change.
+    const sharesKind = (
+      device: { presetLibraries: typeof devices.$inferSelect.presetLibraries },
+      library: string,
+      kind: SlicerPresetKind,
+    ) => device.presetLibraries[library]?.presets.shareKinds.includes(kind) ?? false;
     app.put(
       "/presets",
       {
@@ -313,6 +323,14 @@ export const hubDeviceRoutes =
       },
       async (req) => {
         const device = sharing(req, req.body.library);
+        // ponytail: answered as stored, so the connector doesn't retry it; a file saved while its
+        // kind was off reaches the hub on its next save, not when the line goes on again.
+        if (!sharesKind(device, req.body.library, req.body.kind)) {
+          const { library, kind, text } = req.body;
+          const name = presetName(parsePreset(text), req.body.name);
+          const old = namedPreset(db, { library, kind, name });
+          return { result: "same" as const, name, version: old?.version ?? 0 };
+        }
         const res = uploadPreset(db, dataDir, req.body, device.id, {
           user: req.user?.displayName,
           device: device.name,
@@ -345,7 +363,9 @@ export const hubDeviceRoutes =
       "/presets/removed",
       { schema: { body: presetRemovedSchema, response: { 204: z.null(), ...errors } } },
       async (req, reply) => {
-        presetRemovedOn(db, req.body, sharing(req, req.body.library).id);
+        const device = sharing(req, req.body.library);
+        if (sharesKind(device, req.body.library, req.body.kind))
+          presetRemovedOn(db, req.body, device.id);
         return reply.status(204).send(null);
       },
     );
@@ -360,10 +380,20 @@ export const hubDeviceRoutes =
       },
       async (req) => {
         const device = sharing(req, req.body.library);
-        const res = presetsRemoved(db, dataDir, req.body, device, {
-          user: req.user?.displayName,
-          device: device.name,
-        });
+        const { library, removed } = req.body;
+        const on = removed.filter((r) => sharesKind(device, library, r.kind));
+        const off = removed
+          .filter((r) => !sharesKind(device, library, r.kind))
+          .map((r) => ({ ...r, result: "unknown" as const }));
+        const res = [
+          ...(on.length
+            ? presetsRemoved(db, dataDir, { ...req.body, removed: on }, device, {
+                user: req.user?.displayName,
+                device: device.name,
+              })
+            : []),
+          ...off,
+        ];
         // A held one's alert opens with the check after each change (app.ts).
         if (res.some((r) => r.result === "deleted")) onPresetSaved();
         return res;
@@ -391,16 +421,20 @@ export const hubDeviceRoutes =
         .from(devices)
         .where(eq(devices.id, deviceOf(req)))
         .get();
-      const libraries = new Set(
-        Object.entries(device?.presetLibraries ?? {}).flatMap(([lib, s]) =>
-          s.presets.receive ? lib : [],
-        ),
-      );
+      const on = Object.entries(device?.presetLibraries ?? {}).filter(([, s]) => s.presets.receive);
+      const libraries = new Set(on.map(([lib]) => lib));
       if (!device || !libraries.size)
         throw new HttpError(403, "not_installing", "Install is off for this device");
-      return { ...device, libraries };
+      // A kind's Receive line off: none of it is written or deleted there.
+      const kinds = new Map(on.map(([lib, s]) => [lib, s.presets.receiveKinds]));
+      const receives = (p: { library: string; kind: SlicerPresetKind }) =>
+        kinds.get(p.library)?.includes(p.kind) ?? false;
+      return { ...device, libraries, receives };
     };
-    const installList = (device: { id: string; libraries: Set<string> }, deleted: boolean) =>
+    const installList = (
+      device: { id: string; receives: (p: { library: string; kind: SlicerPresetKind }) => boolean },
+      deleted: boolean,
+    ) =>
       db
         .select({
           id: slicerPresets.id,
@@ -415,7 +449,7 @@ export const hubDeviceRoutes =
         .where(eq(slicerPresets.deleted, deleted))
         .orderBy(asc(slicerPresets.name))
         .all()
-        .filter((p) => !isPresetConflict(p.name) && device.libraries.has(p.library))
+        .filter((p) => !isPresetConflict(p.name) && device.receives(p))
         .map(({ removedOn, ...p }) => ({ ...p, removedHere: removedOn.includes(device.id) }));
     app.get(
       "/presets",
@@ -432,13 +466,13 @@ export const hubDeviceRoutes =
       "/presets/:id",
       { schema: { params: z.object({ id: z.uuid() }) } },
       async (req, reply) => {
-        const { libraries } = installing(req);
+        const { receives } = installing(req);
         const row = db
           .select()
           .from(slicerPresets)
           .where(eq(slicerPresets.id, req.params.id))
           .get();
-        if (!row || row.deleted || !libraries.has(row.library))
+        if (!row || row.deleted || !receives(row))
           throw new HttpError(404, "not_found", "Preset not found");
         return reply.type("application/json").send(row.json);
       },

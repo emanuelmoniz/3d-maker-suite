@@ -197,8 +197,8 @@ const RULES: [RegExp, string, Need][] = [
   [/^\/api\/hub\/devices\/[^/]+\/projects\/[^/]+$/, "DELETE", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/slicers\/[^/]+$/, "PATCH", SESSION],
   [p("hub"), "*", on("hub.manage")],
-  // ADR-0017, ADR-0021: who sees projects sees what slices them; changing them and the device
-  // switches is presets write.
+  // ADR-0017, ADR-0021: the machines' preset lines and their held deletes are presets write; the
+  // switches themselves are the machine's (`/hub/devices/:id/slicers/:library`).
   [p("presets/devices"), "*", at("presets", "write")],
   // Shown in Presets settings → Sources; the source pick fills the catalog too, so it stays catalog.
   [p("catalog/sources"), "R", either(at("catalog", "read"), at("presets", "read"))],

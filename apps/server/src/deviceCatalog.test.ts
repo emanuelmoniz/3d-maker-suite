@@ -159,6 +159,20 @@ it("a worker-only hub gets its catalog from the source device; another device se
 
   // A connector too old for it refuses the pick, which stays as it was.
   const pick = (deviceId: string) => send("PUT", "/api/catalog/sources/bambu-studio", { deviceId });
+  // Only a machine with Catalog Share on can be picked (ADR-0021); a default source stays one.
+  const options = async () =>
+    (await send("GET", "/api/catalog/sources")).json()[0].options.map((o: object) => o);
+  expect(await options()).toEqual([{ deviceId: ws1.deviceId, name: "WS-1" }]);
+  expect((await pick(ws2.deviceId)).json()).toMatchObject({ error: { code: "not_a_source" } });
+  const share = { catalog: { share: true } };
+  expect(
+    (await send("PATCH", `/api/hub/devices/${ws2.deviceId}/slicers/bambu-studio`, share))
+      .statusCode,
+  ).toBe(204);
+  expect((await send("GET", "/api/catalog/sources")).json()[0].machines).toEqual([
+    { deviceId: ws1.deviceId, name: "WS-1", share: true, receive: false },
+    { deviceId: ws2.deviceId, name: "WS-2", share: true, receive: false },
+  ]);
   const refused = pick(ws2.deviceId);
   const probe = await two.next("catalog.sources");
   await two.answer(probe.requestId, { ok: false, code: "ENOTSUP" });

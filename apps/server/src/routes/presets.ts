@@ -1,10 +1,8 @@
 import {
   apiErrorSchema,
-  emptyPresetLibrary,
   type IntegrationAdapter,
   isPresetConflict,
   presetDeviceSchema,
-  presetDeviceUpdateSchema,
   presetHeldActionSchema,
   presetRestoreSchema,
   type SlicerPreset,
@@ -17,7 +15,7 @@ import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { deviceLibraries, presetLibrary } from "../integrations/capabilities.ts";
+import { deviceLibraries } from "../integrations/capabilities.ts";
 import {
   deletePreset,
   presetUses,
@@ -26,7 +24,6 @@ import {
 } from "../integrations/presetLibrary.ts";
 import type { Rights } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
-import { setPresetLibrary } from "../lib/machine.ts";
 import { VERSION } from "../updates/updates.ts";
 
 const { devices, slicerPresets, slicerPresetVersions, users } = schema;
@@ -131,6 +128,7 @@ export const presetsRoutes =
             return {
               id: d.id,
               name: d.name,
+              userId: d.userId,
               online: channel.online(d.id),
               // As `connector_outdated`: its removals are only shown, and it receives no deletes.
               outdated: !!d.connectorVersion && d.connectorVersion !== VERSION,
@@ -141,6 +139,8 @@ export const presetsRoutes =
                   reported: reported.includes(library),
                   send: !!s?.presets.share,
                   install: !!s?.presets.receive,
+                  shareKinds: s?.presets.shareKinds ?? [],
+                  receiveKinds: s?.presets.receiveKinds ?? [],
                   sentAt: s?.sentAt ?? null,
                   held: held.filter((h) => h.device === d.id && h.library === library).length,
                   status:
@@ -168,40 +168,6 @@ export const presetsRoutes =
           throw new HttpError(404, "not_found", "Device not found");
         resolveHeld(db, dataDir, req.params.id, req.body.action, {
           user: req.user?.displayName,
-        });
-        return reply.status(204).send(null);
-      },
-    );
-
-    app.patch(
-      "/devices/:id",
-      {
-        schema: {
-          params,
-          body: presetDeviceUpdateSchema,
-          response: {
-            204: z.null(),
-            404: apiErrorSchema,
-            409: apiErrorSchema,
-            502: apiErrorSchema,
-            504: apiErrorSchema,
-          },
-        },
-      },
-      async (req, reply) => {
-        const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
-        if (!row) throw new HttpError(404, "not_found", "Device not found");
-        const { library, send, install } = req.body;
-        if (!adapters.some((a) => a.desktop && presetLibrary(a) === library))
-          throw new HttpError(404, "not_found", "No such slicer");
-        const old = row.presetLibraries[library] ?? emptyPresetLibrary();
-        await setPresetLibrary(db, channel, row, library, {
-          ...old,
-          presets: {
-            ...old.presets,
-            share: send ?? old.presets.share,
-            receive: install ?? old.presets.receive,
-          },
         });
         return reply.status(204).send(null);
       },

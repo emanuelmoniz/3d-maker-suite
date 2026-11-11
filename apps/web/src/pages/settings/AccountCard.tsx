@@ -9,7 +9,6 @@ import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
-import { Collapsible } from "../../components/Collapsible.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { Section } from "../../components/Section.tsx";
@@ -25,7 +24,6 @@ import {
   usePatchIntegration,
   useTestIntegration,
 } from "../../lib/integrations.ts";
-import { SyncLog } from "./IntegrationCard.tsx";
 import { ERRORS } from "./integrationLabels.ts";
 import { ActionSwitches } from "./PolicyRow.tsx";
 
@@ -307,11 +305,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
           <div className="mt-3 grid gap-3">
             <ActionSwitches integration={i} />
           </div>
-        )}
-        {admin && i.enabled && (
-          <Collapsible title={t("integrations:card.log")} className="mt-3">
-            <SyncLog id={i.id} types={i.policies.map((p) => p.type).filter((c) => !isAction(c))} />
-          </Collapsible>
         )}
       </div>
 

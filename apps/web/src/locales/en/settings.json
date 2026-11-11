@@ -27,7 +27,8 @@
       "when": "When",
       "what": "What",
       "how": "How",
-      "actions": "Actions"
+      "actions": "Actions",
+      "state": "State"
     },
     "lineOn": "Sync {{type}} from {{source}}",
     "edit": "Edit",
@@ -44,7 +45,54 @@
       "prints": "No sources",
       "printsBody": "Prints here are added by hand. To sync them from an account, allow prints on it in Integrations.",
       "spools": "No sources",
-      "spoolsBody": "Spools here are added by hand. To sync them from an account, allow spools on it in Integrations."
+      "spoolsBody": "Spools here are added by hand. To sync them from an account, allow spools on it in Integrations.",
+      "catalog": "No sources",
+      "catalogBody": "Brands, models and materials here are added by hand. To read them from a slicer, add one in Integrations, or turn on Catalog Share on a machine.",
+      "presets": "No sources",
+      "presetsBody": "Presets here come from a slicer, an account or a zip. Add a slicer or an account in Integrations, or turn on Presets Share on a machine."
+    },
+    "server": "This server",
+    "toIntegrations": "Integrations",
+    "toMachine": "Machine",
+    "kinds": {
+      "machine": "Printer presets",
+      "process": "Process presets",
+      "filament": "Filament presets"
+    },
+    "catalog": {
+      "source": "Catalog source",
+      "picked": "Picked for you",
+      "useAs": "Use as catalog source",
+      "useAsOf": "Use {{slicer}} as catalog source",
+      "notSource": "Not the catalog source: its catalog isn't read.",
+      "unreadable": "Folder not found",
+      "fromDevice": "The machine's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
+      "ownSlicer": "Machines aren't offered: this server reads this slicer's catalog, and it's the catalog the hub slices with.",
+      "noWorker": "To read the catalog from a machine, add it as a slice worker for this slicer first.",
+      "outdated": "The connector on that device is too old to send the catalog. Update it to the hub's version, then pick it again.",
+      "system": "system/ folder",
+      "notReceived": "Not received yet"
+    },
+    "presets": {
+      "chooseBrands": "Choose brands in Catalog settings",
+      "shareOn": "Share {{type}} from {{slicer}} on {{machine}}",
+      "receiveOn": "Receive {{type}} in {{slicer}} on {{machine}}",
+      "linesOf": "{{slicer}} on {{machine}}",
+      "onSave": "On each save",
+      "sentAt": "Last sent {{when}}",
+      "neverSent": "Nothing sent yet",
+      "notReported": "{{slicer}} is no longer found on this machine.",
+      "held_one": "{{count}} held delete waits for you",
+      "held_other": "{{count}} held deletes wait for you",
+      "noReport": "Waiting for the machine's first report",
+      "upToDate": "Up to date",
+      "where": "Folder and backup",
+      "zip": "No connector? Upload a zip",
+      "outdated": "That machine's connector is too old for this. Update it from Hub management, then try again.",
+      "waiting_one": "{{count}} waiting for the slicer to close",
+      "waiting_other": "{{count}} waiting for the slicer to close",
+      "queued_one": "{{count}} being written",
+      "queued_other": "{{count}} being written"
     }
   },
   "loadError": "Couldn't load settings. Is the server running?",

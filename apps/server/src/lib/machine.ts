@@ -1,4 +1,4 @@
-import { type DevicePresetLibrary, presetSwitches } from "@3d-maker-suite/core";
+import { type DevicePresetLibrary, emptyPresetLibrary, presetSwitches } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -26,10 +26,11 @@ export async function setPresetLibrary(
   library: string,
   now: DevicePresetLibrary,
 ) {
-  const old = row.presetLibraries[library];
+  // No entry yet reads as every switch off: a first Catalog switch asks the connector nothing.
+  const old = row.presetLibraries[library] ?? emptyPresetLibrary();
   const libraries = { ...row.presetLibraries, [library]: now };
   const presetsChanged =
-    old?.presets.share !== now.presets.share || old?.presets.receive !== now.presets.receive;
+    old.presets.share !== now.presets.share || old.presets.receive !== now.presets.receive;
   if (presetsChanged && channel.online(row.id))
     await channel.ask(
       row.id,

@@ -429,7 +429,11 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
       label: t("hub:machine.catalog"),
       values: lib?.catalog ?? { receive: false, share: false },
       link: (
-        <Link to="/catalog/settings/sources" className="underline">
+        <Link
+          to="/catalog/settings/sources"
+          hash={`${lib?.catalog.share ? "machine" : "receive"}-${d.id}`}
+          className="underline"
+        >
           {t("hub:machine.catalogSettings")}
         </Link>
       ),
@@ -439,7 +443,11 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
       label: t("hub:machine.presets"),
       values: lib?.presets ?? { receive: false, share: false },
       link: (
-        <Link to="/presets/settings/sources" hash={`devices-${library}`} className="underline">
+        <Link
+          to="/presets/settings/sources"
+          hash={`${lib?.presets.share ? "machine" : "receive"}-${d.id}`}
+          className="underline"
+        >
           {t("hub:machine.presetsSettings")}
         </Link>
       ),

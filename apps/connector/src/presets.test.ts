@@ -243,20 +243,25 @@ describe("device presets (ADR-0017)", () => {
         put,
         slicer,
         share: async (lib = library) => {
-          const res = await send("PATCH", `/api/presets/devices/${id}`, {
-            library: lib,
-            send: true,
+          const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
+            presets: { share: true },
           });
           expect(res.statusCode).toBe(204);
           await until(() => store.get().presetLibraries?.[lib]?.send === true);
         },
         install: async (lib = library) => {
-          const res = await send("PATCH", `/api/presets/devices/${id}`, {
-            library: lib,
-            install: true,
+          const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
+            presets: { receive: true },
           });
           expect(res.statusCode).toBe(204);
           await until(() => store.get().presetLibraries?.[lib]?.install === true);
+        },
+        /** Only these kinds on its Share or Receive lines (Presets settings → Sources). */
+        kinds: async (body: { shareKinds?: string[]; receiveKinds?: string[] }, lib = library) => {
+          const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
+            presets: body,
+          });
+          expect(res.statusCode).toBe(204);
         },
         file: (rel: string) => join(config, "user", rel),
         status: async () =>
@@ -450,8 +455,11 @@ describe("device presets (ADR-0017)", () => {
     await a.share();
     // The library names a folder on the hub: one with no switch is refused, and none can be set.
     expect((await a.put({ ...body, library: "../../etc", text })).status).toBe(403);
-    const junk = { library: "../../etc", send: true };
-    expect((await h.send("PATCH", `/api/presets/devices/${a.id}`, junk)).statusCode).toBe(404);
+    const junk = { presets: { share: true } };
+    const lib = encodeURIComponent("../../etc");
+    expect(
+      (await h.send("PATCH", `/api/hub/devices/${a.id}/slicers/${lib}`, junk)).statusCode,
+    ).toBe(404);
 
     const invalid = await a.put({ ...body, text: "{ not json" });
     expect(await invalid.json()).toMatchObject({ result: "invalid", name: "Mine" });
@@ -500,6 +508,48 @@ describe("device presets (ADR-0017)", () => {
       ["bambu-studio", false, false],
       ["orca-slicer", true, true],
     ]);
+  }, 120_000);
+
+  it("shares only the kinds whose line is on; an off kind's removals are ignored (ADR-0021)", async () => {
+    const h = await hub();
+    const a = await h.device("Studio PC");
+    await a.share();
+    const filament = { library: "bambu-studio", kind: "filament", name: "PLA", base: 0 };
+    const process = { library: "bambu-studio", kind: "process", name: "Fine", base: 0 };
+    expect((await (await a.put({ ...process, text: preset("Fine", "1") })).json()).result).toBe(
+      "saved",
+    );
+    await a.kinds({ shareKinds: ["filament"] });
+    // Answered as stored, so an older connector doesn't retry it; nothing is kept.
+    expect(await (await a.put({ ...process, base: 1, text: preset("Fine", "2") })).json()).toEqual({
+      result: "same",
+      name: "Fine",
+      version: 1,
+    });
+    expect(await (await a.put({ ...filament, text: preset("PLA", "20") })).json()).toMatchObject({
+      result: "saved",
+    });
+    const removals = await fetch(`${a.store.get().hubUrl}/api/hub/device/presets/removals`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${a.store.token()}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        library: "bambu-studio",
+        account: "default",
+        removed: [{ kind: "process", name: "Fine" }],
+      }),
+    });
+    expect(await removals.json()).toEqual([{ kind: "process", name: "Fine", result: "unknown" }]);
+    expect(
+      (await h.presets()).map((p) => [p.kind, p.name, p.version, p.removedOn.length]).sort(),
+    ).toEqual([
+      ["filament", "PLA", 1, 0],
+      ["process", "Fine", 1, 0],
+    ]);
+    // The line off keeps the hub's rows.
+    expect((await h.send("GET", "/api/presets/devices")).json()[0].libraries[0]).toMatchObject({
+      shareKinds: ["filament"],
+      receiveKinds: ["machine", "process", "filament"],
+    });
   }, 120_000);
 
   describe("Install hub presets", () => {
@@ -558,6 +608,21 @@ describe("device presets (ADR-0017)", () => {
         queued: 0,
         editsStayLocal: false,
       });
+    }, 120_000);
+
+    it("installs only the kinds whose Receive line is on (ADR-0021)", async () => {
+      const h = await hub();
+      const a = await signedIn(h);
+      await a.kinds({ receiveKinds: ["filament"] });
+      h.save("Fine", "1", "process");
+      h.save("Farm PLA", "20");
+      await a.install();
+      await until(() => existsSync(a.file("123/filament/Farm PLA.json")));
+      const list = await fetch(`${a.store.get().hubUrl}/api/hub/device/presets`, {
+        headers: { authorization: `Bearer ${a.store.token()}` },
+      });
+      expect((await list.json()).map((p: { name: string }) => p.name)).toEqual(["Farm PLA"]);
+      expect(existsSync(a.file("123/process/Fine.json"))).toBe(false);
     }, 120_000);
 
     it("waits while the slicer runs, and then writes", async () => {

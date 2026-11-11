@@ -103,7 +103,13 @@ export function useDeviceActions() {
         ...patch
       }: DeviceLibraryUpdate & { id: string; library: string }) =>
         api("PATCH", `/api/hub/devices/${id}/slicers/${encodeURIComponent(library)}`, patch),
-      onSuccess: refresh,
+      // The Catalog and Presets Sources tabs list the same switches.
+      onSuccess: () =>
+        Promise.all([
+          refresh(),
+          qc.invalidateQueries({ queryKey: ["presets", "devices"] }),
+          qc.invalidateQueries({ queryKey: ["catalog-sources"] }),
+        ]),
     }),
     unselect: useMutation({
       mutationFn: ({ id, projectId }: { id: string; projectId: string }) =>

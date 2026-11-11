@@ -182,6 +182,7 @@ export const ROUTES = [
   "/presets/process",
   "/presets/filament",
   "/presets/settings/sources",
+  "/catalog/settings/sources",
   "/import",
   "/settings",
   "/integrations",

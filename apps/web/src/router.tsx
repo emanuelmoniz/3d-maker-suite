@@ -307,7 +307,7 @@ const routes: AnyRoute[] = [
   ...(
     [
       ["/catalog/presets", "/presets/settings/library"],
-      ["/catalog/sources", "/presets/settings/sources"],
+      ["/catalog/sources", "/catalog/settings/sources"],
     ] as const
   ).map(([path, to]) =>
     createRoute({
@@ -512,8 +512,9 @@ const routes: AnyRoute[] = [
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
       ["/hub/settings", HubConfigPage, ["hub"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "integrations"]],
-      ["/catalog/settings", CatalogConfigPage, ["catalog"]],
-      // catalog, import, integrations: the moved Sources tab (until Step 10).
+      // hub, integrations: the lines and the machines on Sources (ADR-0021).
+      ["/catalog/settings", CatalogConfigPage, ["catalog", "hub", "integrations"]],
+      // import, filament: the zip's steps and the slicer's desktop name.
       [
         "/presets/settings",
         PresetsConfigPage,
