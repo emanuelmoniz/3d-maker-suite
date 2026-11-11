@@ -8,6 +8,9 @@ import {
   type EffectiveRights,
   exceeds,
   hasLevel,
+  type MachineSection,
+  mayEditMachine,
+  mayViewMachine,
   type PermissionLevel,
   type PermissionModule,
   type PermissionSwitch,
@@ -185,6 +188,14 @@ const RULES: [RegExp, string, Need][] = [
     either(on("integrations.manage"), at("catalog", "manage")),
   ],
   [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
+  // The machine page (ADR-0021): its own user too, narrowed by the route (`machineGuard`). Revoke,
+  // pairing, a user code and Update now stay hub.manage.
+  [/^\/api\/hub\/devices$/, "R", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/settings$/, "*", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/(restart|stop)$/, "POST", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+$/, "PATCH", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/projects\/[^/]+$/, "DELETE", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/slicers\/[^/]+$/, "PATCH", SESSION],
   [p("hub"), "*", on("hub.manage")],
   // ADR-0017, ADR-0021: who sees projects sees what slices them; changing them and the device
   // switches is presets write.
@@ -316,6 +327,33 @@ export function mayTask(
   const allowed = flag === "editorSync" ? p["integrations.sync"] : p["integrations.review"];
   if (allowed && policyOf(db, integrationId, type)[flag]) return;
   throw new HttpError(403, "forbidden", "Not allowed for your role");
+}
+
+/**
+ * A machine page route (ADR-0021): the device, once the caller may see its page, or edit `section`
+ * of it ("manage": hub.manage only). 404 for an unknown device; no user (no-users mode) may all.
+ */
+export function machineGuard(
+  db: Db,
+  user: SessionUser | undefined,
+  deviceId: string,
+  section?: MachineSection | "manage",
+) {
+  const row = db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get();
+  if (!row) throw new HttpError(404, "not_found", "Device not found");
+  if (!user) return row;
+  const { rights } = user;
+  const ok =
+    section === "manage"
+      ? rights.admin || rights.permissions["hub.manage"]
+      : section
+        ? mayEditMachine(rights, user.id, row, section)
+        : mayViewMachine(rights, user.id, row);
+  // Someone else's machine is as unknown as a missing one.
+  if (!mayViewMachine(rights, user.id, row))
+    throw new HttpError(404, "not_found", "Device not found");
+  if (!ok) throw new HttpError(403, "forbidden", "Not allowed for your role");
+  return row;
 }
 
 export type Rights = Pick<SessionUser, "id" | "rights">;

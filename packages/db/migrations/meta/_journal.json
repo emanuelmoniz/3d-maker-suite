@@ -785,6 +785,13 @@
       "when": 1794347807325,
       "tag": "0111_presets_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "6",
+      "when": 1794358262155,
+      "tag": "0112_machine_page",
+      "breakpoints": true
     }
   ]
 }

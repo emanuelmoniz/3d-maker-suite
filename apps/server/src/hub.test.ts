@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, emptyPresetLibrary } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -179,7 +179,10 @@ describe("changing a device's user", () => {
     const stay = (code: string) => d.call("", { code, projects: "stay" });
 
     expect((await d.userCode(d.deviceId, d.viewer.id)).json().error.code).toBe("same_user");
-    expect((await d.bearer(d.token, "/api/hub/devices")).statusCode).toBe(403);
+    // Its user lists only their own machines (ADR-0021).
+    expect(
+      (await d.bearer(d.token, "/api/hub/devices")).json().map((x: { id: string }) => x.id),
+    ).toEqual([d.deviceId]);
     expect(
       (
         await d.app.inject({
@@ -261,7 +264,7 @@ describe("hub devices", () => {
 
     // The device acts as its user, under that user's role.
     expect((await bearer(token)).json().user.id).toBe(viewer.id);
-    expect((await bearer(token, "/api/hub/devices")).statusCode).toBe(403);
+    expect((await bearer(token, "/api/hub/versions")).statusCode).toBe(403);
     expect((await bearer("nope")).statusCode).toBe(401);
 
     const [listed] = (await send("GET", "/api/hub/devices")).json();
@@ -683,9 +686,179 @@ describe("hub events", () => {
     const res = await patch;
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe("device_outdated");
+    const empty = emptyPresetLibrary();
     expect(db.select().from(schema.devices).get()?.presetLibraries).toEqual({
-      "bambu-studio": { send: true, install: false },
+      "bambu-studio": { ...empty, presets: { ...empty.presets, share: true } },
     });
+    await s.cancel();
+  });
+
+  it("shows a machine's page to its own user, who edits only the sections they may (ADR-0021)", async () => {
+    const { app, db, send, viewer, deviceId } = await live({ adapters: adapters({ mock: false }) });
+    // Another machine, paired to the admin.
+    const { code } = (
+      await send("POST", "/api/hub/pairing-codes", {
+        userId: (await send("GET", "/api/auth/me")).json().user.id,
+      })
+    ).json();
+    const theirs = (
+      await app.inject({
+        method: "POST",
+        url: "/api/hub/pair",
+        payload: { code, name: "Admin PC", os: "win32", connectorVersion: "5.0.0" },
+      })
+    ).json().deviceId;
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: viewer.email, password: PW },
+    });
+    const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    const mine = (method: "GET" | "PATCH" | "POST" | "DELETE", url: string, payload?: object) =>
+      app.inject({ method, url, payload, headers: { cookie } });
+    const grant = (permissions: Record<string, unknown>) =>
+      db.update(schema.users).set({ permissions }).where(eq(schema.users.id, viewer.id)).run();
+    const lib = `/api/hub/devices/${deviceId}/slicers/bambu-studio`;
+
+    expect((await mine("GET", "/api/hub/devices")).json().map((d: { id: string }) => d.id)).toEqual(
+      [deviceId],
+    );
+    // Another's machine is unknown; its own is read-only without a switch.
+    expect(
+      (
+        await mine("PATCH", `/api/hub/devices/${theirs}/slicers/bambu-studio`, {
+          presets: { share: true },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect((await mine("PATCH", lib, { presets: { share: true } })).statusCode).toBe(403);
+    // The switch alone isn't enough: Presets also needs presets write.
+    grant({ "machine.presets": true });
+    expect((await mine("PATCH", lib, { presets: { share: true } })).statusCode).toBe(403);
+    grant({ "machine.presets": true, presets: "write" });
+    expect((await mine("PATCH", lib, { presets: { share: true } })).statusCode).toBe(204);
+    expect((await mine("PATCH", lib, { catalog: { receive: true } })).statusCode).toBe(403);
+    expect(
+      db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
+        ?.presetLibraries["bambu-studio"]?.presets.share,
+    ).toBe(true);
+    // Renaming, Restart, Revoke and Update now aren't sections it has.
+    expect((await mine("PATCH", `/api/hub/devices/${deviceId}`, { name: "Mine" })).statusCode).toBe(
+      403,
+    );
+    expect((await mine("POST", `/api/hub/devices/${deviceId}/restart`)).statusCode).toBe(403);
+    expect((await mine("DELETE", `/api/hub/devices/${deviceId}`)).statusCode).toBe(403);
+    expect((await mine("POST", `/api/hub/devices/${deviceId}/update`)).statusCode).toBe(403);
+    grant({ "machine.projects": true });
+    expect(
+      (await mine("PATCH", `/api/hub/devices/${deviceId}`, { receiveProjects: false })).statusCode,
+    ).toBe(403);
+    grant({ "machine.projects": true, projects: "write" });
+    expect(
+      (await mine("PATCH", `/api/hub/devices/${deviceId}`, { receiveProjects: false })).statusCode,
+    ).toBe(204);
+  });
+
+  it("Use as slicer is the worker row's slicing; the catalog source keeps Catalog Share", async () => {
+    const { db, send, deviceId } = await live({ adapters: adapters({ mock: false }) });
+    const lib = `/api/hub/devices/${deviceId}/slicers/bambu-studio`;
+    expect(
+      (await send("PATCH", `/api/hub/devices/${deviceId}/slicers/nope`, { useAsSlicer: true }))
+        .statusCode,
+    ).toBe(404);
+    const noWorker = await send("PATCH", lib, { useAsSlicer: true });
+    expect(noWorker.json().error.code).toBe("no_worker");
+
+    db.update(schema.devices)
+      .set({ slicers: [{ id: "bambu-studio", version: "2.0", path: "C:/bs.exe" }] })
+      .where(eq(schema.devices.id, deviceId))
+      .run();
+    const worker = db
+      .insert(schema.integrations)
+      .values({
+        adapterId: "bambu-studio-worker",
+        config: { deviceId, source: "installed" },
+      })
+      .returning()
+      .get();
+    const listed = async () =>
+      (await send("GET", "/api/hub/devices")).json()[0].libraries["bambu-studio"];
+    // The only machine with the slicer: its catalog source by default.
+    expect((await listed()).catalogSource).toBe(true);
+    const on = (await listed()).useAsSlicer;
+    expect((await send("PATCH", lib, { useAsSlicer: !on })).statusCode).toBe(204);
+    expect((await listed()).useAsSlicer).toBe(!on);
+    expect(
+      db
+        .select()
+        .from(schema.syncPolicies)
+        .where(eq(schema.syncPolicies.integrationId, worker.id))
+        .all()
+        .find((p) => p.type === "slice")?.mode,
+    ).toBe(on ? "off" : "manual");
+    expect((await send("PATCH", lib, { catalog: { share: false } })).json().error.code).toBe(
+      "catalog_source",
+    );
+    expect((await send("PATCH", lib, { catalog: { receive: true } })).statusCode).toBe(204);
+  });
+
+  it("Stop, the default slicer and Share reach the connector; an older one is outdated", async () => {
+    const { app, db, send, open, token, deviceId, bearer } = await live();
+    const url = `/api/hub/devices/${deviceId}`;
+    const s = await open();
+    await s.until(": open");
+    expect(s.res.headers.get("x-share-projects")).toBe("1");
+    let seen = 0;
+    const answer = async (type: string, body: unknown) => {
+      const ids = (t: string) => [...t.matchAll(/"requestId":"([^"]+)"/g)];
+      const text = (await s.until((t) => ids(t).length > seen)) ?? "";
+      const requestId = ids(text)[seen++]?.[1];
+      expect(text).toContain(`"${type}"`);
+      await app.inject({
+        method: "POST",
+        url: `/api/hub/device/replies/${requestId}`,
+        payload: body as object,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    };
+    const old = { ok: false, code: "ENOTSUP" };
+    const code = async (res: Promise<{ json: () => { error: { code: string } } }>) =>
+      (await res).json().error.code;
+
+    const stopOld = send("POST", `${url}/stop`);
+    await answer("connector.stop", old);
+    expect(await code(stopOld)).toBe("device_outdated");
+    const stop = send("POST", `${url}/stop`);
+    await answer("connector.stop", { ok: true, result: null });
+    expect((await stop).statusCode).toBe(204);
+
+    // An older connector drops `defaultSlicer` and answers ok.
+    const slicerOld = send("PUT", `${url}/settings`, { defaultSlicer: "" });
+    await answer("connector.settings.set", {
+      ok: true,
+      result: { port: 4301, autostart: true, restartRequired: false },
+    });
+    expect(await code(slicerOld)).toBe("device_outdated");
+    const slicer = send("PUT", `${url}/settings`, { defaultSlicer: "" });
+    await answer("connector.settings.set", {
+      ok: true,
+      result: { port: 4301, autostart: true, defaultSlicer: "", restartRequired: false },
+    });
+    expect((await slicer).json()).toMatchObject({ defaultSlicer: "" });
+
+    const shared = () => db.select().from(schema.devices).get()?.shareProjects;
+    const shareOld = send("PATCH", url, { shareProjects: false });
+    await answer("projects.share", old);
+    expect(await code(shareOld)).toBe("device_outdated");
+    expect(shared()).toBe(true);
+    const share = send("PATCH", url, { shareProjects: false });
+    await answer("projects.share", { ok: true, result: null });
+    expect((await share).statusCode).toBe(204);
+    expect(shared()).toBe(false);
+
+    // Receive off: it syncs as selected with nothing selected.
+    expect((await send("PATCH", url, { receiveProjects: false })).statusCode).toBe(204);
+    expect((await bearer(token, "/api/hub/device/sync/roots")).json().mode).toBe("selected");
     await s.cancel();
   });
 

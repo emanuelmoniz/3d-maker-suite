@@ -1212,8 +1212,8 @@ export const devices = sqliteTable(
     /** Worker integrations may slice on it (ADR-0014). */
     sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
     /**
-     * Per slicer library (ADR-0020): Send presets (its user presets go to the hub's library) and
-     * Install (the library's presets go to that slicer), and when a sent preset was last stored.
+     * Per slicer library (ADR-0021): Catalog and Presets, Receive and Share each, the preset kinds,
+     * and when a shared preset was last stored.
      */
     presetLibraries: text({ mode: "json" })
       .$type<Record<string, DevicePresetLibrary>>()
@@ -1225,6 +1225,10 @@ export const devices = sqliteTable(
     presetAccounts: text({ mode: "json" }).$type<Record<string, string>>().notNull().default({}),
     /** Its OS, arch and glibc (`X-Connector-System`): which managed slicer build fits it. */
     system: text({ mode: "json" }).$type<SlicerSystem>(),
+    /** Receive projects from the hub (ADR-0021); off = it syncs none. */
+    receiveProjects: integer({ mode: "boolean" }).notNull().default(true),
+    /** Share its folders with the hub (ADR-0021); off = every root on it is unshared. */
+    shareProjects: integer({ mode: "boolean" }).notNull().default(true),
     lastSeenAt: text(),
     ...timestamps,
   },

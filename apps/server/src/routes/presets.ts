@@ -1,12 +1,12 @@
 import {
   apiErrorSchema,
+  emptyPresetLibrary,
   type IntegrationAdapter,
   isPresetConflict,
   presetDeviceSchema,
   presetDeviceUpdateSchema,
   presetHeldActionSchema,
   presetRestoreSchema,
-  presetSwitches,
   type SlicerPreset,
   slicerPresetDetailSchema,
   slicerPresetSchema,
@@ -26,15 +26,12 @@ import {
 } from "../integrations/presetLibrary.ts";
 import type { Rights } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
+import { setPresetLibrary } from "../lib/machine.ts";
 import { VERSION } from "../updates/updates.ts";
 
 const { devices, slicerPresets, slicerPresetVersions, users } = schema;
 type Row = typeof slicerPresets.$inferSelect;
 const params = z.object({ id: z.uuid() });
-const deviceError = (err: NodeJS.ErrnoException) =>
-  err.code === "ENOTSUP"
-    ? new HttpError(409, "device_outdated", "The connector is too old for this")
-    : new HttpError(502, "device_failed", "The connector couldn't do that");
 
 /**
  * The hub's slicer preset library (ADR-0017): list, versions, download, delete, Restore, held
@@ -142,12 +139,13 @@ export const presetsRoutes =
                 return {
                   library,
                   reported: reported.includes(library),
-                  send: !!s?.send,
-                  install: !!s?.install,
+                  send: !!s?.presets.share,
+                  install: !!s?.presets.receive,
                   sentAt: s?.sentAt ?? null,
                   held: held.filter((h) => h.device === d.id && h.library === library).length,
                   status:
-                    (s?.install && d.presetInstall?.find((p) => p.library === library)) || null,
+                    (s?.presets.receive && d.presetInstall?.find((p) => p.library === library)) ||
+                    null,
                 };
               }),
             };
@@ -193,37 +191,18 @@ export const presetsRoutes =
       async (req, reply) => {
         const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
         if (!row) throw new HttpError(404, "not_found", "Device not found");
-        const { library, ...set } = req.body;
+        const { library, send, install } = req.body;
         if (!adapters.some((a) => a.desktop && presetLibrary(a) === library))
           throw new HttpError(404, "not_found", "No such slicer");
-        const old = row.presetLibraries[library] ?? { send: false, install: false };
-        const now = { ...old, ...set };
-        if (now.send === old.send && now.install === old.install)
-          return reply.status(204).send(null);
-        const libraries = { ...row.presetLibraries, [library]: now };
-        // Online, it hears it at once; a connector before 5.4.0 Step 21's knows one pair for all its
-        // slicers and answers ENOTSUP. Offline, it reads them when it connects.
-        if (channel.online(row.id))
-          await channel.ask(
-            row.id,
-            (requestId) => ({
-              type: "presets.set",
-              requestId,
-              libraries: presetSwitches(libraries),
-            }),
-            z.null(),
-            { error: deviceError },
-          );
-        db.update(devices)
-          .set({
-            presetLibraries: libraries,
-            // Off: what it last said of that slicer no longer holds.
-            ...(!now.install && {
-              presetInstall: row.presetInstall?.filter((p) => p.library !== library) ?? null,
-            }),
-          })
-          .where(eq(devices.id, row.id))
-          .run();
+        const old = row.presetLibraries[library] ?? emptyPresetLibrary();
+        await setPresetLibrary(db, channel, row, library, {
+          ...old,
+          presets: {
+            ...old.presets,
+            share: send ?? old.presets.share,
+            receive: install ?? old.presets.receive,
+          },
+        });
         return reply.status(204).send(null);
       },
     );

@@ -31,6 +31,12 @@ export const permissionsSchema = z.object({
   "settings.branding": z.boolean(),
   "settings.alerts": z.boolean(),
   "users.manage": z.boolean(),
+  // ADR-0021: a machine's own user edits these sections of its page.
+  "machine.connection": z.boolean(),
+  "machine.slicers": z.boolean(),
+  "machine.catalog": z.boolean(),
+  "machine.presets": z.boolean(),
+  "machine.projects": z.boolean(),
 });
 
 /** ADR-0016 project rights (they replace ADR-0014's per-user switches). */
@@ -79,6 +85,11 @@ const switches = (on: boolean) => ({
   "settings.branding": on,
   "settings.alerts": on,
   "users.manage": on,
+  "machine.connection": on,
+  "machine.slicers": on,
+  "machine.catalog": on,
+  "machine.presets": on,
+  "machine.projects": on,
 });
 
 /** The base every role starts from; a key a later version adds stays here, so it fails closed. */
@@ -173,6 +184,42 @@ const rank = (v: PermissionLevel | boolean) =>
 /** Whether a module is at `min` or above. */
 export const hasLevel = (p: Permissions, module: PermissionModule, min: PermissionLevel) =>
   rank(p[module]) >= rank(min);
+
+/** A section of a machine's page (ADR-0021) and the module its data needs at write, if any. */
+export const MACHINE_SECTIONS = {
+  connection: null,
+  slicers: null,
+  catalog: "catalog",
+  presets: "presets",
+  projects: "projects",
+} as const satisfies Record<string, PermissionModule | null>;
+export type MachineSection = keyof typeof MACHINE_SECTIONS;
+
+/** Whether a user sees a machine's page: `hub.manage`, or it is paired to them. */
+export const mayViewMachine = (
+  rights: EffectiveRights,
+  userId: string | undefined,
+  device: { userId: string },
+) => rights.admin || rights.permissions["hub.manage"] || device.userId === userId;
+
+/**
+ * Whether a user edits a section of a machine's page (ADR-0021): `hub.manage` every machine; its
+ * own user with the section's `machine.*` switch, and write on the data's module.
+ */
+export function mayEditMachine(
+  rights: EffectiveRights,
+  userId: string | undefined,
+  device: { userId: string },
+  section: MachineSection,
+) {
+  if (rights.admin || rights.permissions["hub.manage"]) return true;
+  const module = MACHINE_SECTIONS[section];
+  return (
+    device.userId === userId &&
+    rights.permissions[`machine.${section}`] &&
+    (!module || hasLevel(rights.permissions, module, "write"))
+  );
+}
 
 /** The keys in `values` above what `own` has (ADR-0016 escalation rule). */
 export function exceeds(own: EffectiveRights, values: Partial<Overrides>): string[] {

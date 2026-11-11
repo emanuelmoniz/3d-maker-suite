@@ -3,6 +3,7 @@ import type {
   ConnectorSettingsPatch,
   ConnectorSettingsResult,
   Device,
+  DeviceLibraryUpdate,
   DeviceSyncMode,
   HubVersionsUsage,
   PairingCode,
@@ -46,6 +47,10 @@ export function useConnectorActions(id: string) {
           setTimeout(() => qc.invalidateQueries({ queryKey: KEY }), ms);
       },
     }),
+    stop: useMutation({
+      mutationFn: () => api("POST", `/api/hub/devices/${id}/stop`),
+      onSuccess: () => setTimeout(() => qc.invalidateQueries({ queryKey: KEY }), 2_000),
+    }),
   };
 }
 
@@ -76,6 +81,28 @@ export function useDeviceActions() {
     syncMode: useMutation({
       mutationFn: ({ id, syncMode }: { id: string; syncMode: DeviceSyncMode }) =>
         api("PATCH", `/api/hub/devices/${id}`, { syncMode }),
+      onSuccess: refresh,
+    }),
+    /** Receive from the hub and Share to the hub (ADR-0021). */
+    projects: useMutation({
+      mutationFn: ({
+        id,
+        ...patch
+      }: {
+        id: string;
+        receiveProjects?: boolean;
+        shareProjects?: boolean;
+      }) => api("PATCH", `/api/hub/devices/${id}`, patch),
+      onSuccess: refresh,
+    }),
+    /** A slicer's switches on the machine page: Use as slicer, Catalog, Presets. */
+    library: useMutation({
+      mutationFn: ({
+        id,
+        library,
+        ...patch
+      }: DeviceLibraryUpdate & { id: string; library: string }) =>
+        api("PATCH", `/api/hub/devices/${id}/slicers/${encodeURIComponent(library)}`, patch),
       onSuccess: refresh,
     }),
     unselect: useMutation({

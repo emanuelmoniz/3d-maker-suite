@@ -12,20 +12,16 @@ import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
-import { useConnectorActions, useDeviceActions, useDevices } from "../../lib/hub.ts";
+import { useDeviceActions, useDevices } from "../../lib/hub.ts";
 import { useUsers } from "../../lib/users.ts";
 
-type Dialog =
-  | { kind: "pair" }
-  | { kind: "code"; code: string; expiresAt: string }
-  | { kind: "revoke"; device: Device };
+type Dialog = { kind: "pair" } | { kind: "code"; code: string; expiresAt: string };
 
-/** One device in the list: where it stands, and the two actions that act on the connector itself. */
-function DeviceCard({ device: d, onRevoke }: { device: Device; onRevoke: () => void }) {
+/** One device in the list: where it stands. Its actions are on its machine page (ADR-0021). */
+function DeviceCard({ device: d }: { device: Device }) {
   const { t } = useTranslation();
-  const { restart } = useConnectorActions(d.id);
   return (
-    <li className="grid gap-3 rounded-md border border-border p-3 lg:grid-cols-[1fr_auto] lg:items-center">
+    <li className="rounded-md border border-border p-3">
       <div className="min-w-0">
         <p className="font-medium wrap-anywhere">
           <Link to="/hub/devices/$deviceId" params={{ deviceId: d.id }} className="hover:underline">
@@ -54,25 +50,6 @@ function DeviceCard({ device: d, onRevoke }: { device: Device; onRevoke: () => v
               : t("hub:devices.neverSeen")}
           </p>
         )}
-        {restart.isError && (
-          <p role="alert" className="text-bad">
-            {t("hub:edit.restartFailed")}
-          </p>
-        )}
-        {restart.isSuccess && (
-          <p role="status" className="text-muted">
-            {t("hub:edit.restarting")}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {/* An offline connector can't be asked: the edit page explains. */}
-        <Button disabled={!d.online || restart.isPending} onClick={() => restart.mutate()}>
-          {t("hub:devices.restart")}
-        </Button>
-        <Button variant="danger" onClick={onRevoke}>
-          {t("hub:devices.revoke")}
-        </Button>
       </div>
     </li>
   );
@@ -83,14 +60,14 @@ export function HubPage() {
   const { t } = useTranslation();
   const devices = useDevices();
   const users = useUsers(true);
-  const { pairingCode, revoke } = useDeviceActions();
+  const { pairingCode } = useDeviceActions();
   const [dialog, setDialog] = useState<Dialog | null>(null);
 
   const close = () => {
     setDialog(null);
-    for (const m of [pairingCode, revoke]) m.reset();
+    pairingCode.reset();
   };
-  const error = [pairingCode, revoke].some((m) => m.isError) ? t("hub:errors.generic") : undefined;
+  const error = pairingCode.isError ? t("hub:errors.generic") : undefined;
   const people = (users.data ?? [])
     .filter((u) => !u.disabled)
     .map((u) => ({ value: u.id, label: u.displayName }));
@@ -118,11 +95,7 @@ export function HubPage() {
         (devices.data.length ? (
           <ul aria-label={t("hub:devices.label")} className="grid gap-2">
             {devices.data.map((d) => (
-              <DeviceCard
-                key={d.id}
-                device={d}
-                onRevoke={() => setDialog({ kind: "revoke", device: d })}
-              />
+              <DeviceCard key={d.id} device={d} />
             ))}
           </ul>
         ) : (
@@ -166,20 +139,6 @@ export function HubPage() {
           {dialog?.kind === "code" && dialog.code}
         </p>
       </ConfirmDialog>
-
-      <ConfirmDialog
-        open={dialog?.kind === "revoke"}
-        destructive
-        title={t("hub:devices.revokeTitle", {
-          name: dialog?.kind === "revoke" ? dialog.device.name : "",
-        })}
-        description={error ?? t("hub:devices.revokeBody")}
-        confirmLabel={t("hub:devices.revoke")}
-        onCancel={close}
-        onConfirm={() =>
-          dialog?.kind === "revoke" && revoke.mutate(dialog.device.id, { onSuccess: close })
-        }
-      />
     </>
   );
 }

@@ -45,28 +45,13 @@
     "projects": "Selected projects",
     "unselect": "Stop syncing {{name}} on this device",
     "noProjects": "No projects selected yet. Open on a project page adds one.",
-    "slicers": "Slicers found",
-    "slicer": "{{name}} {{version}}",
-    "noSlicers": "No slicer found, so files can't be opened on this device.",
-    "usedBy": "Used by {{name}}",
-    "notWorker": "Doesn't slice for the hub. To slice here, add it as a location on a slicer's card in <add>Integrations</add>."
+    "noSlicers": "No slicer found, so files can't be opened on this device."
   },
   "edit": {
-    "presets": {
-      "both": "Sends presets and installs the hub's",
-      "send": "Sends presets",
-      "install": "Installs the hub's presets",
-      "none": "Doesn't send or install presets",
-      "change": "Change in Presets settings → Sources"
-    },
-    "title": "Edit connector: {{name}}",
-    "titleFallback": "Edit connector",
     "notFound": "This device doesn't exist anymore.",
     "identity": "Identity",
     "software": "Software",
     "connection": "Connection",
-    "sync": "Sync",
-    "slicing": "Slicing",
     "port": "Status page port",
     "portHint": "The connector's page on its own computer. A new port applies after a restart.",
     "autostart": "Start with the computer",
@@ -77,8 +62,7 @@
     "outdated": "This connector is too old for this. Update or restart it on its computer, then try again.",
     "timeout": "The connector didn't answer. Try again.",
     "offlineNote": "The connector is offline. This can only be changed while it is online.",
-    "restarting": "Restarting. It shows online again in a few seconds.",
-    "restartFailed": "The connector couldn't restart."
+    "restarting": "Restarting. It shows online again in a few seconds."
   },
   "changeUser": {
     "action": "Change user",
@@ -198,7 +182,63 @@
     "editsStayLocal": "This slicer's cloud account only takes new presets written to disk. An edit from the hub stays on this PC, and the cloud keeps the old version for other PCs.",
     "deleteHere_one": "{{count}} preset deleted on the hub is still here. This slicer's cloud account brings back a file deleted from disk, so delete it in the slicer:",
     "deleteHere_other": "{{count}} presets deleted on the hub are still here. This slicer's cloud account brings back a file deleted from disk, so delete them in the slicer:",
-    "deleteHereOf": "Presets to delete in {{name}}",
-    "slicerPresets": "Slicer presets"
+    "deleteHereOf": "Presets to delete in {{name}}"
+  },
+  "machine": {
+    "titleFallback": "Machine",
+    "byline": "{{user}} · {{os}} · connector {{version}}",
+    "offline": "Offline: changes apply when it reconnects.",
+    "nameIs": "Name: {{name}}",
+    "portIs": "Status page port: {{port}}",
+    "valueOn": "{{label}}: on",
+    "valueOff": "{{label}}: off",
+    "slicers": "Slicers",
+    "defaultSlicer": "Default slicer",
+    "defaultSlicerIs": "Default slicer: {{name}}",
+    "askEachTime": "Ask each time",
+    "installed": "installed",
+    "installedVersion": "{{version}} · installed",
+    "notFound": "not found on this machine",
+    "useAsSlicer": "Use as slicer",
+    "useAsSlicerOf": "Use {{name}} on this machine as a slicer for the hub",
+    "notSlicer": "Not set up as a slicer.",
+    "setUpSlicer": "Set up in Integrations",
+    "catalog": "Catalog",
+    "presets": "Presets",
+    "receive": "Receive",
+    "share": "Share",
+    "receiveOf": {
+      "catalog": "Receive the {{name}} catalog from the hub",
+      "presets": "Receive {{name}} presets from the hub"
+    },
+    "shareOf": {
+      "catalog": "Share the {{name}} catalog with the hub",
+      "presets": "Share {{name}} presets with the hub"
+    },
+    "catalogSource": "Catalog source",
+    "catalogSettings": "Catalog settings",
+    "presetsSettings": "Presets settings",
+    "projects": "Projects",
+    "receiveProjects": "Receive from the hub",
+    "shareProjects": "Share to the hub",
+    "allProjects": "All hub projects",
+    "projectCount_one": "{{count}} project",
+    "projectCount_other": "{{count}} projects",
+    "folderCount_one": "{{count}} folder",
+    "folderCount_other": "{{count}} folders",
+    "foldersHint": "Its shared folders are picked on its connector page for now.",
+    "projectsSettings": "Projects settings",
+    "stopReceivingTitle": "Stop receiving projects on {{name}}?",
+    "stopReceivingBody": "Its copies of hub projects are removed from the machine. Nothing is deleted on the hub.",
+    "stopReceiving": "Stop receiving",
+    "actions": "Actions",
+    "stop": "Stop connector",
+    "stopTitle": "Stop the connector on {{name}}?",
+    "stopBody": "It goes offline and starts again only when someone logs in on that computer or starts it by hand.",
+    "stopped": "Stopped. It shows offline in a few seconds.",
+    "errors": {
+      "noWorker": "This slicer isn't set up to slice on this machine. Set it up in Integrations first.",
+      "catalogSource": "This machine is the catalog source. Pick another source in Catalog settings first."
+    }
   }
 }

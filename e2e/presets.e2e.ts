@@ -219,12 +219,14 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   const patch = { data: { library: "orca-slicer", send: true } };
   expect((await page.request.patch("/api/presets/devices/x", patch)).status()).toBe(403);
 
-  // The device's page shows it read-only to an admin, with a link to the switches.
+  // The machine page has the same switch, and a link to the rest of the presets' settings.
   await signInAs("ana@example.com");
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   await page.goto(`/hub/devices/${id}`);
-  await expect(page.getByText("Installs the hub's presets")).toBeVisible();
-  await page.getByRole("link", { name: "Change in Presets settings → Sources" }).click();
+  await expect(
+    page.getByRole("switch", { name: "Receive OrcaSlicer presets from the hub" }),
+  ).toBeChecked();
+  await page.getByRole("link", { name: "Presets settings" }).click();
   await expect(page).toHaveURL(/\/presets\/settings\/sources#devices-orca-slicer$/);
 
   // Hub off: hidden for all.

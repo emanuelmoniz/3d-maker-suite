@@ -48,6 +48,7 @@ With **Catalog** at Read, a user sees the brands, models and materials; with **P
 - **Run syncs** and **Review imports**: only the integration tasks set to allow them (see below).
 - **Set up integrations**: add, sign in and configure integrations and slicers.
 - **Manage the hub**: pair and edit workstations, change hub settings.
+- **Their own machines**: five switches for the sections of a machine's page in Hub management, on the machines paired to that user only ([hub.md](hub.md#machine-page)). **Connection** (port, start at login, Restart, Stop), **Slicers** (Use as slicer, default slicer), **Catalog** (also needs Catalog write), **Presets** (also needs Presets write) and **Projects** (also needs Projects write). Admin has them all; Editor and Viewer have none. Without any, a user still sees their own machines' pages, read-only.
 - **Server and updates**, **Backups** (make, download, delete; only the Admin role restores one), **Logs**, **Branding**, **Alert settings** (thresholds, email and ntfy).
 - **Users and roles**: add and edit users and roles.
 

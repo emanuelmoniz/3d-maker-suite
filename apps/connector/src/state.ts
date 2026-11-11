@@ -97,6 +97,8 @@ type State = {
   cursor?: number;
   defaultSlicer?: string;
   folders?: string[];
+  /** Share to the hub (`projects.share`, `X-Share-Projects`); false = none of `folders` is shared. */
+  shareProjects?: boolean;
   /** An admin made this device a slice worker (`device.worker`): it runs the hub's slices. */
   sliceWorker?: boolean;
   /**

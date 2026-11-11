@@ -2483,7 +2483,7 @@ Do Step 7 of the 5.5.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 
 ## Phase 34 - Machines and slicers
 
-### [ ] Step 8 - Machine page  **[plan mode]**
+### [x] Step 8 - Machine page  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `EditConnectorPage.tsx` becomes the machine page. Besides `hub.manage`, the machine's own user can open it: read-only, or editable per section with its `machine.*` switch (added here, enforced on the server's device routes).

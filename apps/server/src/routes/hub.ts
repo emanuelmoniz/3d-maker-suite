@@ -7,21 +7,26 @@ import {
   connectorSettingsResultSchema,
   connectorSettingsSchema,
   connectorUpdateFailureSchema,
+  defaultPolicy,
+  deviceLibraryUpdateSchema,
   deviceSchema,
   deviceUpdateSchema,
   deviceUserChangeSchema,
   deviceUserCheckSchema,
   deviceUserPreviewSchema,
   deviceUserResultSchema,
+  emptyPresetLibrary,
   HUB_HEARTBEAT_MS,
   type HubEvent,
   type HubVersionsUsage,
   hubVersionsUsageSchema,
+  type IntegrationAdapter,
   pairingCodeCreateSchema,
   pairingCodeSchema,
   pairResultSchema,
   pairSchema,
   presetSwitches,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, count, eq, inArray, lte } from "drizzle-orm";
@@ -29,13 +34,27 @@ import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { loginLimiter } from "../lib/auth.ts";
+import { deviceLibraries, policyOf, presetLibrary } from "../integrations/capabilities.ts";
+import { catalogSource } from "../integrations/catalogSource.ts";
+import { loginLimiter, machineGuard } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
+import { deviceError, setPresetLibrary } from "../lib/machine.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { isEnabled, tokenHash } from "../lib/session.ts";
 import { VERSION } from "../updates/updates.ts";
 
-const { deviceProjects, devices, hubEvents, pairingCodes, projects, roles, roots, users } = schema;
+const {
+  deviceProjects,
+  devices,
+  hubEvents,
+  integrations,
+  pairingCodes,
+  projects,
+  roles,
+  roots,
+  syncPolicies,
+  users,
+} = schema;
 const params = z.object({ id: z.uuid() });
 const errors = { 404: apiErrorSchema, 409: apiErrorSchema };
 
@@ -50,9 +69,10 @@ const newCode = () => {
 const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-9]/g, ""));
 
 /**
- * Hub management and pairing (ADR-0014). Admin only (lib/auth.ts), except `POST /pair`, which is
- * public: the connector has only the code, and `GET /events` and `/device/user`, which any paired
- * device may use. With the hub off, none of it exists.
+ * Hub management and pairing (ADR-0014). hub.manage (lib/auth.ts), except `POST /pair`, which is
+ * public: the connector has only the code; `GET /events` and `/device/user`, which any paired
+ * device may use; and the machine page's routes, which its own user may use too (ADR-0021,
+ * `machineGuard`). With the hub off, none of it exists.
  */
 export const hubRoutes =
   (
@@ -66,6 +86,7 @@ export const hubRoutes =
     versionsUsage: () => HubVersionsUsage = () => ({ files: 0, bytes: 0 }),
     /** On connect: the libraries the device is the catalog source of (`DeviceCatalog.connected`). */
     catalogSources: (deviceId: string) => Promise<CatalogSources> = async () => ({}),
+    adapters: IntegrationAdapter[] = [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
@@ -76,8 +97,27 @@ export const hubRoutes =
       versionsUsage(),
     );
 
-    // ponytail: unpaginated, a hub has a handful of devices.
-    app.get("/devices", { schema: { response: { 200: z.array(deviceSchema) } } }, async () =>
+    /** A machine's worker integration row for a slicer library: its Use as slicer (ADR-0021). */
+    const workerRow = (deviceId: string, library: string) =>
+      db
+        .select()
+        .from(integrations)
+        .all()
+        .find((r) => {
+          const a = adapters.find((x) => x.id === r.adapterId);
+          return (
+            a?.kind === "worker" &&
+            presetLibrary(a) === library &&
+            workerConfigSchema.safeParse(r.config).data?.deviceId === deviceId
+          );
+        });
+    const isCatalogSource = (deviceId: string, library: string) => {
+      const source = catalogSource(db, adapters, library);
+      return !!source && "deviceId" in source && source.deviceId === deviceId;
+    };
+
+    // ponytail: unpaginated, a hub has a handful of devices. Without hub.manage, only the caller's.
+    app.get("/devices", { schema: { response: { 200: z.array(deviceSchema) } } }, async (req) =>
       db
         .select({
           id: devices.id,
@@ -92,17 +132,42 @@ export const hubRoutes =
           slicers: devices.slicers,
           sliceWorker: devices.sliceWorker,
           presets: devices.presetLibraries,
+          receiveProjects: devices.receiveProjects,
+          shareProjects: devices.shareProjects,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })
         .from(devices)
         .innerJoin(users, eq(users.id, devices.userId))
+        .where(
+          !req.user || req.user.rights.admin || req.user.rights.permissions["hub.manage"]
+            ? undefined
+            : eq(devices.userId, req.user.id),
+        )
         .orderBy(asc(devices.name))
         .all()
         .map((d) => {
           const outdated = !!d.connectorVersion && d.connectorVersion !== VERSION;
+          const libs = new Set([
+            ...deviceLibraries(adapters, d.slicers),
+            ...Object.keys(d.presets),
+          ]);
           return {
             ...d,
+            libraries: Object.fromEntries(
+              [...libs].map((lib) => {
+                const worker = workerRow(d.id, lib);
+                return [
+                  lib,
+                  {
+                    useAsSlicer: worker ? policyOf(db, worker.id, "slice").mode !== "off" : null,
+                    catalogSource: isCatalogSource(d.id, lib),
+                  },
+                ];
+              }),
+            ),
+            folders:
+              db.select({ n: count() }).from(roots).where(eq(roots.location, d.id)).get()?.n ?? 0,
             online: channel.online(d.id),
             outdated,
             updateFailed: outdated ? d.updateFailed : null,
@@ -131,28 +196,20 @@ export const hubRoutes =
       },
     );
 
-    // Edit connector: live requests (409 offline, 504 no answer), never queued for a reconnect.
-    // ENOTSUP: a connector older than this request, which updates itself to the hub's version.
-    const failed = (err: NodeJS.ErrnoException) =>
-      err.code === "ENOTSUP"
-        ? new HttpError(409, "device_outdated", "The connector is too old for this")
-        : new HttpError(502, "device_failed", "The connector couldn't do that");
-    const known = (id: string) => {
-      if (!db.select({ id: devices.id }).from(devices).where(eq(devices.id, id)).get())
-        throw new HttpError(404, "not_found", "Device not found");
-    };
+    // The machine page's connector settings: live requests (409 offline, 504 no answer), never
+    // queued for a reconnect. ENOTSUP: a connector older than this request (`deviceError`).
     const settingsErrors = { ...errors, 502: apiErrorSchema, 504: apiErrorSchema };
 
     app.get(
       "/devices/:id/settings",
       { schema: { params, response: { 200: connectorSettingsSchema, ...settingsErrors } } },
       async (req) => {
-        known(req.params.id);
+        machineGuard(db, req.user, req.params.id);
         return channel.ask(
           req.params.id,
           (requestId) => ({ type: "connector.settings.get", requestId }),
           connectorSettingsSchema,
-          { error: failed },
+          { error: deviceError },
         );
       },
     );
@@ -167,45 +224,123 @@ export const hubRoutes =
         },
       },
       async (req) => {
-        known(req.params.id);
-        return channel.ask(
+        const { port, autostart, defaultSlicer } = req.body;
+        machineGuard(db, req.user, req.params.id);
+        if (port !== undefined || autostart !== undefined)
+          machineGuard(db, req.user, req.params.id, "connection");
+        if (defaultSlicer !== undefined) machineGuard(db, req.user, req.params.id, "slicers");
+        const res = await channel.ask(
           req.params.id,
           (requestId) => ({ type: "connector.settings.set", requestId, ...req.body }),
           connectorSettingsResultSchema,
-          { error: failed },
+          { error: deviceError },
         );
+        // A connector before 5.5.0 drops a key it doesn't know and answers ok.
+        if (defaultSlicer !== undefined && res.defaultSlicer === undefined)
+          throw new HttpError(409, "device_outdated", "The connector is too old for this");
+        return res;
       },
     );
 
-    app.post(
-      "/devices/:id/restart",
-      { schema: { params, response: { 204: z.null(), ...settingsErrors } } },
-      async (req, reply) => {
-        known(req.params.id);
-        await channel.ask(
-          req.params.id,
-          (requestId) => ({ type: "connector.restart", requestId }),
-          z.null(),
-          { error: failed },
-        );
-        return reply.status(204).send(null);
-      },
-    );
+    // Restart and Stop: answered first, then the connector exits (Stop: until login or by hand).
+    for (const action of ["restart", "stop"] as const)
+      app.post(
+        `/devices/:id/${action}`,
+        { schema: { params, response: { 204: z.null(), ...settingsErrors } } },
+        async (req, reply) => {
+          machineGuard(db, req.user, req.params.id, "connection");
+          await channel.ask(
+            req.params.id,
+            (requestId) => ({ type: `connector.${action}`, requestId }),
+            z.null(),
+            { error: deviceError },
+          );
+          return reply.status(204).send(null);
+        },
+      );
 
-    // A new sync mode makes the connector sync again from scratch (`roots.changed`).
+    // A new sync mode or Receive makes the connector sync again from scratch (`roots.changed`).
+    // Share goes to it first while it's online (ENOTSUP: too old, nothing saved); offline, it
+    // reads it when it connects (`X-Share-Projects`).
     app.patch(
       "/devices/:id",
-      { schema: { params, body: deviceUpdateSchema, response: { 204: z.null(), ...errors } } },
+      {
+        schema: {
+          params,
+          body: deviceUpdateSchema,
+          response: { 204: z.null(), ...settingsErrors },
+        },
+      },
       async (req, reply) => {
-        const { name, syncMode } = req.body;
-        const row = db.select().from(devices).where(eq(devices.id, req.params.id)).get();
-        if (!row) throw new HttpError(404, "not_found", "Device not found");
+        const { name, syncMode, receiveProjects, shareProjects } = req.body;
+        const row = machineGuard(db, req.user, req.params.id);
+        if (name !== undefined) machineGuard(db, req.user, row.id, "manage");
+        if (syncMode !== undefined || receiveProjects !== undefined || shareProjects !== undefined)
+          machineGuard(db, req.user, row.id, "projects");
+        if (
+          shareProjects !== undefined &&
+          shareProjects !== row.shareProjects &&
+          channel.online(row.id)
+        )
+          await channel.ask(
+            row.id,
+            (requestId) => ({ type: "projects.share", requestId, on: shareProjects }),
+            z.null(),
+            { error: deviceError },
+          );
         if (Object.keys(req.body).length)
           db.update(devices).set(req.body).where(eq(devices.id, row.id)).run();
         if (name !== undefined && name !== row.name)
           channel.publish(row.id, { type: "device.renamed", name });
-        if (syncMode !== undefined && syncMode !== row.syncMode)
+        if (
+          (syncMode !== undefined && syncMode !== row.syncMode) ||
+          (receiveProjects !== undefined && receiveProjects !== row.receiveProjects)
+        )
           channel.publish(row.id, { type: "roots.changed" });
+        return reply.status(204).send(null);
+      },
+    );
+
+    // A machine page's switches for one slicer library (ADR-0021), each part with its section.
+    app.patch(
+      "/devices/:id/slicers/:library",
+      {
+        schema: {
+          params: params.extend({ library: z.string().max(100) }),
+          body: deviceLibraryUpdateSchema,
+          response: { 204: z.null(), ...settingsErrors },
+        },
+      },
+      async (req, reply) => {
+        const { library } = req.params;
+        const { useAsSlicer, catalog, presets } = req.body;
+        const row = machineGuard(db, req.user, req.params.id);
+        if (!adapters.some((a) => a.desktop && presetLibrary(a) === library))
+          throw new HttpError(404, "not_found", "No such slicer");
+        if (useAsSlicer !== undefined) machineGuard(db, req.user, row.id, "slicers");
+        if (catalog) machineGuard(db, req.user, row.id, "catalog");
+        if (presets) machineGuard(db, req.user, row.id, "presets");
+        const worker = useAsSlicer === undefined ? undefined : workerRow(row.id, library);
+        if (useAsSlicer !== undefined && !worker)
+          throw new HttpError(409, "no_worker", "This slicer isn't set up to slice on it");
+        // The source's catalog is read from it: another source is picked first (Catalog settings).
+        if (catalog?.share === false && isCatalogSource(row.id, library))
+          throw new HttpError(409, "catalog_source", "It is this catalog's source");
+        if (catalog || presets) {
+          const old = row.presetLibraries[library] ?? emptyPresetLibrary();
+          await setPresetLibrary(db, channel, row, library, {
+            ...old,
+            catalog: { ...old.catalog, ...catalog },
+            presets: { ...old.presets, ...presets },
+          });
+        }
+        if (worker && useAsSlicer !== undefined) {
+          const set = { mode: useAsSlicer ? ("manual" as const) : ("off" as const) };
+          db.insert(syncPolicies)
+            .values({ integrationId: worker.id, type: "slice", ...defaultPolicy("slice"), ...set })
+            .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set })
+            .run();
+        }
         return reply.status(204).send(null);
       },
     );
@@ -221,6 +356,7 @@ export const hubRoutes =
       },
       async (req, reply) => {
         const { id, projectId } = req.params;
+        machineGuard(db, req.user, id, "projects");
         const gone = db
           .delete(deviceProjects)
           .where(and(eq(deviceProjects.deviceId, id), eq(deviceProjects.projectId, projectId)))
@@ -284,7 +420,11 @@ export const hubRoutes =
       const mine = eq(hubEvents.deviceId, deviceId);
 
       const switches = db
-        .select({ worker: devices.sliceWorker, presets: devices.presetLibraries })
+        .select({
+          worker: devices.sliceWorker,
+          presets: devices.presetLibraries,
+          share: devices.shareProjects,
+        })
         .from(devices)
         .where(eq(devices.id, deviceId))
         .get();
@@ -314,6 +454,8 @@ export const hubRoutes =
         "x-install-presets": any("install") ? "1" : "0",
         // The libraries it is the catalog source of (ADR-0020), with the hub copy's fingerprint.
         "x-catalog-sources": JSON.stringify(sources),
+        // Share to the hub (ADR-0021); a connector before 5.5.0 shares its folders anyway.
+        "x-share-projects": switches?.share === false ? "0" : "1",
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
         // keep-alive, which held up the server's close.
         connection: "close",

@@ -343,7 +343,7 @@ describe("connector and hub", () => {
     await until(async () => (await devices())[0].updateFailed?.error === "HTTP 404");
   });
 
-  it("answers the hub's Edit connector requests, and restarts only after answering", async () => {
+  it("answers the machine page's requests, and restarts or stops only after answering", async () => {
     const h = await hub();
     const calls: string[] = [];
     const c = connector(undefined, {
@@ -358,6 +358,7 @@ describe("connector and hub", () => {
           };
         },
         restart: () => void calls.push("restart"),
+        stop: () => void calls.push("stop"),
       },
     });
     await c.link.pair(h.url, await h.code(), "WS-1");
@@ -368,11 +369,18 @@ describe("connector and hub", () => {
     expect((await h.send("GET", `${url}/settings`)).json()).toEqual({
       port: 4301,
       autostart: true,
+      defaultSlicer: "",
     });
     const saved = await h.send("PUT", `${url}/settings`, { port: 4400 });
-    expect(saved.json()).toMatchObject({ port: 4400, restartRequired: true });
+    expect(saved.json()).toMatchObject({ port: 4400, restartRequired: true, defaultSlicer: "" });
+    // Only a slicer found here can be the default; none found, so only "ask each time".
+    const unknown = await h.send("PUT", `${url}/settings`, { defaultSlicer: "nope" });
+    expect(unknown.json().error.code).toBe("device_failed");
+    expect((await h.send("PUT", `${url}/settings`, { defaultSlicer: "" })).statusCode).toBe(200);
     expect((await h.send("POST", `${url}/restart`)).statusCode).toBe(204);
     await until(() => calls.includes("restart"));
+    expect((await h.send("POST", `${url}/stop`)).statusCode).toBe(204);
+    await until(() => calls.includes("stop"));
     expect(calls[0]).toBe('set {"port":4400}');
   });
 
@@ -533,6 +541,16 @@ describe("connector and hub", () => {
       expect(await c.link.roots.folders.add(root)).toBeUndefined();
       await until(async () => (await roots())[0].state === "ok");
       expect((await projects())[0].offline).toBe(false);
+
+      // Share to the hub off (ADR-0021): every root unshared, the list kept; on again, back.
+      const share = (on: boolean) =>
+        h.send("PATCH", `/api/hub/devices/${device.id}`, { shareProjects: on });
+      expect((await share(false)).statusCode).toBe(204);
+      await until(async () => (await roots())[0].state === "unshared");
+      expect((await list(real)).error.code).toBe("path_denied");
+      expect(c.link.roots.folders.list()).toEqual([real]);
+      expect((await share(true)).statusCode).toBe(204);
+      await until(async () => (await roots())[0].state === "ok");
     }, 30_000);
 
     it("pulls a file when needed, slices it on the hub, and writes on the device", async () => {

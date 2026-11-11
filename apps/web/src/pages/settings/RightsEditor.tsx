@@ -85,6 +85,42 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       ),
     ],
   },
+  // ADR-0021: on its own machines only; hub.manage edits every machine.
+  {
+    title: "users:rights.groups.machine",
+    rows: [
+      on(
+        "permissions",
+        "machine.connection",
+        "users:rights.machineConnection",
+        "users:rights.machineConnectionHint",
+      ),
+      on(
+        "permissions",
+        "machine.slicers",
+        "users:rights.machineSlicers",
+        "users:rights.machineSlicersHint",
+      ),
+      on(
+        "permissions",
+        "machine.catalog",
+        "users:rights.machineCatalog",
+        "users:rights.machineCatalogHint",
+      ),
+      on(
+        "permissions",
+        "machine.presets",
+        "users:rights.machinePresets",
+        "users:rights.machinePresetsHint",
+      ),
+      on(
+        "permissions",
+        "machine.projects",
+        "users:rights.machineProjects",
+        "users:rights.machineProjectsHint",
+      ),
+    ],
+  },
   {
     title: "users:rights.groups.admin",
     rows: [

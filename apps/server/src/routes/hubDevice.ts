@@ -13,6 +13,7 @@ import {
   deviceSlicerSchema,
   deviceSyncModeSchema,
   deviceSyncStateSchema,
+  emptyPresetLibrary,
   hubChangesQuerySchema,
   hubChangesSchema,
   hubFileQuerySchema,
@@ -260,10 +261,16 @@ export const hubDeviceRoutes =
       },
     );
 
-    // Every hub root; the change feed leaves out the files the user may not see.
-    const modeOf = (deviceId: string) =>
-      db.select({ m: devices.syncMode }).from(devices).where(eq(devices.id, deviceId)).get()?.m ??
-      "all";
+    // Every hub root; the change feed leaves out the files the user may not see. Receive off
+    // (ADR-0021) syncs as `selected` with nothing selected.
+    const syncOf = (deviceId: string) => {
+      const d = db
+        .select({ mode: devices.syncMode, receive: devices.receiveProjects })
+        .from(devices)
+        .where(eq(devices.id, deviceId))
+        .get();
+      return { mode: d?.receive === false ? ("selected" as const) : (d?.mode ?? "all"), d };
+    };
 
     // What to look for, from the adapters that open files in a slicer; then what it found.
     const desktopSlicers = () =>
@@ -289,7 +296,7 @@ export const hubDeviceRoutes =
         .from(devices)
         .where(eq(devices.id, deviceOf(req)))
         .get();
-      if (!device?.presetLibraries[library]?.send)
+      if (!device?.presetLibraries[library]?.presets.share)
         throw new HttpError(403, "not_sharing", "Send presets is off for this slicer");
       if (!desktopSlicers().some((s) => s.library === library))
         throw new HttpError(404, "not_found", "No such preset library");
@@ -320,9 +327,8 @@ export const hubDeviceRoutes =
                 ...libs,
                 // `sharing` checked its switch is there.
                 [library]: {
-                  install: false,
+                  ...emptyPresetLibrary(),
                   ...libs[library],
-                  send: true,
                   sentAt: new Date().toISOString(),
                 },
               },
@@ -386,7 +392,9 @@ export const hubDeviceRoutes =
         .where(eq(devices.id, deviceOf(req)))
         .get();
       const libraries = new Set(
-        Object.entries(device?.presetLibraries ?? {}).flatMap(([lib, s]) => (s.install ? lib : [])),
+        Object.entries(device?.presetLibraries ?? {}).flatMap(([lib, s]) =>
+          s.presets.receive ? lib : [],
+        ),
       );
       if (!device || !libraries.size)
         throw new HttpError(403, "not_installing", "Install is off for this device");
@@ -560,7 +568,7 @@ export const hubDeviceRoutes =
       { schema: { response: { 200: hubSyncRootsSchema, ...errors } } },
       async (req) => {
         return {
-          mode: modeOf(deviceOf(req)),
+          mode: syncOf(deviceOf(req)).mode,
           roots: db
             .select({ id: roots.id, name: roots.name })
             .from(roots)
@@ -596,17 +604,20 @@ export const hubDeviceRoutes =
       },
       async (req) => {
         const id = deviceOf(req);
+        const { mode, d } = syncOf(id);
         const only =
-          modeOf(id) === "selected"
-            ? new Set(
-                db
-                  .select({ id: deviceProjects.projectId })
-                  .from(deviceProjects)
-                  .where(eq(deviceProjects.deviceId, id))
-                  .all()
-                  .map((r) => r.id),
-              )
-            : undefined;
+          mode !== "selected"
+            ? undefined
+            : d?.receive === false
+              ? new Set<string>()
+              : new Set(
+                  db
+                    .select({ id: deviceProjects.projectId })
+                    .from(deviceProjects)
+                    .where(eq(deviceProjects.deviceId, id))
+                    .all()
+                    .map((r) => r.id),
+                );
         return sync.changes(req.user, id, req.query.since, req.query.limit, only);
       },
     );

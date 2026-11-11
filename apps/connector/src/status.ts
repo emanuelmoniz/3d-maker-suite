@@ -547,11 +547,7 @@ ${body}
       }
       if (req.method === "POST" && path === "/slicer") {
         // An empty one: no default, the hub asks which slicer opens.
-        const id = (await readForm(req)).get("slicer") ?? "";
-        if (!id || link.slicers.list().some((f) => f.id === id)) {
-          store.set({ defaultSlicer: id });
-          void link.slicers.refresh(); // tells the hub
-        }
+        link.setDefaultSlicer((await readForm(req)).get("slicer") ?? "");
         return back();
       }
       if (req.method === "POST" && path === "/open-folder") {

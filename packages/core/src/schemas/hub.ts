@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { slicerInstallStatusSchema } from "./integrations.ts";
-import { presetSwitchesSchema } from "./presets.ts";
+import { devicePresetLibrarySchema, presetSwitchesSchema } from "./presets.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
 
 /**
@@ -122,17 +122,42 @@ export const deviceSchema = z.object({
   slicers: z.array(deviceSlicerSchema),
   /** A worker integration slices on it (ADR-0014): set by adding and removing those. */
   sliceWorker: z.boolean(),
-  /** Send presets and Install per slicer library, edited in Catalog → Sources (ADR-0020). */
-  presets: z.record(z.string(), presetSwitchesSchema),
+  /** Per slicer library, its machine page's switches (ADR-0021). */
+  presets: z.record(z.string(), devicePresetLibrarySchema),
+  /**
+   * Per slicer library: Use as slicer (its worker row's slicing; null = no worker row), and
+   * whether it is that library's catalog source now (its Catalog Share stays on).
+   */
+  libraries: z.record(
+    z.string(),
+    z.object({ useAsSlicer: z.boolean().nullable(), catalogSource: z.boolean() }),
+  ),
+  /** Receive projects from the hub, and Share its folders (ADR-0021). */
+  receiveProjects: z.boolean(),
+  shareProjects: z.boolean(),
+  /** Its project folders on the hub (roots on it). */
+  folders: z.number().int().nonnegative(),
   createdAt: isoDate,
 });
 
 const name = z.string().trim().min(1).max(100);
 
 export const deviceUpdateSchema = z
-  .object({ name, syncMode: deviceSyncModeSchema })
+  .object({
+    name,
+    syncMode: deviceSyncModeSchema,
+    receiveProjects: z.boolean(),
+    shareProjects: z.boolean(),
+  })
   .partial()
   .strict();
+/** A machine page's switches for one slicer library (`PATCH /api/hub/devices/:id/slicers/:library`). */
+export const deviceLibraryUpdateSchema = z.strictObject({
+  useAsSlicer: z.boolean().optional(),
+  catalog: z.strictObject({ receive: z.boolean(), share: z.boolean() }).partial().optional(),
+  presets: z.strictObject({ receive: z.boolean(), share: z.boolean() }).partial().optional(),
+});
+export type DeviceLibraryUpdate = z.infer<typeof deviceLibraryUpdateSchema>;
 /** One of the user's online devices, for a project's Open and Open folder. */
 export const openDeviceSchema = z.object({
   id,
@@ -205,16 +230,24 @@ export type DeviceUserResult = z.infer<typeof deviceUserResultSchema>;
 /** A file in a slice's work folder: a plain name, never a path or a dot file. */
 export const sliceFileName = z.string().regex(/^[\w-][\w.-]{0,99}$/);
 
-/** What an admin may change on a connector (Edit connector page). */
+/**
+ * What the machine page changes on a connector, live. `defaultSlicer`: a found slicer's id, or ""
+ * to ask each time.
+ */
 const connectorSettingsPatch = {
   port: z.number().int().min(1024).max(65535).optional(),
   autostart: z.boolean().optional(),
+  defaultSlicer: z.string().max(100).optional(),
 };
 export const connectorSettingsPatchSchema = z.strictObject(connectorSettingsPatch);
-/** A connector's settings, read live from it (`PUT`'s port is the one in use until a restart). */
+/**
+ * A connector's settings, read live from it (`PUT`'s port is the one in use until a restart). A
+ * connector before 5.5.0 sends no `defaultSlicer`.
+ */
 export const connectorSettingsSchema = z.object({
   port: z.number().int(),
   autostart: z.boolean(),
+  defaultSlicer: z.string().optional(),
 });
 export const connectorSettingsResultSchema = connectorSettingsSchema.extend({
   /** The saved port differs from the one in use: a restart applies it. */
@@ -337,6 +370,13 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   }),
   /** Restart connector: answered (null) first, then the connector exits for its launcher. */
   z.object({ type: z.literal("connector.restart"), requestId: id }),
+  /** Stop connector: answered (null) first, then it exits; it starts again at login or by hand. */
+  z.object({ type: z.literal("connector.stop"), requestId: id }),
+  /**
+   * Share to the hub (ADR-0021) on or off; the answer is null. Off, it shares none of its folders
+   * (every root "unshared") and keeps the list. A connect has it in `X-Share-Projects`.
+   */
+  z.object({ type: z.literal("projects.share"), requestId: id, on: z.boolean() }),
   /**
    * Slice workers: run `program` (the worker's `slicerPath`) with `args` in a work folder of the
    * data folder, after writing `files` there; `{dir}` in the args is that folder. The 3MF goes

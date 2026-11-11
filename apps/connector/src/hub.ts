@@ -110,11 +110,17 @@ type Options = {
   > & {
     openDir?: (dir: string) => Promise<unknown>;
   };
-  /** Edit connector: its settings, read and saved; `restart` ends the process for the launcher. */
+  /**
+   * The machine page: its settings, read and saved; `restart` ends the process for the launcher,
+   * `stop` ends it for good (until login or started by hand).
+   */
   settings?: {
-    get: () => ConnectorSettings;
-    set: (patch: ConnectorSettingsPatch) => Promise<ConnectorSettingsResult>;
+    get: () => Omit<ConnectorSettings, "defaultSlicer">;
+    set: (
+      patch: Pick<ConnectorSettingsPatch, "port" | "autostart">,
+    ) => Promise<Omit<ConnectorSettingsResult, "defaultSlicer">>;
     restart: () => void;
+    stop: () => void;
   };
   log?: (line: string) => void;
 };
@@ -247,27 +253,48 @@ export function createLink({
     if (!res.ok || !answer.success) throw new PairError("unreachable");
     return answer.data as z.infer<T>;
   };
-  /** Edit connector requests; ENOTSUP when this connector has no settings to give (tests). */
+  /**
+   * The slicer Open uses: a found one's id, or "" to ask each time. False for one not found here.
+   * The hub hears of it with the slicer list.
+   */
+  const setDefaultSlicer = (id: string) => {
+    if (id && !slicers.list().some((f) => f.id === id)) return false;
+    store.set({ defaultSlicer: id });
+    void slicers.refresh();
+    return true;
+  };
+  /** The machine page's requests; ENOTSUP when this connector has no settings to give (tests). */
   const editSettings = async (
     event: Extract<
       HubEvent,
-      { type: "connector.settings.get" | "connector.settings.set" | "connector.restart" }
+      {
+        type:
+          | "connector.settings.get"
+          | "connector.settings.set"
+          | "connector.restart"
+          | "connector.stop";
+      }
     >,
   ) => {
     const { requestId } = event;
     if (!settings) return void (await reply(requestId, { ok: false, code: "ENOTSUP" }));
+    const defaultSlicer = () => store.get().defaultSlicer ?? "";
     try {
       if (event.type === "connector.settings.get")
-        await reply(requestId, { ok: true, result: settings.get() });
-      else if (event.type === "connector.settings.set")
         await reply(requestId, {
           ok: true,
-          result: await settings.set({ port: event.port, autostart: event.autostart }),
+          result: { ...settings.get(), defaultSlicer: defaultSlicer() },
         });
-      else {
+      else if (event.type === "connector.settings.set") {
+        if (event.defaultSlicer !== undefined && !setDefaultSlicer(event.defaultSlicer))
+          return void (await reply(requestId, { ok: false, code: "ENOENT" }));
+        const result = await settings.set({ port: event.port, autostart: event.autostart });
+        await reply(requestId, { ok: true, result: { ...result, defaultSlicer: defaultSlicer() } });
+      } else {
         // Answered first: the hub's request must not time out on a process that is gone.
         await reply(requestId, { ok: true, result: null });
-        settings.restart();
+        if (event.type === "connector.stop") settings.stop();
+        else settings.restart();
       }
     } catch (e) {
       log(`settings: ${message(e)}`);
@@ -304,9 +331,16 @@ export function createLink({
         event.success &&
         (event.data.type === "connector.settings.get" ||
           event.data.type === "connector.settings.set" ||
-          event.data.type === "connector.restart")
+          event.data.type === "connector.restart" ||
+          event.data.type === "connector.stop")
       )
         return void editSettings(event.data);
+      if (event.success && event.data.type === "projects.share") {
+        store.set({ shareProjects: event.data.on });
+        void reply(event.data.requestId, { ok: true, result: null });
+        roots.handle({ type: "roots.changed" });
+        return;
+      }
       if (event.success && event.data.type === "slicer.check")
         return void slicers.check(event.data);
       if (event.success && event.data.type === "slicer.install")
@@ -393,6 +427,8 @@ export function createLink({
       store.set({
         sliceWorker: res.headers.get("x-slice-worker") === "1",
         presetLibraries: z.record(z.string(), presetSwitchesSchema).catch({}).parse(libraries),
+        // A hub before 5.5.0 doesn't say: it shares.
+        shareProjects: res.headers.get("x-share-projects") !== "0",
       });
       const owner = res.headers.get("x-device-user");
       userName = owner ? decodeURIComponent(owner) : undefined;
@@ -537,6 +573,7 @@ export function createLink({
     sync,
     slicers,
     /** The status page's sync mode switch; the hub answers with `roots.changed`. */
+    setDefaultSlicer,
     setMode: (mode: DeviceSyncMode) =>
       request("/sync/mode", { method: "PUT", body: { mode } }).then((res) => {
         if (!res.ok) throw new Error(`sync mode: HTTP ${res.status}`);

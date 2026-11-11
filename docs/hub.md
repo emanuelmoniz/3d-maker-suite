@@ -23,7 +23,36 @@ Only admins pair devices.
 3. Enter the hub's address (the one you open the web app at), the code and a device name, then **Pair**.
 4. The device shows **Online** on its status page and in Hub management.
 
-The hub stores only a hash of the device token. In Hub management you can **Rename** a device or **Revoke** it: a revoked device loses access at once, its local files stay on its disk, and it needs a new code to join again. The connector connects out to the hub, so devices need no open ports and no VPN. It works behind Caddy, nginx and Traefik with default settings: the hub marks its event stream as unbuffered and sends a heartbeat every 15 seconds.
+The hub stores only a hash of the device token. On a device's page you can **Rename** it or **Revoke** it: a revoked device loses access at once, its local files stay on its disk, and it needs a new code to join again. The connector connects out to the hub, so devices need no open ports and no VPN. It works behind Caddy, nginx and Traefik with default settings: the hub marks its event stream as unbuffered and sends a heartbeat every 15 seconds.
+
+## Machine page
+
+Each device in **Hub management** opens its machine page. It has every setting of that machine:
+
+- **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
+- **Connection**: the status page port and start at login, read live from the connector.
+- **Slicers**: the default slicer (the one **Open** uses, or **Ask each time**). Then for each slicer the connector found:
+  - **Use as slicer**: whether it slices for the hub. It turns slicing on that slicer's worker location on or off ([Slice workers](#slice-workers)). A slicer not set up as a worker links to Integrations.
+  - **Catalog**, **Receive** and **Share**. On the library's catalog source, Share stays on: pick another source in Catalog settings first.
+  - **Presets**, **Receive** and **Share** ([Slicer presets](#slicer-presets)).
+- **Projects**: **Receive from the hub** (with what it syncs, below) and **Share to the hub** (its shared folders, below).
+- **Actions**: **Restart connector**, **Stop connector** and **Revoke**.
+
+**Manage the hub** changes everything on every machine. The machine's own user changes a section with its switch:
+
+| Section | Switch | Also needs |
+|---|---|---|
+| Connection, Restart, Stop | **Connection** | |
+| Default slicer, Use as slicer | **Slicers** | |
+| Catalog Receive and Share | **Catalog** | Catalog write |
+| Presets Receive and Share | **Presets** | Presets write |
+| Projects Receive and Share | **Projects** | Projects write |
+
+Identity, Update now and Revoke stay with **Manage the hub**.
+
+The machine's own user sees its page even without a switch, with each value as text. A machine paired to someone else shows as not found. The switches are in [users.md](users.md#permissions).
+
+The port, start at login, default slicer, Restart and Stop need the connector online. The other switches are kept on the hub and apply when it reconnects. A connector older than 5.5.0 says it's too old for Stop, the default slicer and Share to the hub; it updates itself to the hub's version when it connects.
 
 ### Change a connector's user
 
@@ -62,7 +91,7 @@ A restarted connector downloads nothing it already has.
 
 ### Which projects a device syncs
 
-**Hub management** (and the connector's status page) set what a device syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
+A device syncs hub projects while **Receive from the hub** is on, on its [machine page](#machine-page). Turning it off removes its copies of hub projects from the device; nothing is deleted on the hub. The machine page (and the connector's status page) set what it syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
 
 ### Open
 
@@ -121,7 +150,7 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 
 ## Slice workers
 
-A device can slice for the hub. On the Integrations page, add **On a connected workstation** as a location of Bambu Studio or OrcaSlicer, pick the device and pick or install its slicer. That makes it a slice worker, and removing its last location ends it. The device's page in **Hub management** lists the slicers the connector found and **Used by Bambu Studio** with a link to the location; its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
+A device can slice for the hub. On the Integrations page, add **On a connected workstation** as a location of Bambu Studio or OrcaSlicer, pick the device and pick or install its slicer. That makes it a slice worker, and removing its last location ends it. On the [machine page](#machine-page), **Use as slicer** turns that slicer's slicing on or off without removing the location; its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 
@@ -131,12 +160,12 @@ On a hub, one library holds the user presets (printer, process, filament) of Bam
 
 Open it from **Presets → Settings → Library** (shown while the hub is on; `/hub/presets` and `/catalog/presets` still land there). A preset imported from a user preset links to its entry here, and the entry links back to it. Anyone who can see the presets or projects can browse and download presets and their earlier versions. Changing things needs **Presets** write, which Admin and Editor have: delete a preset, clean up conflict copies, and set the two switches below.
 
-Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Per device and per slicer, in the **Devices** table of each slicer on **Presets → Settings → Sources** (both off by default, and the only place they are set):
+Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Per device and per slicer, on its [machine page](#machine-page) (Presets **Share** and **Receive**), or in the **Devices** table of each slicer on **Presets → Settings → Sources** (both off by default):
 
-- **Send presets**: the connector sends each preset saved in that slicer to the hub within a minute. It follows the account the slicer last used, or the signed-out folder. The row shows when a preset it sent was last stored.
-- **Install**: the connector writes the library's presets into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first and the preset shows at the slicer's next start. The row shows what waits, and under **Folder and backup** where it writes and the last backup.
+- **Share** (Send presets): the connector sends each preset saved in that slicer to the hub within a minute. It follows the account the slicer last used, or the signed-out folder. The row shows when a preset it sent was last stored.
+- **Receive** (Install): the connector writes the library's presets into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first and the preset shows at the slicer's next start. The row shows what waits, and under **Folder and backup** where it writes and the last backup.
 
-So a PC can send its Bambu Studio presets and not its OrcaSlicer ones. A slicer the device no longer reports keeps its row, greyed out, with its values. The device page in Hub management shows one read-only line per slicer, with a link to its row. Updating from 5.4.0-alpha.3 or earlier, each device keeps its two switches for every slicer it reported. A connector older than this asks to be updated when you change a switch while it is online; until then it only gets the slicers whose switch is on.
+So a PC can send its Bambu Studio presets and not its OrcaSlicer ones. A slicer the device no longer reports keeps its row, greyed out, with its values. Updating from 5.4.0-alpha.3 or earlier, each device keeps its two switches for every slicer it reported. A connector older than this asks to be updated when you change a switch while it is online; until then it only gets the slicers whose switch is on.
 
 ### Catalog source
 
@@ -163,7 +192,7 @@ Both slicers sync user presets through their cloud account, and the connector wr
 
 ## Shared folders on a device
 
-The hub can browse and use only the folders a device **shares**. On the connector's status page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.
+The hub can browse and use only the folders a device **shares**, while **Share to the hub** is on on its [machine page](#machine-page). Off, every device root on it shows **Not shared on the device**; the list stays on the device for when it's back on. Upgrading to 5.5.0, a device with a device root starts with Share on, one without with Share off. On the connector's status page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.
 
 - Browsing from the web app starts at the shared folders and can't leave them, also through `..` or links.
 - A device root outside the shared folders can't be added. If a folder stops being shared, its root shows **Not shared on the device** with the last known data, and isn't synced or served.
@@ -209,7 +238,7 @@ Self-updates don't warn again.
 
 Hub management marks a device whose connector isn't on the hub's version: **Outdated**, or **Update failed** with the reason (the download failed, or the new version didn't start and the connector went back). The hub also raises an alert, which clears once the versions match. **Update now** makes an online connector download the hub's version at once, even one that went back before.
 
-The status page has **Restart server**, **Stop server** and **Unpair**, also on the pair screen. Unpair forgets the hub on this machine (for a hub that needs a fresh install); the hub shows the device offline until an admin removes it. A connector does not start on a machine where a hub is running: one hub per machine. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
+The machine page has **Restart connector** and **Stop connector**; both need it online. The status page has **Restart server**, **Stop server** and **Unpair**, also on the pair screen. Unpair forgets the hub on this machine (for a hub that needs a fresh install); the hub shows the device offline until an admin removes it. A connector does not start on a machine where a hub is running: one hub per machine. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
 
 ## For company IT
 

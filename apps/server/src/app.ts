@@ -264,6 +264,7 @@ export async function buildApp(
       (id) => hubFiles.releaseLocks({ deviceId: id }),
       () => hubFiles.versionsUsage(),
       (id) => deviceCatalog.connected(id),
+      opts.adapters ?? [],
     ),
     { prefix: "/api/hub" },
   );

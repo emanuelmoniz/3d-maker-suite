@@ -115,17 +115,44 @@ export const presetInstallSlicerSchema = z.object({
 });
 export const presetInstallStatusSchema = z.array(presetInstallSlicerSchema).max(20);
 
-/**
- * A device's switches for one slicer library (ADR-0020): Send presets (ADR-0017's Share) and
- * Install. `devices.presetLibraries` keeps them by library, with when a preset was last stored.
- */
+/** The connector's switches for one slicer library: Send presets (Share) and Install (Receive). */
 export const presetSwitchesSchema = z.object({ send: z.boolean(), install: z.boolean() });
 export type PresetSwitches = z.infer<typeof presetSwitchesSchema>;
-export type DevicePresetLibrary = PresetSwitches & { sentAt?: string };
-/** Only the switches, for the connector. */
+
+const kinds = z.array(slicerPresetKindSchema).max(SLICER_PRESET_KINDS.length);
+/**
+ * A machine's switches for one slicer library (ADR-0021), on its page: Catalog and Presets,
+ * Receive and Share each, and the preset kinds each takes. `devices.presetLibraries` keeps them by
+ * library, with when a preset was last stored.
+ */
+export const devicePresetLibrarySchema = z.object({
+  catalog: z.object({ receive: z.boolean(), share: z.boolean() }),
+  presets: z.object({
+    receive: z.boolean(),
+    share: z.boolean(),
+    receiveKinds: kinds,
+    shareKinds: kinds,
+  }),
+  sentAt: isoDate.optional(),
+});
+export type DevicePresetLibrary = z.infer<typeof devicePresetLibrarySchema>;
+/** A library with every switch off, before its first change. */
+export const emptyPresetLibrary = (): DevicePresetLibrary => ({
+  catalog: { receive: false, share: false },
+  presets: {
+    receive: false,
+    share: false,
+    receiveKinds: [...SLICER_PRESET_KINDS],
+    shareKinds: [...SLICER_PRESET_KINDS],
+  },
+});
+/** Only the preset switches, in the connector's shape (unchanged since 5.4.0). */
 export const presetSwitches = (m: Record<string, DevicePresetLibrary>) =>
   Object.fromEntries(
-    Object.entries(m).map(([lib, { send, install }]) => [lib, { send, install }]),
+    Object.entries(m).map(([lib, { presets }]) => [
+      lib,
+      { send: presets.share, install: presets.receive },
+    ]),
   ) as Record<string, PresetSwitches>;
 
 /** One slicer of a device in `GET /api/presets/devices`: the device × slicer table's row. */

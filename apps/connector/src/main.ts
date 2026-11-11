@@ -64,6 +64,7 @@ const link = createLink({
       return { port: saved, autostart: startAtLogin, restartRequired: saved !== port };
     },
     restart: () => setTimeout(() => quit(RESTART), 200),
+    stop: () => setTimeout(() => quit(0), 200),
   },
   log,
 });

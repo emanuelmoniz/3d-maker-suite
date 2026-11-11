@@ -109,7 +109,9 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/updates": ["-", "-"],
   "/api/users": ["-", "-"],
   "/api/roles": ["-", "-"],
-  "/api/hub/devices": ["-", "-"],
+  // ADR-0021: anyone lists their own machines (the route narrows it); the rest is hub.manage.
+  "/api/hub/devices": ["R", "R"],
+  "/api/hub/devices/abc/user-code": ["-", "-"],
   "/api/hub/pairing-codes": ["-", "-"],
   // ADR-0017, ADR-0021: who sees projects sees the presets; presets write (Editor by 0111) deletes.
   "/api/presets": ["R", "RW"],

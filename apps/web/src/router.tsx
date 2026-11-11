@@ -30,8 +30,8 @@ import { FilamentPage } from "./pages/filament/FilamentPage.tsx";
 import { SpoolDetailPage } from "./pages/filament/SpoolDetailPage.tsx";
 import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
-import { EditConnectorPage } from "./pages/hub/EditConnectorPage.tsx";
 import { HubPage } from "./pages/hub/HubPage.tsx";
+import { MachinePage } from "./pages/hub/MachinePage.tsx";
 import { ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
@@ -606,8 +606,9 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: `${HUB_ITEM.to}/devices/$deviceId`,
-    loader: () => loadNamespace("hub"),
-    component: EditConnectorPage,
+    // integrations: the slicers' names.
+    loader: () => Promise.all(["hub", "integrations"].map(loadNamespace)),
+    component: MachinePage,
   }),
   createRoute({
     getParentRoute: () => root,

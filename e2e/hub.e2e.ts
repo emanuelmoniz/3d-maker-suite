@@ -34,7 +34,7 @@ test("hub: change a connector's user with a code from the hub", async ({ page, a
   const whoIs = async () =>
     (await (await asDevice(desk.token, "/api/auth/me")).json()).user.displayName;
 
-  // On the Edit connector page: a code for anyone enabled but the current user.
+  // On the machine page: a code for anyone enabled but the current user.
   const newCode = async (user: string, current: string) => {
     await page.goto(`/hub/devices/${desk.deviceId}`);
     const identity = page.getByRole("region", { name: "Identity" });
@@ -133,10 +133,11 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(row).toContainText("User: Ana Admin");
   await expect(row).toContainText("win32 · connector 5.0.0");
 
-  // The card has only the two connector actions; everything else is on the Edit connector page.
-  await expect(row.getByRole("button")).toHaveText(["Restart connector", "Revoke"]);
+  // The card only links to the machine page (ADR-0021), where its actions are.
+  await expect(row.getByRole("button")).toHaveCount(0);
   await row.getByRole("link", { name: "Desk PC" }).click();
-  await expect(page.getByRole("heading", { name: "Edit connector: Desk PC" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Desk PC" })).toBeVisible();
+  await expect(page.getByText("Ana Admin · win32 · connector 5.0.0")).toBeVisible();
 
   // What the connector does with a live request: answer on /replies/:id.
   const reader = events.body?.getReader();
@@ -149,12 +150,18 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
       text += dec.decode(value, { stream: true });
       for (const block of text.split("\n\n")) {
         const id = /"requestId":"([^"]+)"/.exec(block)?.[1];
-        if (!id || !block.includes("connector.settings.get")) continue;
+        // Settings as a 5.5.0 connector; Stop as one before it, which doesn't know it.
+        const answer = block.includes("connector.settings.get")
+          ? { ok: true, result: { port: 4301, autostart: true, defaultSlicer: "" } }
+          : block.includes("connector.stop")
+            ? { ok: false, code: "ENOTSUP" }
+            : null;
+        if (!id || !answer) continue;
         text = "";
         await fetch(`${app.url}/api/hub/device/replies/${id}`, {
           method: "POST",
           headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-          body: JSON.stringify({ ok: true, result: { port: 4301, autostart: true } }),
+          body: JSON.stringify(answer),
         });
       }
     }
@@ -170,21 +177,33 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(identity).toContainText("User: Ana Renamed");
   await identity.getByLabel("Name").fill("Laptop");
   await identity.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("heading", { name: "Edit connector: Laptop" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Laptop" })).toBeVisible();
+
+  // An older connector doesn't know Stop: the page says it's too old.
+  const actions = page.getByRole("region", { name: "Actions" });
+  await actions.getByRole("button", { name: "Stop connector" }).click();
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: "Stop the connector on Laptop?" })
+    .getByRole("button", { name: "Stop connector" })
+    .click();
+  await expect(actions.getByRole("alert")).toContainText("This connector is too old for this.");
 
   // Offline: what needs the connector says so, the hub-side settings stay editable.
   stream.abort();
   await page.waitForTimeout(500);
   await page.reload();
+  await expect(page.getByText("Offline: changes apply when it reconnects.")).toBeVisible();
   await expect(
     page.getByText("The connector is offline. This can only be changed").first(),
   ).toBeVisible();
+  await expect(actions.getByRole("button", { name: "Restart connector" })).toBeDisabled();
   await page.getByRole("link", { name: "Back" }).click();
   await expect(row).toContainText("Laptop");
   await expect(row).toContainText("User: Ana Renamed");
-  await expect(row.getByRole("button", { name: "Restart connector" })).toBeDisabled();
 
-  await row.getByRole("button", { name: "Revoke" }).click();
+  await row.getByRole("link", { name: "Laptop" }).click();
+  await actions.getByRole("button", { name: "Revoke" }).click();
   await page
     .getByRole("dialog")
     .filter({ hasText: "Revoke Laptop?" })
@@ -192,4 +211,76 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
     .click();
   await expect(page.getByText("No devices yet")).toBeVisible();
   expect((await asDevice()).status).toBe(401);
+});
+
+test("hub: a machine's own user edits only the sections their switches allow", async ({
+  page,
+  app,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const post = async (path: string, data: object) =>
+    (await page.request.post(path, { data })).json();
+  await post("/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: "correct horse",
+  });
+  // A viewer, with the Presets section of their own machines (and presets write it needs).
+  const ben = await post("/api/users", {
+    displayName: "Ben Bench",
+    email: "ben@example.com",
+    password: "correct horse",
+    roleId: "00000000-0000-4000-8000-000000000003",
+    permissions: { "machine.presets": true, presets: "write" },
+  });
+  await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
+  const pair = async (userId: string, name: string) => {
+    const { code } = await post("/api/hub/pairing-codes", { userId });
+    return app.api<{ token: string; deviceId: string }>("POST", "/api/hub/pair", {
+      code,
+      name,
+      os: "win32",
+      connectorVersion: "5.5.0",
+    });
+  };
+  const bens = await pair(ben.id, "Ben PC");
+  const anas = await pair(
+    (await (await page.request.get("/api/auth/me")).json()).user.id,
+    "Ana PC",
+  );
+  // What its connector reports: the slicers it found.
+  await fetch(`${app.url}/api/hub/device/slicers`, {
+    method: "PUT",
+    headers: { authorization: `Bearer ${bens.token}`, "content-type": "application/json" },
+    body: JSON.stringify([{ id: "orca-slicer", version: "2.3.0", path: "C:/Orca/orca.exe" }]),
+  });
+
+  await page.context().clearCookies();
+  await page.request.post("/api/auth/login", {
+    data: { email: "ben@example.com", password: "correct horse" },
+  });
+  await page.goto(`/hub/devices/${bens.deviceId}`);
+  await expect(page.getByRole("heading", { name: "Ben PC" })).toBeVisible();
+  // Presets is theirs to change; Catalog, Projects and the actions are not.
+  const share = page.getByRole("switch", { name: "Share OrcaSlicer presets with the hub" });
+  await expect(share).not.toBeChecked();
+  await share.click({ force: true });
+  await expect(share).toBeChecked();
+  await expect(
+    page.getByRole("switch", { name: "Share the OrcaSlicer catalog with the hub" }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Share: off").first()).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Receive from the hub" })).toHaveCount(0);
+  await expect(page.getByText("Receive from the hub: on")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Actions" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Change user" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Hub management" })).toHaveCount(0);
+  // Not page-wide: the phone layout scrolls only down.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  // Someone else's machine isn't theirs to see.
+  await page.goto(`/hub/devices/${anas.deviceId}`);
+  await expect(page.getByText("This device doesn't exist anymore.")).toBeVisible();
 });

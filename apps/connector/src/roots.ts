@@ -300,6 +300,9 @@ export function createRootSync({
     live = [];
   }
 
+  /** The folders the hub may use: none while Share to the hub is off (the list stays). */
+  const shared = () => (store.get().shareProjects === false ? [] : (store.get().folders ?? []));
+
   /** Reads this device's roots from the hub, syncs each shared one and watches it. */
   function start() {
     halt();
@@ -315,7 +318,7 @@ export function createRootSync({
           if (!within(outer, base)) outer.push(base);
         store.set({ folders: outer });
       }
-      const folders = store.get().folders ?? [];
+      const folders = shared();
       for (const { root, base } of roots) {
         if (mine !== run) return;
         if (!within(folders, base)) {
@@ -410,7 +413,7 @@ export function createRootSync({
     handle(event: HubEvent) {
       if (event.type === "roots.changed") void start();
       else if (event.type === "fs.list")
-        void answer(event.requestId, () => listShared(event.path, store.get().folders ?? []));
+        void answer(event.requestId, () => listShared(event.path, shared()));
       else if (event.type === "fs.upload") void upload(event.requestId, event.rootId, event.rel);
       else if (event.type === "fs.mkdir")
         void answer(event.requestId, async () => {

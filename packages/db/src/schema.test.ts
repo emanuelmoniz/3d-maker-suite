@@ -1778,15 +1778,19 @@ describe("migration 0107", () => {
 
 describe("migration 0109", () => {
   it("carries a device's two switches over to each slicer it reports", () => {
-    const now = migrateAcross(108, (sqlite) => {
-      sqlite.exec(`
+    const now = migrateAcross(
+      108,
+      (sqlite) => {
+        sqlite.exec(`
         insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
         insert into devices (id, name, user_id, token_hash, slicers, share_presets, install_presets, created_at, updated_at) values
           ('both', 'A', 'u', 't1', '[{"id":"bambu-studio","version":null,"path":"a"},{"id":"orca-slicer","version":null,"path":"b"}]', 1, 0, 'x', 'x'),
           ('off', 'B', 'u', 't2', '[{"id":"bambu-studio","version":null,"path":"a"}]', 0, 0, 'x', 'x'),
           ('none', 'C', 'u', 't3', '[]', 1, 1, 'x', 'x');
       `);
-    });
+      },
+      111,
+    );
     const libs = Object.fromEntries(
       now
         .select({ id: s.devices.id, l: s.devices.presetLibraries })
@@ -1874,5 +1878,62 @@ describe("migration 0110", () => {
     now.delete(s.processPresets).run();
     expect(now.select().from(s.printers).get()?.processPresetId).toBeNull();
     expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});
+
+describe("migration 0112", () => {
+  const kinds = ["machine", "process", "filament"];
+  it("splits a machine's switches into Catalog and Presets, and adds Receive and Share projects", () => {
+    const now = migrateAcross(111, (sqlite) => {
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
+        insert into devices (id, name, user_id, token_hash, preset_libraries, created_at, updated_at) values
+          ('a', 'A', 'u', 't1', '{"bambu-studio":{"send":true,"install":false,"sentAt":"2026-11-01T00:00:00.000Z"},"orca-slicer":{"send":false,"install":true}}', 'x', 'x'),
+          ('src', 'B', 'u', 't2', '{}', 'x', 'x'),
+          ('none', 'C', 'u', 't3', '{}', 'x', 'x');
+        insert into roots (id, name, location, path, position, created_at, updated_at) values ('r', 'r', 'a', 'D:/m', 0, 'x', 'x');
+        insert into settings (key, value) values ('catalogSources', '{"bambu-studio":{"deviceId":"src"},"orca-slicer":{"deviceId":"a"},"x":{"integrationId":"i"}}');
+        insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('custom', 'custom', '{"printers":"read"}', '{}', 'x', 'x');
+      `);
+    });
+    const devices = Object.fromEntries(
+      now
+        .select()
+        .from(s.devices)
+        .all()
+        .map((d) => [d.id, d]),
+    );
+    const lib = (receive: boolean, share: boolean, catalogShare = false) => ({
+      catalog: { receive: false, share: catalogShare },
+      presets: { receive, share, receiveKinds: kinds, shareKinds: kinds },
+    });
+    expect(devices.a?.presetLibraries).toEqual({
+      "bambu-studio": { ...lib(false, true), sentAt: "2026-11-01T00:00:00.000Z" },
+      "orca-slicer": lib(true, false, true),
+    });
+    expect(devices.src?.presetLibraries).toEqual({ "bambu-studio": lib(false, false, true) });
+    expect(devices.none?.presetLibraries).toEqual({});
+    expect(Object.values(devices).map((d) => [d.id, d.receiveProjects, d.shareProjects])).toEqual([
+      ["a", true, true],
+      ["src", true, false],
+      ["none", true, false],
+    ]);
+    const machine = (r: { permissions: Record<string, unknown> }) =>
+      Object.fromEntries(Object.entries(r.permissions).filter(([k]) => k.startsWith("machine.")));
+    const roles = Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn ?? r.id, machine(r)]),
+    );
+    const all = (on: boolean) => ({
+      "machine.connection": on,
+      "machine.slicers": on,
+      "machine.catalog": on,
+      "machine.presets": on,
+      "machine.projects": on,
+    });
+    expect(roles).toEqual({ admin: all(true), editor: all(false), viewer: all(false), custom: {} });
   });
 });
