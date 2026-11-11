@@ -2526,6 +2526,7 @@ Do Step 9 of the 5.5.0 plan in PLAN.md.
 - **Presets settings → Sources.** Share to the hub: the server's slicer (system and user lines per kind), accounts with Allow user presets (user lines per kind), machines with Presets Share per slicer (a line per kind: switch and state, no Edit), and "No connector? Upload a zip" on the section. Receive from the hub: machines with Presets Receive per slicer, a line per kind with its state (up to date, waiting for the slicer to close, last backup). Choose brands shows read-only with a link to Catalog settings.
 - **Per kind:** a machine's kind lines write `shareKinds` / `receiveKinds`. The hub filters, so an older connector needs no change: an upload of a kind that's off is ignored, and Install sends only the kinds that are on.
 - `SourcesTab.tsx`, `DeviceSlicers.tsx` and `PresetsCard` go.
+- Remove the account card's Sync log collapsible (`AccountCard.tsx`): every account line's `⋯` now has its own log.
 - `docs/import.md`, `docs/hub.md`.
 
 **Done when:** everything Catalog → Sources did is reachable from the two tabs; a catalog source can be switched between two machines; a machine shares one slicer's filament presets and nothing else; a line turned off keeps its rows; tests, e2e, lint and `pnpm i18n:check` pass.
