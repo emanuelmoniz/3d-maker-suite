@@ -129,14 +129,8 @@ export const deviceSchema = z.object({
   sliceWorker: z.boolean(),
   /** Per slicer library, its machine page's switches (ADR-0021). */
   presets: z.record(z.string(), devicePresetLibrarySchema),
-  /**
-   * Per slicer library: Use as slicer (its worker row's slicing; null = no worker row), and
-   * whether it is that library's catalog source now (its Catalog Share stays on).
-   */
-  libraries: z.record(
-    z.string(),
-    z.object({ useAsSlicer: z.boolean().nullable(), catalogSource: z.boolean() }),
-  ),
+  /** Per slicer library: whether its install there is the hub's slicer (ADR-0022). */
+  libraries: z.record(z.string(), z.object({ hubSlicer: z.boolean() })),
   /** Receive projects from the hub, and Share its folders (ADR-0021). */
   receiveProjects: z.boolean(),
   shareProjects: z.boolean(),
@@ -162,9 +156,10 @@ const presetKinds = z
   .transform((k) => [...new Set(k)]);
 /** A machine page's switches for one slicer library (`PATCH /api/hub/devices/:id/slicers/:library`). */
 export const deviceLibraryUpdateSchema = z.strictObject({
-  useAsSlicer: z.boolean().optional(),
-  catalog: z.strictObject({ receive: z.boolean(), share: z.boolean() }).partial().optional(),
-  presets: z
+  /** Use as slicer: offers this slicer to the hub (ADR-0022). */
+  slicer: z.boolean().optional(),
+  system: z.strictObject({ receive: z.boolean() }).optional(),
+  user: z
     .strictObject({
       receive: z.boolean(),
       share: z.boolean(),

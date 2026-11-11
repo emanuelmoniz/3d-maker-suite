@@ -203,8 +203,11 @@ describe("permissions", () => {
     const write = rights({ catalog: "write" });
     expect(can(write, "/api/presets/abc", "DELETE")).toBe(false);
     expect(can(write, "/api/brands", "POST")).toBe(false);
-    expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
-    expect(can(manage, "/api/catalog/sources/bambu-studio", "PUT")).toBe(true);
+    // The hub's slicer is picked in Integrations (ADR-0022).
+    expect(can(manage, "/api/integrations/slicers/bambu-studio", "PUT")).toBe(false);
+    expect(
+      can(rights({ "integrations.manage": true }), "/api/integrations/slicers/bambu-studio", "PUT"),
+    ).toBe(true);
     // Choose brands is a Sources setting; the rest of import stays integrations.manage.
     expect(can(write, "/api/import/catalog/abc", "POST")).toBe(false);
     expect(can(manage, "/api/import/catalog/abc", "GET")).toBe(true);
@@ -232,7 +235,6 @@ describe("permissions", () => {
     expect(can(write, "/api/presets/abc", "DELETE")).toBe(true);
     expect(can(write, "/api/presets/devices/abc/held", "POST")).toBe(true);
     expect(can(write, "/api/machine-presets/abc", "DELETE")).toBe(false);
-    expect(can(write, "/api/catalog/sources/bambu-studio", "PUT")).toBe(false);
     expect(can(rights({ presets: "manage" }), "/api/bulk/machine-presets", "POST")).toBe(true);
     expect(can(rights({ catalog: "manage" }), "/api/bulk/machine-presets", "POST")).toBe(false);
   });

@@ -167,16 +167,11 @@ export function SlicingSetup({ project, setup }: { project: Project; setup: Slic
             } catch {
               return; // save.isError shows below
             }
-            slice.mutate({});
+            slice.mutate();
           }}
         >
           {t("projects:slicing.slice")}
         </Button>
-        {waiting > 0 && saved.canFallback && !left && (
-          <Button disabled={busy} onClick={() => slice.mutate({ fallback: true })}>
-            {t("projects:slicing.fallback")}
-          </Button>
-        )}
         <p aria-live="polite" className={slice.isError || save.isError ? "text-bad" : "text-muted"}>
           {save.isError ? t("projects:slicing.saveFailed") : sliceStatus}
         </p>

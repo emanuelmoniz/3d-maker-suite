@@ -17,7 +17,6 @@ import type {
   ProjectRelink,
   ProjectRelinkResult,
   ProjectScanStatus,
-  ProjectSliceRun,
   ProjectSlicing,
   ProjectSlicingInput,
   ProjectTrash,
@@ -219,15 +218,11 @@ export const slicePoll = (plates: { job: PlateSetup["job"] }[] = []) =>
       ? 10_000
       : false;
 
-/**
- * Queues the plates that need slicing, or with `fallback` the ones waiting for their slice worker
- * on the server's own slicer; progress comes from `useProjectSlicing`.
- */
+/** Queues the plates that need slicing; progress comes from `useProjectSlicing`. */
 export const useSliceProject = (id: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: ProjectSliceRun = {}) =>
-      api<ProjectSlicing>("POST", `/api/projects/${id}/slicing/run`, body),
+    mutationFn: () => api<ProjectSlicing>("POST", `/api/projects/${id}/slicing/run`),
     onSuccess: (data) => qc.setQueryData(["projects", id, "slicing"], data),
   });
 };

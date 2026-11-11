@@ -5,13 +5,11 @@ import {
 } from "@3d-maker-suite/core";
 import { Cable } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../components/Button.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useAdapterName, useIntegrations, useLocationLabel } from "../../lib/integrations.ts";
-import { useCatalogSources, usePickCatalogSource } from "../../lib/presets.ts";
+import { useCatalogSources } from "../../lib/presets.ts";
 import { IntegrationsLink, PolicyLines } from "./AccountSources.tsx";
 import { ChooseBrands } from "./ChooseBrands.tsx";
 import { SlicerGroup, SourceBadge, SourceBlock, SourcesSection, StateLines } from "./Sources.tsx";
@@ -35,7 +33,7 @@ export const serverRows = (lib: LibrarySources, list: Integration[]) =>
   );
 
 /** The machines of the libraries, each with the libraries it has a switch for. */
-export function machinesOf(libraries: LibrarySources[], on: "share" | "receive") {
+export function machinesOf(libraries: LibrarySources[], on: "slicer" | "receive") {
   const byId = new Map<string, { name: string; libraries: LibrarySources[] }>();
   for (const lib of libraries)
     for (const m of lib.machines)
@@ -48,9 +46,9 @@ export function machinesOf(libraries: LibrarySources[], on: "share" | "receive")
 }
 
 /**
- * Catalog settings → Sources (ADR-0021 wireframe 4): per library, the server's slicer and each
- * machine with Catalog Share. Only the catalog source reads the catalog: its four lines and Choose
- * brands; the others offer Use as catalog source. Then the machines that receive its `system/`.
+ * Catalog settings → Sources: per library, the server's slicer and each machine that offers it.
+ * Only the hub's slicer (ADR-0022, picked in Integrations) reads the catalog: its four lines and
+ * Choose brands. Then the machines that receive its `system/`.
  */
 export function CatalogSources() {
   const { t } = useTranslation();
@@ -59,7 +57,7 @@ export function CatalogSources() {
   const libraries = useCatalogSources().data;
   if (!list || !libraries) return null;
   const server = libraries.filter((l) => serverRows(l, list).length);
-  const sharing = machinesOf(libraries, "share");
+  const sharing = machinesOf(libraries, "slicer");
   const receiving = machinesOf(libraries, "receive");
   if (!server.length && !sharing.length && !receiving.length)
     return (
@@ -149,10 +147,7 @@ export function MachineBlock({
   );
 }
 
-/**
- * One slicer of a source in Share to the hub: the catalog source's four lines and Choose brands,
- * or Use as catalog source.
- */
+/** One slicer of a source in Share to the hub: the hub's slicer's four lines and Choose brands. */
 function CatalogSlicer({
   lib,
   list,
@@ -170,15 +165,9 @@ function CatalogSlicer({
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
   const manage = useCan("catalog", "manage");
-  const choose = usePickCatalogSource();
   const name = adapterName(lib.library);
   const source = isSource(lib, pick);
   const cards = source && lib.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
-  const pickable = lib.options.some((o) =>
-    "integrationId" in pick
-      ? "integrationId" in o && o.integrationId === pick.integrationId
-      : "deviceId" in o && o.deviceId === pick.deviceId,
-  );
   const unreadable =
     "integrationId" in pick &&
     lib.options.some(
@@ -191,26 +180,12 @@ function CatalogSlicer({
   ]
     .filter(Boolean)
     .join(" · ");
-  const blocked = "deviceId" in pick && lib.noDevices;
   return (
     <SlicerGroup
       id={id ?? ("deviceId" in pick ? `machine-${pick.deviceId}-${lib.library}` : undefined)}
       name={name}
       badge={source && <SourceBadge>{t("settings:sources.catalog.source")}</SourceBadge>}
       meta={meta || undefined}
-      action={
-        !source &&
-        manage &&
-        pickable && (
-          <Button
-            disabled={choose.isPending}
-            aria-label={t("settings:sources.catalog.useAsOf", { slicer: name })}
-            onClick={() => choose.mutate({ library: lib.library, pick })}
-          >
-            {t("settings:sources.catalog.useAs")}
-          </Button>
-        )
-      }
     >
       {source ? (
         <>
@@ -230,20 +205,7 @@ function CatalogSlicer({
           )}
         </>
       ) : (
-        <p className="max-w-prose text-muted">
-          {blocked
-            ? blocked.reason === "ownSlicer"
-              ? t("settings:sources.catalog.ownSlicer")
-              : t("settings:sources.catalog.noWorker")
-            : t("settings:sources.catalog.notSource")}
-        </p>
-      )}
-      {choose.isError && (
-        <p role="alert" className="text-bad">
-          {choose.error instanceof ApiError && choose.error.code === "device_outdated"
-            ? t("settings:sources.catalog.outdated")
-            : t("hub:errors.generic")}
-        </p>
+        <p className="max-w-prose text-muted">{t("settings:sources.catalog.notSource")}</p>
       )}
     </SlicerGroup>
   );

@@ -137,14 +137,14 @@ export const presetsRoutes =
                 return {
                   library,
                   reported: reported.includes(library),
-                  send: !!s?.presets.share,
-                  install: !!s?.presets.receive,
-                  shareKinds: s?.presets.shareKinds ?? [],
-                  receiveKinds: s?.presets.receiveKinds ?? [],
+                  send: !!s?.user.share,
+                  install: !!s?.user.receive,
+                  shareKinds: s?.user.shareKinds ?? [],
+                  receiveKinds: s?.user.receiveKinds ?? [],
                   sentAt: s?.sentAt ?? null,
                   held: held.filter((h) => h.device === d.id && h.library === library).length,
                   status:
-                    (s?.presets.receive && d.presetInstall?.find((p) => p.library === library)) ||
+                    (s?.user.receive && d.presetInstall?.find((p) => p.library === library)) ||
                     null,
                 };
               }),

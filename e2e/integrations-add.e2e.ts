@@ -46,5 +46,5 @@ for (const width of [375, 1440])
     await expect(page).toHaveURL(/\/catalog\/settings\/sources#server-bambu-studio$/);
     const slicer = page.locator("#server-bambu-studio");
     await expect(slicer.getByRole("heading", { name: "Bambu Studio", level: 4 })).toBeVisible();
-    await expect(slicer.getByText("Catalog source", { exact: true })).toBeVisible();
+    await expect(slicer.getByText("The hub's slicer", { exact: true })).toBeVisible();
   });

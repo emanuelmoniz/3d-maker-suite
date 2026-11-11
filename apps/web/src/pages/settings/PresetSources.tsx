@@ -280,7 +280,7 @@ function useKindSwitch(d: PresetDevice, l: Library, side: "shareKinds" | "receiv
       actions.library.mutate({
         id: d.id,
         library: l.library,
-        presets: {
+        user: {
           [side]: on ? [...l[side], kind] : l[side].filter((k) => k !== kind),
         },
       }),

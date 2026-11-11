@@ -22,7 +22,10 @@ afterEach(async () => {
   close = undefined;
 });
 
-/** A worker-only hub: two paired devices that report Bambu Studio, the first one a worker. */
+/**
+ * A worker-only hub: two paired devices that report Bambu Studio, the first one a worker that
+ * offers it (Use as slicer), so the hub's slicer by default (ADR-0022).
+ */
 async function hub() {
   const db = openDb(":memory:");
   const dataDir = mkdtempSync(join(tmpdir(), "device-catalog-"));
@@ -121,12 +124,17 @@ async function hub() {
 
   const ws1 = await pair("WS-1");
   const ws2 = await pair("WS-2");
-  const worker = (
-    await send("POST", "/api/integrations", {
-      adapterId: "bambu-studio-worker",
-      config: { deviceId: ws1.deviceId, source: "installed" },
-    })
-  ).json() as { id: string };
+  const addWorker = async (deviceId: string) =>
+    (
+      await send("POST", "/api/integrations", {
+        adapterId: "bambu-studio-worker",
+        config: { deviceId, source: "installed" },
+      })
+    ).json() as { id: string };
+  const offer = (deviceId: string) =>
+    send("PATCH", `/api/hub/devices/${deviceId}/slicers/bambu-studio`, { slicer: true });
+  const worker = await addWorker(ws1.deviceId);
+  await offer(ws1.deviceId);
   const fingerprint = () =>
     db.select().from(schema.integrations).where(eq(schema.integrations.id, worker.id)).get()
       ?.catalogFingerprint;
@@ -136,12 +144,12 @@ async function hub() {
       await new Promise((r) => setTimeout(r, 20));
     return fingerprint();
   };
-  return { db, dataDir, send, ws1, ws2, worker, checked };
+  return { db, dataDir, send, ws1, ws2, worker, checked, addWorker, offer };
 }
 
-it("a worker-only hub gets its catalog from the source device; another device sends nothing", async () => {
-  const { db, dataDir, send, ws1, ws2, worker, checked } = await hub();
-  // No row can read a catalog: the first device that reports the slicer is the source.
+it("a worker-only hub gets its catalog from the hub's slicer's machine; another sends nothing", async () => {
+  const { db, dataDir, send, ws1, ws2, worker, checked, addWorker, offer } = await hub();
+  // No row on the server: the machine that offers it is the hub's slicer, so the source.
   const one = await ws1.connect();
   expect(one.sources).toEqual({ "bambu-studio": null });
   const two = await ws2.connect();
@@ -162,22 +170,20 @@ it("a worker-only hub gets its catalog from the source device; another device se
   expect(again.sources).toEqual({ "bambu-studio": "BBL=01.01" });
 
   // A connector too old for it refuses the pick, which stays as it was.
-  const pick = (deviceId: string) => send("PUT", "/api/catalog/sources/bambu-studio", { deviceId });
-  // Only a machine with Catalog Share on can be picked (ADR-0021); a default source stays one.
+  const pick = (integrationId: string) =>
+    send("PUT", "/api/integrations/slicers/bambu-studio", { integrationId });
+  // Only a machine that offers the slicer (Use as slicer) can be picked (ADR-0022).
   const options = async () =>
     (await send("GET", "/api/catalog/sources")).json()[0].options.map((o: object) => o);
   expect(await options()).toEqual([{ deviceId: ws1.deviceId, name: "WS-1" }]);
-  expect((await pick(ws2.deviceId)).json()).toMatchObject({ error: { code: "not_a_source" } });
-  const share = { catalog: { share: true } };
-  expect(
-    (await send("PATCH", `/api/hub/devices/${ws2.deviceId}/slicers/bambu-studio`, share))
-      .statusCode,
-  ).toBe(204);
+  const other = await addWorker(ws2.deviceId);
+  expect((await pick(other.id)).json()).toMatchObject({ error: { code: "not_an_option" } });
+  expect((await offer(ws2.deviceId)).statusCode).toBe(204);
   expect((await send("GET", "/api/catalog/sources")).json()[0].machines).toEqual([
     {
       deviceId: ws1.deviceId,
       name: "WS-1",
-      share: true,
+      slicer: true,
       receive: false,
       install: null,
       mismatch: null,
@@ -185,13 +191,13 @@ it("a worker-only hub gets its catalog from the source device; another device se
     {
       deviceId: ws2.deviceId,
       name: "WS-2",
-      share: true,
+      slicer: true,
       receive: false,
       install: null,
       mismatch: null,
     },
   ]);
-  const refused = pick(ws2.deviceId);
+  const refused = pick(other.id);
   const probe = await two.next("catalog.sources");
   await two.answer(probe.requestId, { ok: false, code: "ENOTSUP" });
   expect((await refused).json()).toMatchObject({ error: { code: "device_outdated" } });
@@ -201,7 +207,7 @@ it("a worker-only hub gets its catalog from the source device; another device se
   });
 
   // Picked: the old source is told to stop, the new one to send.
-  const picked = pick(ws2.deviceId);
+  const picked = pick(other.id);
   const ok = await two.next("catalog.sources");
   await two.answer(ok.requestId, { ok: true, result: null });
   const told = async (device: typeof two) => {
@@ -209,17 +215,15 @@ it("a worker-only hub gets its catalog from the source device; another device se
     await device.answer(e.requestId, { ok: true, result: null });
     return e.libraries;
   };
-  expect(await Promise.all([told(again), told(two)])).toEqual([
-    {},
-    { "bambu-studio": "BBL=01.01" },
-  ]);
+  // Its copy goes in its own install's folder: the hub has none of it yet, so it sends.
+  expect(await Promise.all([told(again), told(two)])).toEqual([{}, { "bambu-studio": null }]);
   expect((await picked).statusCode).toBe(204);
   expect((await ws1.upload("01.02")).json()).toMatchObject({ error: { code: "not_source" } });
   await again.close();
   await two.close();
 
-  // No device reports the slicer any more, so nothing is the source: the copy goes, or parents and
-  // All settings would still read it. A zip's copy (no mark) stays.
+  // The old hub's slicer's copy goes, or parents and All settings would still read it. A zip's copy
+  // (no mark) stays.
   const tell = () =>
     createDeviceCatalog(
       db,
@@ -227,7 +231,6 @@ it("a worker-only hub gets its catalog from the source device; another device se
       { online: () => false } as never,
       dataDir,
     ).tell();
-  db.update(schema.devices).set({ slicers: [] }).run();
   await tell();
   expect(existsSync(copy)).toBe(false);
   mkdirSync(join(copy, ".."), { recursive: true });
@@ -244,11 +247,11 @@ it("a machine with Receive catalog gets the hub's copy; the source can't receive
   expect((await ws1.upload("01.00")).statusCode).toBe(204);
   const receive = (deviceId: string, on: boolean) =>
     send("PATCH", `/api/hub/devices/${deviceId}/slicers/bambu-studio`, {
-      catalog: { receive: on },
+      system: { receive: on },
     });
-  // The source reads its own folder: it receives none.
+  // The hub's slicer reads its own folder: it receives none.
   expect((await receive(ws1.deviceId, true)).json()).toMatchObject({
-    error: { code: "catalog_source" },
+    error: { code: "hub_slicer" },
   });
   // Offline, the switch is saved; the connect says what to receive.
   expect((await receive(ws2.deviceId, true)).statusCode).toBe(204);
@@ -301,7 +304,7 @@ it("a machine with Receive catalog gets the hub's copy; the source can't receive
   await two.answer(probe.requestId, { ok: false, code: "ENOTSUP" });
   expect((await refused).json()).toMatchObject({ error: { code: "device_outdated" } });
   const row = db.select().from(schema.devices).where(eq(schema.devices.id, ws2.deviceId)).get();
-  expect(row?.presetLibraries["bambu-studio"]?.catalog.receive).toBe(false);
+  expect(row?.presetLibraries["bambu-studio"]?.system.receive).toBe(false);
   expect(row?.catalogInstall).toEqual([]);
 
   // Another major.minor than the source's: nothing is sent.
@@ -314,7 +317,7 @@ it("a machine with Receive catalog gets the hub's copy; the source can't receive
     .set({
       slicers: slicer("02.03.01.00"),
       presetLibraries: {
-        "bambu-studio": { ...emptyPresetLibrary(), catalog: { receive: true, share: false } },
+        "bambu-studio": { ...emptyPresetLibrary(), system: { receive: true } },
       },
     })
     .where(eq(schema.devices.id, ws2.deviceId))

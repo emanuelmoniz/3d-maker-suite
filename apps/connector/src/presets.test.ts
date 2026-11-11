@@ -244,14 +244,14 @@ describe("device presets (ADR-0017)", () => {
         slicer,
         share: async (lib = library) => {
           const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
-            presets: { share: true },
+            user: { share: true },
           });
           expect(res.statusCode).toBe(204);
           await until(() => store.get().presetLibraries?.[lib]?.send === true);
         },
         install: async (lib = library) => {
           const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
-            presets: { receive: true },
+            user: { receive: true },
           });
           expect(res.statusCode).toBe(204);
           await until(() => store.get().presetLibraries?.[lib]?.install === true);
@@ -259,7 +259,7 @@ describe("device presets (ADR-0017)", () => {
         /** Only these kinds on its Share or Receive lines (Presets settings → Sources). */
         kinds: async (body: { shareKinds?: string[]; receiveKinds?: string[] }, lib = library) => {
           const res = await send("PATCH", `/api/hub/devices/${id}/slicers/${lib}`, {
-            presets: body,
+            user: body,
           });
           expect(res.statusCode).toBe(204);
         },
@@ -455,7 +455,7 @@ describe("device presets (ADR-0017)", () => {
     await a.share();
     // The library names a folder on the hub: one with no switch is refused, and none can be set.
     expect((await a.put({ ...body, library: "../../etc", text })).status).toBe(403);
-    const junk = { presets: { share: true } };
+    const junk = { user: { share: true } };
     const lib = encodeURIComponent("../../etc");
     expect(
       (await h.send("PATCH", `/api/hub/devices/${a.id}/slicers/${lib}`, junk)).statusCode,

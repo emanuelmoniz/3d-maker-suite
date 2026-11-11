@@ -511,7 +511,7 @@ export function createSyncer(
       }
       const adapter = adapters.find((a) => a.id === row.adapterId);
       // Adapter order: printers come before the prints that point at them.
-      for (const type of activeCapabilities(db, row, adapter)) {
+      for (const type of activeCapabilities(db, adapters, row)) {
         if (isAction(type) || slicerFileType(adapter, type)) continue;
         const p = policyOf(db, id, type);
         // A failed run leaves `lastRunAt` alone, so it is retried after RETRY_MS.
@@ -576,7 +576,7 @@ export function createSyncer(
     for (const row of rows) {
       const adapter = adapters.find((a) => a.id === row.adapterId);
       const lib = adapter?.library;
-      const types = activeCapabilities(db, row, adapter).filter((t): t is LibraryType =>
+      const types = activeCapabilities(db, adapters, row).filter((t): t is LibraryType =>
         slicerCatalogType(adapter, t),
       );
       if (!lib || !adapter || !types.length) continue;
@@ -699,7 +699,7 @@ export function createSyncer(
         return hub &&
           adapter?.managed &&
           adapter.library &&
-          activeCapabilities(db, row, adapter).some(isUserPresetType)
+          activeCapabilities(db, adapters, row).some(isUserPresetType)
           ? [adapter.library.id]
           : [];
       }),
@@ -708,7 +708,7 @@ export function createSyncer(
       const adapter = adapters.find((a) => a.id === row.adapterId);
       const lib = adapter?.library;
       const dir = adapter && catalogDir(db, dataDir, row, adapter);
-      const types = activeCapabilities(db, row, adapter).filter(isUserPresetType);
+      const types = activeCapabilities(db, adapters, row).filter(isUserPresetType);
       if (!lib || !dir || !types.length || running.has(row.id)) continue;
       const user = join(dir, "user");
       if (!existsSync(user)) continue;

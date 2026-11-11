@@ -139,13 +139,15 @@ export type PresetSwitches = z.infer<typeof presetSwitchesSchema>;
 
 const kinds = z.array(slicerPresetKindSchema).max(SLICER_PRESET_KINDS.length);
 /**
- * A machine's switches for one slicer library (ADR-0021), on its page: Catalog and Presets,
- * Receive and Share each, and the preset kinds each takes. `devices.presetLibraries` keeps them by
- * library, with when a preset was last stored.
+ * A machine's switches for one slicer library (ADR-0022), on its page: Use as slicer (offers it to
+ * the hub), Catalog and system presets (Receive only), User presets (Receive and Share, with the
+ * kinds each takes). `devices.presetLibraries` keeps them by library, with when a preset was last
+ * stored.
  */
 export const devicePresetLibrarySchema = z.object({
-  catalog: z.object({ receive: z.boolean(), share: z.boolean() }),
-  presets: z.object({
+  slicer: z.boolean(),
+  system: z.object({ receive: z.boolean() }),
+  user: z.object({
     receive: z.boolean(),
     share: z.boolean(),
     receiveKinds: kinds,
@@ -156,21 +158,19 @@ export const devicePresetLibrarySchema = z.object({
 export type DevicePresetLibrary = z.infer<typeof devicePresetLibrarySchema>;
 /** A library with every switch off, before its first change. */
 export const emptyPresetLibrary = (): DevicePresetLibrary => ({
-  catalog: { receive: false, share: false },
-  presets: {
+  slicer: false,
+  system: { receive: false },
+  user: {
     receive: false,
     share: false,
     receiveKinds: [...SLICER_PRESET_KINDS],
     shareKinds: [...SLICER_PRESET_KINDS],
   },
 });
-/** Only the preset switches, in the connector's shape (unchanged since 5.4.0). */
+/** Only the user preset switches, in the connector's shape (unchanged since 5.4.0). */
 export const presetSwitches = (m: Record<string, DevicePresetLibrary>) =>
   Object.fromEntries(
-    Object.entries(m).map(([lib, { presets }]) => [
-      lib,
-      { send: presets.share, install: presets.receive },
-    ]),
+    Object.entries(m).map(([lib, { user }]) => [lib, { send: user.share, install: user.receive }]),
   ) as Record<string, PresetSwitches>;
 
 /** One slicer of a device in `GET /api/presets/devices`: the device × slicer table's row. */

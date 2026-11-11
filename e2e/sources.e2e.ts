@@ -10,7 +10,7 @@ const block = (page: Page, section: string, machine: string) =>
     .filter({ has: page.getByRole("heading", { name: machine, exact: true, level: 3 }) });
 
 for (const width of [375, 1440])
-  test(`sources: the catalog source between two machines, one slicer's filament presets (${width}px)`, async ({
+  test(`sources: the hub's slicer between two machines, one slicer's filament presets (${width}px)`, async ({
     page,
     app,
   }) => {
@@ -62,36 +62,43 @@ for (const width of [375, 1440])
           await page.request.patch(`/api/hub/devices/${idOf(name)}/slicers/${library}`, { data })
         ).status(),
       ).toBe(204);
-    // A machine is a catalog source only on a library with a worker row and no slicer of its own.
-    await page.request.post("/api/integrations", {
-      data: {
-        adapterId: "bambu-studio-worker",
-        config: { deviceId: idOf("WS-1"), source: "installed" },
-      },
-    });
-
-    // No install row reads the catalog: the first machine does, until one is picked. WS-2 is
-    // listed once its Catalog Share is on.
+    // The hub's slicer (ADR-0022): an install on a machine that offers it (Use as slicer); the first
+    // one, until one is picked in Integrations. It is the catalog source.
+    const worker = async (name: string) =>
+      (
+        await page.request.post("/api/integrations", {
+          data: {
+            adapterId: "bambu-studio-worker",
+            config: { deviceId: idOf(name), source: "installed" },
+          },
+        })
+      ).json();
+    await worker("WS-1");
+    const w2 = await worker("WS-2");
     await page.goto("/catalog/settings/sources");
     const share1 = block(page, "Share to the hub", "WS-1");
     const share2 = block(page, "Share to the hub", "WS-2");
-    await expect(share1.getByText("Catalog source")).toBeVisible();
-    await expect(share1.getByText("Picked for you")).toBeVisible();
-    await expect(share2).toHaveCount(0);
-    await set("WS-1", "bambu-studio", { catalog: { share: true } });
-    await set("WS-2", "bambu-studio", { catalog: { share: true } });
+    await expect(share1).toHaveCount(0);
+    await set("WS-1", "bambu-studio", { slicer: true });
+    await set("WS-2", "bambu-studio", { slicer: true });
     await page.reload();
-    await expect(share2.getByText("Not the catalog source")).toBeVisible();
-    await share2.getByRole("button", { name: "Use Bambu Studio as catalog source" }).click();
-    await expect(share2.getByText("Catalog source", { exact: true })).toBeVisible();
+    await expect(share1.getByText("The hub's slicer", { exact: true })).toBeVisible();
+    await expect(share1.getByText("Picked for you")).toBeVisible();
+    await expect(share2.getByText("Not the hub's slicer")).toBeVisible();
+    expect(
+      (
+        await page.request.put("/api/integrations/slicers/bambu-studio", {
+          data: { integrationId: w2.id },
+        })
+      ).status(),
+    ).toBe(204);
+    await page.reload();
+    await expect(share2.getByText("The hub's slicer", { exact: true })).toBeVisible();
     await expect(share2.getByText("Picked for you")).toHaveCount(0);
-    await expect(share1.getByText("Not the catalog source")).toBeVisible();
-    await share1.getByRole("button", { name: "Use Bambu Studio as catalog source" }).click();
-    await expect(share1.getByText("Catalog source", { exact: true })).toBeVisible();
-    await expect(share2.getByText("Not the catalog source")).toBeVisible();
+    await expect(share1.getByText("Not the hub's slicer")).toBeVisible();
 
     // WS-1 shares Bambu Studio's filament presets and nothing else; OrcaSlicer stays off.
-    await set("WS-1", "bambu-studio", { presets: { share: true } });
+    await set("WS-1", "bambu-studio", { user: { share: true } });
     await page.goto("/presets/settings/sources");
     const shares = block(page, "Share to the hub", "WS-1");
     for (const kind of ["Printer presets", "Process presets"]) {
@@ -119,7 +126,7 @@ for (const width of [375, 1440])
     );
 
     // A slicer WS-1 no longer reports keeps its lines and values, which can't change.
-    await set("WS-1", "orca-slicer", { presets: { receive: true } });
+    await set("WS-1", "orca-slicer", { user: { receive: true } });
     await ws1(["bambu-studio"]);
     await page.reload();
     const receives = block(page, "Receive from the hub", "WS-1");

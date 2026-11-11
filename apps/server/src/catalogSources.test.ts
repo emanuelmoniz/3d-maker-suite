@@ -12,7 +12,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { loadKey } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { librarySources, pickCatalogSource } from "./integrations/catalogSource.ts";
+import { librarySources, pickHubSlicer } from "./integrations/catalogSource.ts";
 import { createSyncer } from "./integrations/sync.ts";
 
 const { devices, integrations, settings, syncPolicies, users } = schema;
@@ -102,8 +102,32 @@ function twoDevices() {
   return [device("WS-1", 2), device("WS-2", 3)] as const;
 }
 
-describe("catalog source (ADR-0020)", () => {
-  it("defaults to the oldest row with a readable folder; a pick wins and is the only one read", async () => {
+/** A worker install of the slicer on `deviceId`; `offered`: its Use as slicer is on. */
+function worker(deviceId: string, min: number, offered = true) {
+  if (offered) offer(deviceId);
+  return db
+    .insert(integrations)
+    .values({
+      adapterId: "slicer-worker",
+      config: { deviceId, source: "installed" },
+      createdAt: at(min),
+    })
+    .returning()
+    .get().id;
+}
+const offer = (deviceId: string, on = true, receive = false) =>
+  db
+    .update(devices)
+    .set({
+      presetLibraries: {
+        fake: { ...emptyPresetLibrary(), slicer: on, system: { receive } },
+      },
+    })
+    .where(eq(devices.id, deviceId))
+    .run();
+
+describe("the hub's slicer is the catalog source (ADR-0022)", () => {
+  it("defaults to the oldest install; a pick wins and is the only one read", async () => {
     expect(sources()).toEqual([
       {
         library: "fake",
@@ -118,74 +142,72 @@ describe("catalog source (ADR-0020)", () => {
         ],
         machines: [],
         cardsOf: first,
-        noDevices: null,
       },
     ]);
     await check().checkCatalogs();
     expect(fingerprints()).toEqual({ [first]: "Acme=1", [second]: null });
 
-    await pickCatalogSource(db, adapters, "fake", { integrationId: second });
+    await pickHubSlicer(db, adapters, "fake", second);
     expect(sources()[0]?.source).toEqual({ integrationId: second, picked: true });
     db.update(integrations).set({ catalogFingerprint: null }).run();
     await check().checkCatalogs();
     expect(fingerprints()).toEqual({ [first]: null, [second]: "Acme=1" });
 
     // A removed pick falls back to the default.
-    db.delete(integrations).run();
-    expect(sources()).toEqual([]);
+    db.delete(integrations).where(eq(integrations.id, second)).run();
+    expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
   });
 
-  it("the hub's own slicer keeps devices out; with only workers, it switches between two devices", async () => {
+  it("offers a machine's install only while its Use as slicer is on, beside the server's", async () => {
     const [ws1, ws2] = twoDevices();
-    // It slices with its own catalog: no device is offered.
+    const w1 = worker(ws1, 4);
+    const w2 = worker(ws2, 5, false);
+    // The server's own installs don't keep machines out any more.
     expect(sources()[0]).toMatchObject({
-      options: [{ integrationId: first }, { integrationId: second }],
-      noDevices: { reason: "ownSlicer", integrationId: first },
+      source: { integrationId: first, picked: false },
+      options: [
+        { integrationId: first },
+        { integrationId: second },
+        { deviceId: ws1, name: "WS-1" },
+      ],
     });
-    await expect(pickCatalogSource(db, adapters, "fake", { deviceId: ws1 })).rejects.toMatchObject({
-      code: "not_a_source",
+    await expect(pickHubSlicer(db, adapters, "fake", w2)).rejects.toMatchObject({
+      code: "not_an_option",
     });
 
-    db.update(integrations).set({ adapterId: "slicer-worker" }).run();
-    // A machine is offered once its Catalog Share is on (ADR-0021); the default source stays one.
-    expect(sources()[0]?.options).toEqual([{ deviceId: ws1, name: "WS-1" }]);
-    await expect(pickCatalogSource(db, adapters, "fake", { deviceId: ws2 })).rejects.toMatchObject({
-      code: "not_a_source",
-    });
-    const share = { ...emptyPresetLibrary(), catalog: { receive: false, share: true } };
-    db.update(devices)
-      .set({ presetLibraries: { fake: share } })
-      .run();
-    expect(sources()[0]?.options).toEqual([
-      { deviceId: ws1, name: "WS-1" },
-      { deviceId: ws2, name: "WS-2" },
-    ]);
-    await pickCatalogSource(db, adapters, "fake", { deviceId: ws1 });
-    expect(sources()[0]).toMatchObject({ source: { deviceId: ws1, picked: true }, cardsOf: first });
-    await pickCatalogSource(db, adapters, "fake", { deviceId: ws2 });
-    expect(sources()[0]?.source).toEqual({ deviceId: ws2, picked: true });
+    // The machine is asked first: its refusal keeps the old pick.
+    const asked: string[] = [];
+    await expect(
+      pickHubSlicer(db, adapters, "fake", w1, async (d) => {
+        asked.push(d);
+        throw Object.assign(new Error("old"), { code: "device_outdated" });
+      }),
+    ).rejects.toMatchObject({ code: "device_outdated" });
+    expect(asked).toEqual([ws1]);
+    expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
+
+    await pickHubSlicer(db, adapters, "fake", w1);
+    expect(sources()[0]).toMatchObject({ source: { deviceId: ws1, picked: true }, cardsOf: w1 });
+    // A machine's copy isn't on the hub until it sends it: the server's folders aren't read.
     await check().checkCatalogs();
-    expect(fingerprints()).toEqual({ [first]: null, [second]: null });
+    expect(fingerprints()).toEqual({ [first]: null, [second]: null, [w1]: null, [w2]: null });
 
-    // A slicer on the hub (here a folder on this computer) takes over from the pick.
-    db.update(integrations).set({ adapterId: "slicer" }).where(eq(integrations.id, second)).run();
-    expect(sources()[0]).toMatchObject({
-      source: { integrationId: second, picked: false },
-      noDevices: { reason: "ownSlicer", integrationId: second },
-    });
+    // Use as slicer off: no longer an option, the default takes over.
+    offer(ws1, false);
+    expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
   });
 
-  it("Receive catalog: never on the source, and only for the source's major.minor (ADR-0021)", async () => {
+  it("Receive catalog: never on the hub's slicer, and only for its major.minor (ADR-0021)", async () => {
     const [ws1, ws2] = twoDevices();
-    db.update(integrations).set({ adapterId: "slicer-worker" }).run();
-    const both = { ...emptyPresetLibrary(), catalog: { receive: true, share: true } };
-    db.update(devices)
-      .set({ presetLibraries: { fake: both } })
-      .run();
+    db.delete(integrations).run();
+    const w1 = worker(ws1, 4);
+    offer(ws1, true, true);
+    offer(ws2, false, true);
     const machine = (id: string) => sources()[0]?.machines.find((m) => m.deviceId === id);
-    // WS-1 is the default source: it shows as not receiving.
-    expect(machine(ws1)).toMatchObject({ share: true, receive: false });
-    expect(machine(ws2)).toMatchObject({ receive: true, install: null, mismatch: null });
+    // WS-1 is the default hub's slicer: it shows as not receiving.
+    expect(sources()[0]?.source).toEqual({ deviceId: ws1, picked: false });
+    expect(machine(ws1)).toMatchObject({ slicer: true, receive: false });
+    expect(machine(ws2)).toMatchObject({ slicer: false, receive: true, install: null });
 
     const version = (id: string, v: string | null) =>
       db
@@ -201,35 +223,18 @@ describe("catalog source (ADR-0020)", () => {
     version(ws2, null);
     expect(machine(ws2)?.mismatch).toBeNull();
 
-    // Picked as the source, a machine's Receive goes off.
-    await pickCatalogSource(db, adapters, "fake", { deviceId: ws2 });
-    const row = db.select().from(devices).where(eq(devices.id, ws2)).get();
-    expect(row?.presetLibraries.fake?.catalog).toEqual({ receive: false, share: true });
+    // Picked as the hub's slicer, a machine's Receive goes off.
+    await pickHubSlicer(db, adapters, "fake", w1);
+    const row = db.select().from(devices).where(eq(devices.id, ws1)).get();
+    expect(row?.presetLibraries.fake).toMatchObject({ slicer: true, system: { receive: false } });
   });
 
-  it("with no install row able to, the first device, once a worker holds its cards", () => {
-    const [ws1] = twoDevices();
-    db.update(integrations)
-      .set({ slicerConfigDir: join(dataDir, "gone") })
-      .run();
-    expect(sources()[0]).toMatchObject({ source: null, noDevices: { reason: "noWorker" } });
-    db.update(integrations)
-      .set({ adapterId: "slicer-worker", slicerConfigDir: null })
-      .where(eq(integrations.id, second))
-      .run();
-    expect(sources()[0]).toMatchObject({
-      source: { deviceId: ws1, picked: false },
-      cardsOf: second,
-      noDevices: null,
-    });
-  });
-
-  it("picking turns the Catalog and System presets cards on, and refuses what can't be one", async () => {
+  it("picking turns slicing and the Catalog and System presets cards on, and refuses the rest", async () => {
     for (const type of ["brands", "machinePresets"] as const)
       db.insert(syncPolicies)
         .values({ integrationId: second, type, mode: "off", frequency: "1d" })
         .run();
-    await pickCatalogSource(db, adapters, "fake", { integrationId: second });
+    await pickHubSlicer(db, adapters, "fake", second);
     expect(
       db
         .select({ type: syncPolicies.type, mode: syncPolicies.mode })
@@ -240,11 +245,11 @@ describe("catalog source (ADR-0020)", () => {
       { type: "brands", mode: "manual" },
       { type: "machinePresets", mode: "manual" },
     ]);
-    await expect(
-      pickCatalogSource(db, adapters, "fake", { deviceId: crypto.randomUUID() }),
-    ).rejects.toMatchObject({ code: "not_a_source" });
-    await expect(
-      pickCatalogSource(db, adapters, "other", { integrationId: first }),
-    ).rejects.toThrow();
+    await expect(pickHubSlicer(db, adapters, "fake", crypto.randomUUID())).rejects.toMatchObject({
+      code: "not_an_option",
+    });
+    await expect(pickHubSlicer(db, adapters, "other", first)).rejects.toMatchObject({
+      code: "not_an_option",
+    });
   });
 });

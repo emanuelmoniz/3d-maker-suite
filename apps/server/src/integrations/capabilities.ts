@@ -109,8 +109,8 @@ export const workerDevice = (db: Db, row: Row) => {
     : undefined;
 };
 
-/** Supported by the adapter, not switched off, and what it needs is set up. */
-export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
+/** Supported by the adapter, not switched off, and what it needs is set up; any install's slice. */
+function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
   if (!row.enabled || !adapter) return [];
   // A cloud source needs its sign-in and a local one its folder; an action needs the program
   // itself, and slicing the source too (its presets).
@@ -131,6 +131,70 @@ export function activeCapabilities(db: Db, row: Row, adapter?: IntegrationAdapte
   );
 }
 
+type Install = { row: Row; adapter: IntegrationAdapter };
+const HUB_SLICERS = "hubSlicers";
+
+/** The hub's slicer picked per library (`{ [library]: integrationId }`, ADR-0022). */
+export const hubSlicerPicks = (db: Db) =>
+  (db.select().from(schema.settings).where(eq(schema.settings.key, HUB_SLICERS)).get()?.value ??
+    {}) as Record<string, string>;
+
+export const saveHubSlicerPick = (db: Db, lib: string, integrationId: string) => {
+  const value = { ...hubSlicerPicks(db), [lib]: integrationId };
+  db.insert(schema.settings)
+    .values({ key: HUB_SLICERS, value })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value } })
+    .run();
+};
+
+/**
+ * What can be a library's hub's slicer (ADR-0022), oldest first: the server's installs (a folder on
+ * this computer, a managed slicer) and each machine's that offers it (Use as slicer).
+ */
+export function slicerOptions(db: Db, adapters: IntegrationAdapter[], lib: string): Install[] {
+  return db
+    .select()
+    .from(schema.integrations)
+    .orderBy(asc(schema.integrations.createdAt))
+    .all()
+    .flatMap((row) => {
+      const adapter = adapters.find((a) => a.id === row.adapterId);
+      if (!adapter || adapter.library?.id !== lib || !row.enabled) return [];
+      if (adapter.kind === "worker" && !workerDevice(db, row)?.presetLibraries[lib]?.slicer)
+        return [];
+      return [{ row, adapter }];
+    });
+}
+
+/**
+ * A library's hub's slicer, the only install that slices and feeds its catalog (ADR-0022): the
+ * pick while it is an option; else the default slicer, else the oldest option that can slice, else
+ * the oldest option (a folder that only feeds the catalog). Null = none.
+ */
+export function hubSlicer(db: Db, adapters: IntegrationAdapter[], lib: string): Install | null {
+  const options = slicerOptions(db, adapters, lib);
+  const pick = hubSlicerPicks(db)[lib];
+  const { defaultSlicerId } = readPreferences(db);
+  const slices = (o: Install) => available(db, o.row, o.adapter).includes("slice");
+  return (
+    options.find((o) => o.row.id === pick) ??
+    options.find((o) => o.row.id === defaultSlicerId && slices(o)) ??
+    options.find(slices) ??
+    options[0] ??
+    null
+  );
+}
+
+/** What a row can do now: `available`, with `slice` only on its library's hub's slicer. */
+export function activeCapabilities(db: Db, adapters: IntegrationAdapter[], row: Row): Capability[] {
+  const adapter = adapters.find((a) => a.id === row.adapterId);
+  const caps = available(db, row, adapter);
+  const lib = adapter?.library?.id;
+  return caps.includes("slice") && lib && hubSlicer(db, adapters, lib)?.row.id !== row.id
+    ? caps.filter((c) => c !== "slice")
+    : caps;
+}
+
 /**
  * A local source whose folder isn't on this server (e.g. the app runs on a NAS), a server one
  * with no slicer installed yet, or a worker with no presets or no slicer on its device yet.
@@ -148,8 +212,7 @@ export function capableRows(db: Db, adapters: IntegrationAdapter[], cap: Capabil
     .all()
     .map((row) => ({ row, adapter: adapters.find((a) => a.id === row.adapterId) }))
     .filter(
-      (r): r is { row: Row; adapter: IntegrationAdapter } =>
-        !!r.adapter && activeCapabilities(db, r.row, r.adapter).includes(cap),
+      (r): r is Install => !!r.adapter && activeCapabilities(db, adapters, r.row).includes(cap),
     );
 }
 

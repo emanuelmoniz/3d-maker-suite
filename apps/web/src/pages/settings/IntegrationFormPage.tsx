@@ -13,7 +13,6 @@ import {
   useCreateIntegration,
   useIntegrations,
 } from "../../lib/integrations.ts";
-import { useDeviceCatalogSource } from "../../lib/presets.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -68,8 +67,6 @@ export function IntegrationCreatePage() {
   const taken = existing.some(
     (i) => libraryOf(i) === product && (i.kind === "local" || i.kind === "server"),
   );
-  // A slicer folder found on this computer takes the catalog over from a device (ADR-0020).
-  const fromDevice = useDeviceCatalogSource(adapter?.kind === "local" ? product : null);
 
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
@@ -162,14 +159,6 @@ export function IntegrationCreatePage() {
                   )}
             </p>
             {!taken && <p className="text-muted">{t("integrations:form.machineHint")}</p>}
-            {!taken && fromDevice && (
-              <p role="note" className="text-warn">
-                {t("integrations:form.takesCatalog", {
-                  name: adapterName(product ?? ""),
-                  device: fromDevice,
-                })}
-              </p>
-            )}
           </div>
         )}
 

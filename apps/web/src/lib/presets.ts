@@ -1,5 +1,4 @@
 import type {
-  CatalogSourcePick,
   LibrarySources,
   PresetDevice,
   SlicerPreset,
@@ -34,33 +33,6 @@ export const useCatalogSources = () =>
     // Receive catalog's lines follow what the machines report.
     refetchInterval: 30_000,
   });
-
-/**
- * The device a library's catalog comes from, if one does: a slicer added on the hub takes over from
- * it (ADR-0020), which the install dialog and the add form say first.
- */
-export function useDeviceCatalogSource(library: string | null | undefined) {
-  const lib = useCatalogSources().data?.find((l) => l.library === library);
-  const deviceId = lib?.source && "deviceId" in lib.source && lib.source.deviceId;
-  const device = deviceId
-    ? lib.options.find((o) => "deviceId" in o && o.deviceId === deviceId)
-    : undefined;
-  return device && "name" in device ? device.name : undefined;
-}
-
-/** Picks a library's catalog source; its Catalog and System presets cards turn on. */
-export function usePickCatalogSource() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ library, pick }: { library: string; pick: CatalogSourcePick }) =>
-      api("PUT", `/api/catalog/sources/${encodeURIComponent(library)}`, pick),
-    onSuccess: () =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: ["catalog-sources"] }),
-        qc.invalidateQueries({ queryKey: ["integrations"] }),
-      ]),
-  });
-}
 
 /** Devices with a slicer, their switches and kinds per slicer and install status; `enabled`: presets write. */
 export const usePresetDevices = (enabled: boolean) =>

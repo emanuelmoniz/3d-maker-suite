@@ -45,8 +45,7 @@ const ERRORS: Record<string, string> = {
   device_offline: "hub:edit.offline",
   device_outdated: "hub:edit.outdated",
   device_timeout: "hub:edit.timeout",
-  no_worker: "hub:machine.errors.noWorker",
-  catalog_source: "hub:machine.errors.catalogSource",
+  hub_slicer: "hub:machine.errors.hubSlicer",
   slicer_exists: "hub:machine.errors.slicerExists",
 };
 
@@ -408,9 +407,9 @@ function DefaultSlicer({ device: d, edit }: { device: Device; edit: boolean }) {
 }
 
 /**
- * One slicer on the machine: its head (name, version, Use as slicer), then Catalog and Presets,
- * each Receive and Share and a link to where the rest of it is set. The four columns line up
- * across slicers; below `sm` each line stacks.
+ * One slicer on the machine (ADR-0022): its head (name, version, Use as slicer), then Catalog and
+ * system presets (Receive only) and User presets (Receive and Share), each with a link to where the
+ * rest of it is set. The four columns line up across slicers; below `sm` each line stacks.
  */
 function SlicerBlock({ device: d, library }: { device: Device; library: string }) {
   const { t } = useTranslation();
@@ -426,12 +425,13 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
   const rows = [
     {
       kind: "catalog" as const,
+      field: "system" as const,
       label: t("hub:machine.catalog"),
-      values: lib?.catalog ?? { receive: false, share: false },
+      values: { receive: !!lib?.system.receive, share: null },
       link: (
         <Link
           to="/catalog/settings/sources"
-          hash={`${lib?.catalog.share ? "machine" : "receive"}-${d.id}`}
+          hash={`${state?.hubSlicer ? "machine" : "receive"}-${d.id}`}
           className="underline"
         >
           {t("hub:machine.catalogSettings")}
@@ -440,12 +440,13 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
     },
     {
       kind: "presets" as const,
+      field: "user" as const,
       label: t("hub:machine.presets"),
-      values: lib?.presets ?? { receive: false, share: false },
+      values: { receive: !!lib?.user.receive, share: !!lib?.user.share },
       link: (
         <Link
           to="/presets/settings/sources"
-          hash={`${lib?.presets.share ? "machine" : "receive"}-${d.id}`}
+          hash={`${lib?.user.share ? "machine" : "receive"}-${d.id}`}
           className="underline"
         >
           {t("hub:machine.presetsSettings")}
@@ -466,18 +467,14 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
               : t("hub:machine.notFound")}
           </span>
         </p>
-        {state?.useAsSlicer === null || !state ? (
-          <p className="text-muted">{t("hub:machine.notSlicer")}</p>
-        ) : (
-          <Setting
-            edit={may.edit("slicers")}
-            label={t("hub:machine.useAsSlicer")}
-            name={t("hub:machine.useAsSlicerOf", { name })}
-            checked={state.useAsSlicer}
-            busy={busy}
-            onChange={(useAsSlicer) => send({ useAsSlicer })}
-          />
-        )}
+        <Setting
+          edit={may.edit("slicers")}
+          label={t("hub:machine.useAsSlicer")}
+          name={t("hub:machine.useAsSlicerOf", { name })}
+          checked={!!lib?.slicer}
+          busy={busy}
+          onChange={(slicer) => send({ slicer })}
+        />
       </div>
       {may.setUp && may.edit("slicers") && (
         <SlicerSetup device={d} library={library} found={!!found} />
@@ -485,8 +482,8 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
       <div className="grid grid-cols-2 items-center gap-x-6 sm:grid-cols-[6rem_auto_auto_1fr]">
         {rows.map((r) => {
           const edit = may.edit(r.kind);
-          // The catalog source's catalog is read from it: its Share stays on, and it receives none.
-          const fixed = r.kind === "catalog" && !!state?.catalogSource;
+          // The hub's slicer's catalog is read from it: it receives none.
+          const fixed = r.kind === "catalog" && !!state?.hubSlicer;
           return (
             <div key={r.kind} className="contents">
               <span className="col-span-2 pt-2 text-muted sm:col-span-1 sm:pt-0">{r.label}</span>
@@ -496,11 +493,11 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
                 name={t(NAMES[r.kind].receive, { name })}
                 checked={r.values.receive && !fixed}
                 busy={busy}
-                onChange={(receive) => send({ [r.kind]: { receive } })}
+                onChange={(receive) => send({ [r.field]: { receive } })}
               />
-              {fixed ? (
+              {r.values.share === null ? (
                 <span className="inline-flex min-h-9 items-center">
-                  {t("hub:machine.catalogSource")}
+                  {fixed && t("hub:machine.hubSlicer")}
                 </span>
               ) : (
                 <Setting
@@ -509,7 +506,7 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
                   name={t(NAMES[r.kind].share, { name })}
                   checked={r.values.share}
                   busy={busy}
-                  onChange={(share) => send({ [r.kind]: { share } })}
+                  onChange={(share) => send({ [r.field]: { share } })}
                 />
               )}
               <span className="col-span-2 sm:col-span-1 sm:justify-self-end">{r.link}</span>

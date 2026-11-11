@@ -26,11 +26,10 @@ export async function setPresetLibrary(
   library: string,
   now: DevicePresetLibrary,
 ) {
-  // No entry yet reads as every switch off: a first Catalog switch asks the connector nothing.
+  // No entry yet reads as every switch off: a first system or slicer switch asks the connector nothing.
   const old = row.presetLibraries[library] ?? emptyPresetLibrary();
   const libraries = { ...row.presetLibraries, [library]: now };
-  const presetsChanged =
-    old.presets.share !== now.presets.share || old.presets.receive !== now.presets.receive;
+  const presetsChanged = old.user.share !== now.user.share || old.user.receive !== now.user.receive;
   if (presetsChanged && channel.online(row.id))
     await channel.ask(
       row.id,
@@ -42,10 +41,10 @@ export async function setPresetLibrary(
     .set({
       presetLibraries: libraries,
       // Receive off: what it last said of that slicer no longer holds.
-      ...(!now.presets.receive && {
+      ...(!now.user.receive && {
         presetInstall: row.presetInstall?.filter((p) => p.library !== library) ?? null,
       }),
-      ...(!now.catalog.receive && {
+      ...(!now.system.receive && {
         catalogInstall: row.catalogInstall?.filter((p) => p.library !== library) ?? null,
       }),
     })

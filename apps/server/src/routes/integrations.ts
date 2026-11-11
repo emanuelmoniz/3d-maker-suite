@@ -10,6 +10,7 @@ import {
   defaultPolicy,
   deviceSlicerCheckSchema,
   hasLevel,
+  hubSlicerPickSchema,
   type Integration,
   IntegrationError,
   integrationInputSchema,
@@ -53,6 +54,8 @@ import {
   unavailable,
   workerDevice,
 } from "../integrations/capabilities.ts";
+import { pickHubSlicer } from "../integrations/catalogSource.ts";
+import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { Syncer } from "../integrations/sync.ts";
@@ -76,6 +79,11 @@ export const integrationsRoutes =
     syncer: Syncer,
     installer: SlicerInstaller,
     workers: WorkerSlicers,
+    /** A machine picked as the hub's slicer sends its catalog (ADR-0022). */
+    catalog: Pick<DeviceCatalog, "confirm" | "tell"> = {
+      confirm: async () => {},
+      tell: async () => {},
+    },
   ): FastifyPluginAsyncZod =>
   async (app) => {
     /** A worker's slicer is on its device; a server's is here. */
@@ -124,7 +132,7 @@ export const integrationsRoutes =
               }
             : null,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
-        capabilities: activeCapabilities(db, full, adapter),
+        capabilities: activeCapabilities(db, syncer.adapters, full),
         policies: (adapter?.capabilities ?? []).map((type) => {
           const p = policyOf(db, row.id, type);
           const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = p;
@@ -172,6 +180,33 @@ export const integrationsRoutes =
       })),
     );
 
+    /**
+     * One install of a slicer per machine (Plan 5.5.0 Step 9): this server (installed or
+     * downloaded) or a workstation. A database with both from before keeps both.
+     */
+    const slicerExists = (
+      adapter: (typeof syncer.adapters)[number],
+      deviceId: string | undefined,
+      except?: string,
+    ) => {
+      if (adapter.kind === "cloud") return;
+      const library = presetLibrary(adapter);
+      const twice = db
+        .select()
+        .from(integrations)
+        .all()
+        .some((r) => {
+          const a = syncer.adapters.find((x) => x.id === r.adapterId);
+          if (r.id === except || !a || a.kind === "cloud" || presetLibrary(a) !== library)
+            return false;
+          return adapter.kind === "worker"
+            ? workerDeviceId(a.kind, r.config) === deviceId
+            : a.kind !== "worker";
+        });
+      if (twice)
+        throw new HttpError(409, "slicer_exists", "This slicer is already on that machine");
+    };
+
     const isAdmin = (req: FastifyRequest) =>
       !req.user || req.user.rights.permissions["integrations.manage"];
 
@@ -208,24 +243,7 @@ export const integrationsRoutes =
         };
         const plain = parse(adapter.secretsSchema, secrets, "invalid_secrets");
         const deviceId = workerDeviceId(adapter.kind, values.config);
-        // One install of a slicer per machine (Plan 5.5.0 Step 9): this server (installed or
-        // downloaded) or a workstation. A database with both from before keeps both.
-        if (adapter.kind !== "cloud") {
-          const library = presetLibrary(adapter);
-          const twice = db
-            .select()
-            .from(integrations)
-            .all()
-            .some((r) => {
-              const a = syncer.adapters.find((x) => x.id === r.adapterId);
-              if (!a || a.kind === "cloud" || presetLibrary(a) !== library) return false;
-              return adapter.kind === "worker"
-                ? workerDeviceId(a.kind, r.config) === deviceId
-                : a.kind !== "worker";
-            });
-          if (twice)
-            throw new HttpError(409, "slicer_exists", "This slicer is already on that machine");
-        }
+        slicerExists(adapter, deviceId);
         const id = db.transaction(() => {
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);
@@ -308,6 +326,11 @@ export const integrationsRoutes =
                 ...(allow && { allow: { ...kept.allow, ...allow } }),
               }
             : undefined;
+        // A worker moved to another machine: that one may have this slicer already.
+        if (nextConfig && adapter?.kind === "worker") {
+          const to = workerDeviceId(adapter.kind, nextConfig);
+          if (to !== workerDeviceId(adapter.kind, cur.config)) slicerExists(adapter, to, cur.id);
+        }
         // An Allow switch turned off stops its types, on again gives them a new account's mode.
         // The data stays either way.
         const allowed = ACCOUNT_ALLOW_TYPES.filter(
@@ -369,6 +392,33 @@ export const integrationsRoutes =
           if (before !== after) for (const d of [before, after]) if (d) workers.syncWorker(d);
         }
         return toApi(get(cur.id));
+      },
+    );
+
+    // The hub's slicer of a slicer type (ADR-0022): the only install that slices and feeds its
+    // catalog. A machine is asked first (409 `device_outdated` from a connector that can't send).
+    app.put(
+      "/slicers/:library",
+      {
+        schema: {
+          params: z.object({ library: z.string().max(100) }),
+          body: hubSlicerPickSchema,
+          response: {
+            204: z.null(),
+            409: apiErrorSchema,
+            422: apiErrorSchema,
+            502: apiErrorSchema,
+            504: apiErrorSchema,
+          },
+        },
+      },
+      async (req, reply) => {
+        await pickHubSlicer(db, syncer.adapters, req.params.library, req.body.integrationId, (d) =>
+          catalog.confirm(d),
+        );
+        // The new source starts sending, an old one stops; receivers hear of the new copy.
+        await catalog.tell();
+        return reply.status(204).send(null);
       },
     );
 

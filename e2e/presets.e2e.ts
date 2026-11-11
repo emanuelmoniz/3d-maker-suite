@@ -166,7 +166,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   expect((await device("GET", "/presets", undefined)).status).toBe(403);
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   const slicer = `/api/hub/devices/${id}/slicers/orca-slicer`;
-  const receive = { data: { presets: { receive: true } } };
+  const receive = { data: { user: { receive: true } } };
   expect((await page.request.patch(slicer, receive)).status()).toBe(204);
   expect((await device("GET", "/presets", undefined)).status).toBe(200);
   // What the connector reports shows on the machine's lines.
@@ -228,7 +228,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await signInAs("ana@example.com");
   await page.goto(`/hub/devices/${id}`);
   await expect(
-    page.getByRole("switch", { name: "Receive OrcaSlicer presets from the hub" }),
+    page.getByRole("switch", { name: "Receive OrcaSlicer user presets from the hub" }),
   ).toBeChecked();
   await page.getByRole("link", { name: "Presets settings" }).click();
   await expect(page).toHaveURL(new RegExp(`/presets/settings/sources#receive-${id}$`));
@@ -286,7 +286,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   expect((await preset("20")).status).toBe(403);
   // Share is the machine's switch (ADR-0021).
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
-  const share = { data: { presets: { share: true } } };
+  const share = { data: { user: { share: true } } };
   expect(
     (await page.request.patch(`/api/hub/devices/${id}/slicers/bambu-studio`, share)).status(),
   ).toBe(204);

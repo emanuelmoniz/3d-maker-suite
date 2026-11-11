@@ -15,7 +15,6 @@ import {
   useSlicerInstall,
   useSlicerReleases,
 } from "../../lib/integrations.ts";
-import { useDeviceCatalogSource } from "../../lib/presets.ts";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
 import { DEVICE_INSTALL_ERRORS, INSTALL_ERRORS, INSTALL_PHASES } from "./integrationLabels.ts";
 
@@ -132,7 +131,6 @@ export function ManagedSlicer({
           name={name}
           libraryId={libraryId}
           managed={managed}
-          onDevice={onDevice}
           onClose={() => setPicking(false)}
         />
       )}
@@ -161,14 +159,12 @@ function InstallDialog({
   name,
   libraryId,
   managed,
-  onDevice,
   onClose,
 }: {
   integration: Integration;
   name: string;
   libraryId: string | null;
   managed: NonNullable<AdapterInfo["managed"]>;
-  onDevice: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -180,8 +176,6 @@ function InstallDialog({
   const install = useInstallSlicer(i.id);
   const list = releases.data ?? [];
   const picked = list.find((r) => r.tag === tag) ?? list[0];
-  // A slicer on the server reads the catalog it slices with, so it takes over from a device.
-  const fromDevice = useDeviceCatalogSource(onDevice ? null : libraryId);
 
   return (
     <FormDialog
@@ -222,11 +216,6 @@ function InstallDialog({
             {pre ? t("integrations:managed.noneForSystem") : t("integrations:managed.noStable")}
           </p>
         )
-      )}
-      {fromDevice && (
-        <p role="note" className="text-warn">
-          {t("integrations:managed.takesCatalog", { name: program, device: fromDevice })}
-        </p>
       )}
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={pre} onChange={(e) => setPre(e.target.checked)} />

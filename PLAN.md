@@ -2549,7 +2549,7 @@ Plan Step 10 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources t
 Plan Step 11 of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 11b - The hub's slicer: schema and server  **[plan mode]**
+### [x] Step 11b - The hub's slicer: schema and server  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:** ADR-0022: one slicer per slicer type.
 - `hubSlicers` setting (`{ [library]: integrationId }`) with its migration. Per library: the current catalog source's row (a device source: its worker row), else the default slicer if it is that library, else the oldest row that can slice.

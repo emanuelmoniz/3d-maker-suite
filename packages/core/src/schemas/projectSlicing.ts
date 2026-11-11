@@ -70,11 +70,7 @@ export const projectSlicingSchema = z.object({
   plates: z.array(plateSetupSchema),
   /** A slicer is set up (an integration with `slice` switched on). */
   canSlice: z.boolean(),
-  /** A slicer of the server itself can slice: waiting plates may fall back to it. */
-  canFallback: z.boolean(),
 });
-/** `POST /api/projects/:id/slicing/run`; `fallback`: the plates waiting for a worker slice here. */
-export const projectSliceRunSchema = z.object({ fallback: z.boolean().default(false) });
 
 type SlicePrinter = { id: string; model: string; brand?: string | null; nozzleDiameterMm: number };
 type SliceFile = { printerModel: string | null; nozzleDiameter: number | null };
@@ -317,4 +313,3 @@ export type PlateSetupInput = z.infer<typeof plateSetupInputSchema>;
 export type PlateSetup = z.infer<typeof plateSetupSchema>;
 export type ProjectSlicingInput = z.infer<typeof projectSlicingInputSchema>;
 export type ProjectSlicing = z.infer<typeof projectSlicingSchema>;
-export type ProjectSliceRun = z.input<typeof projectSliceRunSchema>;

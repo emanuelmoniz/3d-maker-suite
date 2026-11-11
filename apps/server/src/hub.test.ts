@@ -659,7 +659,7 @@ describe("hub events", () => {
       adapters: adapters({ mock: false }),
     });
     const url = (lib: string) => `/api/hub/devices/${deviceId}/slicers/${lib}`;
-    const on = { presets: { share: true } };
+    const on = { user: { share: true } };
     expect((await send("PATCH", url("nope"), on)).statusCode).toBe(404);
     // Offline: stored, and told when it connects.
     expect((await send("PATCH", url("bambu-studio"), on)).statusCode).toBe(204);
@@ -673,7 +673,7 @@ describe("hub events", () => {
     expect(s.res.headers.get("x-install-presets")).toBe("0");
 
     // Online: asked first; one that doesn't know the request keeps its values.
-    const patch = send("PATCH", url("orca-slicer"), { presets: { receive: true } });
+    const patch = send("PATCH", url("orca-slicer"), { user: { receive: true } });
     const text = (await s.until((t) => t.includes('"presets.set"'))) ?? "";
     const requestId = /"requestId":"([^"]+)"/.exec(text)?.[1];
     await app.inject({
@@ -687,7 +687,7 @@ describe("hub events", () => {
     expect(res.json().error.code).toBe("device_outdated");
     const empty = emptyPresetLibrary();
     expect(db.select().from(schema.devices).get()?.presetLibraries).toEqual({
-      "bambu-studio": { ...empty, presets: { ...empty.presets, share: true } },
+      "bambu-studio": { ...empty, user: { ...empty.user, share: true } },
     });
     await s.cancel();
   });
@@ -726,20 +726,20 @@ describe("hub events", () => {
     expect(
       (
         await mine("PATCH", `/api/hub/devices/${theirs}/slicers/bambu-studio`, {
-          presets: { share: true },
+          user: { share: true },
         })
       ).statusCode,
     ).toBe(404);
-    expect((await mine("PATCH", lib, { presets: { share: true } })).statusCode).toBe(403);
+    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(403);
     // The switch alone isn't enough: Presets also needs presets write.
     grant({ "machine.presets": true });
-    expect((await mine("PATCH", lib, { presets: { share: true } })).statusCode).toBe(403);
+    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(403);
     grant({ "machine.presets": true, presets: "write" });
-    expect((await mine("PATCH", lib, { presets: { share: true } })).statusCode).toBe(204);
-    expect((await mine("PATCH", lib, { catalog: { receive: true } })).statusCode).toBe(403);
+    expect((await mine("PATCH", lib, { user: { share: true } })).statusCode).toBe(204);
+    expect((await mine("PATCH", lib, { system: { receive: true } })).statusCode).toBe(403);
     expect(
       db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
-        ?.presetLibraries["bambu-studio"]?.presets.share,
+        ?.presetLibraries["bambu-studio"]?.user.share,
     ).toBe(true);
     // Renaming, Restart, Revoke and Update now aren't sections it has.
     expect((await mine("PATCH", `/api/hub/devices/${deviceId}`, { name: "Mine" })).statusCode).toBe(
@@ -758,50 +758,44 @@ describe("hub events", () => {
     ).toBe(204);
   });
 
-  it("Use as slicer is the worker row's slicing; the catalog source keeps Catalog Share", async () => {
+  it("Use as slicer offers it; the picked hub's slicer stays offered and receives no catalog", async () => {
     const { db, send, deviceId } = await live({ adapters: adapters({ mock: false }) });
     const lib = `/api/hub/devices/${deviceId}/slicers/bambu-studio`;
     expect(
-      (await send("PATCH", `/api/hub/devices/${deviceId}/slicers/nope`, { useAsSlicer: true }))
+      (await send("PATCH", `/api/hub/devices/${deviceId}/slicers/nope`, { slicer: true }))
         .statusCode,
     ).toBe(404);
-    const noWorker = await send("PATCH", lib, { useAsSlicer: true });
-    expect(noWorker.json().error.code).toBe("no_worker");
+    const saved = () =>
+      db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
+        ?.presetLibraries["bambu-studio"];
+    // Consent can come before the install (ADR-0022).
+    expect((await send("PATCH", lib, { slicer: true })).statusCode).toBe(204);
+    expect(saved()?.slicer).toBe(true);
 
-    db.update(schema.devices)
-      .set({ slicers: [{ id: "bambu-studio", version: "2.0", path: "C:/bs.exe" }] })
-      .where(eq(schema.devices.id, deviceId))
-      .run();
     const worker = db
       .insert(schema.integrations)
-      .values({
-        adapterId: "bambu-studio-worker",
-        config: { deviceId, source: "installed" },
-      })
+      .values({ adapterId: "bambu-studio-worker", config: { deviceId, source: "installed" } })
       .returning()
       .get();
     const listed = async () =>
       (await send("GET", "/api/hub/devices")).json()[0].libraries["bambu-studio"];
-    // The only machine with the slicer: its catalog source by default.
-    expect((await listed()).catalogSource).toBe(true);
-    const on = (await listed()).useAsSlicer;
-    expect((await send("PATCH", lib, { useAsSlicer: !on })).statusCode).toBe(204);
-    expect((await listed()).useAsSlicer).toBe(!on);
-    expect(
-      db
-        .select()
-        .from(schema.syncPolicies)
-        .where(eq(schema.syncPolicies.integrationId, worker.id))
-        .all()
-        .find((p) => p.type === "slice")?.mode,
-    ).toBe(on ? "off" : "manual");
-    expect((await send("PATCH", lib, { catalog: { share: false } })).json().error.code).toBe(
-      "catalog_source",
+    // The only install that's offered: the hub's slicer by default, which receives no catalog.
+    expect((await listed()).hubSlicer).toBe(true);
+    expect((await send("PATCH", lib, { system: { receive: true } })).json().error.code).toBe(
+      "hub_slicer",
     );
-    // Nor does it receive one (ADR-0021): its own folder is the catalog.
-    expect((await send("PATCH", lib, { catalog: { receive: true } })).json().error.code).toBe(
-      "catalog_source",
-    );
+    // A default one can be withdrawn: the default moves on.
+    expect((await send("PATCH", lib, { slicer: false })).statusCode).toBe(204);
+    expect((await listed()).hubSlicer).toBe(false);
+    expect((await send("PATCH", lib, { slicer: true })).statusCode).toBe(204);
+
+    // Picked, it stays offered until another is picked.
+    const pick = (integrationId: string) =>
+      send("PUT", "/api/integrations/slicers/bambu-studio", { integrationId });
+    expect((await pick(worker.id)).statusCode).toBe(204);
+    expect((await send("PATCH", lib, { slicer: false })).json().error.code).toBe("hub_slicer");
+    expect(saved()).toMatchObject({ slicer: true, system: { receive: false } });
+    expect((await pick(crypto.randomUUID())).json().error.code).toBe("not_an_option");
   });
 
   it("refuses a second install of a slicer on the same machine", async () => {
@@ -814,6 +808,18 @@ describe("hub events", () => {
     // This server is one machine: installed or downloaded, not both.
     expect((await add("bambu-studio-server")).statusCode).toBe(201);
     expect((await add("bambu-studio")).json().error.code).toBe("slicer_exists");
+    // Nor by moving a worker to a machine that has it (ADR-0022).
+    const other = await add("bambu-studio-worker", {
+      deviceId: crypto.randomUUID(),
+      source: "managed",
+    });
+    expect(other.statusCode).toBe(201);
+    const move = (config: object) =>
+      send("PATCH", `/api/integrations/${other.json().id}`, { config });
+    expect((await move(worker)).json().error.code).toBe("slicer_exists");
+    expect((await move({ deviceId: crypto.randomUUID(), source: "installed" })).statusCode).toBe(
+      200,
+    );
   });
 
   it("Stop, the default slicer and Share reach the connector; an older one is outdated", async () => {

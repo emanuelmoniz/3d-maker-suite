@@ -120,7 +120,6 @@
     "downloadHere": "{{name}} isn't installed on this computer: the app downloads it from the vendor's releases and slices with it on this server.",
     "machineHint": "A workstation's slicer is set up on its machine page in Hub management.",
     "taken": "Already on this server. Find it on the slicer's card.",
-    "takesCatalog": "If {{name}}'s folder is found on this computer, it becomes the catalog source instead of {{device}}: the catalog then matches the version the hub slices with.",
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
     "error": "Couldn't add the integration. Check the fields."
@@ -416,7 +415,6 @@
     "noneForSystem": "No release has a build for this server's system.",
     "releasesError": "Couldn't read the releases from GitHub. Check the server's internet connection and try again later.",
     "licence": "{{name}} is AGPL-3.0 software. 3D Maker Suite downloads the vendor's own release and doesn't change it.",
-    "takesCatalog": "Once installed, {{name}} on this server becomes the catalog source instead of {{device}}: the catalog then matches the version the hub slices with.",
     "licenceLink": "Licence",
     "source": "Source code of {{version}}",
     "noPresets": "This slicer has no folder of yours to read. To use your brands, printers and presets here, import them from a desktop install of {{name}}:",

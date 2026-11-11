@@ -6,7 +6,6 @@ import {
   connectorSettingsResultSchema,
   connectorSettingsSchema,
   connectorUpdateFailureSchema,
-  defaultPolicy,
   deviceLibraryUpdateSchema,
   deviceSchema,
   deviceUpdateSchema,
@@ -33,7 +32,7 @@ import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { deviceLibraries, policyOf, presetLibrary } from "../integrations/capabilities.ts";
+import { deviceLibraries, presetLibrary } from "../integrations/capabilities.ts";
 import { catalogSource } from "../integrations/catalogSource.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import { loginLimiter, machineGuard } from "../lib/auth.ts";
@@ -52,7 +51,6 @@ const {
   projects,
   roles,
   roots,
-  syncPolicies,
   users,
 } = schema;
 const params = z.object({ id: z.uuid() });
@@ -108,9 +106,6 @@ export const hubRoutes =
       versionsUsage(),
     );
 
-    /** A machine's worker integration row for a slicer library: its Use as slicer (ADR-0021). */
-    const workerRow = (deviceId: string, library: string) =>
-      workerRows(deviceId).find((w) => w.library === library)?.row;
     /** A machine's worker rows, with their libraries: a managed one isn't in its slicer list. */
     const workerRows = (deviceId: string) =>
       db
@@ -124,10 +119,15 @@ export const hubRoutes =
             ? [{ row, library: presetLibrary(a) }]
             : [];
         });
-    const isCatalogSource = (deviceId: string, library: string) => {
+    /**
+     * The machine's install is the library's hub's slicer (ADR-0022), so its catalog source;
+     * `picked`: by an admin, not the default.
+     */
+    const hubSlicerOn = (deviceId: string, library: string) => {
       const source = catalogSource(db, adapters, library);
-      return !!source && "deviceId" in source && source.deviceId === deviceId;
+      return source && "deviceId" in source && source.deviceId === deviceId ? source : null;
     };
+    const isHubSlicer = (deviceId: string, library: string) => !!hubSlicerOn(deviceId, library);
 
     // ponytail: unpaginated, a hub has a handful of devices. Without hub.manage, only the caller's.
     app.get("/devices", { schema: { response: { 200: z.array(deviceSchema) } } }, async (req) =>
@@ -169,16 +169,7 @@ export const hubRoutes =
           return {
             ...d,
             libraries: Object.fromEntries(
-              [...libs].map((lib) => {
-                const worker = workerRow(d.id, lib);
-                return [
-                  lib,
-                  {
-                    useAsSlicer: worker ? policyOf(db, worker.id, "slice").mode !== "off" : null,
-                    catalogSource: isCatalogSource(d.id, lib),
-                  },
-                ];
-              }),
+              [...libs].map((lib) => [lib, { hubSlicer: isHubSlicer(d.id, lib) }]),
             ),
             folders:
               db.select({ n: count() }).from(roots).where(eq(roots.location, d.id)).get()?.n ?? 0,
@@ -315,7 +306,7 @@ export const hubRoutes =
       },
     );
 
-    // A machine page's switches for one slicer library (ADR-0021), each part with its section.
+    // A machine page's switches for one slicer library (ADR-0022), each part with its section.
     app.patch(
       "/devices/:id/slicers/:library",
       {
@@ -327,41 +318,30 @@ export const hubRoutes =
       },
       async (req, reply) => {
         const { library } = req.params;
-        const { useAsSlicer, catalog, presets } = req.body;
+        const { slicer, system, user } = req.body;
         const row = machineGuard(db, req.user, req.params.id);
-        if (!adapters.some((a) => a.desktop && presetLibrary(a) === library))
+        if (!adapters.some((a) => (a.desktop || a.library) && presetLibrary(a) === library))
           throw new HttpError(404, "not_found", "No such slicer");
-        if (useAsSlicer !== undefined) machineGuard(db, req.user, row.id, "slicers");
-        if (catalog) machineGuard(db, req.user, row.id, "catalog");
-        if (presets) machineGuard(db, req.user, row.id, "presets");
-        const worker = useAsSlicer === undefined ? undefined : workerRow(row.id, library);
-        if (useAsSlicer !== undefined && !worker)
-          throw new HttpError(409, "no_worker", "This slicer isn't set up to slice on it");
-        // The source's catalog is read from it: another source is picked first (Catalog settings).
-        if (catalog?.share === false && isCatalogSource(row.id, library))
-          throw new HttpError(409, "catalog_source", "It is this catalog's source");
-        // Nor does it receive one (ADR-0021): its own folder is the catalog.
-        if (catalog?.receive && isCatalogSource(row.id, library))
-          throw new HttpError(409, "catalog_source", "It is this catalog's source");
-        if (catalog || presets) {
-          const old = row.presetLibraries[library] ?? emptyPresetLibrary();
-          // A connector that can't write the catalog says so first, and nothing is saved.
-          const receiveOn = !!catalog?.receive && !old.catalog.receive;
-          if (receiveOn) await catalogs.confirmInstall(row.id);
-          await setPresetLibrary(db, channel, row, library, {
-            ...old,
-            catalog: { ...old.catalog, ...catalog },
-            presets: { ...old.presets, ...presets },
-          });
-          if (catalog?.receive !== undefined) void catalogs.tell().catch(() => {});
-        }
-        if (worker && useAsSlicer !== undefined) {
-          const set = { mode: useAsSlicer ? ("manual" as const) : ("off" as const) };
-          db.insert(syncPolicies)
-            .values({ integrationId: worker.id, type: "slice", ...defaultPolicy("slice"), ...set })
-            .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set })
-            .run();
-        }
+        if (slicer !== undefined) machineGuard(db, req.user, row.id, "slicers");
+        if (system) machineGuard(db, req.user, row.id, "catalog");
+        if (user) machineGuard(db, req.user, row.id, "presets");
+        // A picked hub's slicer stays offered until another is picked in Integrations (a default
+        // one moves on), and its own folder is the catalog: it receives none.
+        const hub = hubSlicerOn(row.id, library);
+        if ((slicer === false && hub?.picked) || (system?.receive && hub))
+          throw new HttpError(409, "hub_slicer", "It is this slicer's hub's slicer");
+        if (slicer === undefined && !system && !user) return reply.status(204).send(null);
+        const old = row.presetLibraries[library] ?? emptyPresetLibrary();
+        // A connector that can't write the catalog says so first, and nothing is saved.
+        if (system?.receive && !old.system.receive) await catalogs.confirmInstall(row.id);
+        await setPresetLibrary(db, channel, row, library, {
+          ...old,
+          slicer: slicer ?? old.slicer,
+          system: { ...old.system, ...system },
+          user: { ...old.user, ...user },
+        });
+        // Use as slicer off can move the hub's slicer (its default), so the catalog source too.
+        if (system || slicer !== undefined) void catalogs.tell().catch(() => {});
         return reply.status(204).send(null);
       },
     );

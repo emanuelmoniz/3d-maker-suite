@@ -269,9 +269,9 @@ it("a device made a worker installs the hub's managed slicer for its system and 
   expect((await send("GET", `/api/integrations/${worker.id}`)).json().slicerPath).toBeNull();
 });
 
-it("slices a plate on the worker; offline, the plate waits and can fall back to the server", async () => {
+it("slices on the hub's slicer, whatever install of its type a plate picks; offline, it waits", async () => {
   const mock = fixture();
-  const { app, db, send, next, answer, deviceId, token, cancel, connect } = await live([
+  const { app, db, send, next, answer, deviceId, token, cancel, connect, pair } = await live([
     mockAdapter(mock),
   ]);
   const dir = mkdtempSync(join(tmpdir(), "worker-slice-"));
@@ -292,6 +292,8 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
       })
     ).json();
     expect((await next("device.worker")).on).toBe(true);
+    // Use as slicer: the machine offers it, so it is the hub's slicer (ADR-0022).
+    await send("PATCH", `/api/hub/devices/${deviceId}/slicers/bambu-studio`, { slicer: true });
     db.update(schema.integrations)
       .set({ slicerConfigDir: dir })
       .where(eq(schema.integrations.id, worker.id))
@@ -308,7 +310,33 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
       capabilities: expect.arrayContaining(["slice"]),
     });
 
-    const plate = { file: "benchy.3mf", plate: 1, processPresetId: null, filaments: [null] };
+    // The plate picks another machine's Bambu Studio: a pick names a slicer type, and only the
+    // hub's slicer slices it. A server slicer of another type (the mock) doesn't take it.
+    const other = await pair();
+    const otherWorker = (
+      await send("POST", "/api/integrations", {
+        adapterId: "bambu-studio-worker",
+        config: { deviceId: other.deviceId, source: "installed" },
+      })
+    ).json();
+    db.update(schema.integrations)
+      .set({ slicerPath: "/x", slicerConfigDir: dir })
+      .where(eq(schema.integrations.id, otherWorker.id))
+      .run();
+    const local = (
+      await send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+    ).json();
+    await send("PATCH", `/api/integrations/${local.id}`, { slicerPath: process.execPath });
+    expect(
+      (await send("GET", `/api/integrations/${otherWorker.id}`)).json().capabilities,
+    ).not.toContain("slice");
+    const plate = {
+      file: "benchy.3mf",
+      plate: 1,
+      processPresetId: null,
+      filaments: [null],
+      slicerIntegrationId: otherWorker.id,
+    };
     await send("PUT", `/api/projects/${projectId}/slicing`, { plates: [plate] });
     const slicing = async () => (await send("GET", `/api/projects/${projectId}/slicing`)).json();
     const until = async (ok: (s: { plates: { job: string | null }[] }) => boolean) => {
@@ -320,26 +348,11 @@ it("slices a plate on the worker; offline, the plate waits and can fall back to 
       throw new Error("timed out");
     };
 
-    // Offline: the plate waits; no slicer here yet, so no fallback.
+    // Offline: the plate waits for it; no other install takes the job.
     await cancel();
     await send("POST", `/api/projects/${projectId}/slicing/run`);
-    expect(await until((s) => s.plates[0]?.job === "waiting")).toMatchObject({
-      canSlice: true,
-      canFallback: false,
-    });
-
-    // A slicer on the server: the waiting plate slices there instead.
-    const local = (
-      await send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
-    ).json();
-    await send("PATCH", `/api/integrations/${local.id}`, { slicerPath: process.execPath });
-    expect((await slicing()).canFallback).toBe(true);
-    await send("POST", `/api/projects/${projectId}/slicing/run`, { fallback: true });
-    const fell = await until((s) => !s.plates[0]?.job);
-    expect(fell.plates[0]).toMatchObject({
-      result: { printTimeSeconds: 3600 }, // the mock's
-      needsSlicing: true, // not with the plate's slicer, the worker
-    });
+    expect(await until((s) => s.plates[0]?.job === "waiting")).toMatchObject({ canSlice: true });
+    expect((await slicing()).plates[0]).toMatchObject({ job: "waiting", result: null });
 
     // Back online: it slices on the worker. The device pulls the 3MF and sends back what its
     // run wrote; the hub reads the result from it, as from its own slices.

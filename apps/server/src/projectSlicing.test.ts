@@ -73,7 +73,6 @@ describe("project slicing setup", () => {
     expect((await app.inject(`/api/projects/${id}/slicing`)).json()).toEqual({
       plates: [],
       canSlice: false,
-      canFallback: false,
     });
     const processRow = insertPreset(db, "processPresets", { name: "0.20mm" });
     const plate = {

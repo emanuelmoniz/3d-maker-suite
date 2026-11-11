@@ -1,5 +1,6 @@
 import {
   allows,
+  type Capability,
   type CatalogSourcePick,
   defaultPolicy,
   type IntegrationAdapter,
@@ -15,116 +16,50 @@ import { readPreferences } from "../lib/preferences.ts";
 import {
   activeCapabilities,
   deviceLibraries,
+  hubSlicer,
+  hubSlicerPicks,
   policyOf,
   presetLibrary,
+  saveHubSlicerPick,
   slicerCatalogType,
   slicerConfigDir,
+  slicerOptions,
+  workerDevice,
 } from "./capabilities.ts";
 
-// One catalog source per slicer library for its system presets (ADR-0020): a server folder, a
-// managed slicer or a device. Picked in Catalog → Sources, else the default below.
+// A library's catalog and system presets come from its hub's slicer (ADR-0022): a server folder, a
+// managed slicer, or a machine's worker install, whose `system/` its connector sends.
 
-const { devices, integrations, presetRoutes, settings, syncPolicies } = schema;
-const KEY = "catalogSources";
+const { devices, integrations, presetRoutes, syncPolicies } = schema;
 type Row = typeof integrations.$inferSelect;
 type Install = { row: Row; adapter: IntegrationAdapter };
 type Device = typeof devices.$inferSelect;
 export type CatalogSource = CatalogSourcePick & { picked: boolean };
 
-const picks = (db: Db) =>
-  (db.select().from(settings).where(eq(settings.key, KEY)).get()?.value ?? {}) as Record<
-    string,
-    CatalogSourcePick
-  >;
-
-/** A library's install rows (this computer, the server, a workstation), oldest first. */
-const installRows = (db: Db, adapters: IntegrationAdapter[], lib: string): Install[] =>
-  db
-    .select()
-    .from(integrations)
-    .orderBy(asc(integrations.createdAt))
-    .all()
-    .flatMap((row) => {
-      const adapter = adapters.find((a) => a.id === row.adapterId);
-      return adapter?.library?.id === lib && row.enabled ? [{ row, adapter }] : [];
-    });
-
-/** The devices that report the library's slicer, oldest first; none with the hub off. */
-const reporting = (db: Db, adapters: IntegrationAdapter[], lib: string) =>
-  readPreferences(db).hubEnabled
-    ? db
-        .select()
-        .from(devices)
-        .orderBy(asc(devices.createdAt))
-        .all()
-        .filter((d) => deviceLibraries(adapters, d.slicers).includes(lib))
-    : [];
+/** The machine a worker install is on; undefined for the server's own. */
+const deviceIdOf = ({ row, adapter }: Install) =>
+  adapter.kind === "worker" ? workerConfigSchema.safeParse(row.config).data?.deviceId : undefined;
 
 /** ADR-0019's rule: a row with a readable folder and its catalog types on. */
-const feeds = (db: Db, { row, adapter }: Install) =>
+const feeds = (db: Db, adapters: IntegrationAdapter[], { row, adapter }: Install) =>
   !!slicerConfigDir(row, adapter) &&
-  activeCapabilities(db, row, adapter).some((t) => slicerCatalogType(adapter, t));
+  activeCapabilities(db, adapters, row).some((t) => slicerCatalogType(adapter, t));
 
-/**
- * Why no device can be the library's catalog source, if none can: the hub has a slicer of its own
- * (a server slicer or a folder on this computer), whose catalog is the one it slices with; or no
- * worker row holds the cards and the device's copy (deviceCatalog.ts).
- */
-function devicesBlocked(rows: Install[]): LibrarySources["noDevices"] {
-  const own = rows.find((r) => r.adapter.kind !== "worker" && !!slicerConfigDir(r.row, r.adapter));
-  if (own) return { reason: "ownSlicer", integrationId: own.row.id };
-  return rows.some((r) => r.adapter.kind === "worker") ? null : { reason: "noWorker" };
-}
-
-/** The devices that can be the library's source: those that report it, unless none can. */
-const sourceDevices = (db: Db, adapters: IntegrationAdapter[], lib: string, rows: Install[]) =>
-  devicesBlocked(rows) ? [] : reporting(db, adapters, lib);
-
-/**
- * The library's catalog source: the pick while its row is enabled or its device can be one; else
- * the oldest row with a readable folder; else the first device that can. A server slicer installed
- * while a device is picked so takes over (the install dialog says so).
- */
+/** The library's catalog source: its hub's slicer, as its machine or its server row. */
 export function catalogSource(
   db: Db,
   adapters: IntegrationAdapter[],
   lib: string,
 ): CatalogSource | null {
-  const rows = installRows(db, adapters, lib);
-  const pick = picks(db)[lib];
-  if (
-    pick &&
-    ("integrationId" in pick
-      ? rows.some((r) => r.row.id === pick.integrationId)
-      : sourceDevices(db, adapters, lib, rows).some((d) => d.id === pick.deviceId))
-  )
-    return { ...pick, picked: true };
-  const row = rows.find((r) => feeds(db, r));
-  if (row) return { integrationId: row.row.id, picked: false };
-  const device = sourceDevices(db, adapters, lib, rows)[0];
-  return device ? { deviceId: device.id, picked: false } : null;
+  const hub = hubSlicer(db, adapters, lib);
+  if (!hub) return null;
+  const picked = hubSlicerPicks(db)[lib] === hub.row.id;
+  const deviceId = deviceIdOf(hub);
+  return deviceId ? { deviceId, picked } : { integrationId: hub.row.id, picked };
 }
 
-/**
- * The row whose Catalog and System presets cards the source fills: for a device, its own worker
- * row, else another worker's (one always is: `devicesBlocked`).
- */
-function cardsOf(rows: Install[], source: CatalogSource | null) {
-  if (!source) return rows[0]?.row.id ?? null;
-  if ("integrationId" in source) return source.integrationId;
-  const worker =
-    rows.find(
-      (r) => workerConfigSchema.safeParse(r.row.config).data?.deviceId === source.deviceId,
-    ) ?? rows.find((r) => r.adapter.kind === "worker");
-  return worker?.row.id ?? null;
-}
-
-/** The install row whose cards a library's catalog source fills, with its adapter. */
-export function catalogCards(db: Db, adapters: IntegrationAdapter[], lib: string) {
-  const rows = installRows(db, adapters, lib);
-  const id = cardsOf(rows, catalogSource(db, adapters, lib));
-  return rows.find((r) => r.row.id === id) ?? null;
-}
+/** The install row whose Catalog and System presets cards the source fills: the hub's slicer. */
+export const catalogCards = hubSlicer;
 
 /** A version's major.minor ("02.04.00.70" → "2.4"); null = unknown. */
 export const release = (v: string | null | undefined) => {
@@ -171,8 +106,8 @@ export function catalogMismatch(
 }
 
 /**
- * Catalog → Sources, one entry per library: its install rows, the accounts whose user presets go
- * there, and the slicers devices report or have switches for.
+ * Catalog → Sources, one entry per library: the accounts whose user presets go there, its hub's
+ * slicer and what else could be, and the machines that offer it or receive its catalog.
  */
 export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibrarySources[] {
   const all = db.select().from(integrations).orderBy(asc(integrations.createdAt)).all();
@@ -181,18 +116,15 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
     return a?.library ? presetLibrary(a) : a?.presetsLibrary;
   };
   const hub = readPreferences(db).hubEnabled;
+  const machines = hub ? db.select().from(devices).orderBy(asc(devices.createdAt)).all() : [];
   const libs = new Set([
     ...all.flatMap((r) => libraryOf(r) ?? []),
-    ...(hub
-      ? db
-          .select({ slicers: devices.slicers, presets: devices.presetLibraries })
-          .from(devices)
-          .all()
-          .flatMap((d) => [...deviceLibraries(adapters, d.slicers), ...Object.keys(d.presets)])
-      : []),
+    ...machines.flatMap((d) => [
+      ...deviceLibraries(adapters, d.slicers),
+      ...Object.keys(d.presetLibraries),
+    ]),
   ]);
   return [...libs].sort().map((library) => {
-    const rows = installRows(db, adapters, library);
     const source = catalogSource(db, adapters, library);
     const counts = new Map<string, number>();
     for (const r of db
@@ -201,7 +133,6 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
       .where(like(presetRoutes.source, `${library}:%`))
       .all())
       counts.set(r.id, (counts.get(r.id) ?? 0) + 1);
-    const sharing = (d: typeof devices.$inferSelect) => !!d.presetLibraries[library]?.catalog.share;
     const isSource = (id: string) => !!source && "deviceId" in source && source.deviceId === id;
     return {
       library,
@@ -210,83 +141,68 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
         .filter((r) => r.enabled && libraryOf(r) === library && allows(r.config, "userPresets"))
         .map((r) => ({ integrationId: r.id, presets: counts.get(r.id) ?? 0 })),
       source,
-      options: [
-        // A worker's own folder only holds a zip's copy: its device is the source to pick.
-        ...rows
-          .map((r) => ({ id: r.row.id, kind: r.adapter.kind, readable: feeds(db, r) }))
-          .filter((r) => r.kind !== "worker" || r.readable)
-          .map(({ id, readable }) => ({ integrationId: id, readable })),
-        // A machine is picked only with its Catalog Share on (ADR-0021); a default source stays.
-        ...sourceDevices(db, adapters, library, rows)
-          .filter((d) => sharing(d) || isSource(d.id))
-          .map((d) => ({ deviceId: d.id, name: d.name })),
-      ],
-      machines: (hub ? db.select().from(devices).orderBy(asc(devices.createdAt)).all() : [])
-        .filter((d) => sharing(d) || isSource(d.id) || d.presetLibraries[library]?.catalog.receive)
+      options: slicerOptions(db, adapters, library).flatMap((o): LibrarySources["options"] => {
+        if (o.adapter.kind !== "worker")
+          return [{ integrationId: o.row.id, readable: feeds(db, adapters, o) }];
+        const d = workerDevice(db, o.row);
+        return d ? [{ deviceId: d.id, name: d.name }] : [];
+      }),
+      machines: machines
+        .filter(
+          (d) =>
+            d.presetLibraries[library]?.slicer ||
+            isSource(d.id) ||
+            d.presetLibraries[library]?.system.receive,
+        )
         .map((d) => {
-          // The source can't receive (ADR-0021): its own folder is the catalog.
-          const receive = !isSource(d.id) && !!d.presetLibraries[library]?.catalog.receive;
+          // The hub's slicer can't receive (ADR-0022): its own folder is the catalog.
+          const receive = !isSource(d.id) && !!d.presetLibraries[library]?.system.receive;
           return {
             deviceId: d.id,
             name: d.name,
-            share: sharing(d) || isSource(d.id),
+            slicer: !!d.presetLibraries[library]?.slicer,
             receive,
             install: (receive && d.catalogInstall?.find((s) => s.library === library)) || null,
             mismatch: receive ? catalogMismatch(db, adapters, library, d) : null,
           };
         }),
-      cardsOf: cardsOf(rows, source),
-      noDevices: reporting(db, adapters, library).length ? devicesBlocked(rows) : null,
+      cardsOf: hubSlicer(db, adapters, library)?.row.id ?? null,
     };
   });
 }
 
 /**
- * Picks a library's catalog source, and turns on its Catalog and System presets cards (off →
- * Manual, ADR-0019's default; Automatic stays). 422 when it can't be one. `confirm` runs before
- * anything is saved: a device told it is the source, whose refusal keeps the old pick.
+ * Picks a library's hub's slicer among its options (ADR-0022), and turns on its slicing and its
+ * Catalog and System presets cards (off → Manual; Automatic stays). 422 when it isn't an option.
+ * `confirm` runs before anything is saved: a machine told it is the source, whose refusal keeps
+ * the old pick. A machine's Receive catalog goes off: its own folder is the catalog.
  */
-export async function pickCatalogSource(
+export async function pickHubSlicer(
   db: Db,
   adapters: IntegrationAdapter[],
   lib: string,
-  pick: CatalogSourcePick,
-  confirm: () => Promise<unknown> = async () => {},
+  integrationId: string,
+  confirm: (deviceId: string) => Promise<unknown> = async () => {},
 ) {
-  const entry = librarySources(db, adapters).find((l) => l.library === lib);
-  const ok = entry?.options.some((o) =>
-    "integrationId" in pick
-      ? "integrationId" in o && o.integrationId === pick.integrationId
-      : "deviceId" in o && o.deviceId === pick.deviceId,
-  );
-  if (!entry || !ok)
-    throw new HttpError(422, "not_a_source", "That can't be this catalog's source");
-  await confirm();
-  // The source can't receive (ADR-0021): a picked machine's Receive catalog goes off.
-  if ("deviceId" in pick) {
-    const d = db.select().from(devices).where(eq(devices.id, pick.deviceId)).get();
-    const now = d?.presetLibraries[lib];
-    if (d && now?.catalog.receive)
-      db.update(devices)
-        .set({
-          presetLibraries: {
-            ...d.presetLibraries,
-            [lib]: { ...now, catalog: { ...now.catalog, receive: false } },
-          },
-          catalogInstall: d.catalogInstall?.filter((s) => s.library !== lib) ?? null,
-        })
-        .where(eq(devices.id, d.id))
-        .run();
-  }
-  db.insert(settings)
-    .values({ key: KEY, value: { ...picks(db), [lib]: pick } })
-    .onConflictDoUpdate({ target: settings.key, set: { value: { ...picks(db), [lib]: pick } } })
-    .run();
-  const cards = cardsOf(installRows(db, adapters, lib), { ...pick, picked: true });
-  const row = cards && db.select().from(integrations).where(eq(integrations.id, cards)).get();
-  const adapter = row && adapters.find((a) => a.id === row.adapterId);
-  if (!row || !adapter) return;
-  for (const type of [...SLICER_CATALOG_ROW_TYPES, ...SLICER_PRESET_TYPES]) {
+  const option = slicerOptions(db, adapters, lib).find((o) => o.row.id === integrationId);
+  if (!option)
+    throw new HttpError(422, "not_an_option", "That install can't be this slicer's hub's slicer");
+  const deviceId = deviceIdOf(option);
+  if (deviceId) await confirm(deviceId);
+  const d = deviceId ? db.select().from(devices).where(eq(devices.id, deviceId)).get() : undefined;
+  const now = d?.presetLibraries[lib];
+  if (d && now?.system.receive)
+    db.update(devices)
+      .set({
+        presetLibraries: { ...d.presetLibraries, [lib]: { ...now, system: { receive: false } } },
+        catalogInstall: d.catalogInstall?.filter((s) => s.library !== lib) ?? null,
+      })
+      .where(eq(devices.id, d.id))
+      .run();
+  saveHubSlicerPick(db, lib, integrationId);
+  const { row, adapter } = option;
+  const types: Capability[] = ["slice", ...SLICER_CATALOG_ROW_TYPES, ...SLICER_PRESET_TYPES];
+  for (const type of types) {
     if (!adapter.capabilities.includes(type) || policyOf(db, row.id, type).mode !== "off") continue;
     db.insert(syncPolicies)
       .values({ integrationId: row.id, type, ...defaultPolicy(type), mode: "manual" })

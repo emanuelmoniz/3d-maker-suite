@@ -1884,8 +1884,10 @@ describe("migration 0110", () => {
 describe("migration 0112", () => {
   const kinds = ["machine", "process", "filament"];
   it("splits a machine's switches into Catalog and Presets, and adds Receive and Share projects", () => {
-    const now = migrateAcross(111, (sqlite) => {
-      sqlite.exec(`
+    const now = migrateAcross(
+      111,
+      (sqlite) => {
+        sqlite.exec(`
         insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
         insert into devices (id, name, user_id, token_hash, preset_libraries, created_at, updated_at) values
           ('a', 'A', 'u', 't1', '{"bambu-studio":{"send":true,"install":false,"sentAt":"2026-11-01T00:00:00.000Z"},"orca-slicer":{"send":false,"install":true}}', 'x', 'x'),
@@ -1895,7 +1897,9 @@ describe("migration 0112", () => {
         insert into settings (key, value) values ('catalogSources', '{"bambu-studio":{"deviceId":"src"},"orca-slicer":{"deviceId":"a"},"x":{"integrationId":"i"}}');
         insert into roles (id, name, permissions, project_rights, created_at, updated_at) values ('custom', 'custom', '{"printers":"read"}', '{}', 'x', 'x');
       `);
-    });
+      },
+      113,
+    );
     const devices = Object.fromEntries(
       now
         .select()
@@ -1935,5 +1939,74 @@ describe("migration 0112", () => {
       "machine.projects": on,
     });
     expect(roles).toEqual({ admin: all(true), editor: all(false), viewer: all(false), custom: {} });
+  });
+});
+
+describe("migration 0114", () => {
+  const kinds = ["machine", "process", "filament"];
+  it("gives each library one hub's slicer and a machine's switches Use as slicer, system and user", () => {
+    const now = migrateAcross(113, (sqlite) => {
+      const lib = (receive: boolean, share: boolean) =>
+        `{"catalog":{"receive":${receive},"share":${share}},"presets":{"receive":true,"share":false,"receiveKinds":["machine"],"shareKinds":${JSON.stringify(kinds)}}}`;
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
+        insert into devices (id, name, user_id, token_hash, preset_libraries, created_at, updated_at) values
+          ('a', 'A', 'u', 't1', '{"bambu-studio":${lib(true, true)},"orca-slicer":${lib(false, false).replace("}}", '},"sentAt":"2026-11-01T00:00:00.000Z"}')}}', 'x', 'x'),
+          ('b', 'B', 'u', 't2', '{}', 'x', 'x'),
+          ('c', 'C', 'u', 't3', '{}', 'x', 'x');
+        insert into integrations (id, adapter_id, config, created_at, updated_at) values
+          ('wa', 'bambu-studio-worker', '{"deviceId":"a","source":"installed"}', '1', 'x'),
+          ('wb', 'orca-slicer-worker', '{"deviceId":"b","source":"installed"}', '2', 'x'),
+          ('wc', 'orca-slicer-worker', '{"deviceId":"c","source":"installed"}', '3', 'x'),
+          ('srv', 'bambu-studio-server', '{}', '4', 'x');
+        insert into sync_policies (integration_id, type, mode, frequency) values ('wc', 'slice', 'off', '1d');
+        insert into settings (key, value) values ('catalogSources', '{"bambu-studio":{"integrationId":"srv"},"orca-slicer":{"deviceId":"b"},"gone":{"deviceId":"c"}}');
+      `);
+    });
+    const libs = Object.fromEntries(
+      now
+        .select({ id: s.devices.id, l: s.devices.presetLibraries })
+        .from(s.devices)
+        .all()
+        .map((d) => [d.id, d.l]),
+    );
+    const empty = { receive: false, share: false, receiveKinds: kinds, shareKinds: kinds };
+    expect(libs).toEqual({
+      // Its worker row slices: Use as slicer on; Catalog Receive stays, Share goes.
+      a: {
+        "bambu-studio": {
+          slicer: true,
+          system: { receive: true },
+          user: { receive: true, share: false, receiveKinds: ["machine"], shareKinds: kinds },
+        },
+        "orca-slicer": {
+          slicer: false,
+          system: { receive: false },
+          user: { receive: true, share: false, receiveKinds: ["machine"], shareKinds: kinds },
+          sentAt: "2026-11-01T00:00:00.000Z",
+        },
+      },
+      // Its worker row slices, and it is the picked catalog source: a new entry, Use as slicer on.
+      b: { "orca-slicer": { slicer: true, system: { receive: false }, user: empty } },
+      // Its worker row's slicing is off, and `gone` has no worker row: only that pick's entry.
+      c: { gone: { slicer: true, system: { receive: false }, user: empty } },
+    });
+    const settings = Object.fromEntries(
+      now
+        .select()
+        .from(s.settings)
+        .all()
+        .map((r) => [r.key, r.value]),
+    );
+    // A machine pick becomes its worker row; one without a worker row has none.
+    expect(settings.hubSlicers).toEqual({ "bambu-studio": "srv", "orca-slicer": "wb" });
+    expect(settings.catalogSources).toBeUndefined();
+  });
+
+  it("stores no hubSlicers without a catalog source pick", () => {
+    const now = migrateAcross(113, () => {});
+    expect(now.select().from(s.settings).where(eq(s.settings.key, "hubSlicers")).get()).toBe(
+      undefined,
+    );
   });
 });

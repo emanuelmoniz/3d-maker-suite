@@ -17,7 +17,6 @@ import {
   type ProjectFolderRelease,
   type ProjectListItem,
   pageOf,
-  pickSlicer,
   projectDetailSchema,
   projectFolderResultSchema,
   projectFolderRowSchema,
@@ -37,7 +36,7 @@ import {
   ROOT_HUB,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, eq, inArray, isNotNull, max, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, max, type SQL, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -137,25 +136,32 @@ function platePresets(db: Db, adapters: IntegrationAdapter[]) {
   );
 }
 const projectSlicer = sql`${projects}.${sql.identifier("slicer_integration_id")}`;
-/** The slicer a plate slices with, as `slicerResolver`: `capable` can slice now, `fallback` = the default's pick. */
-const plateSlicer = (capable: string[], fallback: string | undefined) => {
-  const can = sql`(select value from json_each(${JSON.stringify(capable)}))`;
-  return sql`case when ${plates.slicerIntegrationId} in ${can} then ${plates.slicerIntegrationId}
-    when ${projectSlicer} in ${can} then ${projectSlicer} else ${fallback ?? null} end`;
+/**
+ * The slicer a plate slices with, as `slicerResolver`: a pick's library's hub's slicer (`toHub`),
+ * else `fallback` = the default's.
+ */
+const plateSlicer = (toHub: Record<string, string>, fallback: string | undefined) => {
+  const map = JSON.stringify(toHub);
+  const hubOf = (pick: SQL) => sql`json_extract(${map}, '$."' || ${pick} || '"')`;
+  return sql`coalesce(${hubOf(sql`${plates.slicerIntegrationId}`)}, ${hubOf(projectSlicer)}, ${fallback ?? null})`;
 };
 type Capable = { id: string; slicerVersion: string | null };
-const slicingOf = (slicers: Capable[], fallback: string | undefined, presets: string) => {
+const slicingOf = (
+  slicers: Capable[],
+  toHub: Record<string, string>,
+  fallback: string | undefined,
+  presets: string,
+) => {
   const platePreset = sql`json_extract(${presets}, '$."' || ${plates.id} || '"')`;
-  const capable = slicers.map((s) => s.id);
   // A known version that isn't the resolved slicer's now (`slicedWithOther`).
   const versions = JSON.stringify(Object.fromEntries(slicers.map((s) => [s.id, s.slicerVersion])));
-  const version = sql`json_extract(${versions}, '$."' || ${plateSlicer(capable, fallback)} || '"')`;
+  const version = sql`json_extract(${versions}, '$."' || ${plateSlicer(toHub, fallback)} || '"')`;
   return sql<ProjectListItem["slicing"]>`case
   when not exists (select 1 from ${plates} where ${plates.projectId} = ${projectId}) then 'none'
   when exists (select 1 from ${plates} where ${plates.projectId} = ${projectId} and (
     ${plates.slicedAt} is null
     or ${plates.slicedProcessPresetId} is not ${platePreset}
-    or coalesce(${plates.slicedIntegrationId}, ${fallback ?? null}) is not ${plateSlicer(capable, fallback)}
+    or coalesce(${plates.slicedIntegrationId}, ${fallback ?? null}) is not ${plateSlicer(toHub, fallback)}
     or (${plates.slicedSlicerVersion} is not null and ${plates.slicedSlicerVersion} is not ${version})
     or exists (select 1 from json_each(coalesce(${plates.slicedPresets}, '{}')) j
       where j.value is not (select s.${sql.identifier("sha256")} from ${slicerPresets} s
@@ -404,13 +410,11 @@ export const projectsRoutes =
       },
       async (req) => {
         const { material } = req.query;
-        const capable = capableRows(db, adapters, "slice").map((r) => r.row);
+        const slicerOf = slicerResolver(db, adapters);
         const slicing = slicingOf(
-          capable,
-          pickSlicer(
-            capable.map((r) => r.id),
-            [readPreferences(db).defaultSlicerId],
-          ),
+          capableRows(db, adapters, "slice").map((r) => r.row),
+          slicerOf.toHub,
+          slicerOf()?.row.id,
           platePresets(db, adapters),
         );
         const page = listPage(db, projects, req.query, {

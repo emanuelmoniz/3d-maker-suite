@@ -355,7 +355,7 @@ export async function buildApp(
     prefix: "/api/slicer-zip",
   });
   await app.register(presetsRoutes(db, dataDir, hub, syncer.adapters), { prefix: "/api/presets" });
-  await app.register(catalogSourcesRoutes(db, syncer.adapters, deviceCatalog), {
+  await app.register(catalogSourcesRoutes(db, syncer.adapters), {
     prefix: "/api/catalog/sources",
   });
   // The library folder is a cache of its table (ADR-0017).
@@ -455,7 +455,7 @@ export async function buildApp(
     app.addHook("onClose", async () => backup.stop());
   }
 
-  await app.register(integrationsRoutes(db, key, syncer, installer, workers), {
+  await app.register(integrationsRoutes(db, key, syncer, installer, workers, deviceCatalog), {
     prefix: "/api/integrations",
   });
 

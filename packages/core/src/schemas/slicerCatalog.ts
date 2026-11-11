@@ -93,31 +93,39 @@ export const slicerZipSourceSchema = z.object({
 });
 export const slicerZipUploadSchema = z.object({ uploadId: z.uuid() });
 
-/** A library's catalog source (ADR-0020): an install row on the server, or a device. */
+/** A library's hub's slicer (ADR-0022): an install row on the server, or a machine's. */
 export const catalogSourcePickSchema = z.union([
   z.strictObject({ integrationId: z.uuid() }),
   z.strictObject({ deviceId: z.uuid() }),
 ]);
+/** `PUT /api/integrations/slicers/:library`: the install that becomes the hub's slicer. */
+export const hubSlicerPickSchema = z.strictObject({ integrationId: z.uuid() });
 /** One slicer library of Catalog → Sources (`GET /api/catalog/sources`). */
 export const librarySourcesSchema = z.object({
   library: z.string(),
   /** Its install rows and accounts, with how many presets each brings (`preset_routes`). */
   routes: z.array(z.object({ integrationId: z.uuid(), presets: z.number().int().nonnegative() })),
-  /** Where its system catalog comes from; `picked` false = the default. Null = nothing can. */
+  /**
+   * The hub's slicer, where its catalog and system presets come from; `picked` false = the
+   * default. Null = no install.
+   */
   source: z.intersection(catalogSourcePickSchema, z.object({ picked: z.boolean() })).nullable(),
-  /** What can be picked: a server folder or managed slicer (`readable`: its folder is there), a device. */
+  /**
+   * What can be the hub's slicer: a server folder or managed slicer (`readable`: its folder is
+   * there), a machine that offers it (Use as slicer) with an install row.
+   */
   options: z.array(
     z.union([
       z.object({ integrationId: z.uuid(), readable: z.boolean() }),
       z.object({ deviceId: z.uuid(), name: z.string() }),
     ]),
   ),
-  /** Machines with Catalog Share (or the source) or Catalog Receive on for it (ADR-0021). */
+  /** Machines that offer it (Use as slicer), are its hub's slicer, or receive its catalog. */
   machines: z.array(
     z.object({
       deviceId: z.uuid(),
       name: z.string(),
-      share: z.boolean(),
+      slicer: z.boolean(),
       receive: z.boolean(),
       /** What it last reported of Receive catalog; null = off, or it hasn't yet. */
       install: catalogInstallSlicerSchema.nullable(),
@@ -125,18 +133,8 @@ export const librarySourcesSchema = z.object({
       mismatch: z.object({ here: z.string(), source: z.string() }).nullable(),
     }),
   ),
-  /** The row whose Catalog and System presets cards the source fills; null = none yet. */
+  /** The hub's slicer's row, whose Catalog and System presets cards it fills; null = none. */
   cardsOf: z.uuid().nullable(),
-  /**
-   * Why the devices that report the slicer can't be its source: the hub's own slicer reads it
-   * (`integrationId`), or no worker holds its cards. Null = they can, or none reports it.
-   */
-  noDevices: z
-    .discriminatedUnion("reason", [
-      z.object({ reason: z.literal("ownSlicer"), integrationId: z.uuid() }),
-      z.object({ reason: z.literal("noWorker") }),
-    ])
-    .nullable(),
 });
 
 export type SlicerZipSource = z.infer<typeof slicerZipSourceSchema>;

@@ -49,20 +49,32 @@ export type ProjectPlate = { projectId: string; file: string; plate: number };
 export const projectJobKey = (j: ProjectPlate) => `project:${j.projectId}#${j.file}#${j.plate}`;
 
 /**
- * Resolves the slicer integration of `picks` (a plate's, its project's) with the slicers that can
- * slice now: the first that can, else the default slicer, else the first one (`pickSlicer`).
+ * Resolves the slicer integration of `picks` (a plate's, its project's) to the hub's slicer of the
+ * pick's library (ADR-0022: a pick names a slicer type): the first that can slice, else the default
+ * slicer's, else the first hub's slicer (`pickSlicer`). `toHub` maps every install to its library's
+ * hub's slicer that can slice.
  */
-export function slicerResolver(db: Db, adapters: IntegrationAdapter[], here = false) {
-  // `here`: only the server's own slicers, no slice workers (a waiting plate's fallback).
-  const rows = capableRows(db, adapters, "slice").filter(
-    (r) => !here || r.adapter.kind !== "worker",
-  );
+export function slicerResolver(db: Db, adapters: IntegrationAdapter[]) {
+  const rows = capableRows(db, adapters, "slice");
   const ids = rows.map((r) => r.row.id);
+  const toHub: Record<string, string> = {};
+  for (const row of db.select().from(schema.integrations).all()) {
+    // A slicer without a library (no presets to share) is its own type.
+    const lib = adapters.find((a) => a.id === row.adapterId)?.library?.id;
+    const hub = rows.find((r) => r.row.id === row.id || (!!lib && r.adapter.library?.id === lib));
+    if (hub) toHub[row.id] = hub.row.id;
+  }
   const { defaultSlicerId } = readPreferences(db);
-  return (picks: (string | null | undefined)[] = []) => {
-    const id = pickSlicer(ids, [...picks, defaultSlicerId]);
-    return rows.find((r) => r.row.id === id);
-  };
+  return Object.assign(
+    (picks: (string | null | undefined)[] = []) => {
+      const id = pickSlicer(
+        ids,
+        [...picks, defaultSlicerId].map((p) => (p ? toHub[p] : undefined)),
+      );
+      return rows.find((r) => r.row.id === id);
+    },
+    { toHub },
+  );
 }
 
 /**
@@ -83,8 +95,7 @@ export const sliceIntegration = (
   db: Db,
   adapters: IntegrationAdapter[],
   picks?: (string | null | undefined)[],
-  here = false,
-) => slicerResolver(db, adapters, here)(picks);
+) => slicerResolver(db, adapters)(picks);
 
 /** The slice worker's device is offline: the job waits in the queue until a device connects. */
 export class SliceWait extends Error {}
@@ -146,8 +157,7 @@ const fail = (code: (typeof SLICE_ERRORS)[number], detail?: string): never => {
 
 /**
  * A plate to slice: the 3MF (absolute, already checked), its info, the preset choices, and the
- * slicer picks (the plate's, its project's; see `sliceIntegration`). `here`: the server's own
- * slicers only.
+ * slicer picks (the plate's, its project's; see `sliceIntegration`).
  */
 export type PlateToSlice = PlateChoice & {
   abs: string;
@@ -155,7 +165,6 @@ export type PlateToSlice = PlateChoice & {
   model: FileInfo | undefined;
   filaments: (string | null)[];
   slicers: (string | null | undefined)[];
-  here?: boolean;
 };
 
 /**
@@ -169,7 +178,7 @@ export async function slicePlate(
   p: PlateToSlice,
   signal: AbortSignal,
 ) {
-  const found = sliceIntegration(db, adapters, p.slicers, p.here);
+  const found = sliceIntegration(db, adapters, p.slicers);
   const slicer = found?.adapter.slicer;
   if (!found || !slicer) return fail("no_slicer");
   const run = found.adapter.kind === "worker" ? workerRuns.get(db)?.(found.row.id) : undefined;
@@ -239,13 +248,13 @@ export function sliceErrorText(e: unknown, log: FastifyBaseLogger, context: obje
 
 /**
  * Slices a plate of a project's setup; its result or error goes to its `project_slice_plates` row.
- * `onError` hears a stored error (auto slices raise an alert with it). `here`: see `PlateToSlice`.
+ * `onError` hears a stored error (auto slices raise an alert with it).
  */
 export function projectSliceJob(
   db: Db,
   adapters: IntegrationAdapter[],
   log: FastifyBaseLogger,
-  job: ProjectPlate & { here?: boolean },
+  job: ProjectPlate,
   onError?: (error: string) => void,
 ): SliceJob {
   return {
@@ -267,12 +276,7 @@ export function projectSliceJob(
         const abs = model && project ? await projectFile(db, project, job.file) : null;
         if (!abs) return fail("not_allowed");
         const slicers = [row.slicerIntegrationId, project?.slicerIntegrationId];
-        const out = await slicePlate(
-          db,
-          adapters,
-          { ...row, abs, model, slicers, here: job.here },
-          signal,
-        );
+        const out = await slicePlate(db, adapters, { ...row, abs, model, slicers }, signal);
         done = {
           ...out.fingerprint,
           slicedAt: new Date().toISOString(),

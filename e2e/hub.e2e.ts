@@ -278,14 +278,16 @@ test("hub: a machine's own user edits only the sections their switches allow", a
   await page.goto(`/hub/devices/${bens.deviceId}`);
   await expect(page.getByRole("heading", { name: "Ben PC" })).toBeVisible();
   // Presets is theirs to change; Catalog, Projects and the actions are not.
-  const share = page.getByRole("switch", { name: "Share OrcaSlicer presets with the hub" });
+  const share = page.getByRole("switch", { name: "Share OrcaSlicer user presets with the hub" });
   await expect(share).not.toBeChecked();
   await share.click({ force: true });
   await expect(share).toBeChecked();
   await expect(
-    page.getByRole("switch", { name: "Share the OrcaSlicer catalog with the hub" }),
+    page.getByRole("switch", {
+      name: "Receive the OrcaSlicer catalog and system presets from the hub",
+    }),
   ).toHaveCount(0);
-  await expect(page.getByText("Share: off").first()).toBeVisible();
+  await expect(page.getByText("Receive: off").first()).toBeVisible();
   await expect(page.getByRole("switch", { name: "Receive from the hub" })).toHaveCount(0);
   await expect(page.getByText("Receive from the hub: on")).toBeVisible();
   await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);

@@ -18,11 +18,10 @@ const { devices, integrations } = schema;
 const MARK = ".from-device";
 
 /**
- * A device as a library's catalog source (ADR-0020): its connector sends `system/` when the
- * fingerprint changed, and the hub keeps it where a zip's goes (`keepPresets`): the worker row's
- * `config`, which `catalogDir` reads on a hub. So the catalog check, the review, user presets'
- * parents and All settings read it as they read any folder. A device is a source only on a hub
- * with a worker row and no slicer of its own (`devicesBlocked` in catalogSource.ts).
+ * A machine whose install is a library's hub's slicer is its catalog source (ADR-0020, ADR-0022):
+ * its connector sends `system/` when the fingerprint changed, and the hub keeps it where a zip's
+ * goes (`keepPresets`): the worker row's `config`, which `catalogDir` reads on a hub. So the
+ * catalog check, the review, user presets' parents and All settings read it as they read any folder.
  */
 export function createDeviceCatalog(
   db: Db,
@@ -64,7 +63,7 @@ export function createDeviceCatalog(
     const device = db.select().from(devices).where(eq(devices.id, deviceId)).get();
     const out: CatalogSources = {};
     for (const lib of device ? deviceLibraries(adapters, device.slicers) : []) {
-      if (!device?.presetLibraries[lib]?.catalog.receive) continue;
+      if (!device?.presetLibraries[lib]?.system.receive) continue;
       const source = catalogSource(db, adapters, lib);
       if (source && "deviceId" in source && source.deviceId === deviceId) continue;
       if (catalogMismatch(db, adapters, lib, device)) continue;

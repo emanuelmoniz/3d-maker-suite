@@ -196,7 +196,6 @@
     "notFound": "not found on this machine",
     "useAsSlicer": "Use as slicer",
     "useAsSlicerOf": "Use {{name}} on this machine as a slicer for the hub",
-    "notSlicer": "Not set up as a slicer.",
     "setUpFound": "Use it as a slicer for the hub",
     "setUpManaged": "Install it here for the hub",
     "slicerSetup": "{{name}} for the hub",
@@ -204,19 +203,19 @@
     "removeSlicerTitle": "Stop slicing with {{name}} on {{device}}?",
     "removeSlicerBody": "A slicer the hub installed there is removed; one installed by hand stays.",
     "addSlicer": "Install another slicer here…",
-    "catalog": "Catalog",
-    "presets": "Presets",
+    "catalog": "Catalog and system presets",
+    "presets": "User presets",
     "receive": "Receive",
     "share": "Share",
     "receiveOf": {
-      "catalog": "Receive the {{name}} catalog from the hub",
-      "presets": "Receive {{name}} presets from the hub"
+      "catalog": "Receive the {{name}} catalog and system presets from the hub",
+      "presets": "Receive {{name}} user presets from the hub"
     },
     "shareOf": {
       "catalog": "Share the {{name}} catalog with the hub",
-      "presets": "Share {{name}} presets with the hub"
+      "presets": "Share {{name}} user presets with the hub"
     },
-    "catalogSource": "Catalog source",
+    "hubSlicer": "The hub's slicer",
     "catalogSettings": "Catalog settings",
     "presetsSettings": "Presets settings",
     "projects": "Projects",
@@ -238,8 +237,7 @@
     "stopBody": "It goes offline and starts again only when someone logs in on that computer or starts it by hand.",
     "stopped": "Stopped. It shows offline in a few seconds.",
     "errors": {
-      "noWorker": "This slicer isn't set up to slice on this machine. Set it up in Integrations first.",
-      "catalogSource": "This machine is the catalog source. Pick another source in Catalog settings first.",
+      "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first.",
       "slicerExists": "This slicer is already set up on this machine."
     }
   }

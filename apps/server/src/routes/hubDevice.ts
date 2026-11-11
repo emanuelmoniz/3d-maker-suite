@@ -300,7 +300,7 @@ export const hubDeviceRoutes =
         .from(devices)
         .where(eq(devices.id, deviceOf(req)))
         .get();
-      if (!device?.presetLibraries[library]?.presets.share)
+      if (!device?.presetLibraries[library]?.user.share)
         throw new HttpError(403, "not_sharing", "Send presets is off for this slicer");
       if (!desktopSlicers().some((s) => s.library === library))
         throw new HttpError(404, "not_found", "No such preset library");
@@ -312,7 +312,7 @@ export const hubDeviceRoutes =
       device: { presetLibraries: typeof devices.$inferSelect.presetLibraries },
       library: string,
       kind: SlicerPresetKind,
-    ) => device.presetLibraries[library]?.presets.shareKinds.includes(kind) ?? false;
+    ) => device.presetLibraries[library]?.user.shareKinds.includes(kind) ?? false;
     app.put(
       "/presets",
       {
@@ -422,12 +422,12 @@ export const hubDeviceRoutes =
         .from(devices)
         .where(eq(devices.id, deviceOf(req)))
         .get();
-      const on = Object.entries(device?.presetLibraries ?? {}).filter(([, s]) => s.presets.receive);
+      const on = Object.entries(device?.presetLibraries ?? {}).filter(([, s]) => s.user.receive);
       const libraries = new Set(on.map(([lib]) => lib));
       if (!device || !libraries.size)
         throw new HttpError(403, "not_installing", "Install is off for this device");
       // A kind's Receive line off: none of it is written or deleted there.
-      const kinds = new Map(on.map(([lib, s]) => [lib, s.presets.receiveKinds]));
+      const kinds = new Map(on.map(([lib, s]) => [lib, s.user.receiveKinds]));
       const receives = (p: { library: string; kind: SlicerPresetKind }) =>
         kinds.get(p.library)?.includes(p.kind) ?? false;
       return { ...device, libraries, receives };

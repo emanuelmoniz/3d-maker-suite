@@ -200,9 +200,8 @@ const RULES: [RegExp, string, Need][] = [
   // ADR-0017, ADR-0021: the machines' preset lines and their held deletes are presets write; the
   // switches themselves are the machine's (`/hub/devices/:id/slicers/:library`).
   [p("presets/devices"), "*", at("presets", "write")],
-  // Shown in Presets settings → Sources; the source pick fills the catalog too, so it stays catalog.
+  // Shown in Catalog and Presets settings → Sources; read-only (the hub's slicer is Integrations').
   [p("catalog/sources"), "R", either(at("catalog", "read"), at("presets", "read"))],
-  [p("catalog/sources"), "W", at("catalog", "manage")],
   [p("presets"), "R", either(at("projects", "read"), at("presets", "read"))],
   [p("presets"), "W", at("presets", "write")],
   [p("server-config|updates|docs"), "*", on("settings.server")],

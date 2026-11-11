@@ -799,6 +799,13 @@
       "when": 1794397267222,
       "tag": "0113_catalog_install",
       "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "6",
+      "when": 1794412213507,
+      "tag": "0114_hub_slicers",
+      "breakpoints": true
     }
   ]
 }
