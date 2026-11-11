@@ -155,7 +155,6 @@ const printerRoute = (path: string, component: () => ReactNode) =>
         loadNamespace("printers"),
         loadNamespace("settings"),
         loadNamespace("tags"),
-        loadNamespace("integrations"),
         // The catalog forms' locked names.
         loadNamespace("catalog"),
       ]),
@@ -373,12 +372,7 @@ const routes: AnyRoute[] = [
     getParentRoute: () => root,
     path: "/filament",
     loader: () =>
-      Promise.all([
-        loadNamespace("filament"),
-        loadNamespace("printers"),
-        loadNamespace("tags"),
-        loadNamespace("integrations"),
-      ]),
+      Promise.all([loadNamespace("filament"), loadNamespace("printers"), loadNamespace("tags")]),
     component: FilamentPage,
   }),
   ...[
@@ -398,7 +392,6 @@ const routes: AnyRoute[] = [
           loadNamespace("tags"),
           loadNamespace("costs"),
           loadNamespace("orders"), // the print's order
-          loadNamespace("integrations"), // the Sync from cloud button on the list
           loadNamespace("printers"), // quick-add modals (machine preset, spool preset)
         ]),
       component: component as () => ReactNode,
@@ -512,12 +505,13 @@ const routes: AnyRoute[] = [
     [
       ["/quotes/settings", CostsConfigPage, ["costs"]],
       ["/orders/settings", OrdersConfigPage, ["orders"]],
-      ["/printers/settings", PrintersConfigPage, ["printers", "catalog"]],
-      ["/prints/settings", PrintsConfigPage, ["prints"]],
+      // integrations: the accounts' lines on Sources (ADR-0021).
+      ["/printers/settings", PrintersConfigPage, ["printers", "catalog", "integrations"]],
+      ["/prints/settings", PrintsConfigPage, ["prints", "integrations"]],
       ["/projects/settings", ProjectsConfigPage, ["projects"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
       ["/hub/settings", HubConfigPage, ["hub"]],
-      ["/filament/settings", FilamentConfigPage, ["filament"]],
+      ["/filament/settings", FilamentConfigPage, ["filament", "integrations"]],
       ["/catalog/settings", CatalogConfigPage, ["catalog"]],
       // catalog, import, integrations: the moved Sources tab (until Step 10).
       [

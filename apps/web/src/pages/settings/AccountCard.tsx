@@ -5,7 +5,7 @@ import {
   isAction,
 } from "@3d-maker-suite/core";
 import { Link, type LinkProps, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -13,7 +13,7 @@ import { Collapsible } from "../../components/Collapsible.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { Section } from "../../components/Section.tsx";
-import { type SettingsModule, useCanSettings } from "../../components/SettingsLink.tsx";
+import { type SettingsModule, useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
@@ -23,12 +23,11 @@ import {
   useAdapters,
   useDeleteIntegration,
   usePatchIntegration,
-  useSyncIntegration,
   useTestIntegration,
 } from "../../lib/integrations.ts";
 import { SyncLog } from "./IntegrationCard.tsx";
 import { ERRORS } from "./integrationLabels.ts";
-import { ActionSwitches, Policies } from "./PolicyRow.tsx";
+import { ActionSwitches } from "./PolicyRow.tsx";
 
 // Each Allow switch, the settings page that configures it (ADR-0021), and its texts. Written out
 // so `pnpm i18n:check` sees the keys.
@@ -105,7 +104,7 @@ export function AccountsCard({ adapterId, rows }: { adapterId: string; rows: Int
 }
 
 /** Up to two letters of the account's name, or of the email's name part. */
-const initialsOf = (text: string) =>
+export const initialsOf = (text: string) =>
   text
     .split("@")[0]
     ?.split(/[\s._-]+/)
@@ -115,7 +114,7 @@ const initialsOf = (text: string) =>
     .join("") || "?";
 
 /** The account's photo through the server, else its initials. */
-function Avatar({ integration: i, text }: { integration: Integration; text: string }) {
+export function Avatar({ integration: i, text }: { integration: Integration; text: string }) {
   const [failed, setFailed] = useState(false);
   return i.account?.avatar && !failed ? (
     <img
@@ -143,16 +142,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
   const patch = usePatchIntegration(i.id);
   const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
-  const sync = useSyncIntegration(i.id);
-  // Until the Sources tabs take them (Plan 5.5.0 Step 6): the allowed types' rows, closed unless
-  // a deep link (an alert's "Open integration") points here.
-  const [syncOpen, setSyncOpen] = useState(() => location.hash === `#integration-${i.id}`);
-  const syncId = useId();
-  const devices = i.policies.filter(
-    (p) =>
-      (p.type === "printers" || p.type === "prints" || p.type === "spools") &&
-      i.account?.allow[p.type] !== false,
-  );
   const [stopping, setStopping] = useState<AccountAllowType>();
   const [deleting, setDeleting] = useState(false);
   const heading = useId();
@@ -169,9 +158,9 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
   const signedOut =
     !i.hasSecrets || i.lastError === "auth_expired" || i.lastError === "auth_required";
   const login = admin && i.enabled && adapter?.login;
-  const failed = [patch, sync, remove].some((m) => m.isError);
+  const failed = [patch, remove].some((m) => m.isError);
 
-  const state = !i.enabled ? "disabled" : sync.isPending ? "syncing" : i.status;
+  const state = !i.enabled ? "disabled" : i.status;
   const status =
     state === "disabled" ? (
       t("integrations:account.disabledHint")
@@ -314,33 +303,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
             </ul>
           </fieldset>
         )}
-        {i.enabled && devices.length > 0 && (
-          <section aria-labelledby={`${syncId}-h`} className="mt-3 grid gap-3">
-            <h4 id={`${syncId}-h`} className="font-medium">
-              <button
-                type="button"
-                aria-expanded={syncOpen}
-                aria-controls={syncId}
-                onClick={() => setSyncOpen(!syncOpen)}
-                className="flex min-h-11 items-center gap-2 rounded-md text-left"
-              >
-                <ChevronRight
-                  aria-hidden
-                  className={cx(
-                    "size-4 shrink-0 text-muted transition-transform",
-                    syncOpen && "rotate-90",
-                  )}
-                />
-                {t("integrations:account.syncSettings")}
-              </button>
-            </h4>
-            {syncOpen && (
-              <div id={syncId}>
-                <Policies integration={{ ...i, policies: devices }} sync={sync} part="connection" />
-              </div>
-            )}
-          </section>
-        )}
         {admin && i.enabled && i.policies.some((p) => isAction(p.type)) && (
           <div className="mt-3 grid gap-3">
             <ActionSwitches integration={i} />
@@ -394,7 +356,7 @@ function AllowRow({
 }) {
   const { t } = useTranslation();
   const { module, label, link } = ALLOW[type];
-  const canOpen = useCanSettings(module);
+  const canOpen = useSettingsAccess(module).sources;
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-4">
       <Switch

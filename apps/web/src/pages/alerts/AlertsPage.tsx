@@ -70,6 +70,26 @@ export const buttonLink =
 /** The integration's card on the integrations page. */
 export const integrationHash = (a: Alert) => `integration-${a.context.integrationId}`;
 
+const SOURCES_TAB: Record<string, string> = {
+  printers: "/printers/settings/sources",
+  prints: "/prints/settings/sources",
+  spools: "/filament/settings/sources",
+};
+/**
+ * Where a sync alert's task is set up: an account's printers, prints and spools on their line of a
+ * Sources tab (ADR-0021), anything else on the integration's card.
+ */
+export const syncTaskLink = (a: Alert) => {
+  const tab = SOURCES_TAB[String(a.context.type)];
+  return tab
+    ? ({
+        to: tab as "/",
+        hash: `source-${a.context.integrationId}-${a.context.type}`,
+        sources: true,
+      } as const)
+    : ({ to: "/integrations", hash: integrationHash(a), sources: false } as const);
+};
+
 /** Whether the caller may open this sync alert's task on the Integrations page (ADR-0012). */
 export function useMayOpenTask() {
   const may = useMayTask();
@@ -206,7 +226,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "sync_error":
       if (!mayOpen(a)) return <span className="font-medium">{text}</span>;
       return (
-        <Link to="/integrations" hash={integrationHash(a)} className={link}>
+        <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={link}>
           {text}
         </Link>
       );

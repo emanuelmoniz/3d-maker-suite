@@ -1,18 +1,15 @@
 import { expect, test } from "./fixtures.ts";
-import { gotoIntegrations } from "./helpers.ts";
+import { lineMenu } from "./helpers.ts";
 
-test("Review and import on the Printers row reviews the cloud's printers", async ({
+test("Review and import on the Printers line reviews the cloud's printers", async ({
   page,
   app,
 }) => {
   await app.api("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } });
 
-  await gotoIntegrations(page);
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: /^Printers/ })
-    .getByRole("link", { name: "Review and import" })
-    .click();
+  await page.goto("/printers/settings/sources");
+  await lineMenu(page, "Printers");
+  await page.getByRole("link", { name: "Review and import" }).click();
   await expect(page.getByRole("cell", { name: "MOCK0001" })).toBeVisible();
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
   await page

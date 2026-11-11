@@ -191,7 +191,6 @@ function UserMenu() {
     <Menu
       label={t("common:userMenu.label", { name: user.displayName })}
       triggerClass="h-9 w-full gap-3 px-2.5 text-muted hover:text-fg"
-      panelClass="bottom-full left-0 mb-1"
       trigger={
         <>
           <CircleUser className="size-4.5 shrink-0" aria-hidden />

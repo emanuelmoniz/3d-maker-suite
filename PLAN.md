@@ -2453,7 +2453,7 @@ Plan Step 4 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.t
 Plan Step 5 of the 5.5.0 plan in PLAN.md. Use frontend-design for the account card.
 ```
 
-### [ ] Step 6 - Sources tabs: printers, prints, spools  **[plan mode]**
+### [x] Step 6 - Sources tabs: printers, prints, spools  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Build the Sources layout once, for every later tab: a `Section` per direction (Share to the hub, Receive from the hub; only the ones the type has), a block per source (name, link back on the right), an optional per-slicer heading, and a `DataTable` of lines (Item, On switch, When, What, How, Edit, `⋯`). No Add source or Remove: a source is listed while its switch is on.

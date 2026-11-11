@@ -86,8 +86,7 @@
       "userPresets": "Stop syncing user presets from this account?",
       "userPresetsBody": "The presets already imported stay."
     },
-    "stopConfirm": "Stop syncing",
-    "syncSettings": "Sync settings"
+    "stopConfirm": "Stop syncing"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -246,7 +245,8 @@
     "onFileChangeHint": "When the slicer's files change, this runs on its own, within a minute.",
     "manualFilesHint": "Nothing is written on its own. When the slicer's files change you get an alert, and you decide under \"Review and import\" or with Sync now.",
     "modes": {
-      "manual": "Manual"
+      "manual": "Manual",
+      "off": "Off"
     },
     "auto": "Auto",
     "autoOf": "Auto sync: {{type}}",
@@ -470,7 +470,5 @@
       "1w": "Every week",
       "1M": "Every month"
     }
-  },
-  "syncFrom": "Sync from {{name}}",
-  "syncError": "Couldn’t sync. Check the integration in Settings."
+  }
 }

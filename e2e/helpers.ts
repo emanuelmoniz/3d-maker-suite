@@ -33,9 +33,9 @@ export const savedRoots = async (api: Api) =>
     }),
   );
 
-/** Opens every integration card on the page, and each account's sync settings (they start closed). */
+/** Opens every slicer card on the page (they start closed). */
 export async function openIntegrationCards(page: Page) {
-  const closed = page.locator(":is(h3, h4) > button[aria-expanded=false]");
+  const closed = page.locator("h3 > button[aria-expanded=false]");
   await closed.first().waitFor();
   while (await closed.count()) await closed.first().click();
 }
@@ -44,6 +44,27 @@ export async function openIntegrationCards(page: Page) {
 export async function gotoIntegrations(page: Page) {
   await page.goto("/integrations");
   await openIntegrationCards(page);
+}
+
+/** The Sources tab an account's printers, prints or spools are set on (ADR-0021). */
+export type SourcesTab = "printers" | "prints" | "filament";
+
+/** Opens the Edit dialog of an account's line (`item`: "Printers", "Print history", "Spools"). */
+export async function editLine(page: Page, tab: SourcesTab, item: string, nth = 0) {
+  if (!page.url().endsWith(`/${tab}/settings/sources`)) await page.goto(`/${tab}/settings/sources`);
+  await page
+    .getByRole("button", { name: new RegExp(`^Edit ${item} from `) })
+    .nth(nth)
+    .click();
+  return page.getByRole("dialog", { name: new RegExp(`^${item} from `) });
+}
+
+/** Opens the `⋯` of an account's line. */
+export async function lineMenu(page: Page, item: string, nth = 0) {
+  await page
+    .getByLabel(new RegExp(`^More for ${item} from `))
+    .nth(nth)
+    .click();
 }
 
 /** The "Acme X1" printer model, created on first use. */
@@ -154,6 +175,7 @@ export const ROUTES = [
   "/projects/settings",
   "/alerts/settings",
   "/printers/settings",
+  "/printers/settings/sources",
   "/catalog/printers",
   "/catalog/filament",
   "/presets/printer",

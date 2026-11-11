@@ -26,6 +26,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
+import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { TimeInput } from "../../components/TimeInput.tsx";
@@ -115,21 +116,20 @@ const NEW_OPENED_AT_HINTS: Record<NewSpoolField, string> = {
   unset: "integrations:policies.newSpools.openedAtHints.unset",
   review: "integrations:policies.newSpools.openedAtHints.review",
 };
-// The first group has no heading: a cloud card's devices and prints.
+// An account's printers, prints and spools are lines on their Sources tabs (ADR-0021).
 const GROUPS = {
-  devices: null,
   catalog: "integrations:policies.groups.catalog",
   systemPresets: "integrations:policies.groups.systemPresets",
   userPresets: "integrations:policies.groups.userPresets",
 };
-const groupOf = (c: Capability): keyof typeof GROUPS =>
+const groupOf = (c: Capability): keyof typeof GROUPS | null =>
   (SLICER_CATALOG_ROW_TYPES as readonly string[]).includes(c)
     ? "catalog"
     : (SLICER_PRESET_TYPES as readonly string[]).includes(c)
       ? "systemPresets"
       : isUserPresetType(c)
         ? "userPresets"
-        : "devices";
+        : null;
 // Types whose rows are reviewed and confirmed. They can also run straight from here: a run
 // imports the rows that need no decision (catalog rows, spools with one matching preset, presets,
 // with the brand and material they need) and leaves the rest pending for the review page.
@@ -185,12 +185,11 @@ function rangeFor(
 }
 
 /**
- * The data types an integration imports, in groups, one row each: `connection` on its card (a
- * cloud's printers, prints and spools); on Presets settings → Sources (ADR-0020), `catalog` (the catalog
- * source's Catalog and System presets) and `userPresets` (each route's).
+ * The data types an integration imports, in groups, one row each, on Presets settings → Sources
+ * (ADR-0020): `catalog` (the catalog source's Catalog and System presets) and `userPresets` (each
+ * route's). An account's printers, prints and spools are on their own Sources tabs (ADR-0021).
  */
-const PARTS: Record<"connection" | "catalog" | "userPresets", (keyof typeof GROUPS)[]> = {
-  connection: ["devices"],
+const PARTS: Record<"catalog" | "userPresets", (keyof typeof GROUPS)[]> = {
   catalog: ["catalog", "systemPresets"],
   userPresets: ["userPresets"],
 };
@@ -208,14 +207,11 @@ export function Policies({
   const may = useMayTask();
   // Choose brands is a Sources setting (ADR-0020).
   const chooseBrands = useCan("catalog", "manage");
-  const tracking = (type: string) =>
-    i.policies.some((p) => p.type === type && p.mode !== "off" && p.trackUsage);
-  const doubleTracking = tracking("prints") && tracking("spools");
   return (
     // The rows follow the card's width, not the screen's.
     <div className="@container grid gap-4">
       {/* Once per library on Sources: above its catalog cards. */}
-      {part !== "userPresets" && <p className="text-muted">{t("integrations:policies.hint")}</p>}
+      {part === "catalog" && <p className="text-muted">{t("integrations:policies.hint")}</p>}
       {patch.isError && (
         <p role="alert" className="text-bad">
           {t("integrations:card.actionError")}
@@ -230,24 +226,16 @@ export function Policies({
         );
         if (!rows.length) return null;
         const id = `${i.id}-${g}`;
-        const heading = GROUPS[g];
         return (
-          <section key={g} aria-labelledby={heading ? id : undefined} className="grid gap-2">
-            {heading && (
-              <h5 id={id} className="font-medium text-muted">
-                {t(heading)}
-              </h5>
-            )}
+          <section key={g} aria-labelledby={id} className="grid gap-2">
+            <h5 id={id} className="font-medium text-muted">
+              {t(GROUPS[g])}
+            </h5>
             <ul className="divide-y divide-border rounded-lg border border-border">
               {rows.map((p) => (
                 <PolicyRow key={p.type} integration={i} policy={p} sync={sync} patch={patch} />
               ))}
             </ul>
-            {g === "devices" && doubleTracking && (
-              <p role="status" className="text-warn">
-                {t("integrations:policies.doubleTracking")}
-              </p>
-            )}
             {g === "userPresets" && i.kind === "cloud" && (
               <p className="text-muted">{t("integrations:policies.cloudPresetsRoute")}</p>
             )}
@@ -283,9 +271,10 @@ export function ActionSwitches({ integration: i }: { integration: Integration })
   );
 }
 
-/** "Manual", "Auto, every day at 07:30", …, in the server's time zone. */
-function useSummary(p: SyncPolicy, files: boolean) {
+/** "Off", "Manual", "Auto, every day at 07:30", …, in the server's time zone. */
+export function useSummary(p: SyncPolicy, files: boolean) {
   const { t, i18n } = useTranslation();
+  if (p.mode === "off") return t("integrations:policies.modes.off");
   if (p.mode !== "auto") return t("integrations:policies.modes.manual");
   if (files) return t("integrations:policies.onFileChange");
   const set = AT_FIELDS[p.frequency].some((f) => p[f] != null);
@@ -298,9 +287,353 @@ function useSummary(p: SyncPolicy, files: boolean) {
   });
 }
 
+/** What "What to sync" and "How to sync" say for a line (ADR-0021 wireframe 3). */
+export const scopeLabel = (s: SyncScope) => SCOPES[s];
+export const mergeLabel = (m: SyncMerge) => MERGES[m];
+
+/**
+ * A type's tasks: Sync now (which takes the user to the rows a run left for them) and Review and
+ * import, each where the caller's rights and the integration allow it.
+ */
+export function useRunPolicy(i: Integration, p: SyncPolicy, sync: Sync) {
+  const navigate = useNavigate();
+  const may = useMayTask();
+  const type = p.type;
+  // Switched off or not set up (no sign-in, no folder): nothing to run.
+  const active = i.capabilities.includes(type);
+  const reviewOf = (dates: Partial<SyncRequest>) =>
+    isReviewed(type)
+      ? ({
+          to: "/import/$source/$id/$type",
+          params: { source: "integration", id: i.id, type },
+          search: dates as never,
+        } as const)
+      : null;
+  const review = reviewOf({});
+  const canSync = active && may(i.id, type, "sync");
+  const canReview = active && !!review && may(i.id, type, "review");
+  const run = () => {
+    // Actions (open in the slicer, slice) are switches, never run from here.
+    if (isAction(type)) return;
+    if (!review || !canReview) return sync.mutate({ type });
+    sync.mutate(
+      { type: review.params.type },
+      // Rows were left for a person: take them there, to those rows only.
+      {
+        onSuccess: (r) =>
+          void (r.pending > 0 && navigate({ ...review, search: { waiting: "1" } as never })),
+      },
+    );
+  };
+  return {
+    active,
+    review,
+    reviewOf,
+    canSync,
+    canReview,
+    run,
+    // A run left rows for a person: the row says so, in the same yellow as the alert.
+    waiting: !!review && active && p.pending > 0,
+  };
+}
+
+type PolicyChange = Partial<Omit<SyncPolicy, "type" | "lastRunAt" | "pending">>;
+
+/**
+ * A type's settings: when it runs, alerts, editors, what and how it imports, new spools and usage.
+ * `set` saves at once (a row's details) or edits a draft (the Edit dialog). `otherTracks`: the
+ * same account's other type (prints, spools) also takes the filament.
+ */
+export function PolicyFields({
+  integration: i,
+  policy: p,
+  set,
+  disabled,
+  otherTracks,
+}: {
+  integration: Integration;
+  policy: SyncPolicy;
+  set: (change: PolicyChange) => void;
+  disabled: boolean;
+  otherTracks?: boolean;
+}) {
+  const { t } = useTranslation();
+  const detailsId = useId();
+  const accounts = !!useMe();
+  const name = t(CAPS[p.type]);
+  // A slicer's cards read files: a change in them runs the type, so it has no schedule (ADR-0019).
+  const files = i.kind !== "cloud";
+  const options = (map: Record<string, string>) =>
+    Object.entries(map).map(([value, key]) => ({ value, label: t(key) }));
+  const type = p.type;
+  const prints = type === "prints";
+  const review = isReviewed(type);
+  const picked = (s: AlertSeverity) => p.alertSeverities?.includes(s) ?? true;
+  const trackHint = `${detailsId}-track`;
+  const auto = p.mode === "auto";
+
+  return (
+    <>
+      <div className="grid content-start gap-5">
+        <fieldset className="grid gap-3">
+          <legend className="mb-2 font-semibold">{t("integrations:policies.when")}</legend>
+          <Switch
+            label={t(files ? "integrations:policies.onFileChange" : "integrations:policies.auto")}
+            aria-label={
+              files
+                ? t("integrations:policies.onFileChangeOf", { type: name })
+                : t("integrations:policies.autoOf", { type: name })
+            }
+            checked={auto}
+            disabled={disabled}
+            onChange={(e) => set({ mode: e.target.checked ? "auto" : "manual" })}
+          />
+          {files ? (
+            <p className="text-muted">
+              {auto
+                ? t("integrations:policies.onFileChangeHint")
+                : t("integrations:policies.manualFilesHint")}
+            </p>
+          ) : auto ? (
+            <div className="grid gap-3">
+              <FormField label={t("integrations:policies.frequency")}>
+                {(f) => (
+                  <Combobox
+                    {...f}
+                    aria-label={t("integrations:policies.frequencyOf", { type: name })}
+                    value={p.frequency}
+                    disabled={disabled}
+                    onChange={(v) => set({ frequency: v as SyncFrequency })}
+                    options={options(FREQUENCIES)}
+                  />
+                )}
+              </FormField>
+              <ScheduleAt policy={p} name={name} disabled={disabled} set={set} />
+              <p className="text-muted">{t("integrations:policies.at.hint")}</p>
+            </div>
+          ) : (
+            <p className="text-muted">{t("integrations:policies.manualHint")}</p>
+          )}
+        </fieldset>
+        {/* Empty (null) = all three; picking all three again goes back to it. */}
+        <fieldset>
+          <legend className="mb-2 font-semibold">{t("integrations:policies.alert")}</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {ALERT_SEVERITIES.map((s) => (
+              <label key={s} className="flex min-h-9 items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label={t("integrations:policies.alertOf", {
+                    severity: t(SEVERITY[s]),
+                    type: name,
+                  })}
+                  checked={picked(s)}
+                  disabled={disabled}
+                  onChange={() => {
+                    const next = ALERT_SEVERITIES.filter((x) => (x === s ? !picked(s) : picked(x)));
+                    set({
+                      alertSeverities: next.length === ALERT_SEVERITIES.length ? null : next,
+                    });
+                  }}
+                />
+                {t(SEVERITY[s])}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {/* Without accounts there are no editors. */}
+        {accounts && (
+          <fieldset className="grid gap-1">
+            <legend className="mb-2 font-semibold">
+              {t("integrations:policies.editors.title")}
+            </legend>
+            <Switch
+              label={t("integrations:policies.editors.sync")}
+              aria-label={t("integrations:policies.editors.syncOf", { type: name })}
+              checked={p.editorSync}
+              disabled={disabled}
+              onChange={(e) => set({ editorSync: e.target.checked })}
+            />
+            {review && (
+              <Switch
+                label={t("integrations:policies.editors.review")}
+                aria-label={t("integrations:policies.editors.reviewOf", { type: name })}
+                checked={p.editorReview}
+                disabled={disabled}
+                onChange={(e) => set({ editorReview: e.target.checked })}
+              />
+            )}
+            <p className="text-muted">{t("integrations:policies.editors.hint")}</p>
+          </fieldset>
+        )}
+      </div>
+
+      {/* Right column. Prints never change once imported: only whether they take the filament. */}
+      {review && (
+        <div className="grid content-start gap-5">
+          <fieldset className="grid content-start gap-3">
+            <legend className="mb-2 font-semibold">{t("integrations:policies.whatHow")}</legend>
+            {review && !prints && (
+              <>
+                <FormField
+                  label={t("integrations:policies.scope")}
+                  hint={t((isUserPresetType(type) ? USER_SCOPE_HINTS : SCOPE_HINTS)[p.scope])}
+                >
+                  {(f) => (
+                    <Combobox
+                      {...f}
+                      aria-label={t("integrations:policies.scopeOf", { type: name })}
+                      value={p.scope}
+                      disabled={disabled}
+                      onChange={(v) => set({ scope: v as SyncScope })}
+                      options={options(SCOPES)}
+                    />
+                  )}
+                </FormField>
+                {/* A preset follows its file, a catalog row only fills (ADR-0020). */}
+                {!isCatalogType(type) && (
+                  <FormField
+                    label={t("integrations:policies.merge")}
+                    hint={t(MERGE_HINTS[p.merge])}
+                  >
+                    {(f) => (
+                      <Combobox
+                        {...f}
+                        aria-label={t("integrations:policies.mergeOf", { type: name })}
+                        value={p.merge}
+                        disabled={disabled}
+                        onChange={(v) => set({ merge: v as SyncMerge })}
+                        options={options(MERGES)}
+                      />
+                    )}
+                  </FormField>
+                )}
+              </>
+            )}
+            {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}
+            {(prints || type === "spools") && (
+              <div>
+                <label className="flex min-h-9 items-center gap-2 font-medium">
+                  <input
+                    type="checkbox"
+                    aria-describedby={trackHint}
+                    checked={p.trackUsage}
+                    disabled={disabled}
+                    onChange={(e) => set({ trackUsage: e.target.checked })}
+                  />
+                  {t("integrations:policies.trackUsage")}
+                </label>
+                <p id={trackHint} className="text-muted">
+                  {type === "spools"
+                    ? t("integrations:policies.trackUsageSpools")
+                    : t("integrations:policies.trackUsageOf", { type: name })}
+                </p>
+                {p.trackUsage && otherTracks && (
+                  <p role="status" className="mt-1 text-warn">
+                    {t("integrations:policies.doubleTracking")}
+                  </p>
+                )}
+              </div>
+            )}
+          </fieldset>
+
+          {/* Spools the source brings in for the first time; one you have keeps its own. */}
+          {type === "spools" && (
+            <fieldset className="grid content-start gap-3">
+              <legend className="font-semibold">
+                {t("integrations:policies.newSpools.title")}
+              </legend>
+              <p className="-mt-1 text-muted">{t("integrations:policies.newSpools.hint")}</p>
+              <FormField
+                label={t("integrations:policies.newSpools.weight")}
+                hint={t(NEW_WEIGHT_HINTS[p.newWeight])}
+              >
+                {(f) => (
+                  <Combobox
+                    {...f}
+                    value={p.newWeight}
+                    disabled={disabled}
+                    onChange={(v) => set({ newWeight: v as NewSpoolField })}
+                    options={options(NEW_WEIGHT)}
+                  />
+                )}
+              </FormField>
+              <FormField
+                label={t("integrations:policies.newSpools.openedAt")}
+                hint={t(NEW_OPENED_AT_HINTS[p.newOpenedAt])}
+              >
+                {(f) => (
+                  <Combobox
+                    {...f}
+                    value={p.newOpenedAt}
+                    disabled={disabled}
+                    onChange={(v) => set({ newOpenedAt: v as NewSpoolField })}
+                    options={options(NEW_OPENED_AT)}
+                  />
+                )}
+              </FormField>
+            </fieldset>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Edit on a Sources line (ADR-0021): the type's settings on a draft, saved together. Only what
+ * changed is sent, so a line that is off stays off unless its schedule is changed.
+ */
+export function PolicyEditDialog({
+  integration: i,
+  policy,
+  title,
+  otherTracks,
+  onClose,
+}: {
+  integration: Integration;
+  policy: SyncPolicy;
+  title: string;
+  otherTracks?: boolean;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const patch = usePatchIntegration(i.id);
+  const [draft, setDraft] = useState(policy);
+  const changed = Object.fromEntries(
+    Object.entries(draft).filter(
+      ([k, v]) =>
+        JSON.stringify(v) !== JSON.stringify(policy[k as keyof SyncPolicy]) &&
+        k !== "lastRunAt" &&
+        k !== "pending",
+    ),
+  ) as PolicyChange;
+  return (
+    <FormDialog
+      open
+      title={title}
+      busy={patch.isPending}
+      error={patch.isError ? t("integrations:card.actionError") : undefined}
+      onCancel={onClose}
+      onSubmit={() => {
+        if (!Object.keys(changed).length) return onClose();
+        patch.mutate({ policies: [{ type: policy.type, ...changed }] }, { onSuccess: onClose });
+      }}
+    >
+      <PolicyFields
+        integration={i}
+        policy={draft}
+        set={(change) => setDraft((d) => ({ ...d, ...change }))}
+        disabled={patch.isPending}
+        otherTracks={otherTracks}
+      />
+    </FormDialog>
+  );
+}
+
 /**
  * A data type: name, schedule and last sync, Sync now and Review and import. Its settings open
- * below: when it runs, what and how it imports, alerts, and for prints a period to review.
+ * below: when it runs, what and how it imports, alerts.
  */
 function PolicyRow({
   integration: i,
@@ -314,7 +647,6 @@ function PolicyRow({
   patch: Patch;
 }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const detailsId = useId();
   const [open, setOpen] = useState(false);
   // An editor gets the buttons their flags allow and no settings (ADR-0012); catalog cards are
@@ -323,50 +655,12 @@ function PolicyRow({
     isPresetType(p.type) ? "presets" : isCatalogType(p.type) ? "catalog" : "integrations.manage",
     "manage",
   );
-  const accounts = !!useMe();
-  const may = useMayTask();
   const name = t(CAPS[p.type]);
-  // A slicer's cards read files: a change in them runs the type, so it has no schedule (ADR-0019).
-  const files = i.kind !== "cloud";
-  const summary = useSummary(p, files);
-  const set = (change: Partial<Omit<SyncPolicy, "type" | "lastRunAt" | "pending">>) =>
-    patch.mutate({ policies: [{ type: p.type, ...change }] });
-  const options = (map: Record<string, string>) =>
-    Object.entries(map).map(([value, key]) => ({ value, label: t(key) }));
-
-  const type = p.type;
+  const summary = useSummary(p, i.kind !== "cloud");
+  const { review, canSync, canReview, run, waiting } = useRunPolicy(i, p, sync);
   // Actions are switches in the slicer part, not rows (`Policies` leaves them out).
-  if (isAction(type)) return null;
-  const prints = type === "prints";
-  // Switched off or not set up (no sign-in, no folder): nothing to run.
-  const active = i.capabilities.includes(type);
-  const reviewOf = (dates: Partial<SyncRequest>) =>
-    isReviewed(type)
-      ? ({
-          to: "/import/$source/$id/$type",
-          params: { source: "integration", id: i.id, type },
-          search: dates as never,
-        } as const)
-      : null;
-  const review = reviewOf({});
-  const canSync = may(i.id, type, "sync");
-  const canReview = !!review && may(i.id, type, "review");
-  const run = () => {
-    if (!review || !canReview) return sync.mutate({ type });
-    sync.mutate(
-      { type: review.params.type },
-      // Rows were left for a person: take them there, to those rows only.
-      {
-        onSuccess: (r) =>
-          void (r.pending > 0 && navigate({ ...review, search: { waiting: "1" } as never })),
-      },
-    );
-  };
-  const picked = (s: AlertSeverity) => p.alertSeverities?.includes(s) ?? true;
-  const trackHint = `${detailsId}-track`;
+  if (isAction(p.type)) return null;
   const auto = p.mode === "auto";
-  // A run left rows for a person: the row says so, in the same yellow as the alert.
-  const waiting = !!review && active && p.pending > 0;
 
   return (
     <li>
@@ -382,14 +676,7 @@ function PolicyRow({
               />
               {summary}
             </span>
-            {p.lastRunAt ? (
-              // ponytail: "5 min. ago" goes stale until the integration refetches; tick it if it matters.
-              <time dateTime={p.lastRunAt} title={formatDateTime(p.lastRunAt)}>
-                {t("integrations:card.lastSync", { date: formatRelative(p.lastRunAt) })}
-              </time>
-            ) : (
-              <span>{t("integrations:card.never")}</span>
-            )}
+            <LastSync at={p.lastRunAt} />
           </p>
         </div>
         <span className="order-last flex w-full flex-wrap items-center gap-2 @xl:order-0 @xl:w-auto">
@@ -399,12 +686,12 @@ function PolicyRow({
               {t("integrations:policies.pending", { count: p.pending })}
             </span>
           )}
-          {active && canSync && (
+          {canSync && (
             <Button disabled={sync.isPending} onClick={() => run()}>
               {t("integrations:policies.syncNow")}
             </Button>
           )}
-          {review && active && canReview && (
+          {review && canReview && (
             <Link
               {...review}
               className={cx(
@@ -441,225 +728,33 @@ function PolicyRow({
           hidden={!open}
           className="mx-3 mb-3 grid gap-5 rounded-md bg-surface-2 p-4 @2xl:grid-cols-2"
         >
-          <div className="grid content-start gap-5">
-            <fieldset className="grid gap-3">
-              <legend className="mb-2 font-semibold">{t("integrations:policies.when")}</legend>
-              <Switch
-                label={t(
-                  files ? "integrations:policies.onFileChange" : "integrations:policies.auto",
-                )}
-                aria-label={
-                  files
-                    ? t("integrations:policies.onFileChangeOf", { type: name })
-                    : t("integrations:policies.autoOf", { type: name })
-                }
-                checked={auto}
-                disabled={patch.isPending}
-                onChange={(e) => set({ mode: e.target.checked ? "auto" : "manual" })}
-              />
-              {files ? (
-                <p className="text-muted">
-                  {auto
-                    ? t("integrations:policies.onFileChangeHint")
-                    : t("integrations:policies.manualFilesHint")}
-                </p>
-              ) : auto ? (
-                <div className="grid gap-3">
-                  <FormField label={t("integrations:policies.frequency")}>
-                    {(f) => (
-                      <Combobox
-                        {...f}
-                        aria-label={t("integrations:policies.frequencyOf", { type: name })}
-                        value={p.frequency}
-                        disabled={patch.isPending}
-                        onChange={(v) => set({ frequency: v as SyncFrequency })}
-                        options={options(FREQUENCIES)}
-                      />
-                    )}
-                  </FormField>
-                  <ScheduleAt policy={p} name={name} disabled={patch.isPending} set={set} />
-                  <p className="text-muted">{t("integrations:policies.at.hint")}</p>
-                </div>
-              ) : (
-                <p className="text-muted">{t("integrations:policies.manualHint")}</p>
-              )}
-            </fieldset>
-            {/* Empty (null) = all three; picking all three again goes back to it. */}
-            <fieldset>
-              <legend className="mb-2 font-semibold">{t("integrations:policies.alert")}</legend>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {ALERT_SEVERITIES.map((s) => (
-                  <label key={s} className="flex min-h-9 items-center gap-2">
-                    <input
-                      type="checkbox"
-                      aria-label={t("integrations:policies.alertOf", {
-                        severity: t(SEVERITY[s]),
-                        type: name,
-                      })}
-                      checked={picked(s)}
-                      disabled={patch.isPending}
-                      onChange={() => {
-                        const next = ALERT_SEVERITIES.filter((x) =>
-                          x === s ? !picked(s) : picked(x),
-                        );
-                        set({
-                          alertSeverities: next.length === ALERT_SEVERITIES.length ? null : next,
-                        });
-                      }}
-                    />
-                    {t(SEVERITY[s])}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            {/* Without accounts there are no editors. */}
-            {accounts && (
-              <fieldset className="grid gap-1">
-                <legend className="mb-2 font-semibold">
-                  {t("integrations:policies.editors.title")}
-                </legend>
-                <Switch
-                  label={t("integrations:policies.editors.sync")}
-                  aria-label={t("integrations:policies.editors.syncOf", { type: name })}
-                  checked={p.editorSync}
-                  disabled={patch.isPending}
-                  onChange={(e) => set({ editorSync: e.target.checked })}
-                />
-                {review && (
-                  <Switch
-                    label={t("integrations:policies.editors.review")}
-                    aria-label={t("integrations:policies.editors.reviewOf", { type: name })}
-                    checked={p.editorReview}
-                    disabled={patch.isPending}
-                    onChange={(e) => set({ editorReview: e.target.checked })}
-                  />
-                )}
-                <p className="text-muted">{t("integrations:policies.editors.hint")}</p>
-              </fieldset>
-            )}
-          </div>
-
-          {/* Right column. Prints never change once imported: only whether they take the filament. */}
-          {(review || type === "spools") && (
-            <div className="grid content-start gap-5">
-              <fieldset className="grid content-start gap-3">
-                <legend className="mb-2 font-semibold">{t("integrations:policies.whatHow")}</legend>
-                {review && !prints && (
-                  <>
-                    <FormField
-                      label={t("integrations:policies.scope")}
-                      hint={t((isUserPresetType(type) ? USER_SCOPE_HINTS : SCOPE_HINTS)[p.scope])}
-                    >
-                      {(f) => (
-                        <Combobox
-                          {...f}
-                          aria-label={t("integrations:policies.scopeOf", { type: name })}
-                          value={p.scope}
-                          disabled={patch.isPending}
-                          onChange={(v) => set({ scope: v as SyncScope })}
-                          options={options(SCOPES)}
-                        />
-                      )}
-                    </FormField>
-                    {/* A preset follows its file, a catalog row only fills (ADR-0020). */}
-                    {!isCatalogType(type) && (
-                      <FormField
-                        label={t("integrations:policies.merge")}
-                        hint={t(MERGE_HINTS[p.merge])}
-                      >
-                        {(f) => (
-                          <Combobox
-                            {...f}
-                            aria-label={t("integrations:policies.mergeOf", { type: name })}
-                            value={p.merge}
-                            disabled={patch.isPending}
-                            onChange={(v) => set({ merge: v as SyncMerge })}
-                            options={options(MERGES)}
-                          />
-                        )}
-                      </FormField>
-                    )}
-                  </>
-                )}
-                {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}
-                {(prints || type === "spools") && (
-                  <div>
-                    <label className="flex min-h-9 items-center gap-2 font-medium">
-                      <input
-                        type="checkbox"
-                        aria-describedby={trackHint}
-                        checked={p.trackUsage}
-                        disabled={patch.isPending}
-                        onChange={(e) => set({ trackUsage: e.target.checked })}
-                      />
-                      {t("integrations:policies.trackUsage")}
-                    </label>
-                    <p id={trackHint} className="text-muted">
-                      {type === "spools"
-                        ? t("integrations:policies.trackUsageSpools")
-                        : t("integrations:policies.trackUsageOf", { type: name })}
-                    </p>
-                  </div>
-                )}
-              </fieldset>
-
-              {/* Spools the source brings in for the first time; one you have keeps its own. */}
-              {type === "spools" && (
-                <fieldset className="grid content-start gap-3">
-                  <legend className="font-semibold">
-                    {t("integrations:policies.newSpools.title")}
-                  </legend>
-                  <p className="-mt-1 text-muted">{t("integrations:policies.newSpools.hint")}</p>
-                  <FormField
-                    label={t("integrations:policies.newSpools.weight")}
-                    hint={t(NEW_WEIGHT_HINTS[p.newWeight])}
-                  >
-                    {(f) => (
-                      <Combobox
-                        {...f}
-                        value={p.newWeight}
-                        disabled={patch.isPending}
-                        onChange={(v) => set({ newWeight: v as NewSpoolField })}
-                        options={options(NEW_WEIGHT)}
-                      />
-                    )}
-                  </FormField>
-                  <FormField
-                    label={t("integrations:policies.newSpools.openedAt")}
-                    hint={t(NEW_OPENED_AT_HINTS[p.newOpenedAt])}
-                  >
-                    {(f) => (
-                      <Combobox
-                        {...f}
-                        value={p.newOpenedAt}
-                        disabled={patch.isPending}
-                        onChange={(v) => set({ newOpenedAt: v as NewSpoolField })}
-                        options={options(NEW_OPENED_AT)}
-                      />
-                    )}
-                  </FormField>
-                </fieldset>
-              )}
-            </div>
-          )}
-
-          {prints && active && (
-            <ReviewPeriod
-              lastRunAt={p.lastRunAt}
-              open={(dates) => {
-                const target = reviewOf(dates);
-                if (target) navigate(target);
-              }}
-            />
-          )}
+          <PolicyFields
+            integration={i}
+            policy={p}
+            set={(change) => patch.mutate({ policies: [{ type: p.type, ...change }] })}
+            disabled={patch.isPending}
+          />
         </div>
       )}
     </li>
   );
 }
 
+/** "Last sync 5 min. ago", or "Never". */
+export function LastSync({ at }: { at: string | null }) {
+  const { t } = useTranslation();
+  return at ? (
+    // ponytail: "5 min. ago" goes stale until the integration refetches; tick it if it matters.
+    <time dateTime={at} title={formatDateTime(at)}>
+      {t("integrations:card.lastSync", { date: formatRelative(at) })}
+    </time>
+  ) : (
+    <span>{t("integrations:card.never")}</span>
+  );
+}
+
 /** Prints only: review every print of a period, imported or not, apart from the saved settings. */
-function ReviewPeriod({
+export function ReviewPeriod({
   lastRunAt,
   open,
 }: {
@@ -672,55 +767,52 @@ function ReviewPeriod({
   const [to, setTo] = useState("");
   const invalid = range === "custom" && (!from || (!!to && to < from));
   return (
-    // The divider is on a wrapper: on the fieldset it would run through the legend.
-    <div className="border-t border-border pt-4 @2xl:col-span-2">
-      <fieldset className="grid gap-3">
-        <legend className="mb-2 font-semibold">{t("integrations:sync.period")}</legend>
-        <p className="text-muted">{t("integrations:sync.periodHint")}</p>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full @xl:w-56">
-            <FormField label={t("integrations:sync.range")}>
+    // In its own dialog, titled "Review a period".
+    <div className="grid gap-3">
+      <p className="text-muted">{t("integrations:sync.periodHint")}</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full @xl:w-56">
+          <FormField label={t("integrations:sync.range")}>
+            {(f) => (
+              <Combobox
+                {...f}
+                value={range}
+                onChange={(v) => setRange(v as keyof typeof RANGES)}
+                options={Object.entries(RANGES).map(([value, key]) => ({ value, label: t(key) }))}
+              />
+            )}
+          </FormField>
+        </div>
+        {range === "custom" && (
+          <div className="grid w-full grid-cols-2 gap-3 @xl:w-80">
+            <FormField label={t("integrations:sync.from")}>
               {(f) => (
-                <Combobox
+                <DateInput
                   {...f}
-                  value={range}
-                  onChange={(v) => setRange(v as keyof typeof RANGES)}
-                  options={Object.entries(RANGES).map(([value, key]) => ({ value, label: t(key) }))}
+                  className={inputClass}
+                  value={from}
+                  max={to || undefined}
+                  onChange={setFrom}
+                />
+              )}
+            </FormField>
+            <FormField label={t("integrations:sync.to")}>
+              {(f) => (
+                <DateInput
+                  {...f}
+                  className={inputClass}
+                  value={to}
+                  min={from || undefined}
+                  onChange={setTo}
                 />
               )}
             </FormField>
           </div>
-          {range === "custom" && (
-            <div className="grid w-full grid-cols-2 gap-3 @xl:w-80">
-              <FormField label={t("integrations:sync.from")}>
-                {(f) => (
-                  <DateInput
-                    {...f}
-                    className={inputClass}
-                    value={from}
-                    max={to || undefined}
-                    onChange={setFrom}
-                  />
-                )}
-              </FormField>
-              <FormField label={t("integrations:sync.to")}>
-                {(f) => (
-                  <DateInput
-                    {...f}
-                    className={inputClass}
-                    value={to}
-                    min={from || undefined}
-                    onChange={setTo}
-                  />
-                )}
-              </FormField>
-            </div>
-          )}
-          <Button disabled={invalid} onClick={() => open(rangeFor(range, from, to, lastRunAt))}>
-            {t("integrations:sync.reviewPeriod")}
-          </Button>
-        </div>
-      </fieldset>
+        )}
+        <Button disabled={invalid} onClick={() => open(rangeFor(range, from, to, lastRunAt))}>
+          {t("integrations:sync.reviewPeriod")}
+        </Button>
+      </div>
     </div>
   );
 }

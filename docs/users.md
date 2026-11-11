@@ -83,7 +83,7 @@ People with **Set up integrations** set up integrations. They can also allow sin
 - **Can sync now**: users with **Run syncs** may run that task's sync.
 - **Can review and import**: users with **Review imports** may review and import what that task brings in.
 
-Both are off by default. A user with Run syncs or Review imports, but not Set up integrations, sees the Integrations page with only the allowed tasks, and no account, slicer or setup settings. Alerts show the sync or review button only for those tasks.
+Both are off by default. They are set with **Edit** on the task's line: for an account's printers, prints and spools on the type's **Settings → Sources** tab, for slicer types on **Presets → Settings → Sources**. A user with Run syncs or Review imports, but not Set up integrations, sees only the allowed tasks, with no account, slicer or setup settings. An account's printers, prints and spools tasks are on the type's **Settings → Sources** tab, which the gear on the type's page opens. That tab is all of its settings such a user sees. Other tasks are on the Integrations page. Alerts show the sync or review button only for those tasks.
 
 ## Alerts are per person
 

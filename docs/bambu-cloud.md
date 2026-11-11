@@ -27,7 +27,7 @@ The name, email and photo are read from your Bambu profile when you sign in and 
 
 **Allow** has one switch per type: Printers, Prints, Spools and User presets. Next to each switch that is on is a link to that type's settings. Turning one off asks first, stops syncing that type from this account and keeps everything already imported. Turning it on again brings back the default schedule.
 
-Each allowed type's schedule, **Sync now** and **Review and import** are under **Sync settings** on the account.
+Each allowed type is set on that type's **Settings → Sources** tab: **Printers**, **Prints** and **Filament** (spools), and **Presets** for user presets. There, each account has a block with one line per type. The line's switch turns the sync off or on again, and **Edit** opens its settings: when it runs, what and how to sync, new spools, track usage, alerts and what editors may do. The line's **⋯** menu has **Sync now**, **Review and import** (with how many rows wait) and the sync log. For print history, it also has **Review and import a period…**. An editor whose role lets them sync or review a type reaches that tab from the gear on the type's page and sees only those tasks.
 
 ## What syncs
 
@@ -38,11 +38,11 @@ Each allowed type's schedule, **Sync now** and **Review and import** are under *
 
 Each slot of a print is matched to a spool by material and colour. A match only counts when exactly one active spool fits and it wasn't bought after the print. A print older than the spool's entry in the app gets the spool but takes nothing off it, because the weight you entered already includes it. A print with a slot that matches no single spool is not imported on its own. It waits under "Review and import" for print history, and "Sync now" opens that screen when anything is waiting. Once imported, its open slots go to **Prints → Filament to review**, and they are matched again on every sync.
 
-By default print history syncs every hour and printers every day. **Manual import** opens the review screen with what the integration offers; printers and spools can also be imported that way. The Printers, Prints and Filament pages each have a **Sync from Bambu Cloud** button for their own type. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic.
+By default print history syncs every hour and printers every day. **Review and import** opens the review screen with what the integration offers; printers and spools can also be imported that way. To sync one now, use **Sync now** on the type's line in its **Settings → Sources**. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic.
 
 ## Spools: why they are off by default
 
-Spools sync is **off** when you add the integration (integrations added earlier keep their setting). Turn it on under **Integrations → Sync** if you want it.
+Spools sync is **off** when you add the integration (integrations added earlier keep their setting). Turn it on under **Filament → Settings → Sources** if you want it.
 
 The remaining weight Bambu reports is an estimate, not a measurement:
 

@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
-import { gotoIntegrations, openIntegrationCards } from "./helpers.ts";
+import { editLine, lineMenu } from "./helpers.ts";
 
 const PASSWORD = "correct horse";
 // The seeded roles (migration 0086).
@@ -128,45 +128,58 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   const syncUrl = `/api/integrations/${integration.id}/sync`;
   expect((await page.request.post(syncUrl, { data: { type: "printers" } })).status()).toBe(403);
 
-  // The admin lets editors sync printers (on the page) and review print history.
+  // The admin lets editors sync printers and review print history, on their Sources lines.
   await signInAs(page, "ana@example.com");
-  await gotoIntegrations(page);
-  await page.getByRole("button", { name: "Settings: Printers" }).click();
+  const edit = await editLine(page, "printers", "Printers");
   // The switch's input is sr-only under the drawn track.
-  const editorSync = page.getByRole("switch", { name: "Editors can sync now: Printers" });
+  const editorSync = edit.getByRole("switch", { name: "Editors can sync now: Printers" });
   await editorSync.click({ force: true });
   await expect(editorSync).toBeChecked();
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(edit).toBeHidden();
   await page.request.patch(`/api/integrations/${integration.id}`, {
     data: { policies: [{ type: "prints", editorReview: true }] },
   });
 
-  // The editor gets the page with those two tasks and their one button each, nothing else.
+  // The editor gets each task from its page's gear: the Sources tab alone, one task each, no
+  // settings. Integrations has nothing left for them (ADR-0021).
   await signInAs(page, "eva@example.com");
   await page.goto("/clients");
-  await side.getByRole("link", { name: "Integrations" }).click();
-  await openIntegrationCards(page);
+  await expect(side.getByRole("link", { name: "Integrations" })).toHaveCount(0);
+  await page.goto("/printers");
+  await page.getByRole("link", { name: "Printers settings" }).click();
+  await expect(page).toHaveURL(/\/printers\/settings\/sources$/);
   const main = page.getByRole("main");
-  await expect(main.getByText("Print history", { exact: true })).toBeVisible();
-  await expect(main.getByText("Printers", { exact: true })).toBeVisible();
-  await expect(main.getByText("Spools", { exact: true })).toHaveCount(0);
-  await expect(main.getByRole("button", { name: "Sync now" })).toHaveCount(1);
-  await expect(main.getByRole("link", { name: "Review and import" })).toHaveCount(1);
   for (const setup of [
-    main.getByRole("button", { name: /^Settings:/ }),
-    main.getByLabel("Enabled"),
-    main.getByRole("button", { name: "Test connection" }),
-    main.getByRole("link", { name: "Add integration" }),
+    main.getByRole("link", { name: "General" }),
+    main.getByRole("button", { name: /^Edit / }),
+    main.getByRole("link", { name: "Account" }),
   ])
     await expect(setup).toHaveCount(0);
+  await expect(main.getByRole("switch", { name: /^Sync Printers from / })).toBeDisabled();
+  await lineMenu(page, "Printers");
+  await expect(page.getByRole("link", { name: /^Review and import/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sync log" })).toHaveCount(0);
   const synced = page.waitForResponse((r) => r.url().endsWith(syncUrl));
-  await main.getByRole("button", { name: "Sync now" }).click();
+  await page.getByRole("button", { name: "Sync now" }).click();
   expect((await synced).status()).toBe(200);
-  await main.getByRole("link", { name: "Review and import" }).click();
+  // General is the settings page itself: without the permission, back to Sources.
+  await page.goto("/printers/settings");
+  await expect(page).toHaveURL(/\/printers\/settings\/sources$/);
+
+  await page.goto("/prints");
+  await page.getByRole("link", { name: "Prints settings" }).click();
+  await lineMenu(page, "Print history");
+  await expect(page.getByRole("button", { name: "Sync now" })).toHaveCount(0);
+  await page.getByRole("link", { name: /^Review and import/ }).click();
   await expect(page).toHaveURL(new RegExp(`/import/integration/${integration.id}/prints`));
   await expect(page.getByRole("heading", { name: "Print history" })).toBeVisible();
   await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
+  // No task on spools: no gear, and its Sources tab sends them back.
+  await page.goto("/filament/settings/sources");
+  await expect(page).toHaveURL(/\/filament$/);
 
-  // The same from the alerts: Review on the waiting prints, Open integration on the sync.
+  // The same from the alerts: Review on the waiting prints, Open sources on the sync.
   await page.goto("/alerts");
   await page
     .getByRole("listitem")
@@ -177,8 +190,10 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await expect(page).toHaveURL(new RegExp(`/import/integration/${integration.id}/prints`));
   await page.goto("/alerts");
   await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
-  await page.getByRole("link", { name: "Open integration" }).click();
-  await expect(page).toHaveURL(/\/integrations#integration-/);
+  await page.getByRole("link", { name: "Open sources" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/printers/settings/sources#source-${integration.id}-printers$`),
+  );
   await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
 
   // Admin: full menu, Branding as its own section, and the log names who did what.

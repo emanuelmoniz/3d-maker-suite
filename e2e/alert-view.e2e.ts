@@ -56,7 +56,7 @@ test("maintenance alert: postpone hides it from the list", async ({ page, app })
   await expect(page.getByRole("row").filter({ hasText: /Clean nozzle/ })).toHaveCount(0);
 });
 
-test("integration alert: a sync's log and a link to the integration", async ({ page, app }) => {
+test("integration alert: a sync's log and a link to its Sources line", async ({ page, app }) => {
   const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
     secrets: { token: "t" },
@@ -67,7 +67,7 @@ test("integration alert: a sync's log and a link to the integration", async ({ p
   await expect(page.getByText(/^New: /)).toBeVisible();
   // The counts are in the alert, not in its title.
   await expect(page.locator("dd", { hasText: /^\d+ new, \d+ updated$/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open integration" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open sources" })).toBeVisible();
 });
 
 test("success alert: opening reads it, a read success moves to the history, unread brings it back", async ({
@@ -129,7 +129,7 @@ test("spool alert: short title, the weight in the alert, a way to the spool", as
   await expect(page).toHaveURL(new RegExp(`/filament/spools/${spool.id}$`));
 });
 
-test("sync success alert: a button to the synced module, and to the integration card", async ({
+test("sync success alert: a button to the synced module, and to its Sources line", async ({
   page,
   app,
 }) => {
@@ -156,7 +156,8 @@ test("sync success alert: a button to the synced module, and to the integration 
     "href",
     "/printers",
   );
-  await page.getByRole("link", { name: "Open integration" }).click();
-  await expect(page).toHaveURL(new RegExp(`/integrations#integration-${id}$`));
-  await expect(page.locator(`#integration-${id}`)).toBeInViewport();
+  // ADR-0021: an account's printers are set on Printers settings → Sources.
+  await page.getByRole("link", { name: "Open sources" }).click();
+  await expect(page).toHaveURL(new RegExp(`/printers/settings/sources#source-${id}-printers$`));
+  await expect(page.locator(`#source-${id}-printers`)).toBeInViewport();
 });

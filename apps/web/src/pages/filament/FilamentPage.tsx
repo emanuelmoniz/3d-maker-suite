@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
@@ -87,7 +86,6 @@ export function FilamentPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{t("filament:spools.title")}</h2>
             <span className="flex flex-wrap gap-2">
-              <SyncButtons cap="spools" />
               <AddLink to="/filament/spools/new">{t("filament:spools.add")}</AddLink>
             </span>
           </div>

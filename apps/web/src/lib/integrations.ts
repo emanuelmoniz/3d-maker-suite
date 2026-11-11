@@ -86,6 +86,20 @@ export const catalogSummary = (rows: Integration[]) => {
   };
 };
 
+/** The data types an account feeds on their own Sources tab (ADR-0021). */
+const ACCOUNT_TYPES = ["printers", "prints", "spools"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+/** A task that lives on a Sources tab, not on the Integrations page. */
+export const onSources = (i: Pick<Integration, "kind">, type: string) =>
+  i.kind === "cloud" && (ACCOUNT_TYPES as readonly string[]).includes(type);
+
+/** An account's line for `type` is on that type's Sources tab while its Allow switch is on. */
+export const feeds = (i: Integration, type: AccountType) =>
+  i.kind === "cloud" &&
+  i.enabled &&
+  i.account?.allow[type] !== false &&
+  i.policies.some((p) => p.type === type);
+
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>
   (useIntegrations().data ?? []).filter((i) => i.capabilities.includes(cap));
@@ -138,13 +152,17 @@ export function useMayTask() {
   };
 }
 
-/** The Integrations page has something for the caller: integrations.manage, or a task they may run. */
+/**
+ * The Integrations page has something for the caller: integrations.manage, or a task they may run
+ * there (an account's printers, prints and spools are on their Sources tabs).
+ */
 export function useHasTasks() {
   const { manage, list, allowed } = useTaskRights();
   return (
     manage ||
     list.some((i) =>
       i.policies.some((p) => {
+        if (onSources(i, p.type)) return false;
         const a = allowed(p);
         return a.sync || a.review;
       }),

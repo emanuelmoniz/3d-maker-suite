@@ -7,12 +7,17 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { type SettingsModule, useCanSettings } from "../../components/SettingsLink.tsx";
+import {
+  ACCOUNT_TYPE,
+  type SettingsModule,
+  useSettingsAccess,
+} from "../../components/SettingsLink.tsx";
 import { Tabs } from "../../components/Tabs.tsx";
 import { meQuery } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { PresetsTab } from "../presets/LibraryTab.tsx";
 import { SourcesTab } from "../presets/SourcesTab.tsx";
+import { AccountSources } from "./AccountSources.tsx";
 
 /** Data types: their settings have General and Sources tabs (ADR-0021). */
 const SOURCE_MODULES: SettingsModule[] = [
@@ -68,13 +73,18 @@ export function ConfigPage({
   const tab0 =
     path === `${base}/sources` ? "sources" : path === `${base}/library` ? "library" : "general";
   const hasTabs = SOURCE_MODULES.includes(module);
-  const tab = hasTabs ? tab0 : "general";
-  const allowed = useCanSettings(module);
+  // An editor with a sync or review task gets only the Sources tab (ADR-0012, ADR-0021).
+  const { settings: allowed, sources, loading } = useSettingsAccess(module);
+  const tab = !hasTabs ? "general" : allowed ? tab0 : "sources";
+  const accountType = ACCOUNT_TYPE[module];
 
   // Without the permission, back to the module.
   const loaded = !!useQuery(meQuery).data;
-  if (!loaded) return null;
-  if (!allowed) return <Navigate {...backTo} replace />;
+  if (!loaded || loading) return null;
+  if (!allowed && !(hasTabs && sources)) return <Navigate {...backTo} replace />;
+  // On the General address only: while a link leaves, the pathname is already the next page's.
+  if (!allowed && path === base)
+    return <Navigate to={`${base}/sources` as LinkProps["to"]} replace />;
   if (isError)
     return (
       <>
@@ -141,7 +151,9 @@ export function ConfigPage({
         <Tabs
           label={t("settings:tabs.label")}
           items={[
-            { to: base as LinkProps["to"], label: t("settings:tabs.general"), exact: true },
+            ...(allowed
+              ? [{ to: base as LinkProps["to"], label: t("settings:tabs.general"), exact: true }]
+              : []),
             { to: `${base}/sources` as LinkProps["to"], label: t("settings:tabs.sources") },
             ...(module === "presets" && hub
               ? [{ to: `${base}/library` as LinkProps["to"], label: t("settings:tabs.library") }]
@@ -149,7 +161,9 @@ export function ConfigPage({
           ]}
         />
       )}
-      {tab === "sources" && module === "presets" ? (
+      {tab === "sources" && accountType ? (
+        <AccountSources type={accountType} settings={allowed} />
+      ) : tab === "sources" && module === "presets" ? (
         // The former Catalog → Sources, until Step 10 splits it per data type (ADR-0021).
         <div className="grid gap-10">
           <SourcesTab />

@@ -4,8 +4,10 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
+  editLine,
   filamentOf,
   hasHorizontalScroll,
+  lineMenu,
   offScreen,
   pick,
   seedPreset,
@@ -143,33 +145,70 @@ test("import: prints without a number are numbered oldest first", async ({ page,
   expect(byTitle.Middle).toBeLessThan(byTitle.Newest as number);
 });
 
-test("Sync from cloud: printers, prints and filament pages", async ({ page, app }) => {
-  const id = await seedCloud(app);
-  // Spools sync starts off, and the filament page only offers a sync once it is on.
-  await app.api("PATCH", `/api/integrations/${id}`, {
-    policies: [{ type: "spools", mode: "manual", frequency: "1d" }],
-  });
+test("Sources: two accounts feed printers on their own schedules; no sync on the pages", async ({
+  page,
+  app,
+}) => {
+  const ids: string[] = [];
+  for (const [token, label] of [
+    ["ana", "Ana"],
+    ["shop", "Workshop"],
+  ])
+    ids.push(
+      (
+        await app.api<{ id: string }>("POST", "/api/integrations", {
+          adapterId: "mock",
+          config: { label },
+          secrets: { token },
+        })
+      ).id,
+    );
+  const policy = async (id: string) =>
+    (
+      await app.api<{ policies: { type: string; mode: string; frequency: string }[] }>(
+        "GET",
+        `/api/integrations/${id}`,
+      )
+    ).policies.find((p) => p.type === "printers");
+
+  // A manual sync is on a Sources line now, not on the data's own page (ADR-0021).
   for (const route of ["/printers", "/prints", "/filament"]) {
     await page.goto(route);
-    // Prints and filament also get a review link with the same words, so any match will do.
-    await expect(
-      page
-        .getByRole("button", { name: /^Sync from/ })
-        .or(page.getByRole("link", { name: /^Sync from/ }))
-        .first(),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Sync from/ })).toHaveCount(0);
   }
-  // No integration, no button: the pages stay quiet instead of offering a dead end.
-  const bare = await page.goto("/printers");
-  expect(bare?.ok()).toBe(true);
 
-  await page.goto("/printers");
-  // The empty state repeats the header actions, so the first one is enough.
+  // One block per account; the second one runs weekly, the first stays daily.
+  await page.goto("/printers/settings/sources");
+  await expect(page.getByRole("region", { name: /^What .* syncs$/ })).toHaveCount(2);
+  const dialog = await editLine(page, "printers", "Printers", 1);
+  await pick(dialog.getByRole("combobox", { name: "Frequency: Printers" }), "Every week");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect.poll(() => policy(ids[1] as string)).toMatchObject({ frequency: "1w" });
+  expect(await policy(ids[0] as string)).toMatchObject({ mode: "auto", frequency: "1d" });
+  await expect(page.getByRole("cell", { name: "Auto, every week" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Auto, every day" })).toBeVisible();
+
+  // Sync now from the first account's `⋯` brings its printers in.
+  await lineMenu(page, "Printers");
+  await page.getByRole("button", { name: "Sync now" }).click();
+  await expect
+    .poll(async () => (await app.api<{ total: number }>("GET", "/api/printers")).total)
+    .toBe(1);
+
+  // A line turned off keeps what it brought; on again, it syncs as a new account does.
   await page
-    .getByRole("button", { name: /^Sync from/ })
+    .getByRole("switch", { name: /^Sync Printers from / })
     .first()
-    .click();
-  await expect(page.getByRole("link", { name: "Mock printer" })).toBeVisible();
+    .click({ force: true });
+  await expect.poll(() => policy(ids[0] as string)).toMatchObject({ mode: "off" });
+  await expect(page.getByRole("cell", { name: "Off" })).toBeVisible();
+  expect((await app.api<{ total: number }>("GET", "/api/printers")).total).toBe(1);
+  await page
+    .getByRole("switch", { name: /^Sync Printers from / })
+    .first()
+    .click({ force: true });
+  await expect.poll(() => policy(ids[0] as string)).toMatchObject({ mode: "auto" });
 });
 
 test("sync alerts: a sync with new rows raises sync_success, dismissible", async ({

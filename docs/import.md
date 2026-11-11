@@ -133,7 +133,7 @@ Before an import saves anything, the app takes a backup, so you can restore it f
 
 ## From an integration
 
-On the **Integrations** page, a type's **Review and import** button opens the same review screen with the rows an integration offers. Automatic runs import only what needs no decision from you; everything else waits there. For print history it shows every print not imported yet. Under **Review and import a period** in the type's settings, pick a period (since the last sync, the last 7 / 30 / 90 days, this year or your own dates) to review every print in it, imported or not.
+For an account's printers, prints and spools, **Review and import** in the **⋯** menu of the type's line on its **Settings → Sources** tab opens the same review screen with the rows the account offers. For the catalog and presets, it's the button on the type's row in **Presets → Settings → Sources**. Automatic runs import only what needs no decision from you; everything else waits there. For print history it shows every print not imported yet. With **Review and import a period…** in the same menu, pick a period (since the last sync, the last 7 / 30 / 90 days, this year or your own dates) to review every print in it, imported or not.
 
 Importing from the review is not a sync: **Sync now** and automatic runs always continue from the last sync, so a print you skipped in the review still comes in with the next one.
 
@@ -143,11 +143,11 @@ For print history, each filament is matched to a spool of the same material and 
 - **Several fit:** the app picks the one this printer last used in that AMS slot, else the oldest (in use before new, then by opened date, purchase date and number). The pick shows in yellow ("check it"), and the print waits for you. The same goes for two slots of one colour in one print (the AMS switched to a second roll): each gets its own spool, in yellow.
 - **None fits:** the slot shows no spool, and the print waits for you.
 
-Prints that wait raise a **Sync needs review** alert when the type's alert is on. The **Track usage** setting of print history on the Integrations page decides whether syncs that run without a review (scheduled or **Sync now**) take the filament from the spools; when off, prints are imported with their spools linked and the weights unchanged.
+Prints that wait raise a **Sync needs review** alert when the type's alert is on. The **Track usage** setting of print history (**Prints → Settings → Sources**, **Edit**) decides whether syncs that run without a review (scheduled or **Sync now**) take the filament from the spools; when off, prints are imported with their spools linked and the weights unchanged.
 
 ### What to sync and how to sync
 
-Every type except print history has two more settings (open the type's row): on the Integrations page for an account's printers and spools, on **Presets → Settings → Sources** for the catalog and presets. Each card on the Integrations page has a line such as *Catalog: 5 automatic · 2 waiting for review* that leads there. Print history has neither: an imported print never changes.
+Every type except print history has two more settings. For an account's printers and spools, they are under **Edit** on the type's line in **Printers** or **Filament → Settings → Sources**. For the catalog and presets, open the type's row on **Presets → Settings → Sources**. Each card on the Integrations page has a line such as *Catalog: 5 automatic · 2 waiting for review* that leads there. Print history has neither: an imported print never changes.
 
 **What to sync**
 

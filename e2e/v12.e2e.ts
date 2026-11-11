@@ -6,6 +6,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
+  editLine,
   filamentOf,
   gotoIntegrations,
   hasHorizontalScroll,
@@ -384,11 +385,11 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
   await page.getByRole("link", { name: "Review", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints(\\?waiting=1)?$`));
 
-  await gotoIntegrations(page);
-  await page.getByRole("button", { name: "Settings: Print history" }).click();
-  const toggle = page.getByLabel("Alert on Review: Print history");
-  await toggle.click(); // saved on the server first, so the box flips after the round trip
+  const edit = await editLine(page, "prints", "Print history");
+  const toggle = edit.getByLabel("Alert on Review: Print history");
+  await toggle.click();
   await expect(toggle).not.toBeChecked();
+  await edit.getByRole("button", { name: "Save" }).click();
   await expect
     .poll(async () => {
       const list = await app.api<{ items?: { kind: string }[] } | { kind: string }[]>(

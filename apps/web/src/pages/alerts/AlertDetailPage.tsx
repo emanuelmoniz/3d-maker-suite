@@ -21,6 +21,7 @@ import {
   MODULE,
   SEVERITY,
   SyncTargetLink,
+  syncTaskLink,
   Title,
   useMayOpenTask,
 } from "./AlertsPage.tsx";
@@ -163,8 +164,13 @@ export function AlertDetailPage() {
                 </Link>
               )}
             <SyncTargetLink a={a} />
-            {((a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a)) ||
-            (a.kind === "slicer_update" && integrationsManage) ? (
+            {(a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) ? (
+              <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={buttonLink}>
+                {syncTaskLink(a).sources
+                  ? t("alerts:view.openSources")
+                  : t("alerts:view.openIntegration")}
+              </Link>
+            ) : a.kind === "slicer_update" && integrationsManage ? (
               <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
                 {t("alerts:view.openIntegration")}
               </Link>

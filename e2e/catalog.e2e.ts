@@ -59,7 +59,8 @@ test("old catalog addresses land on their Catalog or Presets tab", async ({ page
   );
   await settingsTabs.getByRole("link", { name: "Sources" }).click();
   await expect(page).toHaveURL(/\/filament\/settings\/sources$/);
-  await expect(page.getByRole("heading", { name: "No sources yet" })).toBeVisible();
+  // No account allows spools: they are added by hand (ADR-0021).
+  await expect(page.getByRole("heading", { name: "No sources" })).toBeVisible();
   await page.goto("/catalog/filament");
   const tabs = page.getByRole("navigation", { name: "Catalog sections" });
   await expect(tabs.getByRole("link", { name: "Filament", exact: true })).toHaveAttribute(

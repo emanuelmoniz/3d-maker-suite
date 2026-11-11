@@ -5,11 +5,11 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
+  editLine,
   gotoIntegrations,
   hasHorizontalScroll,
   insertPreset,
   openBulkEdit,
-  openIntegrationCards,
   pick,
   seedPreset,
   seedPrinter,
@@ -187,28 +187,31 @@ test("integrations hub groups by account and slicer and edits the per-type polic
   await expect(page.getByRole("heading", { name: "Demo data (mock)", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "OrcaSlicer", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "This computer", level: 3 })).toBeVisible();
-  const auto = page.getByRole("switch", { name: "Auto sync: Print history" });
-  const frequency = page.getByLabel("Frequency: Print history");
-  const settings = page.getByRole("button", { name: "Settings: Print history" });
-  // The switch flips after the server saves it, and its input is sr-only under the drawn track.
+
+  // The account's print history is set on Prints settings → Sources (ADR-0021).
+  let dialog = await editLine(page, "prints", "Print history");
+  const auto = dialog.getByRole("switch", { name: "Auto sync: Print history" });
+  const frequency = dialog.getByLabel("Frequency: Print history");
+  // The input is sr-only under the drawn track.
   const flip = () => auto.click({ force: true });
-  await settings.click();
   await expect(frequency).toBeVisible();
   await flip();
   await expect(auto).not.toBeChecked();
   await expect(frequency).toBeHidden();
   await flip();
   await expect(frequency).toBeVisible();
-  await page.reload();
-  await openIntegrationCards(page);
-  await settings.click();
-  await expect(auto).toBeChecked();
   await flip();
-  await expect(auto).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("cell", { name: "Manual" })).toBeVisible();
   await page.reload();
-  await openIntegrationCards(page);
-  await settings.click();
+  dialog = await editLine(page, "prints", "Print history");
   await expect(auto).not.toBeChecked();
+  await flip();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await page.reload();
+  dialog = await editLine(page, "prints", "Print history");
+  await expect(auto).toBeChecked();
 });
 
 test("import: template download, XLSX upload, bulk action, apply and export round trip", async ({

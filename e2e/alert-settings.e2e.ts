@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures.ts";
-import { gotoIntegrations, seedPrinter, seedSpool } from "./helpers.ts";
+import { editLine, seedPrinter, seedSpool } from "./helpers.ts";
 
 const alertRows = (page: import("@playwright/test").Page, text: RegExp) =>
   page.getByRole("listitem").filter({ hasText: text });
@@ -51,12 +51,13 @@ test("integrations: a task raises only the severities picked", async ({ page, ap
     adapterId: "mock",
     secrets: { token: "t" },
   });
-  await gotoIntegrations(page);
-  await page.getByRole("button", { name: "Settings: Printers" }).click();
-  await page.getByRole("checkbox", { name: /Alert on Success: Printers/ }).click(); // saved first, so the box flips after the round trip
+  const dialog = await editLine(page, "printers", "Printers");
+  await dialog.getByRole("checkbox", { name: /Alert on Success: Printers/ }).click();
   await expect(
-    page.getByRole("checkbox", { name: /Alert on Success: Printers/ }),
+    dialog.getByRole("checkbox", { name: /Alert on Success: Printers/ }),
   ).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toBeHidden();
 
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
   await page.goto("/alerts");

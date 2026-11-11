@@ -14,7 +14,6 @@ import { Button } from "../../components/Button.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
 import { type Column, DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
@@ -227,7 +226,6 @@ export function PrintsPage() {
         description={t("nav:items.prints.description")}
         actions={
           <>
-            <SyncButtons cap="prints" />
             <Write can="prints">{add}</Write>
             <SettingsLink module="prints" />
           </>

@@ -5,7 +5,13 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCan } from "../../lib/auth.ts";
-import { libraryOf, useAdapters, useIntegrations, useMayTask } from "../../lib/integrations.ts";
+import {
+  libraryOf,
+  onSources,
+  useAdapters,
+  useIntegrations,
+  useMayTask,
+} from "../../lib/integrations.ts";
 import { AccountsCard } from "./AccountCard.tsx";
 import { LibraryCard } from "./IntegrationCard.tsx";
 
@@ -16,11 +22,14 @@ export function IntegrationsPage() {
   const { t } = useTranslation();
   const admin = useCan("integrations.manage");
   const may = useMayTask();
-  // An editor gets the integrations with a task of theirs, and only those tasks (ADR-0012).
+  // An editor gets the integrations with a task of theirs, and only those tasks (ADR-0012); an
+  // account's printers, prints and spools are on their Sources tabs (ADR-0021).
   const list = useIntegrations();
   const data = admin
     ? list.data
-    : list.data?.filter((i) => i.policies.some((p) => may(i.id, p.type, "any")));
+    : list.data?.filter((i) =>
+        i.policies.some((p) => !onSources(i, p.type) && may(i.id, p.type, "any")),
+      );
   const { isError } = list;
   const adapters = useAdapters().data;
   const canAdd = admin && !!adapters?.length;

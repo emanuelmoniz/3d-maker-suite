@@ -402,9 +402,19 @@ function DefaultSlicer({ integration: i }: { integration: Integration }) {
 }
 
 // Local state, not the URL: every integration card has its own log.
-export function SyncLog({ id, types }: { id: string; types: SyncRun["type"][] }) {
+/** An integration's runs; `type`: only that type's, to start with. */
+export function SyncLog({
+  id,
+  types,
+  type,
+}: {
+  id: string;
+  types: SyncRun["type"][];
+  type?: string;
+}) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState<ListQuery>({ pageSize: "10" });
+  const [start] = useState<ListQuery>({ pageSize: "10", ...(type && { type }) });
+  const [query, setQuery] = useState(start);
   const { data } = useSyncRuns(id, query);
   const rangeLabel = (r: SyncRun) => {
     const [from, to] = [r.rangeFrom, r.rangeTo].map((d) => (d ? formatDate(d) : ""));
@@ -414,7 +424,7 @@ export function SyncLog({ id, types }: { id: string; types: SyncRun["type"][] })
     return "–";
   };
   if (!data) return null;
-  if (!data.total && Object.keys(query).length <= 1)
+  if (!data.total && query === start)
     return <p className="p-1 text-muted">{t("integrations:runs.empty")}</p>;
   return (
     <div>

@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
-import { SyncButtons } from "../../components/ImportLinks.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
@@ -38,7 +37,6 @@ export function PrintersPage() {
 
   const add = (
     <span className="flex flex-wrap gap-2">
-      <SyncButtons cap="printers" />
       <Write can="printers" level="manage">
         <Link to="/printers/new" className={addClass}>
           <Plus className="size-4" aria-hidden />

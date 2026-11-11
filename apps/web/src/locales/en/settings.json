@@ -5,13 +5,47 @@
     "sources": "Sources",
     "library": "Preset library"
   },
-  "catalog": { "nothing": "Nothing to set here yet." },
-  "presets": { "nothing": "Nothing to set here yet." },
+  "catalog": {
+    "nothing": "Nothing to set here yet."
+  },
+  "presets": {
+    "nothing": "Nothing to set here yet."
+  },
   "sources": {
     "emptyTitle": "No sources yet",
     "emptyText": "Sources that feed this data will be listed here. Connect an account in Integrations or a machine in Hub management.",
     "integrations": "Open Integrations",
-    "hub": "Open Hub management"
+    "hub": "Open Hub management",
+    "share": "Share to the hub",
+    "receive": "Receive from the hub",
+    "account": "{{adapter}} · {{account}}",
+    "toAccount": "Account",
+    "lines": "What {{source}} syncs",
+    "columns": {
+      "item": "Item",
+      "on": "On",
+      "when": "When",
+      "what": "What",
+      "how": "How",
+      "actions": "Actions"
+    },
+    "lineOn": "Sync {{type}} from {{source}}",
+    "edit": "Edit",
+    "editOf": "Edit {{type}} from {{source}}",
+    "editTitle": "{{type}} from {{source}}",
+    "menu": "More for {{type}} from {{source}}",
+    "reviewCount_one": "Review and import ({{count}})",
+    "reviewCount_other": "Review and import ({{count}})",
+    "reviewPeriod": "Review and import a period…",
+    "logTitle": "Sync log: {{type}} from {{source}}",
+    "empty": {
+      "printers": "No sources",
+      "printersBody": "Printers here are added by hand. To sync them from an account, allow printers on it in Integrations.",
+      "prints": "No sources",
+      "printsBody": "Prints here are added by hand. To sync them from an account, allow prints on it in Integrations.",
+      "spools": "No sources",
+      "spoolsBody": "Spools here are added by hand. To sync them from an account, allow spools on it in Integrations."
+    }
   },
   "loadError": "Couldn't load settings. Is the server running?",
   "uptime": "Server up time: {{time}}",
