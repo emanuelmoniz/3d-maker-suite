@@ -4,17 +4,19 @@ Slicing gives a project's plates their print time and grams, so costs and quotes
 
 ## Which slicer slices
 
-A slicer is installed once per machine. **Add integration** adds it to this server: the copy installed on this computer if the app finds it, else one it downloads. Each slicer has one card on the Integrations page, with this server's install on it. A workstation's slicer is set up on its [machine page](hub.md#machine-page) instead.
+Each slicer type (Bambu Studio, OrcaSlicer) has one card on the Integrations page, with every install of it: this server's and each machine's. A slicer is installed once per machine. **Add integration** adds it to this server: the copy installed on this computer if the app finds it, else one it downloads. A machine's install is added on the card (see [Slice on a worker](#slice-on-a-worker)).
+
+**The hub's slicer.** Per slicer type, one install slices for the hub and is the source of its catalog and system presets ([ADR-0022](adr/0022-one-slicer-per-type.md)). Pick it on the card, under **The hub's slicer**: each install's icon is its radio, and the picked one is filled. The choices are this server's installs and every machine whose user turned on **Use as slicer** on its [machine page](hub.md#machine-page); a machine that doesn't offer it says so and can't be picked. Picking an install with another version asks first: the catalog changes, every machine that receives it gets the new one, and plates sliced with the old version are sliced again. The other installs stay installed and updatable, but don't slice.
 
 | Where it runs | What it uses | Set up |
 |---|---|---|
 | **This computer** (found) | The PC that runs the server, using the installed program | Set its **Slicer program** ([open-in-slicer.md](open-in-slicer.md)). OrcaSlicer needs 2.5 or newer |
 | **This server** (not found) | The server, using a copy the app downloads | **Install** on its row |
-| A workstation | A workstation or NAS with the connector | Its machine page: see [Slice on a worker](#slice-on-a-worker) |
+| A workstation | A workstation or NAS with the connector | The slicer's card: see [Slice on a worker](#slice-on-a-worker) |
 
 A second install on the same machine is refused (`slicer_exists`). A database from before 5.5.0 that has both this computer's and a downloaded copy keeps both working; the card warns you to delete one.
 
-A plate slices with its own slicer, else its project's (**Print setup**), else the default slicer, else the first one that can slice. A slicer that is switched off is skipped; a deleted one is cleared. With one slicer, the plate shows its name instead of a picker.
+The slicer pickers of a plate, a project (**Print setup**) and a quote list slicer types, and every type slices on its hub's slicer. A plate slices with its own slicer type, else its project's, else the default slicer, else the first one that can slice. The default slicer is a slicer type too: **Make default slicer** on its card, shown when there is more than one. A type with no hub's slicer that can slice is skipped. With one slicer type, the plate shows its name instead of a picker.
 
 ## A plate's setup
 
@@ -48,13 +50,15 @@ OrcaSlicer 2.5.0 is the minimum: 2.4 can't slice Bambu files. Until 2.5 is stabl
 
 Use this when the server can't run a slicer (an arm64 hub, a small VPS) or a workstation is simply faster. Needs the [hub](hub.md) and the connector on the device, at the hub's version.
 
-1. **Hub management**, open the device's machine page. Under **Slicers**, a slicer the connector found offers **Use it as a slicer for the hub**; for one it didn't find, pick it in **Install another slicer here…**, then **Install it here for the hub**. This needs Integrations manage. It makes the device a slice worker; **Remove from the hub's slicers** on its last slicer makes it stop, and **Use as slicer** turns slicing off without removing it.
-2. Under **<slicer> for the hub**, pick the slicer: **Use this one** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device.
-3. Import your presets from a zip as usual (**Presets → Settings → Sources**). Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
+1. On the device's [machine page](hub.md#machine-page), its user turns on **Use as slicer** for the slicer: the machine offers it to the hub.
+2. **Settings → Integrations**, on the slicer's card: a machine that offers it without an install shows **Set up**; any other paired machine is in **Add a machine…**. This needs Integrations manage. The install uses the slicer the connector found there, else the hub installs its managed release.
+3. Open the machine's row on the card to pick its slicer: **Use this one** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device. **Delete** in its `⋯` menu removes it: a slicer the hub installed there is removed, one installed by hand stays.
+4. Pick it as **The hub's slicer** on the card.
+5. Import your presets from a zip as usual (**Presets → Settings → Sources**). Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
 
-The slicer pickers show the worker as "Bambu Studio (WS-3)", named after its device. A slice that runs on a worker takes at most 10 minutes, as on the server.
+A slice that runs on a worker takes at most 10 minutes, as on the server.
 
-**If the device is offline** the plate shows *Waiting for the slice worker* and the queue goes on. It slices when the device connects or you press **Slice**; **Slice on the server instead** falls back to the hub's own slicer. A connector older than the hub says it's too old: update it from Hub management.
+**If the device is offline** the plate shows *Waiting for the slice worker* and the queue goes on. It slices when the device connects or you press **Slice**. There is no fallback to another install: pick another hub's slicer for that. A connector older than the hub says it's too old: update it from Hub management.
 
 The slice remembers the worker and the slicer version, so a new version marks it outdated like on the server. It also remembers the presets it used: when one of them changes in the [library](hub.md#slicer-presets), the slice shows as outdated.
 

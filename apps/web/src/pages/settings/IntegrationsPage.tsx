@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCan } from "../../lib/auth.ts";
+import { useDevices } from "../../lib/hub.ts";
 import {
   libraryOf,
   onSources,
@@ -43,7 +44,13 @@ export function IntegrationsPage() {
   // places it runs in kind order (this computer, this server, workstations), oldest first.
   const rank = (k: string) => INTEGRATION_KINDS.indexOf(k as (typeof INTEGRATION_KINDS)[number]);
   const rows = [...(data ?? [])].sort((a, b) => rank(a.kind) - rank(b.kind));
-  const libraries = [...new Set(rows.map(libraryOf))];
+  // With a machine paired, every slicer type that installs on one has its card (ADR-0022): that's
+  // where a machine's install is added, also when this server has none.
+  const paired = (useDevices(admin).data ?? []).length > 0;
+  const onMachines = paired
+    ? (adapters ?? []).flatMap((a) => (a.kind === "worker" && a.libraryId ? [a.libraryId] : []))
+    : [];
+  const libraries = [...new Set([...rows.map(libraryOf), ...onMachines])];
   return (
     <>
       <PageHeader
@@ -58,12 +65,12 @@ export function IntegrationsPage() {
         </p>
       )}
       {data &&
-        (data.length ? (
+        (libraries.length ? (
           <div className="grid gap-6">
             {libraries.map((lib) => {
               const of = rows.filter((i) => libraryOf(i) === lib);
               // An API's accounts (ADR-0021); a slicer's places.
-              return of.every((i) => i.kind === "cloud") ? (
+              return of.length && of.every((i) => i.kind === "cloud") ? (
                 <AccountsCard key={lib} adapterId={lib} rows={of} />
               ) : (
                 <LibraryCard key={lib} library={lib} rows={of} />

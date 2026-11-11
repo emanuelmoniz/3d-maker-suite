@@ -10,18 +10,20 @@ for (const width of [375, 1440])
     const found = !!adapters.find((a) => a.id === "bambu-studio")?.detectedConfigDir;
     await page.goto("/integrations/new");
     await page.getByRole("radio", { name: "Bambu Studio" }).check();
-    // No choice of where: a workstation's slicer is set up on its machine page.
+    // No choice of where: a machine's install is added on the slicer's card (ADR-0022).
     await expect(page.getByRole("radio", { name: /workstation/ })).toHaveCount(0);
     await expect(
       page.getByText(found ? "Uses the Bambu Studio installed" : "Bambu Studio isn't installed"),
     ).toBeVisible();
     await page.getByRole("button", { name: "Add", exact: true }).click();
 
-    // One card for the slicer, with this server's install open.
+    // One card for the slicer, with this server's install open: the only one, so the hub's slicer.
     await expect(page).toHaveURL(/\/integrations#integration-/);
     const card = page.getByRole("region", { name: "Bambu Studio" });
     const where = found ? "This computer" : "This server";
-    await expect(card.getByRole("heading", { name: where, level: 3 })).toBeVisible();
+    await expect(card.getByRole("heading", { name: where, level: 4 })).toBeVisible();
+    await expect(card.getByRole("radio", { name: where })).toBeChecked();
+    await expect(card.getByText("The hub's slicer: it slices")).toBeVisible();
     await expect(
       found
         ? card.getByRole("textbox", { name: "Config folder" })

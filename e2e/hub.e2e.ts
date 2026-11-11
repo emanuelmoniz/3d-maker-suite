@@ -203,17 +203,23 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(row).toContainText("User: Ana Renamed");
 
   await row.getByRole("link", { name: "Laptop" }).click();
-  // Its slicer is set up here (Plan 5.5.0 Step 9): none found on it, so the hub installs one.
+  const deviceId = page.url().split("/").pop();
+  // Its slicer is installed from the slicer type's card in Integrations (ADR-0022): none found on
+  // it, so the hub installs one. Not offered yet, it can't be the hub's slicer.
+  await page.goto("/integrations");
+  const card = page.getByRole("region", { name: "Bambu Studio" });
+  await card.getByLabel("Add a machine…").click();
+  await page.getByRole("option", { name: "Laptop" }).click();
+  await expect(card.getByRole("heading", { name: "Laptop", level: 4 })).toBeVisible();
+  await expect(card.getByRole("radio", { name: "Laptop" })).toBeDisabled();
+  await expect(card.getByText("Not offered: its user turns on Use as slicer")).toBeVisible();
+  // Offering it is the machine's, on its page.
+  await page.goto(`/hub/devices/${deviceId}`);
   const slicers = page.getByRole("region", { name: "Slicers" });
-  await slicers.getByLabel("Install another slicer here…").click();
-  await page.getByRole("option", { name: "Bambu Studio" }).click();
-  await slicers.getByRole("button", { name: "Install it here for the hub" }).click();
-  await expect(slicers.getByText("Bambu Studio for the hub")).toBeVisible();
   await expect(
     slicers.getByRole("switch", { name: /Use Bambu Studio on this machine/ }),
   ).toBeVisible();
   // Once per machine, from the API too.
-  const deviceId = page.url().split("/").pop();
   const again = await page.request.post("/api/integrations", {
     data: { adapterId: "bambu-studio-worker", config: { deviceId, source: "managed" } },
   });

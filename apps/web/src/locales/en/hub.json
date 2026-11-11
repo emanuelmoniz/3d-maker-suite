@@ -196,13 +196,6 @@
     "notFound": "not found on this machine",
     "useAsSlicer": "Use as slicer",
     "useAsSlicerOf": "Use {{name}} on this machine as a slicer for the hub",
-    "setUpFound": "Use it as a slicer for the hub",
-    "setUpManaged": "Install it here for the hub",
-    "slicerSetup": "{{name}} for the hub",
-    "removeSlicer": "Remove from the hub's slicers",
-    "removeSlicerTitle": "Stop slicing with {{name}} on {{device}}?",
-    "removeSlicerBody": "A slicer the hub installed there is removed; one installed by hand stays.",
-    "addSlicer": "Install another slicer here…",
     "catalog": "Catalog and system presets",
     "presets": "User presets",
     "receive": "Receive",
@@ -212,7 +205,6 @@
       "presets": "Receive {{name}} user presets from the hub"
     },
     "shareOf": {
-      "catalog": "Share the {{name}} catalog with the hub",
       "presets": "Share {{name}} user presets with the hub"
     },
     "hubSlicer": "The hub's slicer",
@@ -237,8 +229,12 @@
     "stopBody": "It goes offline and starts again only when someone logs in on that computer or starts it by hand.",
     "stopped": "Stopped. It shows offline in a few seconds.",
     "errors": {
-      "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first.",
-      "slicerExists": "This slicer is already set up on this machine."
-    }
+      "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first."
+    },
+    "offer": "Offer",
+    "offered": "Offered: pick it in Integrations",
+    "ownAreHubs": "Its own are the hub's",
+    "toIntegrations": "Integrations",
+    "installInIntegrations": "Install a slicer on this machine in Integrations"
   }
 }

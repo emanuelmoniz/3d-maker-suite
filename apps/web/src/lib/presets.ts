@@ -26,10 +26,11 @@ export const presetDownloadUrl = (id: string, version?: number) =>
   `/api/presets/${id}/download${version === undefined ? "" : `?version=${version}`}`;
 
 /** Catalog and Presets settings → Sources: each slicer library's routes, catalog source and machines. */
-export const useCatalogSources = () =>
+export const useCatalogSources = (enabled = true) =>
   useQuery({
     queryKey: ["catalog-sources"],
     queryFn: () => api<LibrarySources[]>("GET", "/api/catalog/sources"),
+    enabled,
     // Receive catalog's lines follow what the machines report.
     refetchInterval: 30_000,
   });

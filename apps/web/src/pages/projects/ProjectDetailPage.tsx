@@ -31,7 +31,13 @@ import { estimateSlicedPlates, useCostContext } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { useFilamentPresets, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatWeight } from "../../lib/format.ts";
-import { useAdapterName, useCapable, useIntegrationLabel } from "../../lib/integrations.ts";
+import {
+  libraryOf,
+  useAdapterName,
+  useCapable,
+  useDefaultLibrary,
+  useIntegrationLabel,
+} from "../../lib/integrations.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrints, usePrintsOfProject } from "../../lib/prints.ts";
@@ -390,11 +396,12 @@ export function ProjectDetailPage() {
   // The default slicer, or the one picked when several are set up (Settings > Integrations).
   const slicers = useCapable("openInSlicer");
   const integrationLabel = useIntegrationLabel();
-  const defaultSlicer = usePreferences().data?.values.defaultSlicerId;
+  // The default slicer is a slicer type (ADR-0022): this computer's install of it.
+  const defaultLibrary = useDefaultLibrary();
   const [slicerId, setSlicerId] = useState<string>();
   const slicer =
     slicers.find((s) => s.id === slicerId) ??
-    slicers.find((s) => s.id === defaultSlicer) ??
+    slicers.find((s) => libraryOf(s) === defaultLibrary) ??
     slicers[0];
   // Open and Open folder open on the machine the user sits at: the server's (Open with its
   // integration slicer); else the device whose connector answers beside this browser; else the

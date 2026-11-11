@@ -35,7 +35,7 @@ export const savedRoots = async (api: Api) =>
 
 /** Opens every slicer card on the page (they start closed). */
 export async function openIntegrationCards(page: Page) {
-  const closed = page.locator("h3 > button[aria-expanded=false]");
+  const closed = page.locator(":is(h3, h4) > button[aria-expanded=false]");
   await closed.first().waitFor();
   while (await closed.count()) await closed.first().click();
 }

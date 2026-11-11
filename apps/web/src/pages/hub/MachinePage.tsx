@@ -4,14 +4,12 @@ import {
   type MachineSection,
   mayEditMachine,
   type PairingCode,
-  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
-import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
@@ -28,16 +26,9 @@ import {
   useDeviceActions,
   useDevices,
 } from "../../lib/hub.ts";
-import {
-  libraryOf,
-  useAdapterName,
-  useAdapters,
-  useCreateIntegration,
-  useDeleteIntegration,
-  useIntegrations,
-} from "../../lib/integrations.ts";
+import { useAdapterName } from "../../lib/integrations.ts";
 import { useUsers } from "../../lib/users.ts";
-import { WorkerSlicer } from "../settings/WorkerSlicer.tsx";
+import { SourceBadge } from "../settings/Sources.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
@@ -46,13 +37,7 @@ const ERRORS: Record<string, string> = {
   device_outdated: "hub:edit.outdated",
   device_timeout: "hub:edit.timeout",
   hub_slicer: "hub:machine.errors.hubSlicer",
-  slicer_exists: "hub:machine.errors.slicerExists",
 };
-
-const NAMES = {
-  catalog: { receive: "hub:machine.receiveOf.catalog", share: "hub:machine.shareOf.catalog" },
-  presets: { receive: "hub:machine.receiveOf.presets", share: "hub:machine.shareOf.presets" },
-} as const;
 
 /** A failed save, in words: a connector that is offline, too old or silent says so. */
 function Alert({ error }: { error: unknown }) {
@@ -79,8 +64,8 @@ function useMay(d: Device) {
   return {
     edit: (section: MachineSection) => !!rights && mayEditMachine(rights, me?.id, d, section),
     manage: useCan("hub.manage"),
-    // Its slicer's install is set up here, by who may set up slicers (Plan 5.5.0 Step 9).
-    setUp: useCan("integrations.manage"),
+    // The hub's slicer is picked, and a machine's install set up, in Integrations (ADR-0022).
+    integrations: useCan("integrations.manage"),
   };
 }
 
@@ -407,9 +392,10 @@ function DefaultSlicer({ device: d, edit }: { device: Device; edit: boolean }) {
 }
 
 /**
- * One slicer on the machine (ADR-0022): its head (name, version, Use as slicer), then Catalog and
- * system presets (Receive only) and User presets (Receive and Share), each with a link to where the
- * rest of it is set. The four columns line up across slicers; below `sm` each line stacks.
+ * One slicer on the machine (ADR-0022): Use as slicer (it offers it; the admin picks the hub's
+ * slicer in Integrations), Catalog and system presets (Receive only, none on the hub's slicer) and
+ * User presets (Receive and Share), each with a link to where the rest of it is. The columns line
+ * up across slicers; below `sm` each line stacks.
  */
 function SlicerBlock({ device: d, library }: { device: Device; library: string }) {
   const { t } = useTranslation();
@@ -419,35 +405,90 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
   const name = adapterName(library);
   const found = d.slicers.find((s) => s.id === library);
   const lib = d.presets[library];
-  const state = d.libraries[library];
+  // The hub's slicer stays offered until another is picked, and its own folder is the catalog.
+  const hub = !!d.libraries[library]?.hubSlicer;
   const send = (body: DeviceLibraryUpdate) => patch.mutate({ id: d.id, library, ...body });
   const busy = patch.isPending;
-  const rows = [
+  const link = "underline underline-offset-2";
+  const rows: {
+    key: string;
+    label: string;
+    controls: ReactNode;
+    state?: ReactNode;
+    link?: ReactNode;
+  }[] = [
     {
-      kind: "catalog" as const,
-      field: "system" as const,
+      key: "slicer",
+      label: t("hub:machine.useAsSlicer"),
+      controls: (
+        <Setting
+          edit={may.edit("slicers") && !hub}
+          label={t("hub:machine.offer")}
+          name={t("hub:machine.useAsSlicerOf", { name })}
+          checked={!!lib?.slicer || hub}
+          busy={busy}
+          onChange={(slicer) => send({ slicer })}
+        />
+      ),
+      state: hub ? (
+        <SourceBadge>{t("hub:machine.hubSlicer")}</SourceBadge>
+      ) : lib?.slicer ? (
+        <span className="text-muted">{t("hub:machine.offered")}</span>
+      ) : undefined,
+      link: may.integrations && (
+        <Link to="/integrations" hash={`library-${library}`} className={link}>
+          {t("hub:machine.toIntegrations")}
+        </Link>
+      ),
+    },
+    {
+      key: "system",
       label: t("hub:machine.catalog"),
-      values: { receive: !!lib?.system.receive, share: null },
+      controls: (
+        <Setting
+          edit={may.edit("catalog") && !hub}
+          label={t("hub:machine.receive")}
+          name={t("hub:machine.receiveOf.catalog", { name })}
+          checked={!!lib?.system.receive && !hub}
+          busy={busy}
+          onChange={(receive) => send({ system: { receive } })}
+        />
+      ),
+      state: hub && <span className="text-muted">{t("hub:machine.ownAreHubs")}</span>,
       link: (
-        <Link
-          to="/catalog/settings/sources"
-          hash={`${state?.hubSlicer ? "machine" : "receive"}-${d.id}`}
-          className="underline"
-        >
+        <Link to="/catalog/settings/sources" hash={`receive-${d.id}`} className={link}>
           {t("hub:machine.catalogSettings")}
         </Link>
       ),
     },
     {
-      kind: "presets" as const,
-      field: "user" as const,
+      key: "user",
       label: t("hub:machine.presets"),
-      values: { receive: !!lib?.user.receive, share: !!lib?.user.share },
+      controls: (
+        <>
+          <Setting
+            edit={may.edit("presets")}
+            label={t("hub:machine.receive")}
+            name={t("hub:machine.receiveOf.presets", { name })}
+            checked={!!lib?.user.receive}
+            busy={busy}
+            onChange={(receive) => send({ user: { receive } })}
+          />
+          <Setting
+            edit={may.edit("presets")}
+            label={t("hub:machine.share")}
+            name={t("hub:machine.shareOf.presets", { name })}
+            checked={!!lib?.user.share}
+            busy={busy}
+            onChange={(share) => send({ user: { share } })}
+          />
+        </>
+      ),
       link: (
         <Link
           to="/presets/settings/sources"
           hash={`${lib?.user.share ? "machine" : "receive"}-${d.id}`}
-          className="underline"
+          className={link}
         >
           {t("hub:machine.presetsSettings")}
         </Link>
@@ -456,153 +497,34 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
   ];
   return (
     <div className="grid gap-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="wrap-anywhere">
-          <span className="font-medium">{name}</span>{" "}
-          <span className="text-muted">
-            {found
-              ? found.version
-                ? t("hub:machine.installedVersion", { version: found.version })
-                : t("hub:machine.installed")
-              : t("hub:machine.notFound")}
-          </span>
-        </p>
-        <Setting
-          edit={may.edit("slicers")}
-          label={t("hub:machine.useAsSlicer")}
-          name={t("hub:machine.useAsSlicerOf", { name })}
-          checked={!!lib?.slicer}
-          busy={busy}
-          onChange={(slicer) => send({ slicer })}
-        />
-      </div>
-      {may.setUp && may.edit("slicers") && (
-        <SlicerSetup device={d} library={library} found={!!found} />
-      )}
-      <div className="grid grid-cols-2 items-center gap-x-6 sm:grid-cols-[6rem_auto_auto_1fr]">
-        {rows.map((r) => {
-          const edit = may.edit(r.kind);
-          // The hub's slicer's catalog is read from it: it receives none.
-          const fixed = r.kind === "catalog" && !!state?.hubSlicer;
-          return (
-            <div key={r.kind} className="contents">
-              <span className="col-span-2 pt-2 text-muted sm:col-span-1 sm:pt-0">{r.label}</span>
-              <Setting
-                edit={edit && !fixed}
-                label={t("hub:machine.receive")}
-                name={t(NAMES[r.kind].receive, { name })}
-                checked={r.values.receive && !fixed}
-                busy={busy}
-                onChange={(receive) => send({ [r.field]: { receive } })}
-              />
-              {r.values.share === null ? (
-                <span className="inline-flex min-h-9 items-center">
-                  {fixed && t("hub:machine.hubSlicer")}
-                </span>
-              ) : (
-                <Setting
-                  edit={edit}
-                  label={t("hub:machine.share")}
-                  name={t(NAMES[r.kind].share, { name })}
-                  checked={r.values.share}
-                  busy={busy}
-                  onChange={(share) => send({ [r.field]: { share } })}
-                />
-              )}
-              <span className="col-span-2 sm:col-span-1 sm:justify-self-end">{r.link}</span>
-            </div>
-          );
-        })}
+      <h3 className="wrap-anywhere">
+        <span className="font-semibold">{name}</span>{" "}
+        <span className="text-muted">
+          {found
+            ? found.version
+              ? t("hub:machine.installedVersion", { version: found.version })
+              : t("hub:machine.installed")
+            : t("hub:machine.notFound")}
+        </span>
+      </h3>
+      <div className="grid items-center gap-x-6 sm:grid-cols-[minmax(9rem,auto)_auto_1fr_auto]">
+        {rows.map((r) => (
+          <div key={r.key} className="contents">
+            <span className="pt-2 text-muted sm:pt-0">{r.label}</span>
+            <div className="flex flex-wrap items-center gap-x-4">{r.controls}</div>
+            <div className="min-w-0">{r.state}</div>
+            <div className="sm:justify-self-end">{r.link}</div>
+          </div>
+        ))}
       </div>
       <Alert error={patch.error} />
     </div>
   );
 }
 
-/**
- * The machine's install of a slicer: its worker row (ADR-0014), one per machine. Set up with the
- * slicer found on it, else one the hub downloads there; then `WorkerSlicer` picks or installs it.
- */
-function SlicerSetup({
-  device: d,
-  library,
-  found,
-}: {
-  device: Device;
-  library: string;
-  found: boolean;
-}) {
-  const { t } = useTranslation();
-  const adapterName = useAdapterName();
-  const adapter = useAdapters().data?.find((a) => a.kind === "worker" && a.libraryId === library);
-  const worker = useIntegrations().data?.find(
-    (i) =>
-      i.kind === "worker" &&
-      libraryOf(i) === library &&
-      workerConfigSchema.safeParse(i.config).data?.deviceId === d.id,
-  );
-  const create = useCreateIntegration();
-  const remove = useDeleteIntegration(worker?.id ?? "");
-  const [confirming, setConfirming] = useState(false);
-  const name = adapterName(library);
-  if (!adapter) return null;
-  if (!worker)
-    return (
-      <div className="grid gap-1">
-        <Button
-          className="justify-self-start"
-          disabled={create.isPending}
-          onClick={() =>
-            create.mutate({
-              adapterId: adapter.id,
-              config: { deviceId: d.id, source: found ? "installed" : "managed" },
-            })
-          }
-        >
-          {t(found ? "hub:machine.setUpFound" : "hub:machine.setUpManaged")}
-        </Button>
-        <Alert error={create.error} />
-      </div>
-    );
-  return (
-    <Collapsible title={t("hub:machine.slicerSetup", { name })} className="mt-1">
-      <div className="grid gap-3">
-        {worker.status === "unavailable" && (
-          <p className="text-muted">{t("integrations:worker.unavailableHint")}</p>
-        )}
-        <WorkerSlicer integration={worker} adapter={adapter} />
-        <Button
-          variant="ghost"
-          className="justify-self-start text-bad"
-          disabled={remove.isPending}
-          onClick={() => setConfirming(true)}
-        >
-          {t("hub:machine.removeSlicer")}
-        </Button>
-        <Alert error={remove.error} />
-      </div>
-      <ConfirmDialog
-        open={confirming}
-        title={t("hub:machine.removeSlicerTitle", { name, device: d.name })}
-        description={t("hub:machine.removeSlicerBody")}
-        confirmLabel={t("hub:machine.removeSlicer")}
-        destructive
-        onCancel={() => setConfirming(false)}
-        onConfirm={() => {
-          setConfirming(false);
-          remove.mutate();
-        }}
-      />
-    </Collapsible>
-  );
-}
-
 function Slicers({ device: d }: { device: Device }) {
   const { t } = useTranslation();
-  const adapterName = useAdapterName();
   const may = useMay(d);
-  const adapters = useAdapters().data ?? [];
-  const [added, setAdded] = useState<string[]>([]);
   // A desktop slicer's id is its library's; one it no longer reports keeps its switches, and a
   // managed one (not in its list) is in `libraries`.
   const libraries = [
@@ -610,18 +532,8 @@ function Slicers({ device: d }: { device: Device }) {
       ...d.slicers.map((s) => s.id),
       ...Object.keys(d.presets),
       ...Object.keys(d.libraries),
-      ...added,
     ]),
   ];
-  // A slicer not found on it can be installed there.
-  const more =
-    may.setUp && may.edit("slicers")
-      ? adapters.flatMap((a) =>
-          a.kind === "worker" && a.libraryId && !libraries.includes(a.libraryId)
-            ? [{ value: a.libraryId, label: adapterName(a.libraryId) }]
-            : [],
-        )
-      : [];
   return (
     <Section title={t("hub:machine.slicers")} wide>
       {libraries.length ? (
@@ -634,15 +546,13 @@ function Slicers({ device: d }: { device: Device }) {
       ) : (
         <p className="text-muted">{t("hub:devices.noSlicers")}</p>
       )}
-      {more.length > 0 && (
-        <div className="grid gap-1 border-t border-border pt-4 sm:max-w-md">
-          <Combobox
-            aria-label={t("hub:machine.addSlicer")}
-            value=""
-            options={[{ value: "", label: t("hub:machine.addSlicer") }, ...more]}
-            onChange={(v) => v && setAdded([...added, v])}
-          />
-        </div>
+      {/* A slicer is installed on a machine from its card in Integrations. */}
+      {may.integrations && (
+        <p className="text-muted">
+          <Link to="/integrations" className="underline underline-offset-2">
+            {t("hub:machine.installInIntegrations")}
+          </Link>
+        </p>
       )}
     </Section>
   );

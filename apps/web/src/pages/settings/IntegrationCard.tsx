@@ -2,10 +2,15 @@ import {
   type Integration,
   type IntegrationStatus,
   isAction,
+  type LibrarySources,
+  SLICER_CATALOG_ROW_TYPES,
+  SLICER_PRESET_TYPES,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
   type SyncRun,
   syncRunFilters,
+  USER_PRESET_TYPES,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Plus } from "lucide-react";
@@ -13,6 +18,7 @@ import { type ReactNode, useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
+import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
@@ -20,24 +26,33 @@ import { Menu } from "../../components/Menu.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { useCanSettings } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
+import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime, formatRelative } from "../../lib/format.ts";
+import { useDevices } from "../../lib/hub.ts";
 import {
   catalogSummary,
+  libraryOf,
   useAdapterName,
   useAdapters,
-  useCapable,
+  useCreateIntegration,
+  useDefaultLibrary,
   useDeleteIntegration,
+  useIntegrations,
   useLocationLabel,
   usePatchIntegration,
+  usePickHubSlicer,
   useSyncIntegration,
   useSyncRuns,
 } from "../../lib/integrations.ts";
-import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
+import { useSavePreferences } from "../../lib/preferences.ts";
+import { useCatalogSources } from "../../lib/presets.ts";
 import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches } from "./PolicyRow.tsx";
+import { SourceBadge } from "./Sources.tsx";
+import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
 // The status dot's colour; the line's text says the rest.
 const DOT: Record<IntegrationStatus | "disabled", string> = {
@@ -67,46 +82,129 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2";
 
-/** Its catalog lines, on Catalog settings → Sources: how many run on their own, how many wait. */
-function CatalogLine({ library, rows }: { library: string; rows: Integration[] }) {
+// The line from a row's node down to the next one's.
+const RAIL =
+  "relative grid scroll-mt-4 grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-3 before:absolute before:top-13 before:-bottom-4 before:left-4.5 before:w-px before:bg-border last:before:hidden";
+const NODE = "relative mt-1 grid size-9 place-items-center rounded-md border";
+
+// Literal keys so `pnpm i18n:check` sees them.
+const PICK_ERRORS: Record<string, string> = {
+  device_offline: "integrations:hub.errors.device_offline",
+  device_outdated: "integrations:hub.errors.device_outdated",
+  device_timeout: "integrations:hub.errors.device_timeout",
+  not_an_option: "integrations:hub.errors.not_an_option",
+  slicer_exists: "integrations:hub.errors.slicer_exists",
+};
+
+/** Where a slicer's import cards are set: the catalog's four lines, its system and user presets. */
+const AREAS = [
+  {
+    label: "integrations:card.areas.catalog",
+    types: SLICER_CATALOG_ROW_TYPES,
+    to: "/catalog/settings/sources",
+    module: "catalog",
+  },
+  {
+    label: "integrations:card.areas.system",
+    types: SLICER_PRESET_TYPES,
+    to: "/presets/settings/sources",
+    module: "presets",
+  },
+  {
+    label: "integrations:card.areas.user",
+    types: USER_PRESET_TYPES,
+    to: "/presets/settings/sources",
+    module: "presets",
+  },
+] as const;
+
+/** One line per area with cards: how many run on their own, how many wait; a link to its tab. */
+function Summary({ library, rows }: { library: string; rows: Integration[] }) {
   const { t } = useTranslation();
-  const sources = useCanSettings("catalog");
-  const s = catalogSummary(rows);
-  if (!s.cards) return null;
-  const line =
-    s.auto || s.review ? (
-      <Trans
-        t={t}
-        i18nKey="integrations:card.summary"
-        values={{ auto: s.auto, review: s.review }}
-        components={{ review: <span className={s.review ? "text-warn" : undefined} /> }}
-      />
-    ) : (
-      t("integrations:card.summaryOff")
-    );
-  return sources ? (
-    <Link
-      to="/catalog/settings/sources"
-      hash={`server-${library}`}
-      className="text-muted underline-offset-2 hover:text-fg hover:underline"
-    >
-      {line}
-    </Link>
-  ) : (
-    <span className="text-muted">{line}</span>
+  const may = { catalog: useCanSettings("catalog"), presets: useCanSettings("presets") };
+  const items = AREAS.flatMap((a) => {
+    const s = catalogSummary(rows, a.types);
+    if (!s.cards) return [];
+    const area = t(a.label);
+    const line =
+      s.auto || s.review ? (
+        <Trans
+          t={t}
+          i18nKey="integrations:card.summary"
+          values={{ area, auto: s.auto, review: s.review }}
+          components={{ review: <span className={s.review ? "text-warn" : undefined} /> }}
+        />
+      ) : (
+        t("integrations:card.summaryOff", { area })
+      );
+    return [{ key: a.label, line, to: may[a.module] ? a.to : null }];
+  });
+  if (!items.length) return null;
+  return (
+    <ul className="flex flex-wrap gap-x-5 gap-y-1">
+      {items.map((x) => (
+        <li key={x.key}>
+          {x.to ? (
+            <Link
+              to={x.to}
+              hash={`server-${library}`}
+              className="text-muted underline-offset-2 hover:text-fg hover:underline"
+            >
+              {x.line}
+            </Link>
+          ) : (
+            <span className="text-muted">{x.line}</span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
 /**
- * One card per slicer (or account): its name, its catalog line and its install on this server
- * (Plan 5.5.0 Step 9); a workstation's is on its machine page. An older database can have two here.
+ * The default slicer is a slicer type (ADR-0022), shown when there is more than one: its hub's
+ * slicer is saved, else its install on this computer that opens files.
+ */
+function DefaultSlicer({ library, rows }: { library: string; rows: Integration[] }) {
+  const { t } = useTranslation();
+  const admin = useCan("integrations.manage");
+  const save = useSavePreferences();
+  const list = useIntegrations().data ?? [];
+  const chosen = useDefaultLibrary();
+  const can = (i: Integration) =>
+    i.capabilities.includes("slice") || i.capabilities.includes("openInSlicer");
+  const types = [...new Set(list.filter(can).map(libraryOf))];
+  // The chosen one while it still works, else the first (the server's rule).
+  const current = chosen && types.includes(chosen) ? chosen : types[0];
+  const target = rows.find((i) => i.capabilities.includes("slice")) ?? rows.find(can);
+  if (types.length < 2 || !target) return null;
+  if (current === library) return <SourceBadge>{t("integrations:slicer.isDefault")}</SourceBadge>;
+  return admin ? (
+    <Button
+      variant="ghost"
+      disabled={save.isPending}
+      onClick={() => save.mutate({ defaultSlicerId: target.id })}
+    >
+      {t("integrations:slicer.makeDefault")}
+    </Button>
+  ) : null;
+}
+
+/**
+ * One card per slicer type (ADR-0022), or an API's that has no accounts card: its name, the default
+ * slicer, its import cards' summary, and every install of it. For integrations.manage the installs
+ * are the hub's slicer's choices; a machine's is set up here too.
  */
 export function LibraryCard({ library, rows }: { library: string; rows: Integration[] }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const admin = useCan("integrations.manage");
-  const slicer = rows.some((i) => i.kind !== "cloud");
-  const here = rows.filter((i) => i.kind !== "worker");
+  // No rows: a slicer type that only installs on machines so far.
+  const slicer = !rows.length || rows.some((i) => i.kind !== "cloud");
+  const here = rows.filter((i) => i.kind !== "worker" && i.kind !== "cloud");
+  // A slicer type: it has a hub's slicer (a mock source or an API has none).
+  const type = !!useAdapters().data?.some((a) => a.libraryId === library);
+  const lib = useCatalogSources(admin && type).data?.find((l) => l.library === library);
   return (
     <section
       aria-labelledby={`library-${library}`}
@@ -114,10 +212,13 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="grid min-w-0 gap-1">
-          <h2 id={`library-${library}`} className="text-lg font-semibold">
-            {adapterName(library)}
-          </h2>
-          <CatalogLine library={library} rows={rows} />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 id={`library-${library}`} className="scroll-mt-4 text-lg font-semibold">
+              {adapterName(library)}
+            </h2>
+            <DefaultSlicer library={library} rows={rows} />
+          </div>
+          <Summary library={library} rows={rows} />
         </div>
         {admin && slicer && !here.length && (
           <Link to="/integrations/new" search={{ product: library }} className={addClass}>
@@ -131,20 +232,181 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
           {t("integrations:card.twoInstalls")}
         </p>
       )}
-      <ul className="mt-2">
-        {here.map((i) => (
-          <IntegrationCard key={i.id} integration={i} />
-        ))}
-      </ul>
+      {admin && type ? (
+        <HubSlicer library={library} rows={rows} lib={lib} />
+      ) : (
+        <ul className="mt-2">
+          {rows.map((i) => (
+            <IntegrationCard key={i.id} integration={i} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
+const deviceOf = (i: Integration) =>
+  i.kind === "worker" ? workerConfigSchema.safeParse(i.config).data?.deviceId : undefined;
+
+/**
+ * The hub's slicer (ADR-0022): a radio over this server's installs and every machine's, each rail
+ * node being its radio. Only a machine that offers the slicer (Use as slicer) can be picked; one
+ * that offers it without an install gets Set up, any other machine is in Add a machine.
+ */
+function HubSlicer({
+  library,
+  rows,
+  lib,
+}: {
+  library: string;
+  rows: Integration[];
+  lib: LibrarySources | undefined;
+}) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  const locationLabel = useLocationLabel();
+  const legend = useId();
+  const worker = useAdapters().data?.find((a) => a.kind === "worker" && a.libraryId === library);
+  const devices = useDevices().data ?? [];
+  const pick = usePickHubSlicer(library);
+  const create = useCreateIntegration();
+  const [asking, setAsking] = useState<Integration | null>(null);
+  const current = rows.find((i) => i.id === lib?.cardsOf);
+  const pickable = (i: Integration) =>
+    !!lib?.options.some((o) =>
+      "integrationId" in o ? o.integrationId === i.id : o.deviceId === deviceOf(i),
+    );
+  // Another version changes the catalog, and every receiver gets the new one: asked first.
+  const choose = (i: Integration) => {
+    pick.reset();
+    if (current && (!i.slicerVersion || i.slicerVersion !== current.slicerVersion)) setAsking(i);
+    else pick.mutate(i.id);
+  };
+  const withRow = new Set(rows.flatMap((i) => deviceOf(i) ?? []));
+  const setUp = (deviceId: string) => {
+    if (!worker) return;
+    const found = devices.find((d) => d.id === deviceId)?.slicers.some((s) => s.id === library);
+    create.mutate({
+      adapterId: worker.id,
+      config: { deviceId, source: found ? "installed" : "managed" },
+    });
+  };
+  const offered = (lib?.machines ?? []).filter((m) => m.slicer && !withRow.has(m.deviceId));
+  const more = worker
+    ? devices.filter((d) => !withRow.has(d.id) && !offered.some((m) => m.deviceId === d.id))
+    : [];
+  const error = pick.error ?? create.error;
+  const code = error instanceof ApiError && error.code ? PICK_ERRORS[error.code] : undefined;
+  return (
+    <fieldset
+      aria-labelledby={legend}
+      className="mt-4 grid min-w-0 gap-1 border-t border-border pt-4"
+    >
+      <h3 id={legend} className="font-semibold">
+        {t("integrations:hub.title")}
+      </h3>
+      <p className="max-w-prose text-muted">
+        {t(rows.length || offered.length ? "integrations:hub.hint" : "integrations:hub.none")}
+      </p>
+      <ul>
+        {rows.map((i) => (
+          <IntegrationCard
+            key={i.id}
+            integration={i}
+            hub={{
+              library,
+              checked: lib?.cardsOf === i.id,
+              pickable: pickable(i),
+              busy: pick.isPending,
+              onPick: () => choose(i),
+            }}
+          />
+        ))}
+        {offered.map((m) => (
+          <li key={m.deviceId} className={RAIL}>
+            <span aria-hidden className={cx(NODE, "border-dashed border-border text-muted")}>
+              <LOCATION_ICONS.worker className="size-4" />
+            </span>
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0">
+                <p className="flex min-h-11 items-center font-semibold wrap-anywhere">{m.name}</p>
+                <p className="text-muted">{t("integrations:hub.offers")}</p>
+              </div>
+              {worker && (
+                <Button disabled={create.isPending} onClick={() => setUp(m.deviceId)}>
+                  {t("integrations:hub.setUp")}
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {more.length > 0 && (
+        <div className="sm:max-w-sm">
+          <Combobox
+            aria-label={t("integrations:hub.addMachine")}
+            value=""
+            disabled={create.isPending}
+            options={[
+              { value: "", label: t("integrations:hub.addMachine") },
+              ...more.map((d) => ({ value: d.id, label: d.name })),
+            ]}
+            onChange={(v) => v && setUp(v)}
+          />
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-bad">
+          {t(code ?? "integrations:card.actionError")}
+        </p>
+      )}
+      <ConfirmDialog
+        open={!!asking}
+        title={t("integrations:hub.pickTitle", {
+          name: adapterName(library),
+          where: asking ? locationLabel(asking) : "",
+        })}
+        description={
+          current?.slicerVersion && asking?.slicerVersion
+            ? t("integrations:hub.pickBody", {
+                from: current.slicerVersion,
+                to: asking.slicerVersion,
+              })
+            : t("integrations:hub.pickBodyUnknown")
+        }
+        confirmLabel={t("integrations:hub.pick")}
+        onCancel={() => setAsking(null)}
+        onConfirm={() => {
+          if (asking) pick.mutate(asking.id);
+          setAsking(null);
+        }}
+      />
+    </fieldset>
+  );
+}
+
+/** A row as a choice of the hub's slicer: its rail node is the radio. */
+type HubChoice = {
+  library: string;
+  checked: boolean;
+  /** An option of the server's (a machine's only while it offers the slicer). */
+  pickable: boolean;
+  busy: boolean;
+  onPick: () => void;
+};
+
 /**
  * One place a slicer runs (or an account): where, on/off and a status line; then its account
- * (cloud) or slicer, what it imports that isn't catalog, and the sync log.
+ * (cloud) or slicer, what it imports that isn't catalog, and the sync log. `hub`: a choice of the
+ * hub's slicer, on its slicer type's card.
  */
-export function IntegrationCard({ integration: i }: { integration: Integration }) {
+export function IntegrationCard({
+  integration: i,
+  hub,
+}: {
+  integration: Integration;
+  hub?: HubChoice;
+}) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
@@ -166,6 +428,8 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
   // Closed by default; a deep link (an alert's "Open integration") opens it.
   const [open, setOpen] = useState(() => location.hash === `#integration-${i.id}`);
   const bodyId = useId();
+  const roleId = useId();
+  const H = hub ? "h4" : "h3";
 
   // The status line: one sentence for where the integration stands.
   const state = !i.enabled ? "disabled" : sync.isPending ? "syncing" : i.status;
@@ -177,6 +441,8 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
     ) : state === "unavailable" ? (
       i.kind === "server" ? (
         t("integrations:managed.notInstalledHint")
+      ) : i.kind === "worker" ? (
+        t("integrations:worker.unavailableHint")
       ) : (
         t("integrations:card.unavailableHint")
       )
@@ -194,20 +460,40 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
     );
 
   return (
-    <li
-      id={`integration-${i.id}`}
-      // The rail: a line from this row's icon down to the next one's.
-      className="relative grid scroll-mt-4 grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-3 before:absolute before:top-13 before:-bottom-4 before:left-4.5 before:w-px before:bg-border last:before:hidden"
-    >
-      <span
-        aria-hidden
-        className="relative mt-1 grid size-9 place-items-center rounded-md border border-border bg-surface-2 text-muted"
-      >
-        <Icon className="size-4" />
-      </span>
+    <li id={`integration-${i.id}`} className={RAIL}>
+      {hub ? (
+        // The hub's slicer reads down the rail: its node is filled.
+        <label
+          className={cx(
+            NODE,
+            "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent",
+            hub.checked
+              ? "border-accent bg-accent text-accent-fg"
+              : "border-border bg-surface-2 text-muted",
+            hub.pickable && !hub.checked ? "cursor-pointer hover:border-accent" : "",
+            !hub.pickable && !hub.checked && "border-dashed",
+          )}
+        >
+          <input
+            type="radio"
+            name={`hub-slicer-${hub.library}`}
+            className="sr-only"
+            checked={hub.checked}
+            disabled={!hub.pickable || hub.busy}
+            onChange={hub.onPick}
+            aria-label={where}
+            aria-describedby={roleId}
+          />
+          <Icon aria-hidden className="size-4" />
+        </label>
+      ) : (
+        <span aria-hidden className={cx(NODE, "border-border bg-surface-2 text-muted")}>
+          <Icon className="size-4" />
+        </span>
+      )}
       <div className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <h3 className="min-w-0 text-base font-semibold">
+          <H className="flex min-w-0 flex-wrap items-center gap-x-2 text-base font-semibold">
             <button
               type="button"
               aria-expanded={open}
@@ -225,7 +511,12 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
                 )}
               />
             </button>
-          </h3>
+            {i.slicerVersion && (
+              <span className="text-sm font-normal text-muted">
+                {t("integrations:hub.version", { version: i.slicerVersion })}
+              </span>
+            )}
+          </H>
           {admin && (
             <div className="flex items-center gap-1">
               <Switch
@@ -254,6 +545,15 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
           <span aria-hidden className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[state])} />
           <span>{status}</span>
         </p>
+        {hub && (
+          <p id={roleId} className={hub.checked ? "font-medium text-accent" : "text-muted"}>
+            {hub.checked
+              ? t("integrations:hub.isHub")
+              : !hub.pickable && i.kind === "worker"
+                ? t("integrations:hub.notOffered")
+                : null}
+          </p>
+        )}
         {failed && (
           <p role="alert" className="mt-1 text-bad">
             {t("integrations:card.actionError")}
@@ -281,8 +581,12 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
                 libraryId={adapter.libraryId}
                 managed={adapter.managed}
               />
-              <DefaultSlicer integration={i} />
               <ActionSwitches integration={i} />
+            </Part>
+          )}
+          {admin && i.enabled && i.kind === "worker" && adapter && (
+            <Part title={t("integrations:slicer.title")}>
+              <WorkerSlicer integration={i} adapter={adapter} />
             </Part>
           )}
           {logged && (
@@ -299,7 +603,11 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
       <ConfirmDialog
         open={confirming}
         title={t("integrations:deleteDialog.title", { name })}
-        description={t("integrations:deleteDialog.body")}
+        description={t(
+          i.kind === "worker"
+            ? "integrations:deleteDialog.workerBody"
+            : "integrations:deleteDialog.body",
+        )}
         confirmLabel={t("integrations:card.delete")}
         destructive
         onCancel={() => setConfirming(false)}
@@ -366,34 +674,7 @@ function SlicerFields({
       )}
       {program &&
         path("slicerPath", t("integrations:slicer.path"), t("integrations:slicer.pathHint"))}
-      <DefaultSlicer integration={i} />
     </div>
-  );
-}
-
-/** "Make default slicer" when more than one integration can open or slice files. */
-function DefaultSlicer({ integration: i }: { integration: Integration }) {
-  const { t } = useTranslation();
-  const savePrefs = useSavePreferences();
-  const defaultId = usePreferences().data?.values.defaultSlicerId;
-  const openers = useCapable("openInSlicer");
-  const slicers = [
-    ...openers,
-    ...useCapable("slice").filter((s) => !openers.some((o) => o.id === s.id)),
-  ];
-  // The default is the chosen one if it still works, else the first (same rule as the server).
-  const current = slicers.find((s) => s.id === defaultId) ?? slicers[0];
-  if (slicers.length < 2 || !slicers.some((s) => s.id === i.id)) return null;
-  return current?.id === i.id ? (
-    <p className="text-muted">{t("integrations:slicer.isDefault")}</p>
-  ) : (
-    <Button
-      className="justify-self-start"
-      disabled={savePrefs.isPending}
-      onClick={() => savePrefs.mutate({ defaultSlicerId: i.id })}
-    >
-      {t("integrations:slicer.makeDefault")}
-    </Button>
   );
 }
 

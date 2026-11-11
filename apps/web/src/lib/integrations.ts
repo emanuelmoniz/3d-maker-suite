@@ -76,9 +76,14 @@ export function useLocationLabel() {
       : t(LOCATIONS[i.kind]);
 }
 
-/** A card's catalog import cards (now on Presets settings → Sources): automatic, and waiting for review. */
-export const catalogSummary = (rows: Integration[]) => {
-  const cards = rows.flatMap((i) => i.policies.filter((p) => isCatalogType(p.type)));
+/**
+ * A card's catalog import cards (on Catalog and Presets settings → Sources): automatic, and waiting
+ * for review; `types`: only those.
+ */
+export const catalogSummary = (rows: Integration[], types?: readonly string[]) => {
+  const cards = rows.flatMap((i) =>
+    i.policies.filter((p) => (types ? types.includes(p.type) : isCatalogType(p.type))),
+  );
   return {
     cards: cards.length,
     auto: cards.filter((p) => p.mode === "auto").length,
@@ -104,23 +109,42 @@ export const feeds = (i: Integration, type: AccountType) =>
 export const useCapable = (cap: Capability) =>
   (useIntegrations().data ?? []).filter((i) => i.capabilities.includes(cap));
 
-/** The slicers that can slice now, their names, and what picks resolve to (as the server does). */
+/**
+ * The slicer types that can slice now (ADR-0022: one hub's slicer each, the only rows with
+ * `slice`), named by type, and what picks resolve to (as the server's `slicerResolver` does).
+ */
 export function useSlicers() {
-  const slicers = useCapable("slice");
-  const label = useIntegrationLabel();
+  const all = useIntegrations().data ?? [];
+  const slicers = all.filter((i) => i.capabilities.includes("slice"));
+  const adapterName = useAdapterName();
   const defaultSlicerId = usePreferences().data?.values.defaultSlicerId;
   const ids = slicers.map((s) => s.id);
-  return {
-    slicers: slicers.map((s) => ({ id: s.id, name: label(s), library: s.presetLibrary })),
-    /** A pick that can slice now, else null: what the "inherited" option shows. */
-    usable: (id: string | null | undefined) => (id && ids.includes(id) ? id : null),
-    nameOf: (id: string | undefined) => {
-      const s = slicers.find((x) => x.id === id);
-      return s ? label(s) : "";
-    },
-    /** Plate, project: the slicer it slices with (`pickSlicer` over the default slicer). */
-    resolve: (picks: (string | null | undefined)[]) => pickSlicer(ids, [...picks, defaultSlicerId]),
+  // A pick names a slicer type: any install of it stands for its hub's slicer.
+  const toHub = (id: string | null | undefined) => {
+    const row = all.find((i) => i.id === id);
+    return row && slicers.find((s) => s.id === row.id || libraryOf(s) === libraryOf(row))?.id;
   };
+  const nameOf = (id: string | undefined) => {
+    const s = slicers.find((x) => x.id === id);
+    return s ? adapterName(libraryOf(s)) : "";
+  };
+  return {
+    slicers: slicers.map((s) => ({ id: s.id, name: nameOf(s.id), library: s.presetLibrary })),
+    /** A pick's slicer type that can slice now, else null: what the "inherited" option shows. */
+    usable: (id: string | null | undefined) => toHub(id) ?? null,
+    nameOf,
+    /** Plate, project: the slicer it slices with (`pickSlicer` over the default slicer). */
+    resolve: (picks: (string | null | undefined)[]) =>
+      pickSlicer(ids, [...picks, defaultSlicerId].map(toHub)),
+  };
+}
+
+/** The slicer type the default slicer is (`defaultSlicerId`'s library), else undefined. */
+export function useDefaultLibrary() {
+  const all = useIntegrations().data ?? [];
+  const defaultSlicerId = usePreferences().data?.values.defaultSlicerId;
+  const row = all.find((i) => i.id === defaultSlicerId);
+  return row && libraryOf(row);
 }
 
 /** The caller's task permissions (ADR-0016); only the sync and review ones depend on the flags. */
@@ -191,6 +215,17 @@ export const usePatchIntegration = (id: string) =>
 
 export const useDeleteIntegration = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);
+
+/**
+ * Picks a slicer type's hub's slicer (ADR-0022): slicing, the catalog and every receiver follow,
+ * so everything is refreshed.
+ */
+export const usePickHubSlicer = (library: string) =>
+  useInvalidating(
+    (integrationId: string) =>
+      api("PUT", `/api/integrations/slicers/${encodeURIComponent(library)}`, { integrationId }),
+    true,
+  );
 
 export const useTestIntegration = (id: string) =>
   useMutation({

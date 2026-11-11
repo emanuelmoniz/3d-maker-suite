@@ -32,9 +32,9 @@ Each device in **Hub management** opens its machine page. It has every setting o
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the status page port and start at login, read live from the connector.
 - **Slicers**: the default slicer (the one **Open** uses, or **Ask each time**). Then for each slicer the connector found:
-  - **Use as slicer**: whether it slices for the hub. It turns slicing on that slicer's worker on or off ([Slice workers](#slice-workers)). With Integrations manage, a slicer not set up yet offers to set it up here, and **<slicer> for the hub** picks or installs its program; **Install another slicer here…** adds one the connector didn't find.
-  - **Catalog**, **Receive** and **Share**. On the library's catalog source, Share stays on: pick another source in Catalog settings first.
-  - **Presets**, **Receive** and **Share** ([Slicer presets](#slicer-presets)).
+  - **Use as slicer**: **Offer** offers this slicer to the hub; the admin picks the hub's slicer among the offers on the slicer's card in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)). It says *Offered: pick it in Integrations*, or *The hub's slicer* on the picked one, whose offer stays on until another is picked. With Integrations manage, **Integrations** links to the card, where the machine's install is set up, updated and removed ([Slice workers](#slice-workers)).
+  - **Catalog and system presets**: **Receive** only, the hub's slicer's `system/` folder. Off and locked on the hub's slicer: its own are the hub's.
+  - **User presets**: **Receive** and **Share** ([Slicer presets](#slicer-presets)).
 - **Projects**: **Receive from the hub** (with what it syncs, below) and **Share to the hub** (its shared folders, below).
 - **Actions**: **Restart connector**, **Stop connector** and **Revoke**.
 
@@ -44,8 +44,8 @@ Each device in **Hub management** opens its machine page. It has every setting o
 |---|---|---|
 | Connection, Restart, Stop | **Connection** | |
 | Default slicer, Use as slicer | **Slicers** | |
-| Catalog Receive and Share | **Catalog** | Catalog write |
-| Presets Receive and Share | **Presets** | Presets write |
+| Catalog and system presets Receive | **Catalog** | Catalog write |
+| User presets Receive and Share | **Presets** | Presets write |
 | Projects Receive and Share | **Projects** | Projects write |
 
 Identity, Update now and Revoke stay with **Manage the hub**.
@@ -150,7 +150,7 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 
 ## Slice workers
 
-A device can slice for the hub. On its [machine page](#machine-page), under **Slicers**, set up Bambu Studio or OrcaSlicer there and pick or install its program; one install per slicer and machine. That makes it a slice worker, and removing its last slicer ends it. **Use as slicer** turns that slicer's slicing on or off without removing it; its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
+A device can slice for the hub. Its user offers a slicer with **Use as slicer** on its [machine page](#machine-page); in **Settings → Integrations**, the slicer's card sets up its install there (**Set up**, or **Add a machine…**), picks or installs its program, and picks it as the hub's slicer. One install per slicer and machine. Having an install makes it a slice worker, and removing its last slicer ends it; only the hub's slicer slices. Its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 

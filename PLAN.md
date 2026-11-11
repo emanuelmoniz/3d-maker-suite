@@ -2578,7 +2578,7 @@ Plan Step 11b of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB 
 Plan Step 11c of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 11d - Integrations and the machine page
+### [x] Step 11d - Integrations and the machine page
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Integrations: one card per slicer type. **The hub's slicer** is a radio over the server's install and every machine that offers the slicer, each with its setup, update and removal (`WorkerSlicer` moves back here from the machine page). Picking another version asks first. Choose brands and the Catalog, System presets and User presets cards stay on the card.
