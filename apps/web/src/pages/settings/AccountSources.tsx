@@ -180,14 +180,14 @@ export const useManagesLine = (type: LineType) =>
     "manage",
   );
 
-/** A machine's own switch on a line: it sends that kind or not, and what that means now. */
-export type SendLine = NonNullable<StateLine["on"]> & { state: string };
+/** A machine's own switch on a line: it sends that kind or not. */
+export type SendLine = NonNullable<StateLine["on"]>;
 
 /**
  * A source's lines of one integration in one table: per type its switch, schedule, what and how,
  * Edit and `⋯` (ADR-0021). The switch off is the policy `off`; on again, the type's default mode.
- * Only the lines the caller may change or run. `send`: a machine's line whose switch and When are
- * its send of that kind (Edit and `⋯` stay the hub's import of it).
+ * Only the lines the caller may change or run. `send`: a machine's line whose switch is its send
+ * of that kind; while it sends, When is the hub's import of it as on any line, else Off.
  */
 export function PolicyLines({
   integration: i,
@@ -286,8 +286,10 @@ export function PolicyLines({
             // The schedule, and under it the last run: one column, so the line fits a laptop.
             cell: (r) => {
               const s = send?.(r.type);
-              return s ? (
-                <span className={cx(COL.when, "grid py-1.5")}>{s.state}</span>
+              return s && !s.checked ? (
+                <span className={cx(COL.when, "grid py-1.5")}>
+                  {t("integrations:policies.modes.off")}
+                </span>
               ) : (
                 <When
                   policy={r}

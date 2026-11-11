@@ -159,8 +159,18 @@ describe("catalog change detection", () => {
       .json()
       .filter((a: { kind: string }) => a.kind === "sync_pending");
   };
-  /** Machine presets imported, the folder seen once, then one edited and one new in the slicer. */
+  const setMode = (type: string, mode: "auto" | "manual") =>
+    app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${id}`,
+      payload: { policies: [{ type, mode }] },
+    });
+  /**
+   * Machine presets imported, the folder seen once, then one edited and one new in the slicer. The
+   * presets are Manual here (the default is Automatic): a change waits for review.
+   */
   const vendorUpdate = async () => {
+    for (const type of ["machinePresets", "processPresets"]) await setMode(type, "manual");
     await run("brands");
     await run("printerModels");
     await run("machinePresets");
@@ -209,7 +219,7 @@ describe("catalog change detection", () => {
     expect(db.select().from(machinePresets).all()).toEqual(before);
     expect(fingerprints()).toEqual(["Acme=2"]);
     expect(pendingOf("machinePresets")).toBe(2);
-    // A manual type, the default: the alert is how you hear of it.
+    // A manual type: the alert is how you hear of it.
     const [alert, ...others] = await alerts();
     expect(others).toEqual([]);
     expect(alert).toMatchObject({
@@ -239,13 +249,6 @@ describe("catalog change detection", () => {
     db.update(syncPolicies).set({ mode: "off" }).run();
     expect(await alerts()).toEqual([]);
   });
-
-  const setMode = (type: string, mode: "auto" | "manual") =>
-    app.inject({
-      method: "PATCH",
-      url: `/api/integrations/${id}`,
-      payload: { policies: [{ type, mode }] },
-    });
 
   it("an Automatic type writes when the folder changes; a Manual one beside it only counts", async () => {
     await run("processPresets");

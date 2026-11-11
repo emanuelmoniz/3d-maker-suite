@@ -215,7 +215,6 @@ function ServerSlicer({
         integration={i}
         types={[...(source ? SLICER_PRESET_TYPES : []), ...(routed ? USER_PRESET_TYPES : [])]}
         title={name}
-        what={false}
         how={false}
       />
     </SlicerGroup>
@@ -238,13 +237,7 @@ function AccountPresets({
     <AccountBlock integration={i} types={[...USER_PRESET_TYPES]}>
       {libs.map((lib) => (
         <SlicerGroup key={lib.library} name={adapterName(lib.library)}>
-          <PolicyLines
-            integration={i}
-            types={[...USER_PRESET_TYPES]}
-            title={title}
-            what={false}
-            how={false}
-          />
+          <PolicyLines integration={i} types={[...USER_PRESET_TYPES]} title={title} how={false} />
         </SlicerGroup>
       ))}
       <p className="max-w-prose text-muted">{t("integrations:policies.cloudPresetsRoute")}</p>
@@ -349,7 +342,7 @@ function ShareSlicer({
       : t("integrations:policies.modes.off");
   const send = (type: string): SendLine | undefined => {
     const k = KIND_OF[type];
-    return k && { ...kind(k), state: sendState(k) };
+    return k && kind(k);
   };
   const user: string[] = l.send ? [...USER_PRESET_TYPES] : [];
   const lines = (i: Integration, types: string[]) => (
@@ -357,7 +350,6 @@ function ShareSlicer({
       integration={i}
       types={types as Integration["policies"][number]["type"][]}
       title={name}
-      what={false}
       how={false}
       send={send}
     />

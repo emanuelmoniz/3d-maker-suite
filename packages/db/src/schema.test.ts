@@ -2013,3 +2013,41 @@ describe("migration 0114", () => {
     );
   });
 });
+
+describe("migration 0116", () => {
+  it("turns a slicer's manual catalog and system preset lines automatic; off and others stay", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const now = migrateAcross(115, (sqlite) => {
+      sqlite
+        .prepare(
+          "INSERT INTO integrations (id, adapter_id, config, created_at, updated_at) VALUES ('i', 'bambu-studio', '{}', ?, ?)",
+        )
+        .run(at, at);
+      const policy = sqlite.prepare(
+        "INSERT INTO sync_policies (integration_id, type, mode, frequency) VALUES ('i', ?, ?, '1d')",
+      );
+      for (const [type, mode] of [
+        ["brands", "manual"],
+        ["machinePresets", "manual"],
+        ["filamentPresets", "off"],
+        ["userMachinePresets", "manual"],
+        ["slice", "manual"],
+      ])
+        policy.run(type, mode);
+    });
+    const modes = Object.fromEntries(
+      now
+        .select()
+        .from(s.syncPolicies)
+        .all()
+        .map(({ type, mode }) => [type, mode]),
+    );
+    expect(modes).toEqual({
+      brands: "auto",
+      machinePresets: "auto",
+      filamentPresets: "off",
+      userMachinePresets: "manual",
+      slice: "manual",
+    });
+  });
+});

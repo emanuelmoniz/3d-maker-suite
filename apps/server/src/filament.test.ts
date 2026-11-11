@@ -356,7 +356,8 @@ describe("filament library", () => {
     });
     expect(await review.rows(presetsUrl())).toEqual(["A:identical", "B:identical", "S:identical"]);
     const after = await policy(slicerId, "filamentPresets");
-    expect(after).toMatchObject({ mode: "manual", pending: 0 });
+    // A run leaves the line's mode as it was: Automatic, a slicer's default.
+    expect(after).toMatchObject({ mode: "auto", pending: 0 });
     expect(after.lastRunAt).toBeTruthy();
   });
 

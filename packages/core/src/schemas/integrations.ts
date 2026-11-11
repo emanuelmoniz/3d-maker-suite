@@ -5,6 +5,7 @@ import {
   type Capability,
   INTEGRATION_ERROR_CODES,
   INTEGRATION_KINDS,
+  isCatalogType,
   isUserPresetType,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
@@ -212,17 +213,19 @@ const WEEKLY: readonly Capability[] = [
 ];
 /**
  * What a type does until the user changes it (no stored row). Printers and prints sync on their
- * own; anything with a preview is imported by hand until the user picks `auto`. A change to a
- * printer or spool you have waits for you; catalog rows keep your edits.
+ * own, and a slicer's catalog and presets follow its files on their own; spools are imported by
+ * hand until the user picks `auto`. A change to a printer or spool you have waits for you; catalog
+ * rows keep your edits.
  */
 export const defaultPolicy = (
   type: Capability,
 ): { mode: SyncMode; frequency: SyncFrequency; scope: SyncScope; merge: SyncMerge } => ({
   ...(type === "prints"
     ? { mode: "auto", frequency: "1h" }
-    : type === "printers" || isUserPresetType(type)
-      ? { mode: "auto", frequency: "1d" }
-      : { mode: "manual", frequency: WEEKLY.includes(type) ? "1w" : "1d" }),
+    : {
+        mode: type === "printers" || isCatalogType(type) ? "auto" : "manual",
+        frequency: WEEKLY.includes(type) ? "1w" : "1d",
+      }),
   scope: "all",
   merge: type === "printers" || type === "spools" ? "review" : "keepEdits",
 });

@@ -68,7 +68,8 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
     await dialog.getByRole("button", { name: "Cancel" }).click();
     return on;
   };
-  expect(await whenOf("System printer presets")).toBe(false);
+  // Both follow the files on their own by default, the system presets too.
+  expect(await whenOf("System printer presets")).toBe(true);
   expect(await whenOf("User printer presets")).toBe(true);
   await page.goto("/catalog/settings/sources");
   await openSources(page);

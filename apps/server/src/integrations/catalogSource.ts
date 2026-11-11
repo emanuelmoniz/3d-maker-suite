@@ -171,7 +171,8 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
 
 /**
  * Picks a library's hub's slicer among its options (ADR-0022), and turns on its slicing and its
- * Catalog and System presets cards (off → Manual; Automatic stays). 422 when it isn't an option.
+ * Catalog and System presets cards (off → their default: the cards Automatic, slicing Manual). 422
+ * when it isn't an option.
  * `confirm` runs before anything is saved: a machine told it is the source, whose refusal keeps
  * the old pick. A machine's Receive catalog goes off: its own folder is the catalog.
  */
@@ -209,10 +210,10 @@ export async function pickHubSlicer(
   for (const type of types) {
     if (!adapter.capabilities.includes(type) || policyOf(db, row.id, type).mode !== "off") continue;
     db.insert(syncPolicies)
-      .values({ integrationId: row.id, type, ...defaultPolicy(type), mode: "manual" })
+      .values({ integrationId: row.id, type, ...defaultPolicy(type) })
       .onConflictDoUpdate({
         target: [syncPolicies.integrationId, syncPolicies.type],
-        set: { mode: "manual" },
+        set: { mode: defaultPolicy(type).mode },
       })
       .run();
   }

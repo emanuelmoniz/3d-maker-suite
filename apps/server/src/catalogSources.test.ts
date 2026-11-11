@@ -242,8 +242,8 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
         .all()
         .filter((p) => ["brands", "machinePresets"].includes(p.type)),
     ).toEqual([
-      { type: "brands", mode: "manual" },
-      { type: "machinePresets", mode: "manual" },
+      { type: "brands", mode: "auto" },
+      { type: "machinePresets", mode: "auto" },
     ]);
     await expect(pickHubSlicer(db, adapters, "fake", crypto.randomUUID())).rejects.toMatchObject({
       code: "not_an_option",

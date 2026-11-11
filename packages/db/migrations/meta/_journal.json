@@ -813,6 +813,13 @@
       "when": 1794414146270,
       "tag": "0115_server_catalog_receive",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "6",
+      "when": 1794427854575,
+      "tag": "0116_catalog_auto",
+      "breakpoints": true
     }
   ]
 }
