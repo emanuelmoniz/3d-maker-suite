@@ -2622,7 +2622,7 @@ Do Step 11e of the 5.5.0 plan in PLAN.md.
 Plan Step 11f of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11g - Catalog page: Printers and Filament tabs
+### [x] Step 11g - Catalog page: Printers and Filament tabs
 **Model:** Opus · **Effort:** Medium
 **Scope:** ADR-0023.
 - **Printers** tab: Brands, Printer models, Printer presets, Process presets. **Filament** tab: Filament brands, Materials, Filament presets. A preset table keeps system and user presets together, with its Scope column.

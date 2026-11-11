@@ -55,30 +55,21 @@ test("the gear is reachable and activated from the keyboard", async ({ page }) =
   await expect(page).toHaveURL(/\/quotes\/settings$/);
 });
 
-test("Catalog and Presets hold the tables; Printers settings keeps the default printer", async ({
-  page,
-}) => {
+test("Catalog holds the tables; Printers settings keeps the default printer", async ({ page }) => {
   await page.goto("/printers");
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
   await page.goto("/catalog");
   await expect(page).toHaveURL(/\/catalog\/printers$/);
-  for (const h of ["Brands", "Printer models"])
+  for (const h of ["Brands", "Printer models", "Printer presets", "Process presets"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Printer presets", level: 2 })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Filament presets", level: 2 })).toHaveCount(0);
   await page
     .getByRole("navigation", { name: "Catalog sections" })
     .getByRole("link", { name: "Filament" })
     .click();
-  for (const h of ["Filament brands", "Filament materials"])
+  for (const h of ["Filament brands", "Filament materials", "Filament presets"])
     await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
-  for (const [tab, h] of [
-    ["printer", "Printer presets"],
-    ["process", "Process presets"],
-    ["filament", "Presets"],
-  ]) {
-    await page.goto(`/presets/${tab}`);
-    await expect(page.getByRole("heading", { name: h, level: 2 })).toBeVisible();
-  }
+  await expect(page.getByRole("heading", { name: "Printer presets", level: 2 })).toHaveCount(0);
   await page.goto("/printers/settings");
   await expect(page.getByLabel("Default printer")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);

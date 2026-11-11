@@ -233,7 +233,7 @@ function Switcher<T extends string>({
   );
 }
 
-/** Presets settings → Library (ADR-0017, ADR-0021): the one library the hub slicer and workers use. */
+/** Catalog settings → Preset library (ADR-0017, ADR-0023): the one library the hub slicer and workers use. */
 export function PresetsTab() {
   const { t } = useTranslation();
   const presets = usePresets();

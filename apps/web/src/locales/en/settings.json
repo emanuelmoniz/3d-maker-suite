@@ -3,12 +3,10 @@
     "label": "Settings sections",
     "general": "General",
     "sources": "Sources",
+    "presetSources": "Preset sources",
     "library": "Preset library"
   },
   "catalog": {
-    "nothing": "Nothing to set here yet."
-  },
-  "presets": {
     "nothing": "Nothing to set here yet."
   },
   "sources": {

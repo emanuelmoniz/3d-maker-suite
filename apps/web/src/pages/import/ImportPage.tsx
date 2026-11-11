@@ -56,7 +56,7 @@ export function ImportPage() {
             </div>
             {/* The zip lives with what fills the catalog (ADR-0020). */}
             <Link
-              to="/presets/settings/sources"
+              to="/catalog/settings/preset-sources"
               className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
             >
               {t("import:zip.toSources")}

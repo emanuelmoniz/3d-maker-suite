@@ -60,7 +60,7 @@ export function receiversOf(libraries: LibrarySources[], list: Integration[]): R
   return [...(server.slicers.length ? [server] : []), ...machines.values()];
 }
 
-/** Receive from the hub, on the Catalog and Presets tabs: a card per receiver, `slicer` per slicer. */
+/** Receive from the hub, on Catalog settings → Sources and Preset sources: a card per receiver, `slicer` per slicer. */
 export function ReceiveSection({
   receivers,
   slicer,

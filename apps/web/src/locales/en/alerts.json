@@ -116,10 +116,10 @@
     "preset_conflict": "Slicer preset {{name}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
     "preset_skipped_json": "Slicer preset {{name}} isn't valid JSON and was not stored",
     "preset_skipped_parent": "Slicer preset {{name}} was not installed: the slicer lacks the preset it inherits from",
-    "preset_held_mass_one": "{{name}} removed {{count}} slicer preset at once; it stays until someone deletes or keeps it on the Presets page",
-    "preset_held_mass_other": "{{name}} removed {{count}} slicer presets at once; they stay until someone deletes or keeps them on the Presets page",
-    "preset_held_shared_one": "{{name}} removed {{count}} slicer preset on an account another user's device shares; it stays until someone deletes or keeps it on the Presets page",
-    "preset_held_shared_other": "{{name}} removed {{count}} slicer presets on an account another user's device shares; they stay until someone deletes or keeps them on the Presets page"
+    "preset_held_mass_one": "{{name}} removed {{count}} slicer preset at once; it stays until someone deletes or keeps it in Catalog settings → Preset library",
+    "preset_held_mass_other": "{{name}} removed {{count}} slicer presets at once; they stay until someone deletes or keeps them in Catalog settings → Preset library",
+    "preset_held_shared_one": "{{name}} removed {{count}} slicer preset on an account another user's device shares; it stays until someone deletes or keeps it in Catalog settings → Preset library",
+    "preset_held_shared_other": "{{name}} removed {{count}} slicer presets on an account another user's device shares; they stay until someone deletes or keeps them in Catalog settings → Preset library"
   },
   "severity": {
     "error": "Error",

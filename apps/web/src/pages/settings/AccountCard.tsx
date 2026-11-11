@@ -31,7 +31,15 @@ import { ActionSwitches } from "./PolicyRow.tsx";
 // so `pnpm i18n:check` sees the keys.
 const ALLOW: Record<
   AccountAllowType,
-  { module: SettingsModule; label: string; link: string; stop: string; stopBody: string }
+  {
+    module: SettingsModule;
+    /** The settings tab, if not Sources. */
+    tab?: string;
+    label: string;
+    link: string;
+    stop: string;
+    stopBody: string;
+  }
 > = {
   printers: {
     module: "printers",
@@ -55,7 +63,8 @@ const ALLOW: Record<
     stopBody: "integrations:account.stop.spoolsBody",
   },
   userPresets: {
-    module: "presets",
+    module: "catalog",
+    tab: "preset-sources",
     label: "integrations:account.allow.userPresets",
     link: "integrations:account.settings.presets",
     stop: "integrations:account.stop.userPresets",
@@ -348,7 +357,7 @@ function AllowRow({
   onChange: (on: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const { module, label, link } = ALLOW[type];
+  const { module, tab, label, link } = ALLOW[type];
   const canOpen = useSettingsAccess(module).sources;
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-4">
@@ -360,7 +369,7 @@ function AllowRow({
       />
       {on && canOpen && (
         <Link
-          to={`/${module}/settings/sources` as LinkProps["to"]}
+          to={`/${module}/settings/${tab ?? "sources"}` as LinkProps["to"]}
           className="text-sm font-medium text-accent hover:underline"
         >
           {t(link)}

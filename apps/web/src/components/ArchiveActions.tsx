@@ -76,7 +76,7 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
   maintenanceTask: { key: "common:archive.dependents.maintenanceTask", to: "/maintenance" },
   filamentPreset: {
     key: "common:archive.dependents.filamentPreset",
-    to: "/filament/presets/$id",
+    to: "/presets/filament/$id",
   },
   spool: { key: "common:archive.dependents.spool", to: "/filament/spools/$id" },
   print: { key: "common:archive.dependents.print", to: "/prints/$id" },

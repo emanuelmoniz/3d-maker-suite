@@ -23,7 +23,6 @@ import {
   LOGS_ITEM,
   NAV_GROUPS,
   type NavItem,
-  PRESETS_ITEM,
   SETTINGS_ITEM,
 } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
@@ -273,7 +272,6 @@ function Sidebar() {
         {hubShown && <SideLink item={HUB_ITEM} />}
         {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
         {catalogShown && <SideLink item={CATALOG_ITEM} />}
-        {catalogShown && <SideLink item={PRESETS_ITEM} />}
         {importShown && <SideLink item={IMPORT_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
@@ -329,7 +327,6 @@ function BottomNav() {
     (i) =>
       !i.primary &&
       (catalogShown || i !== CATALOG_ITEM) &&
-      (catalogShown || i !== PRESETS_ITEM) &&
       (logsShown || i !== LOGS_ITEM) &&
       (importShown || i !== IMPORT_ITEM) &&
       (tasks || i !== INTEGRATIONS_ITEM) &&

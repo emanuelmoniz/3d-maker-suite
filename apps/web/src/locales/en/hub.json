@@ -113,7 +113,7 @@
     "openPreset": "Open the preset",
     "loadError": "Couldn't load the presets.",
     "emptyTitle": "No slicer presets yet",
-    "emptyBody": "Turn on Presets Share for a machine on its page, or upload a slicer zip in Presets settings → Sources. Their user presets join this library.",
+    "emptyBody": "Turn on Presets Share for a machine on its page, or upload a slicer zip in Catalog settings → Preset sources. Their user presets join this library.",
     "toIntegrations": "Go to Integrations",
     "library": "Slicer",
     "libraries": {
@@ -209,7 +209,7 @@
     },
     "hubSlicer": "The hub's slicer",
     "catalogSettings": "Catalog settings",
-    "presetsSettings": "Presets settings",
+    "presetsSettings": "Preset sources",
     "projects": "Projects",
     "receiveProjects": "Receive from the hub",
     "shareProjects": "Share to the hub",

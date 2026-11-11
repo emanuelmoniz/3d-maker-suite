@@ -38,7 +38,7 @@ Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |
 | Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
-| Catalog | Delete and restore Preset library presets, clean up conflict copies and held deletes | Add, edit, archive and delete brands, models and materials, and archive and delete presets (a slicer makes and edits them); on Catalog and Presets → Settings → Sources, their import settings and Choose brands |
+| Catalog | Delete and restore Preset library presets, clean up conflict copies and held deletes | Add, edit, archive and delete brands, models and materials, and archive and delete presets (a slicer makes and edits them); on Catalog → Settings → Sources and Preset sources, their import settings and Choose brands |
 
 With **Catalog** at Read, a user sees the brands, models, materials and slicer presets, their Sources and the Preset library. The printer, spool and print forms read brands, models, materials and presets with Printers or Filament read too, and the presets are readable with Projects read. Catalog and presets are one module ([ADR-0023](adr/0023-one-catalog-module.md)): updating from a 5.5.0 pre-release, each role and user keeps the higher of its old Catalog and Presets levels.
 
@@ -83,7 +83,7 @@ People with **Set up integrations** set up integrations. They can also allow sin
 - **Can sync now**: users with **Run syncs** may run that task's sync.
 - **Can review and import**: users with **Review imports** may review and import what that task brings in.
 
-Both are off by default. They are set with **Edit** on the task's line: for an account's printers, prints and spools on the type's **Settings → Sources** tab, for slicer types on **Presets → Settings → Sources**. A user with Run syncs or Review imports, but not Set up integrations, sees only the allowed tasks, with no account, slicer or setup settings. An account's printers, prints and spools tasks are on the type's **Settings → Sources** tab, which the gear on the type's page opens. That tab is all of its settings such a user sees. Other tasks are on the Integrations page. Alerts show the sync or review button only for those tasks.
+Both are off by default. They are set with **Edit** on the task's line: for an account's printers, prints and spools on the type's **Settings → Sources** tab, for slicer types on **Catalog → Settings → Preset sources**. A user with Run syncs or Review imports, but not Set up integrations, sees only the allowed tasks, with no account, slicer or setup settings. An account's printers, prints and spools tasks are on the type's **Settings → Sources** tab, which the gear on the type's page opens. That tab is all of its settings such a user sees. Other tasks are on the Integrations page. Alerts show the sync or review button only for those tasks.
 
 ## Alerts are per person
 

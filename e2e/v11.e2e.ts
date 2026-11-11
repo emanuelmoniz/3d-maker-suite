@@ -135,7 +135,7 @@ test("printer model by hand; a printer preset from a file is read-only and archi
     printerModelId: items[0]?.id,
     nozzleDiameterMm: 0.4,
   });
-  // ADR-0021: presets are their own module.
+  // ADR-0023: an old Presets link lands on the Catalog table.
   await page.goto("/presets/printer");
   const presetsBlock = block(page, "Printer presets");
   await expect(presetsBlock.getByRole("link", { name: "Add preset" })).toHaveCount(0);

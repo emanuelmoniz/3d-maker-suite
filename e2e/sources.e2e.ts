@@ -20,11 +20,11 @@ for (const width of [375, 1440])
       data: { displayName: "Ana Admin", email: "ana@example.com", password: "correct horse" },
     });
     await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
-    // Nothing connected yet: Catalog has no source, Presets still offers each slicer's zip, and
+    // Nothing connected yet: Catalog has no source, Preset sources still offers each slicer's zip, and
     // the zip page comes back there.
     await page.goto("/catalog/settings/sources");
     await expect(page.getByRole("heading", { name: "No sources" })).toBeVisible();
-    await page.goto("/presets/settings/sources");
+    await page.goto("/catalog/settings/preset-sources");
     await openSources(page);
     const zip = page
       .getByRole("listitem")
@@ -34,7 +34,7 @@ for (const width of [375, 1440])
     await zip.getByRole("link", { name: "Import from a slicer zip" }).click();
     await expect(page).toHaveURL(/\/import\/slicer-zip\?slicer=bambu-studio$/);
     await page.getByRole("link", { name: /back/i }).click();
-    await expect(page).toHaveURL(/\/presets\/settings\/sources$/);
+    await expect(page).toHaveURL(/\/catalog\/settings\/preset-sources$/);
 
     const me = await (await page.request.get("/api/auth/me")).json();
     /** A paired machine that reports these slicers, as its connector does. */
@@ -121,7 +121,7 @@ for (const width of [375, 1440])
         .find((l: { library: string }) => l.library === "bambu-studio")
         .machines.find((m: { name: string }) => m.name === "WS-1"),
     ).toMatchObject({ receive: true });
-    await page.goto("/presets/settings/sources");
+    await page.goto("/catalog/settings/preset-sources");
     await openSources(page);
     const onPresets = block(page, "Receive from the hub", "WS-1").getByRole("switch", {
       name: catalogLine,
@@ -132,7 +132,7 @@ for (const width of [375, 1440])
 
     // WS-1 shares Bambu Studio's filament presets and nothing else; OrcaSlicer stays off.
     await set("WS-1", "bambu-studio", { user: { share: true } });
-    await page.goto("/presets/settings/sources");
+    await page.goto("/catalog/settings/preset-sources");
     await openSources(page);
     const shares = block(page, "Share to the hub", "WS-1");
     for (const kind of ["Printer presets", "Process presets"]) {

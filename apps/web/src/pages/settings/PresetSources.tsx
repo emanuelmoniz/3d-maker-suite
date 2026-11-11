@@ -71,7 +71,7 @@ const KINDS: Record<SlicerPresetKind, string> = {
 type Library = PresetDevice["libraries"][number];
 
 /**
- * Presets settings → Sources (ADR-0021 wireframe 5). Share to the hub: the server's slicer (its
+ * Catalog settings → Preset sources (ADR-0021 wireframe 5). Share to the hub: the server's slicer (its
  * system lines while it is the catalog source, and its user lines), accounts that allow user
  * presets, machines with Presets Share per slicer and kind, and the zip. Receive from the hub:
  * every install but the hub's slicer, its Catalog and system presets line and per kind its user
@@ -383,7 +383,7 @@ function ShareSlicer({
         />
       )}
       {l.held > 0 && (
-        <Link to="/presets/settings/library" className="w-fit text-warn underline">
+        <Link to="/catalog/settings/library" className="w-fit text-warn underline">
           {t("settings:sources.presets.held", { count: l.held })}
         </Link>
       )}

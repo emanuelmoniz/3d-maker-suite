@@ -14,7 +14,6 @@ import {
   Printer,
   ScrollText,
   Settings,
-  SlidersHorizontal,
   Spool,
   Users,
   Wrench,
@@ -128,20 +127,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-/** Brands, models and materials (ADR-0020), with `catalog` read. */
+/** Brands, models, materials and their presets (ADR-0023), with `catalog` read. */
 export const CATALOG_ITEM: NavItem = {
   to: "/catalog",
   icon: Library,
   label: "nav:items.catalog.label",
   description: "nav:items.catalog.description",
-};
-
-/** The slicer presets (ADR-0021), with `presets` read. */
-export const PRESETS_ITEM: NavItem = {
-  to: "/presets",
-  icon: SlidersHorizontal,
-  label: "nav:items.presets.label",
-  description: "nav:items.presets.description",
 };
 
 /** Sits just above Logs, outside the groups. */
@@ -181,13 +172,12 @@ export const SETTINGS_ITEM: NavItem = {
   label: "nav:items.settings.label",
 };
 
-/** The bottom block (ADR-0021): Hub management, Integrations, Catalog, Presets, Import | Export, Logs, Settings. */
+/** The bottom block (ADR-0021, ADR-0023): Hub management, Integrations, Catalog, Import | Export, Logs, Settings. */
 export const ALL_ITEMS = [
   ...NAV_GROUPS.flatMap((g) => g.items),
   HUB_ITEM,
   INTEGRATIONS_ITEM,
   CATALOG_ITEM,
-  PRESETS_ITEM,
   IMPORT_ITEM,
   LOGS_ITEM,
   SETTINGS_ITEM,

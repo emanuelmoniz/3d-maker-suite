@@ -55,7 +55,7 @@ function useModelColumns<T extends { printerModelId: string | null }>(modelHeade
 const mm = (t: TFunction, v: number | null, none: string) =>
   v === null ? none : t("printers:catalog.mm", { value: formatNumber(v) });
 
-/** Presets → Printer: the slicer's machine presets (ADR-0020, ADR-0021). */
+/** Catalog → Printers: the slicer's machine presets (ADR-0020, ADR-0021). */
 export function MachinePresets() {
   const { t } = useTranslation();
   const all = useMachinePresets().data ?? [];
@@ -99,7 +99,7 @@ export function MachinePresets() {
   );
 }
 
-/** Presets → Process. */
+/** Catalog → Printers: the slicer's process presets. */
 export function ProcessPresets() {
   const { t } = useTranslation();
   const all = useProcessPresets().data ?? [];
@@ -151,7 +151,7 @@ export function ProcessPresets() {
   );
 }
 
-/** Presets → Filament: slicer files, listed, archived and deleted here (ADR-0020). */
+/** Catalog → Filament: slicer files, listed, archived and deleted here (ADR-0020). */
 export function FilamentPresets() {
   const { t } = useTranslation();
   const [presetQuery, setPresetQuery] = useUrlListQuery("presets.");

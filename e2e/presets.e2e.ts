@@ -48,14 +48,14 @@ test("hub presets: two PCs' zips in one library, versions, delete", async ({ pag
     "user/default/filament/Silk.json": { name: "Silk" },
   });
 
-  await page.goto("/presets/settings");
+  await page.goto("/catalog/settings");
   await page
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("link", { name: "Library" })
     .click();
-  await expect(page).toHaveURL(/\/presets\/settings\/library$/);
+  await expect(page).toHaveURL(/\/catalog\/settings\/library$/);
   await page.goto("/hub/presets");
-  await expect(page).toHaveURL(/\/presets\/settings\/library$/);
+  await expect(page).toHaveURL(/\/catalog\/settings\/library$/);
   await expect(page.getByRole("button", { name: "Filament (2)" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -155,10 +155,10 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   const side = page.getByRole("complementary");
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
   const tab = tabs.getByRole("link", { name: "Library" });
-  // ADR-0021: Presets → its settings → Library, open to `presets` read.
+  // ADR-0023: Catalog → its settings → Library, open to `catalog` read.
   const openPresets = async () => {
-    await side.getByRole("link", { name: "Presets" }).click();
-    await page.getByRole("link", { name: "Presets settings" }).click();
+    await side.getByRole("link", { name: "Catalog" }).click();
+    await page.getByRole("link", { name: "Catalog settings" }).click();
     await tab.click();
   };
 
@@ -193,7 +193,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
-  await tabs.getByRole("link", { name: "Sources" }).click();
+  await tabs.getByRole("link", { name: "Preset sources" }).click();
   await openSources(page);
   const machine = page
     .getByRole("region", { name: "Receive from the hub" })
@@ -221,7 +221,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toHaveCount(0);
-  await page.goto("/presets/settings/sources");
+  await page.goto("/catalog/settings/preset-sources");
   await expect(page.getByRole("switch")).toHaveCount(0);
   // Someone else's machine is as unknown as a missing one.
   expect((await page.request.patch(slicer, receive)).status()).toBe(404);
@@ -232,17 +232,17 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await expect(
     page.getByRole("switch", { name: "Receive OrcaSlicer user presets from the hub" }),
   ).toBeChecked();
-  await page.getByRole("link", { name: "Presets settings" }).click();
-  await expect(page).toHaveURL(new RegExp(`/presets/settings/sources#receive-${id}$`));
+  await page.getByRole("link", { name: "Preset sources" }).click();
+  await expect(page).toHaveURL(new RegExp(`/catalog/settings/preset-sources#receive-${id}$`));
 
   // Hub off: hidden for all.
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
   await signInAs("eva@example.com");
-  await page.goto("/presets/settings");
-  await expect(tabs.getByRole("link", { name: "Sources" })).toBeVisible();
+  await page.goto("/catalog/settings");
+  await expect(tabs.getByRole("link", { name: "Sources", exact: true })).toBeVisible();
   await expect(tab).toHaveCount(0);
   await page.goto("/catalog/presets");
-  await expect(page).toHaveURL(/\/presets\/settings$/);
+  await expect(page).toHaveURL(/\/catalog\/settings$/);
 });
 
 test("share my presets: the switch, a device's preset, a conflict copy, a desktop delete", async ({

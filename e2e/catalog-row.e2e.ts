@@ -51,8 +51,8 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   for (const name of ["Printer brands", "Printer models", "Filament brands", "Filament materials"])
     await expect(lines.getByText(name, { exact: true })).toBeVisible();
 
-  // Its presets are on Presets settings; no schedule, because a change in the files runs them.
-  await page.goto("/presets/settings/sources");
+  // Its presets are on Catalog settings → Preset sources; no schedule, because a change in the files runs them.
+  await page.goto("/catalog/settings/preset-sources");
   await openSources(page);
   const presets = page.getByRole("table", { name: "What OrcaSlicer syncs" });
   for (const kind of ["printer", "process", "filament"])

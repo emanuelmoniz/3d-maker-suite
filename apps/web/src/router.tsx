@@ -16,12 +16,7 @@ import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
 import { CatalogImportPage } from "./pages/catalog/CatalogImportPage.tsx";
-import {
-  CATALOG_TABS,
-  CatalogPage,
-  PRESET_TABLES,
-  PRINTER_TABLES,
-} from "./pages/catalog/CatalogPage.tsx";
+import { CATALOG_TABS, CatalogPage, tabOf } from "./pages/catalog/CatalogPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
 import { ClientsPage } from "./pages/clients/ClientsPage.tsx";
@@ -48,7 +43,6 @@ import {
   MachinePresetPage,
   ProcessPresetPage,
 } from "./pages/presets/PresetPage.tsx";
-import { PRESET_TABS, PresetsPage } from "./pages/presets/PresetsPage.tsx";
 import { AccessoryDetailPage } from "./pages/printers/AccessoryDetailPage.tsx";
 import { AccessoryCreatePage, AccessoryEditPage } from "./pages/printers/AccessoryFormPage.tsx";
 import { BrandFormPage, ModelFormPage } from "./pages/printers/CatalogForms.tsx";
@@ -72,7 +66,6 @@ import {
   FilamentConfigPage,
   HubConfigPage,
   OrdersConfigPage,
-  PresetsConfigPage,
   PrintersConfigPage,
   PrintsConfigPage,
   ProjectsConfigPage,
@@ -92,7 +85,6 @@ import {
   IMPORT_ITEM,
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
-  PRESETS_ITEM,
   SETTINGS_ITEM,
 } from "./shell/nav.ts";
 
@@ -121,7 +113,6 @@ const root = createRootRoute({ component: Root, notFoundComponent: NotFound });
 const built = [
   "/",
   CATALOG_ITEM.to,
-  PRESETS_ITEM.to,
   IMPORT_ITEM.to,
   INTEGRATIONS_ITEM.to,
   HUB_ITEM.to,
@@ -290,10 +281,10 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path: `/catalog/${tab}`,
-      // A preset table's old address lands on its Presets tab (ADR-0021).
+      // A table's address on the other tab lands on its own (ADR-0023).
       beforeLoad: ({ location }: { location: { hash: string } }) => {
-        const to = PRESET_TABLES[location.hash];
-        if (to) throw redirect({ to: `/presets/${to}` });
+        const to = tabOf(location.hash);
+        if (to && to !== tab) throw redirect({ to: `/catalog/${to}`, hash: location.hash });
       },
       // integrations: the names of the accounts a row can come from.
       loader: () =>
@@ -303,11 +294,16 @@ const routes: AnyRoute[] = [
       component: () => <CatalogPage tab={tab} />,
     }),
   ),
-  // The library and the sources were Catalog tabs before ADR-0021.
+  // The library and the sources were Catalog tabs before ADR-0021, then Presets settings tabs
+  // until ADR-0023.
   ...(
     [
-      ["/catalog/presets", "/presets/settings/library"],
+      ["/catalog/presets", "/catalog/settings/library"],
       ["/catalog/sources", "/catalog/settings/sources"],
+      ["/presets/settings", "/catalog/settings"],
+      ["/presets/settings/library", "/catalog/settings/library"],
+      // ponytail: its own tab until Step 11h merges it into Sources.
+      ["/presets/settings/sources", "/catalog/settings/preset-sources"],
     ] as const
   ).map(([path, to]) =>
     createRoute({
@@ -318,24 +314,22 @@ const routes: AnyRoute[] = [
       },
     }),
   ),
-  // Presets (ADR-0021): one tab per kind, `/presets` opens the first.
-  createRoute({
-    getParentRoute: () => root,
-    path: "/presets",
-    beforeLoad: () => {
-      throw redirect({ to: "/presets/printer" });
-    },
-  }),
-  ...PRESET_TABS.map((tab) =>
+  // The Presets page had a tab per kind (ADR-0021): each lands on its Catalog table.
+  ...(
+    [
+      ["/presets", "printers", "machine-presets"],
+      ["/presets/printer", "printers", "machine-presets"],
+      ["/presets/process", "printers", "process-presets"],
+      ["/presets/filament", "filament", "filament-presets"],
+    ] as const
+  ).map(([path, tab, hash]) =>
     createRoute({
       getParentRoute: () => root,
-      path: `/presets/${tab}`,
-      // integrations: the names of the accounts a row can come from.
-      loader: () =>
-        Promise.all(
-          ["catalog", "printers", "filament", "integrations", "import"].map(loadNamespace),
-        ),
-      component: () => <PresetsPage tab={tab} />,
+      path,
+      // Keeps the table's filters (`process-presets.archived=true`).
+      beforeLoad: ({ location }) => {
+        throw redirect({ to: `/catalog/${tab}`, search: location.search, hash });
+      },
     }),
   ),
   // The catalog tables were in Printers and Filament settings before; old links still land.
@@ -512,33 +506,33 @@ const routes: AnyRoute[] = [
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
       ["/hub/settings", HubConfigPage, ["hub"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "integrations"]],
-      // hub, integrations: the lines and the machines on Sources (ADR-0021).
-      ["/catalog/settings", CatalogConfigPage, ["catalog", "hub", "integrations"]],
-      // import, filament: the zip's steps and the slicer's desktop name.
+      // hub, integrations: the lines and the machines on Sources (ADR-0021); import, filament: the
+      // zip's steps and the slicer's desktop name.
       [
-        "/presets/settings",
-        PresetsConfigPage,
+        "/catalog/settings",
+        CatalogConfigPage,
         ["catalog", "hub", "import", "integrations", "filament"],
       ],
     ] as const
   ).flatMap(([path, component, ns]) =>
-    // Data types also have a Sources tab (the Library tab only exists on Presets).
-    [path, `${path}/sources`, ...(path === "/presets/settings" ? [`${path}/library`] : [])].map(
-      (path) =>
-        createRoute({
-          getParentRoute: () => root,
-          path,
-          // A catalog table's old address lands on its tab; the page keeps the default printer.
-          beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
-            if (location.pathname !== "/printers/settings") return;
-            if (PRINTER_TABLES.includes(location.hash))
-              throw redirect({ to: "/catalog/printers", hash: location.hash });
-            const preset = PRESET_TABLES[location.hash];
-            if (preset) throw redirect({ to: `/presets/${preset}` });
-          },
-          loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
-          component,
-        }),
+    // Data types also have a Sources tab; Catalog has Preset sources and Library too (ADR-0023).
+    [
+      path,
+      `${path}/sources`,
+      ...(path === "/catalog/settings" ? [`${path}/preset-sources`, `${path}/library`] : []),
+    ].map((path) =>
+      createRoute({
+        getParentRoute: () => root,
+        path,
+        // A catalog table's old address lands on its tab; the page keeps the default printer.
+        beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
+          if (location.pathname !== "/printers/settings") return;
+          const tab = tabOf(location.hash);
+          if (tab) throw redirect({ to: `/catalog/${tab}`, hash: location.hash });
+        },
+        loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
+        component,
+      }),
     ),
   ),
   // After "/alerts/settings" so that wins the match.
@@ -601,7 +595,7 @@ const routes: AnyRoute[] = [
     getParentRoute: () => root,
     path: "/hub/presets",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/presets/settings/library", hash: location.hash });
+      throw redirect({ to: "/catalog/settings/library", hash: location.hash });
     },
   }),
   createRoute({

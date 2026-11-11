@@ -14,7 +14,6 @@ export type SettingsModule =
   | "printers"
   | "filament"
   | "catalog"
-  | "presets"
   | "hub";
 
 /** What opens a module's settings page (ADR-0016): manage on a module, or the on/off permission. */
@@ -27,16 +26,15 @@ const SETTINGS_PERMISSION: Record<SettingsModule, Permission> = {
   printers: "printers",
   filament: "filament",
   catalog: "catalog",
-  presets: "catalog",
   hub: "hub.manage",
 };
 
 /**
- * Presets settings open with read: their Library and Sources tabs were Catalog tabs that read
- * showed (ADR-0021); each control in them checks its own level.
+ * Catalog settings open with read: their Library and Sources tabs were Presets settings tabs that
+ * read showed (ADR-0021, ADR-0023); each control in them checks its own level.
  */
 export const useCanSettings = (module: SettingsModule) =>
-  useCan(SETTINGS_PERMISSION[module], module === "presets" ? "read" : "manage");
+  useCan(SETTINGS_PERMISSION[module], module === "catalog" ? "read" : "manage");
 
 /** The modules whose Sources tab lists accounts, and the type they feed (ADR-0021). */
 export const ACCOUNT_TYPE: Partial<Record<SettingsModule, AccountType>> = {

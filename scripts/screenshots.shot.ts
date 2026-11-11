@@ -157,7 +157,7 @@ test("README screenshots", async ({ page, app }) => {
     ["maintenance-type", `/maintenance/types/${type.id}`],
     ["filament", "/filament"],
     ["spool", `/filament/spools/${spools[0]?.id}`],
-    ["filament-preset", `/filament/presets/${presetId}`],
+    ["filament-preset", `/presets/filament/${presetId}`],
     ["prints", "/prints"],
     ["print", `/prints/${lastPrint}`],
     ["projects", "/projects"],
@@ -237,9 +237,17 @@ test("hub screenshots", async ({ page, app }) => {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion }),
   }).then((r) => r.json() as Promise<{ token: string; deviceId: string }>);
-  // Send presets for its slicer while it's offline: online, the hub would ask this stand-in first.
-  await page.request.patch(`/api/presets/devices/${deviceId}`, {
-    data: { library: "bambu-studio", send: true },
+  // Its slicer, and User presets Share on (ADR-0021) while it's offline: online, the hub would ask
+  // this stand-in first.
+  await fetch(`${app.url}/api/hub/device/slicers`, {
+    method: "PUT",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify([
+      { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
+    ]),
+  });
+  await page.request.patch(`/api/hub/devices/${deviceId}/slicers/bambu-studio`, {
+    data: { user: { share: true } },
   });
   // Online = its event stream is open, as a running connector holds it (the stream stays open).
   const events = await fetch(`${app.url}/api/hub/events`, {
@@ -293,17 +301,14 @@ test("hub screenshots", async ({ page, app }) => {
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/file-history.png` });
 
-  // Slicer presets: the connector's slicer and two presets, shared the way the connector sends them.
+  // Slicer presets: three presets, shared the way the connector sends them.
   const device = (method: string, path: string, body: unknown) =>
     fetch(`${app.url}/api/hub/device${path}`, {
       method,
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-  await device("PUT", "/slicers", [
-    { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
-  ]);
-  await page.goto("/presets/settings/library");
+  await page.goto("/catalog/settings/library");
   for (const [name, cost] of [
     ["Farm PLA", "20"],
     ["Eco PETG", "24"],

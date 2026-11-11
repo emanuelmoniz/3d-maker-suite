@@ -22,9 +22,9 @@ import { Info } from "../filament/SpoolDetailPage.tsx";
 import { AllSettings } from "./AllSettings.tsx";
 
 const KINDS = {
-  filament: { path: "/api/filament/presets", back: "/presets/filament" },
-  machine: { path: "/api/machine-presets", back: "/presets/printer" },
-  process: { path: "/api/process-presets", back: "/presets/process" },
+  filament: { path: "/api/filament/presets", back: "/catalog/filament", hash: "filament-presets" },
+  machine: { path: "/api/machine-presets", back: "/catalog/printers", hash: "machine-presets" },
+  process: { path: "/api/process-presets", back: "/catalog/printers", hash: "process-presets" },
 } as const;
 
 type Row = (FilamentPreset | MachinePreset | ProcessPreset) & { source?: string };
@@ -87,7 +87,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
-  const { path, back } = KINDS[kind];
+  const { path, back, hash } = KINDS[kind];
   const { data: row, isError } = useQuery({
     queryKey: ["catalog-preset", kind, id],
     queryFn: () => api<Row>("GET", `${path}/${id}`),
@@ -95,7 +95,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
     retry: false,
   });
   const hub = !!usePreferences().data?.values.hubEnabled;
-  const library = useCanSettings("presets");
+  const library = useCanSettings("catalog");
   const use = useQuery({
     queryKey: ["catalog-preset", kind, id, "use"],
     queryFn: () => api<InUseDetails>("GET", `${path}/${id}/use`),
@@ -111,7 +111,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
 
   const name = kind === "filament" ? filamentLabel(row as FilamentPreset) : row.name;
   const archived = row.archivedAt !== null;
-  // A preset from a user preset links to its entry in the library (hub on, Presets settings).
+  // A preset from a user preset links to its entry in the library (hub on, Catalog settings).
   const preset = hub && library ? row.sourcePreset?.match(/^([^:]+):user\/(.+)$/) : null;
 
   return (
@@ -125,7 +125,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
               path={`${path}/${id}`}
               name={name}
               archived={archived}
-              onDeleted={() => navigate({ to: back })}
+              onDeleted={() => navigate({ to: back, hash })}
             />
           </Write>
         }
@@ -145,7 +145,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
               <SourceBadge source={row.source} preset />
               {preset && (
                 <Link
-                  to="/presets/settings/library"
+                  to="/catalog/settings/library"
                   hash={encodeURIComponent(`${preset[1]}:${kind}:${preset[2]}`)}
                   className="mt-1 block font-medium text-accent hover:underline"
                 >

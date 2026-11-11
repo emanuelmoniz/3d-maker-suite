@@ -601,12 +601,3 @@ export function CatalogConfigPage() {
     </ConfigPage>
   );
 }
-
-export function PresetsConfigPage() {
-  const { t } = useTranslation();
-  return (
-    <ConfigPage module="presets">
-      {() => <p className="text-muted">{t("settings:presets.nothing")}</p>}
-    </ConfigPage>
-  );
-}

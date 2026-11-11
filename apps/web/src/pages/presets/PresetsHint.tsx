@@ -4,7 +4,7 @@ import { useZipSources } from "../../lib/slicerCatalog.ts";
 
 /**
  * How presets arrive, under the preset tables. The zip steps are the ones of the zip page
- * (`import:zip.steps.*`); the zip link leads to each slicer's zip on Presets settings → Sources.
+ * (`import:zip.steps.*`); the zip link leads to each slicer's zip on Catalog settings → Preset sources.
  */
 export function PresetsHint() {
   const { t } = useTranslation();
@@ -17,7 +17,7 @@ export function PresetsHint() {
           i18nKey="catalog:arrive.body"
           components={{
             integrations: <Link to="/integrations" className="underline" />,
-            zip: <Link to="/presets/settings/sources" className="underline" />,
+            zip: <Link to="/catalog/settings/preset-sources" className="underline" />,
           }}
         />
       </p>
