@@ -244,7 +244,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   app,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/");
+  // No page before setup: its auth check could answer after it and redirect a later goto to login.
   await page.request.post("/api/auth/setup", {
     data: { displayName: "Ana Admin", email: "ana@example.com", password: "correct horse" },
   });
