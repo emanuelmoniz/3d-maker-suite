@@ -11,7 +11,7 @@ import type { Request } from "./roots.ts";
 const slicer = { id: "bambu-studio", library: "bambu-studio" } as DesktopSlicer;
 
 /** A config folder whose `system/` has one vendor at `version`, and what the connector sends. */
-function setup(status = 204, pollMs = 60_000) {
+function setup(status = 204, pollMs = 60_000, found = [slicer]) {
   const dir = mkdtempSync(join(tmpdir(), "catalog-send-"));
   const config = join(dir, "config");
   mkdirSync(join(config, "system", "BBL"), { recursive: true });
@@ -31,13 +31,13 @@ function setup(status = 204, pollMs = 60_000) {
   };
   const send = createCatalogSend({
     request,
-    slicers: () => [slicer],
+    slicers: () => found,
     dataDir: dir,
     log: () => {},
     configDir: () => config,
     pollMs,
   });
-  return { send, sent, version };
+  return { send, sent, version, dir };
 }
 
 describe("catalog source (ADR-0020)", () => {
@@ -66,6 +66,22 @@ describe("catalog source (ADR-0020)", () => {
     expect(sent).toHaveLength(1);
     // Refused: dropped, so the next ticks send nothing until the hub names it again.
     await new Promise((r) => setTimeout(r, 50));
+    expect(sent).toHaveLength(1);
+    send.stop();
+  });
+
+  it("sends a managed install's folder the hub names, with no slicer found", async () => {
+    const { send, sent, dir } = setup(204, 60_000, []);
+    const profiles = join(dir, "1.0", "resources", "profiles");
+    mkdirSync(join(profiles, "BBL"), { recursive: true });
+    writeFileSync(join(profiles, "BBL.json"), JSON.stringify({ version: "7" }));
+    await send.set({ "bambu-studio": null });
+    expect(sent).toEqual([]);
+    await send.set({ "bambu-studio": null }, { "bambu-studio": profiles });
+    expect(sent).toEqual([
+      { path: "/catalog/bambu-studio", entries: ["system", "system/BBL.json"] },
+    ]);
+    await send.set({ "bambu-studio": "BBL=7" }, { "bambu-studio": profiles });
     expect(sent).toHaveLength(1);
     send.stop();
   });

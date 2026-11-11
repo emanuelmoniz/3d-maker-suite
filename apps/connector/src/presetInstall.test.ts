@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { presetFileName, presetText } from "@3d-maker-suite/host";
 import { describe, expect, it } from "vitest";
-import { infoText, isRunningIn, nextInfo, parseInfo, systemPresets } from "./presetInstall.ts";
+import { infoText, nextInfo, parseInfo, systemPresets } from "./presetInstall.ts";
 
 // As Bambu Studio and OrcaSlicer wrote them on real installs (ADR-0017).
 const SYNCED =
@@ -91,32 +91,6 @@ describe("the slicer's json style", () => {
   it("is Orca's with a tab, and a new line inside a value stays escaped", () => {
     expect(presetText({ a: "x\ny" }, "\t", "\r\n")).toBe('{\r\n\t"a": "x\\ny"\r\n}\r\n');
     expect(presetText({ a: 1 }, "\t", "\n")).toBe('{\n\t"a": 1\n}\n');
-  });
-});
-
-describe("is the slicer closed?", () => {
-  const TASKLIST =
-    '"System Idle Process","0","Services","0","8 K"\n"bambu-studio.exe","42","Console","1","1 K"\n';
-  const MAC = "/usr/sbin/cfprefsd\n/Applications/BambuStudio.app/Contents/MacOS/BambuStudio\n";
-  const LINUX = "systemd\nkworker/0:1\nbambu-studio\n";
-
-  it("finds it on each OS, by one name", () => {
-    expect(isRunningIn(TASKLIST, "bambu-studio")).toBe(true);
-    expect(isRunningIn(MAC, "bambu-studio")).toBe(true);
-    expect(isRunningIn(LINUX, "bambu-studio")).toBe(true);
-    expect(
-      isRunningIn("/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer\n", "orca-slicer"),
-    ).toBe(true);
-  });
-
-  it("another program isn't it", () => {
-    expect(isRunningIn(TASKLIST, "orca-slicer")).toBe(false);
-    expect(isRunningIn('"bambu-studio-helper.exe","1"\n', "bambu-studio")).toBe(false);
-  });
-
-  it("no list means it may be: nothing is written", () => {
-    expect(isRunningIn("", "bambu-studio")).toBe(true);
-    expect(isRunningIn("\r\n", "bambu-studio")).toBe(true);
   });
 });
 

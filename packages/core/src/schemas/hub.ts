@@ -276,6 +276,12 @@ export const catalogSourcesSchema = z.record(
   z.string().max(10_000).nullable(),
 );
 export type CatalogSources = z.infer<typeof catalogSourcesSchema>;
+/**
+ * Per library, the `system/` folder to send when it isn't the found slicer's: a managed install's
+ * `resources/profiles` (5.5.0 Step 11c). A connect has it in `X-Catalog-Dirs`.
+ */
+export const catalogDirsSchema = z.record(z.string().max(100), z.string().max(4096));
+export type CatalogDirs = z.infer<typeof catalogDirsSchema>;
 
 /**
  * Hub → device events on `GET /api/hub/events` (ADR-0014): SSE frames `id: <seq>`, `event: <type>`,
@@ -369,6 +375,7 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     type: z.literal("catalog.sources"),
     requestId: id,
     libraries: catalogSourcesSchema,
+    dirs: catalogDirsSchema.optional(),
   }),
   /**
    * The libraries this device receives the catalog of (Receive catalog, ADR-0021), each with the

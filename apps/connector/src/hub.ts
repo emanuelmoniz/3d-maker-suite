@@ -4,6 +4,7 @@ import {
   type ConnectorSettingsPatch,
   type ConnectorSettingsResult,
   type ConnectorUpdateFailure,
+  catalogDirsSchema,
   catalogSourcesSchema,
   type DeviceSyncMode,
   type DeviceUserChange,
@@ -369,7 +370,7 @@ export function createLink({
       }
       if (event.success && event.data.type === "catalog.sources") {
         void reply(event.data.requestId, { ok: true, result: null });
-        void catalog?.set(event.data.libraries);
+        void catalog?.set(event.data.libraries, event.data.dirs);
         return;
       }
       if (event.success && event.data.type === "catalog.install") {
@@ -436,10 +437,12 @@ export function createLink({
       if (signal.aborted) return "offline";
       let libraries: unknown;
       let sources: unknown;
+      let dirs: unknown;
       let installs: unknown;
       try {
         libraries = JSON.parse(res.headers.get("x-preset-libraries") ?? "{}");
         sources = JSON.parse(res.headers.get("x-catalog-sources") ?? "{}");
+        dirs = JSON.parse(res.headers.get("x-catalog-dirs") ?? "{}");
         installs = JSON.parse(res.headers.get("x-catalog-install") ?? "{}");
       } catch {}
       store.set({
@@ -461,7 +464,10 @@ export function createLink({
         if (signal.aborted || quiet.signal.aborted) return;
         void presets?.start();
         void presetInstall?.start();
-        void catalog?.set(catalogSourcesSchema.catch({}).parse(sources));
+        void catalog?.set(
+          catalogSourcesSchema.catch({}).parse(sources),
+          catalogDirsSchema.catch({}).parse(dirs),
+        );
         void catalogInstall?.set(catalogSourcesSchema.catch({}).parse(installs));
       });
       void slicers.prune();

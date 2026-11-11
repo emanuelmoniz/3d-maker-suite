@@ -256,8 +256,7 @@ const warnOnce = (file: string, err: unknown) => {
 };
 
 /** A folder's caches. A vendor with a JSON index beside its cache is read as JSON (Orca ≤ 2.4). */
-const opcFiles = async (dir: string) => {
-  const root = join(dir, "system");
+const systemOpcFiles = async (root: string) => {
   const names = await readdir(root).catch(() => []);
   const set = new Set(names);
   return names
@@ -265,6 +264,7 @@ const opcFiles = async (dir: string) => {
     .sort()
     .map((n) => join(root, n));
 };
+const opcFiles = (dir: string) => systemOpcFiles(join(dir, "system"));
 
 /** Every readable cache of a config folder; one that can't be read is left out. */
 export async function opcVendors(dir: string) {
@@ -279,10 +279,10 @@ export async function opcVendors(dir: string) {
   return out;
 }
 
-/** `<vendor>=<version>` per cache, or null when one can't be read: ask again next time. */
-export async function opcFingerprints(dir: string) {
+/** `<vendor>=<version>` per cache of a `system/` folder, or null when one can't be read: ask again next time. */
+export async function opcFingerprints(system: string) {
   const out: string[] = [];
-  for (const file of await opcFiles(dir)) {
+  for (const file of await systemOpcFiles(system)) {
     const handle = await open(file);
     try {
       const head = Buffer.alloc(1024);

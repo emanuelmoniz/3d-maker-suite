@@ -75,6 +75,19 @@ const deviceVersion = (adapters: IntegrationAdapter[], d: Device, lib: string) =
   })?.version ?? null;
 
 /**
+ * The version of `lib`'s hub's slicer: its row's (a worker's from its check or install), else what
+ * its machine reports of a found slicer; null = unknown.
+ */
+export function sourceVersion(db: Db, adapters: IntegrationAdapter[], lib: string) {
+  const hub = hubSlicer(db, adapters, lib);
+  if (!hub) return null;
+  if (hub.row.slicerVersion) return hub.row.slicerVersion;
+  const deviceId = deviceIdOf(hub);
+  const from = deviceId && db.select().from(devices).where(eq(devices.id, deviceId)).get();
+  return from ? deviceVersion(adapters, from, lib) : null;
+}
+
+/**
  * Receive catalog's version rule (ADR-0021): a `system/` copy goes only to a slicer of the same
  * major.minor as the source's. A newer one may not load in an older slicer, and an older one may
  * be recopied by a newer slicer at start. Null = they match, or either version is unknown.
@@ -85,23 +98,8 @@ export function catalogMismatch(
   lib: string,
   device: Device,
 ): { here: string; source: string } | null {
-  const source = catalogSource(db, adapters, lib);
-  if (!source) return null;
-  const from =
-    "deviceId" in source
-      ? db.select().from(devices).where(eq(devices.id, source.deviceId)).get()
-      : undefined;
-  const sourceVersion = from
-    ? deviceVersion(adapters, from, lib)
-    : "integrationId" in source
-      ? db
-          .select({ v: integrations.slicerVersion })
-          .from(integrations)
-          .where(eq(integrations.id, source.integrationId))
-          .get()?.v
-      : null;
   const here = release(deviceVersion(adapters, device, lib));
-  const there = release(sourceVersion);
+  const there = release(sourceVersion(db, adapters, lib));
   return here && there && here !== there ? { here, source: there } : null;
 }
 
@@ -198,6 +196,12 @@ export async function pickHubSlicer(
         catalogInstall: d.catalogInstall?.filter((s) => s.library !== lib) ?? null,
       })
       .where(eq(devices.id, d.id))
+      .run();
+  // The server's own install too: its folder is now the catalog.
+  if (option.row.catalogReceive)
+    db.update(integrations)
+      .set({ catalogReceive: false, catalogInstall: null })
+      .where(eq(integrations.id, integrationId))
       .run();
   saveHubSlicerPick(db, lib, integrationId);
   const { row, adapter } = option;

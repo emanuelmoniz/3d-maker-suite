@@ -49,6 +49,7 @@ import { HttpError } from "../errors.ts";
 import {
   activeCapabilities,
   detectedDir,
+  hubSlicer,
   policyOf,
   presetLibrary,
   unavailable,
@@ -282,7 +283,7 @@ export const integrationsRoutes =
         schema: {
           params,
           body: integrationPatchSchema,
-          response: { 200: integrationSchema, ...notFound },
+          response: { 200: integrationSchema, ...notFound, 409: apiErrorSchema },
         },
       },
       async (req) => {
@@ -310,6 +311,16 @@ export const integrationsRoutes =
           syncer.adapters.find((a) => a.id === cur.adapterId)?.managed
         )
           throw new HttpError(409, "slicer_managed", "The app manages this slicer's paths");
+        // Receive catalog (5.5.0 Step 11c): the server's desktop slicer only, never the hub's slicer.
+        const { catalogReceive } = fields;
+        if (catalogReceive !== undefined) {
+          const lib = adapterOf(cur.adapterId);
+          if (lib.kind !== "local" || !lib.desktop || !lib.library)
+            throw new HttpError(400, "not_local", "Only a slicer on this computer receives");
+          if (catalogReceive && hubSlicer(db, syncer.adapters, lib.library.id)?.row.id === cur.id)
+            throw new HttpError(409, "hub_slicer", "It is this slicer's hub's slicer");
+          if (!catalogReceive) Object.assign(fields, { catalogInstall: null });
+        }
         const adapter =
           config || secrets || policies || allow ? adapterOf(cur.adapterId) : undefined;
         if (allow && adapter?.kind !== "cloud")
@@ -391,6 +402,7 @@ export const integrationsRoutes =
           const after = workerDeviceId(adapter.kind, get(cur.id).config);
           if (before !== after) for (const d of [before, after]) if (d) workers.syncWorker(d);
         }
+        if (catalogReceive) await catalog.tell();
         return toApi(get(cur.id));
       },
     );

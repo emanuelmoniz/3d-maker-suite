@@ -102,6 +102,24 @@ export const accountSchema = z.object({
   allow: z.record(z.enum(ACCOUNT_ALLOW_TYPES), z.boolean()),
 });
 
+/**
+ * Receive catalog on one slicer: a device's (`PUT /api/hub/device/catalog-install`), or the
+ * server's own install (`integrations.catalogInstall`).
+ */
+export const catalogInstallSlicerSchema = z.object({
+  library: z.string().max(100),
+  /** The hub copy's fingerprint it was told; null = the hub has none yet. */
+  hub: z.string().max(10_000).nullable(),
+  /** Its own `system/`'s; equal to `hub` = up to date. */
+  fingerprint: z.string().max(10_000).nullable(),
+  /** The slicer is open: the write waits until it closes. */
+  waiting: z.boolean(),
+  /** The zip of `system/` made before the last write. */
+  backup: z.object({ path: z.string().max(4096), at: isoDate }).nullable(),
+  /** The last write failed. */
+  error: z.string().max(1000).nullable(),
+});
+
 /** API shape: the encrypted `secrets` column is never exposed, only whether it is set. */
 export const integrationSchema = z.object({
   id,
@@ -122,6 +140,10 @@ export const integrationSchema = z.object({
   slicerPath: z.string().nullable().optional(),
   /** A server integration's installed slicer version; null = none. */
   slicerVersion: z.string().nullable().optional(),
+  /** The server's own install receives the hub's catalog (ADR-0022); local slicers only. */
+  catalogReceive: z.boolean().optional(),
+  /** Its last look; null = none yet. */
+  catalogInstall: catalogInstallSlicerSchema.nullable().optional(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
   /** One per capability the adapter supports, in its order. */

@@ -2565,7 +2565,7 @@ Plan Step 11 of the 5.5.0 plan in PLAN.md.
 Plan Step 11b of the 5.5.0 plan in PLAN.md. Read ADR-0022 first. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 11c - The server receives the catalog  **[plan mode]**
+### [x] Step 11c - The server receives the catalog  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - The server's own install (a folder on this computer) that isn't the hub's slicer can receive the hub's `system/` like a machine: the same overlay, the backup first, only while the slicer is closed, the same major.minor rule. Its switch and state are kept on the integration row.

@@ -4,16 +4,13 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { CatalogInstallSlicer, CatalogSources, DesktopSlicer } from "@3d-maker-suite/core";
-import { extract, zipFolder } from "@3d-maker-suite/host";
+import { isRunningIn, listProcesses, overlaySystem } from "@3d-maker-suite/host";
 import { catalogFingerprint } from "@3d-maker-suite/slicer-presets";
-import { isRunningIn, listProcesses } from "./presetInstall.ts";
 import { configDirOf } from "./presets.ts";
 import type { Request } from "./roots.ts";
 
 /** The fingerprint is cheap (ADR-0019): a look this often, as the catalog source's. */
 const POLL_MS = 60_000;
-/** What a slicer reads of `system/`; the hub's mark and anything else stay out. */
-const PRESET_FILE = /^system\/.+\.(json|opc|png)$/;
 
 /**
  * Receive catalog (ADR-0021): for each library the hub says this device receives, the hub's copy
@@ -59,9 +56,7 @@ export function createCatalogInstall({
         Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
         createWriteStream(zip),
       );
-      // A failed backup stops the write.
-      await zipFolder(join(dir, "system"), backupOf(slicer), "system/");
-      await extract(zip, dir, (name) => PRESET_FILE.test(name));
+      await overlaySystem(zip, dir, backupOf(slicer));
     } finally {
       await rm(zip, { force: true });
     }

@@ -341,10 +341,13 @@ describe("migration 0024", () => {
       },
       63, // 0064 turns off data types into manual
     );
-    // Only the columns that exist at 0064 (slicer_version came with 0071, catalog_fingerprint with 0096).
+    // Only the columns that exist at 0064 (slicer_version came with 0071, catalog_fingerprint with
+    // 0096, catalog_receive and catalog_install with 0115).
     const {
       slicerVersion: _,
       catalogFingerprint: __,
+      catalogReceive: ___,
+      catalogInstall: ____,
       ...columns
     } = getTableColumns(s.integrations);
     const rows = now.select(columns).from(s.integrations).all();

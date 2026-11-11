@@ -169,7 +169,7 @@ So a PC can send its Bambu Studio filament presets and nothing else. A slicer th
 
 ### Catalog source
 
-A slicer's system presets (its brands and printer models) are read from one place per library. On a hub with no slicer of its own for that library, a workstation's connector can be that place: turn on its **Catalog Share**, then **Use as catalog source** on **Catalog → Settings → Sources**. It sends the slicer's system presets when they differ from the hub's copy, which raises the catalog change alert; any other device gets `not_source`. A connector older than this answers `device_outdated` when you pick it. When the source moves, the old device's copy is removed on the next tick; a zip's copy stays.
+A slicer's system presets (its brands and printer models) are read from one place per library. On a hub with no slicer of its own for that library, a workstation's connector can be that place: turn on its **Catalog Share**, then **Use as catalog source** on **Catalog → Settings → Sources**. It sends the slicer's system presets when they differ from the hub's copy, which raises the catalog change alert; any other device gets `not_source`. A connector older than this answers `device_outdated` when you pick it. When the source moves, the old device's copy is removed on the next tick; a zip's copy stays. A machine whose hub's slicer is a managed (downloaded) install sends from that install's own folder (`resources/profiles` in its data folder), not from a desktop config folder; the hub tells its connector where.
 
 ### Receive catalog
 
@@ -181,6 +181,8 @@ With **Catalog Receive** on, on its [machine page](#machine-page), a machine get
 - The catalog source can't receive: its own folder is the catalog. Its Receive switch is off and locked, and picking a machine as the source turns its Receive off.
 - **Catalog → Settings → Sources** shows each receiving machine's `system/` line: not received yet, waiting for the slicer to close, received (with the date and the presets' version), or the error. **Backup** shows the last backup.
 - A connector older than this answers `device_outdated` when you turn Receive on while it is online, and the switch stays off.
+
+**This server's slicer** receives too: a slicer installed on the computer the server runs on (a folder on this computer, not a managed one) that isn't the hub's slicer. Its switch is `catalogReceive` on its integration (`PATCH /api/integrations/:id`; `not_local` for any other kind, `hub_slicer` on the hub's slicer, and picking it as the hub's slicer turns it off). It follows the same rules: the same major.minor, only while the slicer is closed, a backup to `catalog-backups/<integration>.zip` in the server's data folder first, the preset files laid over its folder. The server looks on each tick and as soon as a new copy comes in; its state is kept on the integration (`catalogInstall`).
 
 ### Conflicts and skipped presets
 

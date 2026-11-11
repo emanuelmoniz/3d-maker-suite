@@ -327,3 +327,127 @@ it("a machine with Receive catalog gets the hub's copy; the source can't receive
   await one.close();
   await two.close();
 }, 20_000);
+
+it("the server's own install receives the hub's copy: closed only, a backup first, same major.minor", async () => {
+  const { db, dataDir, send, ws1, worker } = await hub();
+  expect((await ws1.upload("01.00")).statusCode).toBe(204);
+  // A Bambu Studio folder on this computer, older than the hub's copy, with a file of its own.
+  const cfg = mkdtempSync(join(dataDir, "local-"));
+  mkdirSync(join(cfg, "system", "BBL"), { recursive: true });
+  writeFileSync(join(cfg, "system", "BBL.json"), JSON.stringify({ version: "00.09" }));
+  writeFileSync(join(cfg, "system", "BBL", "bed.stl"), "mine");
+  const local = (await send("POST", "/api/integrations", { adapterId: "bambu-studio" })).json() as {
+    id: string;
+  };
+  expect(
+    (await send("PATCH", `/api/integrations/${local.id}`, { slicerConfigDir: cfg })).statusCode,
+  ).toBe(200);
+  const rowOf = (id: string) =>
+    db.select().from(schema.integrations).where(eq(schema.integrations.id, id)).get();
+  db.update(schema.integrations)
+    .set({ catalogReceive: true })
+    .where(eq(schema.integrations.id, local.id))
+    .run();
+  db.update(schema.integrations)
+    .set({ slicerVersion: "02.04.00.10" })
+    .where(eq(schema.integrations.id, worker.id))
+    .run();
+
+  let running = true;
+  let version = "02.04.01.00";
+  const catalog = createDeviceCatalog(
+    db,
+    [bambuStudioAdapter(), bambuStudioWorkerAdapter()],
+    { online: () => false } as never,
+    dataDir,
+    () => {},
+    {
+      processes: async () => (running ? '"bambu-studio.exe","1"\n' : '"x.exe","2"\n'),
+      find: async () => [{ version } as never],
+    },
+  );
+  const bbl = () => JSON.parse(readFileSync(join(cfg, "system", "BBL.json"), "utf8")).version;
+
+  // Open: it waits, nothing is written.
+  await catalog.receiveHere();
+  expect(rowOf(local.id)?.catalogInstall).toMatchObject({
+    library: "bambu-studio",
+    hub: "BBL=01.00",
+    fingerprint: "BBL=00.09",
+    waiting: true,
+    backup: null,
+  });
+  expect(bbl()).toBe("00.09");
+
+  // Closed: a backup, then the copy laid over; its own file stays.
+  running = false;
+  await catalog.receiveHere();
+  expect(bbl()).toBe("01.00");
+  expect(readFileSync(join(cfg, "system", "BBL", "bed.stl"), "utf8")).toBe("mine");
+  expect(existsSync(join(dataDir, "catalog-backups", `${local.id}.zip`))).toBe(true);
+  expect(rowOf(local.id)?.catalogInstall).toMatchObject({
+    hub: "BBL=01.00",
+    fingerprint: "BBL=01.00",
+    waiting: false,
+    error: null,
+  });
+
+  // Another major.minor than the hub's slicer's: nothing. (No upload here: it would start the
+  // app's own look, with this computer's real processes.)
+  writeFileSync(join(cfg, "system", "BBL.json"), JSON.stringify({ version: "00.09" }));
+  version = "02.05.00.00";
+  await catalog.receiveHere();
+  expect(bbl()).toBe("00.09");
+  expect(rowOf(local.id)?.catalogInstall?.hub).toBeNull();
+
+  // Only a slicer on this computer has the switch, never the hub's slicer; picking it turns it off.
+  expect(
+    (await send("PATCH", `/api/integrations/${worker.id}`, { catalogReceive: true })).json(),
+  ).toMatchObject({ error: { code: "not_local" } });
+  expect(
+    (await send("PUT", "/api/integrations/slicers/bambu-studio", { integrationId: local.id }))
+      .statusCode,
+  ).toBe(204);
+  expect(rowOf(local.id)).toMatchObject({ catalogReceive: false, catalogInstall: null });
+  expect(
+    (await send("PATCH", `/api/integrations/${local.id}`, { catalogReceive: true })).json(),
+  ).toMatchObject({ error: { code: "hub_slicer" } });
+}, 20_000);
+
+it("a machine's managed install is the source: sent from its install folder", async () => {
+  const { db, dataDir, ws1, worker } = await hub();
+  // Found by no one: the machine reports no desktop slicer.
+  db.update(schema.devices)
+    .set({ slicers: [], system: { platform: "win32", arch: "x64" } })
+    .where(eq(schema.devices.id, ws1.deviceId))
+    .run();
+  db.update(schema.integrations)
+    .set({
+      config: { deviceId: ws1.deviceId, source: "managed" },
+      slicerPath: String.raw`C:\cs\slicers\w\2.4.0\bambu-studio.exe`,
+    })
+    .where(eq(schema.integrations.id, worker.id))
+    .run();
+  const catalog = createDeviceCatalog(
+    db,
+    [bambuStudioAdapter(), bambuStudioWorkerAdapter()],
+    { online: () => false } as never,
+    dataDir,
+  );
+  expect(await catalog.sourcesOf(ws1.deviceId)).toEqual({ "bambu-studio": null });
+  expect(catalog.dirsOf(ws1.deviceId)).toEqual({
+    "bambu-studio": String.raw`C:\cs\slicers\w\2.4.0\resources\profiles`,
+  });
+  // Linux: the AppImage's profiles beside its AppRun.
+  db.update(schema.devices)
+    .set({ system: { platform: "linux", arch: "x64", glibc: "2.39" } })
+    .where(eq(schema.devices.id, ws1.deviceId))
+    .run();
+  db.update(schema.integrations)
+    .set({ slicerPath: "/home/u/cs/slicers/w/2.4.0/squashfs-root/AppRun" })
+    .where(eq(schema.integrations.id, worker.id))
+    .run();
+  expect(catalog.dirsOf(ws1.deviceId)).toEqual({
+    "bambu-studio": "/home/u/cs/slicers/w/2.4.0/squashfs-root/resources/profiles",
+  });
+}, 20_000);

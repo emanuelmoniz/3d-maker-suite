@@ -59,3 +59,16 @@ export async function extract(file: string, dest: string, ok = (_entry: string) 
     zip.readEntry();
   });
 }
+
+/** What a slicer reads of `system/`; the hub's mark and anything else stay out. */
+export const PRESET_FILE = /^system\/.+\.(json|opc|png)$/;
+
+/**
+ * Receive catalog (ADR-0021): a zip of a `system/` laid over the one in the config folder `dir`,
+ * after a zip of it to `backup`; a failed backup writes nothing. Nothing is deleted, so the
+ * slicer's own files (bed models, textures) stay.
+ */
+export async function overlaySystem(zip: string, dir: string, backup: string) {
+  await zipFolder(join(dir, "system"), backup, "system/");
+  await extract(zip, dir, (name) => PRESET_FILE.test(name));
+}

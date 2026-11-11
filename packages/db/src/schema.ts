@@ -6,6 +6,7 @@ import {
   type AlertKinds,
   type AlertSeverity,
   CAPABILITIES,
+  type CatalogInstallSlicer,
   type CatalogInstallStatus,
   COMMENT_STATUSES,
   type ConnectorUpdateFailure,
@@ -93,6 +94,10 @@ export const integrations = sqliteTable("integrations", {
   slicerVersion: text(),
   /** What the catalog check last saw of a slicer's system presets (ADR-0019); null = not yet. */
   catalogFingerprint: text(),
+  /** The server's own install (a folder on this computer) receives the hub's catalog (ADR-0022). */
+  catalogReceive: integer({ mode: "boolean" }).notNull().default(false),
+  /** What its last look saw: the same state a machine reports (`catalogInstall`). */
+  catalogInstall: text({ mode: "json" }).$type<CatalogInstallSlicer>(),
   status: text().notNull().default("new"),
   lastSyncAt: text(),
   lastError: text(),

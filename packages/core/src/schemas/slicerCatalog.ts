@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { catalogInstallSlicerSchema } from "./entities.ts";
 import { isCatalogType, isUserPresetType, type SYNC_MERGES, USER_PRESET_TYPES } from "./enums.ts";
-import { catalogInstallSlicerSchema } from "./presets.ts";
 
 // What a slicer ships besides filament: vendors (brands), printer models with a thumbnail, and
 // machine presets. Read from its config folder; the server turns them into the catalog.

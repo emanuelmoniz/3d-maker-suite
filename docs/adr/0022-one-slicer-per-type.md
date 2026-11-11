@@ -48,4 +48,5 @@ So one library can slice on three installs while a fourth feeds the catalog, and
 - Two machines can no longer slice the same slicer type side by side. The slice queue was one FIFO already, so nothing ran in parallel; the "Slice on the server instead" fallback goes.
 - A switch of the hub's slicer between versions raises the catalog change alert, re-sends to receivers and marks plates sliced with the old version, as a slicer update does.
 - `PATCH /api/integrations/:id` checks `slicer_exists` when a worker's machine changes.
-- To check when building it: where a machine's managed install keeps `system/` for the catalog send (`configDirOf` assumes the desktop config folder).
+- A machine's managed install keeps its system presets in the install (`<slicers>/<id>/<version>/resources/profiles`), not in the desktop config folder `configDirOf` gives. The hub sends that folder with `catalog.sources` (`dirs`, and `X-Catalog-Dirs` on connect), and names every library a machine is the source of, not only its found slicers'.
+- This server's own install (a folder on this computer) that isn't the hub's slicer receives the catalog like a machine (`integrations.catalogReceive`); the process check and the overlay write are shared in `packages/host`.

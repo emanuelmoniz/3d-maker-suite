@@ -1,9 +1,9 @@
 import { createReadStream } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { CatalogSources, DesktopSlicer } from "@3d-maker-suite/core";
+import type { CatalogDirs, CatalogSources, DesktopSlicer } from "@3d-maker-suite/core";
 import { zipFolder } from "@3d-maker-suite/host";
-import { catalogFingerprint } from "@3d-maker-suite/slicer-presets";
+import { systemFingerprint } from "@3d-maker-suite/slicer-presets";
 import { configDirOf } from "./presets.ts";
 import type { Request } from "./roots.ts";
 
@@ -13,7 +13,8 @@ const POLL_MS = 60_000;
 /**
  * The catalog source's side (ADR-0020): for each library the hub says this device is the source of,
  * a look at the fingerprint of the slicer's `system/` on each tick, and the folder, zipped, when it
- * differs from the hub's copy. Nothing else of the config folder is sent.
+ * differs from the hub's copy. Nothing else of the config folder is sent. A managed install's
+ * `system/` is in its install folder (`resources/profiles`), which the hub gives in `dirs`.
  */
 export function createCatalogSend({
   request,
@@ -34,18 +35,20 @@ export function createCatalogSend({
 }) {
   /** Library → the hub copy's fingerprint; from the connect's header and `catalog.sources`. */
   let sources: CatalogSources = {};
+  /** Library → the `system/` folder to send instead of the found slicer's. */
+  let dirs: CatalogDirs = {};
   let poll: NodeJS.Timeout | undefined;
   let looking: Promise<void> | undefined;
 
   async function send(library: string) {
     const slicer = slicers().find((s) => s.library === library);
-    if (!slicer) return;
-    const dir = configDir(slicer);
-    const now = await catalogFingerprint(dir);
+    const system = dirs[library] ?? (slicer && join(configDir(slicer), "system"));
+    if (!system) return;
+    const now = await systemFingerprint(system);
     if (!now || now === sources[library]) return;
     const file = join(dataDir, "catalog.zip");
     try {
-      await zipFolder(join(dir, "system"), file, "system/");
+      await zipFolder(system, file, "system/");
       const res = await request(`/catalog/${encodeURIComponent(library)}`, {
         method: "PUT",
         file: { stream: createReadStream(file) },
@@ -83,8 +86,9 @@ export function createCatalogSend({
   return {
     stop,
     /** Connected, or the hub changed the sources: looks now, and on each tick while any is left. */
-    set(next: CatalogSources) {
+    set(next: CatalogSources, nextDirs: CatalogDirs = {}) {
       sources = { ...next };
+      dirs = { ...nextDirs };
       stop();
       if (!Object.keys(sources).length) return Promise.resolve();
       poll = setInterval(() => void look(), pollMs);

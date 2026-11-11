@@ -432,8 +432,11 @@ export function slicerPresetLibrary(id: string, defaultDirs: () => string[]): Fi
  * The vendor indexes' versions of a config folder's `system/`, not file times: a recopy with no new
  * version moves those (ADR-0019). Null = nothing to read, or a recopy in progress.
  */
-export async function catalogFingerprint(dir: string) {
-  const files = await jsonFiles(join(dir, "system"), false);
+export const catalogFingerprint = (dir: string) => systemFingerprint(join(dir, "system"));
+
+/** `catalogFingerprint` of a `system/` folder itself: a managed install's `resources/profiles`. */
+export async function systemFingerprint(system: string) {
+  const files = await jsonFiles(system, false);
   const parts: string[] = [];
   for (const f of files) {
     const index = await readJson(f);
@@ -441,7 +444,7 @@ export async function catalogFingerprint(dir: string) {
     if (!index) return null;
     parts.push(`${parse(f).name}=${String(index.version)}`);
   }
-  const packed = await opcFingerprints(dir);
+  const packed = await opcFingerprints(system);
   if (!packed) return null;
   parts.push(...packed);
   return parts.length ? parts.sort().join(";") : null;

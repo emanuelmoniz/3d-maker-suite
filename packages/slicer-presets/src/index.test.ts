@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { slicerPresetLibrary, systemPresets } from "./index.ts";
+import { slicerPresetLibrary, systemFingerprint, systemPresets } from "./index.ts";
 import { presetsOf } from "./slice.ts";
 
 let dir: string;
@@ -33,6 +33,8 @@ describe("catalogFingerprint", () => {
 
     put("system/BBL.json", { name: "Bambulab", version: "02.09.00.75" });
     expect(await fingerprint()).not.toBe(before);
+    // A managed install's `resources/profiles` is read as the folder itself.
+    expect(await systemFingerprint(join(dir, "system"))).toBe(await fingerprint());
   });
 
   it("is null with no vendor index (Orca 2.5+) or one that can't be read yet", async () => {

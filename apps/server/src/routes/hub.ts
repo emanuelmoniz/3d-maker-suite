@@ -68,7 +68,7 @@ const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-
 
 /** No catalog work (a hub without one wired, in tests). */
 const noCatalog = {
-  connected: async () => ({}),
+  connected: async () => ({ libraries: {} }),
   connectedInstall: async () => ({}),
   confirmInstall: async () => {},
   tell: async () => {},
@@ -437,7 +437,7 @@ export const hubRoutes =
         .innerJoin(users, eq(users.id, devices.userId))
         .where(eq(devices.id, deviceId))
         .get();
-      const sources = await catalogs.connected(deviceId);
+      const { libraries: sources, dirs } = await catalogs.connected(deviceId);
       const installs = await catalogs.connectedInstall(deviceId);
       reply.hijack();
       const res = reply.raw;
@@ -456,6 +456,8 @@ export const hubRoutes =
         "x-install-presets": any("install") ? "1" : "0",
         // The libraries it is the catalog source of (ADR-0020), with the hub copy's fingerprint.
         "x-catalog-sources": JSON.stringify(sources),
+        // Where a managed install keeps that `system/` (5.5.0 Step 11c).
+        "x-catalog-dirs": JSON.stringify(dirs ?? {}),
         // The libraries it receives the catalog of (ADR-0021), with the hub copy's fingerprint.
         "x-catalog-install": JSON.stringify(installs),
         // Share to the hub (ADR-0021); a connector before 5.5.0 shares its folders anyway.
