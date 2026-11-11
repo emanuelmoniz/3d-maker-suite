@@ -24,7 +24,7 @@ export function Tabs({ label, items }: { label: string; items: TabItem[] }) {
     <nav
       ref={nav}
       aria-label={label}
-      className="mb-6 flex gap-6 overflow-x-auto border-b border-border"
+      className="mb-6 flex gap-6 overflow-x-auto border-b border-border pb-px"
     >
       {items.map((i) => (
         <Link
