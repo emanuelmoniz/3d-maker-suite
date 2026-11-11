@@ -28,6 +28,7 @@ const { devices, integrations, presetRoutes, settings, syncPolicies } = schema;
 const KEY = "catalogSources";
 type Row = typeof integrations.$inferSelect;
 type Install = { row: Row; adapter: IntegrationAdapter };
+type Device = typeof devices.$inferSelect;
 export type CatalogSource = CatalogSourcePick & { picked: boolean };
 
 const picks = (db: Db) =>
@@ -125,6 +126,50 @@ export function catalogCards(db: Db, adapters: IntegrationAdapter[], lib: string
   return rows.find((r) => r.row.id === id) ?? null;
 }
 
+/** A version's major.minor ("02.04.00.70" → "2.4"); null = unknown. */
+export const release = (v: string | null | undefined) => {
+  const parts = v?.match(/\d+/g);
+  return parts && parts.length >= 2 ? `${Number(parts[0])}.${Number(parts[1])}` : null;
+};
+
+/** The version of `lib`'s slicer a device reports; null = none, or unknown. */
+const deviceVersion = (adapters: IntegrationAdapter[], d: Device, lib: string) =>
+  d.slicers.find((s) => {
+    const a = adapters.find((x) => x.id === s.id && x.desktop);
+    return a && presetLibrary(a) === lib;
+  })?.version ?? null;
+
+/**
+ * Receive catalog's version rule (ADR-0021): a `system/` copy goes only to a slicer of the same
+ * major.minor as the source's. A newer one may not load in an older slicer, and an older one may
+ * be recopied by a newer slicer at start. Null = they match, or either version is unknown.
+ */
+export function catalogMismatch(
+  db: Db,
+  adapters: IntegrationAdapter[],
+  lib: string,
+  device: Device,
+): { here: string; source: string } | null {
+  const source = catalogSource(db, adapters, lib);
+  if (!source) return null;
+  const from =
+    "deviceId" in source
+      ? db.select().from(devices).where(eq(devices.id, source.deviceId)).get()
+      : undefined;
+  const sourceVersion = from
+    ? deviceVersion(adapters, from, lib)
+    : "integrationId" in source
+      ? db
+          .select({ v: integrations.slicerVersion })
+          .from(integrations)
+          .where(eq(integrations.id, source.integrationId))
+          .get()?.v
+      : null;
+  const here = release(deviceVersion(adapters, device, lib));
+  const there = release(sourceVersion);
+  return here && there && here !== there ? { here, source: there } : null;
+}
+
 /**
  * Catalog → Sources, one entry per library: its install rows, the accounts whose user presets go
  * there, and the slicers devices report or have switches for.
@@ -178,12 +223,18 @@ export function librarySources(db: Db, adapters: IntegrationAdapter[]): LibraryS
       ],
       machines: (hub ? db.select().from(devices).orderBy(asc(devices.createdAt)).all() : [])
         .filter((d) => sharing(d) || isSource(d.id) || d.presetLibraries[library]?.catalog.receive)
-        .map((d) => ({
-          deviceId: d.id,
-          name: d.name,
-          share: sharing(d) || isSource(d.id),
-          receive: !!d.presetLibraries[library]?.catalog.receive,
-        })),
+        .map((d) => {
+          // The source can't receive (ADR-0021): its own folder is the catalog.
+          const receive = !isSource(d.id) && !!d.presetLibraries[library]?.catalog.receive;
+          return {
+            deviceId: d.id,
+            name: d.name,
+            share: sharing(d) || isSource(d.id),
+            receive,
+            install: (receive && d.catalogInstall?.find((s) => s.library === library)) || null,
+            mismatch: receive ? catalogMismatch(db, adapters, library, d) : null,
+          };
+        }),
       cardsOf: cardsOf(rows, source),
       noDevices: reporting(db, adapters, library).length ? devicesBlocked(rows) : null,
     };
@@ -211,6 +262,22 @@ export async function pickCatalogSource(
   if (!entry || !ok)
     throw new HttpError(422, "not_a_source", "That can't be this catalog's source");
   await confirm();
+  // The source can't receive (ADR-0021): a picked machine's Receive catalog goes off.
+  if ("deviceId" in pick) {
+    const d = db.select().from(devices).where(eq(devices.id, pick.deviceId)).get();
+    const now = d?.presetLibraries[lib];
+    if (d && now?.catalog.receive)
+      db.update(devices)
+        .set({
+          presetLibraries: {
+            ...d.presetLibraries,
+            [lib]: { ...now, catalog: { ...now.catalog, receive: false } },
+          },
+          catalogInstall: d.catalogInstall?.filter((s) => s.library !== lib) ?? null,
+        })
+        .where(eq(devices.id, d.id))
+        .run();
+  }
   db.insert(settings)
     .values({ key: KEY, value: { ...picks(db), [lib]: pick } })
     .onConflictDoUpdate({ target: settings.key, set: { value: { ...picks(db), [lib]: pick } } })

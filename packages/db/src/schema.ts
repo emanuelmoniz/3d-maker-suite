@@ -6,6 +6,7 @@ import {
   type AlertKinds,
   type AlertSeverity,
   CAPABILITIES,
+  type CatalogInstallStatus,
   COMMENT_STATUSES,
   type ConnectorUpdateFailure,
   DEVICE_SYNC_MODES,
@@ -1221,6 +1222,8 @@ export const devices = sqliteTable(
       .default({}),
     /** What it last reported of Install, per library (`PUT .../presets/install`). */
     presetInstall: text({ mode: "json" }).$type<PresetInstallStatus>(),
+    /** What it last reported of Receive catalog, per library (`PUT .../catalog-install`). */
+    catalogInstall: text({ mode: "json" }).$type<CatalogInstallStatus>(),
     /** The slicer account folder Share last read, per library (`PUT .../presets/share`). */
     presetAccounts: text({ mode: "json" }).$type<Record<string, string>>().notNull().default({}),
     /** Its OS, arch and glibc (`X-Connector-System`): which managed slicer build fits it. */

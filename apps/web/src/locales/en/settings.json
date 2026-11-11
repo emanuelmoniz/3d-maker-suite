@@ -71,7 +71,15 @@
       "noWorker": "To read the catalog from a machine, add it as a slice worker for this slicer first.",
       "outdated": "The connector on that device is too old to send the catalog. Update it to the hub's version, then pick it again.",
       "system": "system/ folder",
-      "notReceived": "Not received yet"
+      "notReceived": "Not received yet",
+      "noCopy": "The hub has no catalog yet",
+      "mismatch": "Not sent: slicer {{here}} here, catalog from {{source}}",
+      "failed": "Couldn't write: {{error}}",
+      "waiting": "Waiting for the slicer to close",
+      "writing": "Being written",
+      "received": "Received {{when}}, presets {{fingerprint}}",
+      "upToDate": "Up to date, presets {{fingerprint}}",
+      "backup": "Backup"
     },
     "presets": {
       "chooseBrands": "Choose brands in Catalog settings",

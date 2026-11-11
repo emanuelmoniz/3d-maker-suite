@@ -798,7 +798,10 @@ describe("hub events", () => {
     expect((await send("PATCH", lib, { catalog: { share: false } })).json().error.code).toBe(
       "catalog_source",
     );
-    expect((await send("PATCH", lib, { catalog: { receive: true } })).statusCode).toBe(204);
+    // Nor does it receive one (ADR-0021): its own folder is the catalog.
+    expect((await send("PATCH", lib, { catalog: { receive: true } })).json().error.code).toBe(
+      "catalog_source",
+    );
   });
 
   it("refuses a second install of a slicer on the same machine", async () => {

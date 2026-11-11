@@ -9,6 +9,7 @@ import { Button } from "../../components/Button.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
+import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useAdapterName, useIntegrations, useLocationLabel } from "../../lib/integrations.ts";
 import { useCatalogSources, usePickCatalogSource } from "../../lib/presets.ts";
 import { IntegrationsLink, PolicyLines } from "./AccountSources.tsx";
@@ -109,7 +110,7 @@ export function CatalogSources() {
           {receiving.map((m) => (
             <MachineBlock key={m.id} id={m.id} name={m.name} receive>
               {m.libraries.map((lib) => (
-                <ReceiveSystem key={lib.library} lib={lib} machine={m.name} />
+                <ReceiveSystem key={lib.library} lib={lib} machineId={m.id} machine={m.name} />
               ))}
             </MachineBlock>
           ))}
@@ -251,22 +252,59 @@ function CatalogSlicer({
 export const serverRowsCount = (lib: LibrarySources, list: Integration[]) =>
   serverRows(lib, list).length;
 
-/** A machine's `system/` folder line: it follows the catalog source (Plan 5.5.0 Step 11). */
-function ReceiveSystem({ lib, machine }: { lib: LibrarySources; machine: string }) {
+/**
+ * A machine's `system/` folder line (Receive catalog, ADR-0021): the hub's copy of the catalog
+ * source's, written while the slicer is closed, after a backup.
+ */
+function ReceiveSystem({
+  lib,
+  machineId,
+  machine,
+}: {
+  lib: LibrarySources;
+  machineId: string;
+  machine: string;
+}) {
   const { t } = useTranslation();
   const name = useAdapterName()(lib.library);
+  const m = lib.machines.find((x) => x.deviceId === machineId);
+  const s = m?.install;
+  const state = (): { state: string; tone?: "warn" } => {
+    if (m?.mismatch)
+      return { state: t("settings:sources.catalog.mismatch", m.mismatch), tone: "warn" };
+    if (!s) return { state: t("settings:sources.catalog.notReceived") };
+    if (!s.hub) return { state: t("settings:sources.catalog.noCopy") };
+    if (s.error)
+      return { state: t("settings:sources.catalog.failed", { error: s.error }), tone: "warn" };
+    if (s.waiting) return { state: t("settings:sources.catalog.waiting"), tone: "warn" };
+    if (s.fingerprint !== s.hub) return { state: t("settings:sources.catalog.writing") };
+    return {
+      state: s.backup
+        ? t("settings:sources.catalog.received", {
+            when: formatDate(s.backup.at),
+            fingerprint: s.fingerprint,
+          })
+        : t("settings:sources.catalog.upToDate", { fingerprint: s.fingerprint }),
+    };
+  };
   return (
     <SlicerGroup name={name}>
       <StateLines
         label={t("settings:sources.presets.linesOf", { slicer: name, machine })}
-        rows={[
-          {
-            key: "system",
-            item: t("settings:sources.catalog.system"),
-            state: t("settings:sources.catalog.notReceived"),
-          },
-        ]}
+        rows={[{ key: "system", item: t("settings:sources.catalog.system"), ...state() }]}
       />
+      {s && (
+        <details className="text-muted text-sm">
+          <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-accent">
+            {t("settings:sources.catalog.backup")}
+          </summary>
+          <p className="wrap-anywhere">
+            {s.backup
+              ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
+              : t("hub:presets.noBackup")}
+          </p>
+        </details>
+      )}
     </SlicerGroup>
   );
 }

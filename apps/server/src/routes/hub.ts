@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import {
   apiErrorSchema,
-  type CatalogSources,
   connectorInfoSchema,
   connectorSettingsPatchSchema,
   connectorSettingsResultSchema,
@@ -36,6 +35,7 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { deviceLibraries, policyOf, presetLibrary } from "../integrations/capabilities.ts";
 import { catalogSource } from "../integrations/catalogSource.ts";
+import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import { loginLimiter, machineGuard } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { deviceError, setPresetLibrary } from "../lib/machine.ts";
@@ -68,6 +68,14 @@ const newCode = () => {
 /** Typed codes: any case, with or without the dash. */
 const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-9]/g, ""));
 
+/** No catalog work (a hub without one wired, in tests). */
+const noCatalog = {
+  connected: async () => ({}),
+  connectedInstall: async () => ({}),
+  confirmInstall: async () => {},
+  tell: async () => {},
+};
+
 /**
  * Hub management and pairing (ADR-0014). hub.manage (lib/auth.ts), except `POST /pair`, which is
  * public: the connector has only the code; `GET /events` and `/device/user`, which any paired
@@ -84,8 +92,11 @@ export const hubRoutes =
     onRevoke: (deviceId: string) => void = () => {},
     /** Disk used by the kept file versions. */
     versionsUsage: () => HubVersionsUsage = () => ({ files: 0, bytes: 0 }),
-    /** On connect: the libraries the device is the catalog source of (`DeviceCatalog.connected`). */
-    catalogSources: (deviceId: string) => Promise<CatalogSources> = async () => ({}),
+    /** Catalog source and Receive catalog (ADR-0020, ADR-0021): connect headers and switches. */
+    catalogs: Pick<
+      DeviceCatalog,
+      "connected" | "connectedInstall" | "confirmInstall" | "tell"
+    > = noCatalog,
     adapters: IntegrationAdapter[] = [],
   ): FastifyPluginAsyncZod =>
   async (app) => {
@@ -329,13 +340,20 @@ export const hubRoutes =
         // The source's catalog is read from it: another source is picked first (Catalog settings).
         if (catalog?.share === false && isCatalogSource(row.id, library))
           throw new HttpError(409, "catalog_source", "It is this catalog's source");
+        // Nor does it receive one (ADR-0021): its own folder is the catalog.
+        if (catalog?.receive && isCatalogSource(row.id, library))
+          throw new HttpError(409, "catalog_source", "It is this catalog's source");
         if (catalog || presets) {
           const old = row.presetLibraries[library] ?? emptyPresetLibrary();
+          // A connector that can't write the catalog says so first, and nothing is saved.
+          const receiveOn = !!catalog?.receive && !old.catalog.receive;
+          if (receiveOn) await catalogs.confirmInstall(row.id);
           await setPresetLibrary(db, channel, row, library, {
             ...old,
             catalog: { ...old.catalog, ...catalog },
             presets: { ...old.presets, ...presets },
           });
+          if (catalog?.receive !== undefined) void catalogs.tell().catch(() => {});
         }
         if (worker && useAsSlicer !== undefined) {
           const set = { mode: useAsSlicer ? ("manual" as const) : ("off" as const) };
@@ -439,7 +457,8 @@ export const hubRoutes =
         .innerJoin(users, eq(users.id, devices.userId))
         .where(eq(devices.id, deviceId))
         .get();
-      const sources = await catalogSources(deviceId);
+      const sources = await catalogs.connected(deviceId);
+      const installs = await catalogs.connectedInstall(deviceId);
       reply.hijack();
       const res = reply.raw;
       res.writeHead(200, {
@@ -457,6 +476,8 @@ export const hubRoutes =
         "x-install-presets": any("install") ? "1" : "0",
         // The libraries it is the catalog source of (ADR-0020), with the hub copy's fingerprint.
         "x-catalog-sources": JSON.stringify(sources),
+        // The libraries it receives the catalog of (ADR-0021), with the hub copy's fingerprint.
+        "x-catalog-install": JSON.stringify(installs),
         // Share to the hub (ADR-0021); a connector before 5.5.0 shares its folders anyway.
         "x-share-projects": switches?.share === false ? "0" : "1",
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in

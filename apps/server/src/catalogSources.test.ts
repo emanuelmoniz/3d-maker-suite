@@ -175,6 +175,38 @@ describe("catalog source (ADR-0020)", () => {
     });
   });
 
+  it("Receive catalog: never on the source, and only for the source's major.minor (ADR-0021)", async () => {
+    const [ws1, ws2] = twoDevices();
+    db.update(integrations).set({ adapterId: "slicer-worker" }).run();
+    const both = { ...emptyPresetLibrary(), catalog: { receive: true, share: true } };
+    db.update(devices)
+      .set({ presetLibraries: { fake: both } })
+      .run();
+    const machine = (id: string) => sources()[0]?.machines.find((m) => m.deviceId === id);
+    // WS-1 is the default source: it shows as not receiving.
+    expect(machine(ws1)).toMatchObject({ share: true, receive: false });
+    expect(machine(ws2)).toMatchObject({ receive: true, install: null, mismatch: null });
+
+    const version = (id: string, v: string | null) =>
+      db
+        .update(devices)
+        .set({ slicers: [{ id: "slicer-desk", version: v, path: "x" }] })
+        .where(eq(devices.id, id))
+        .run();
+    version(ws1, "02.04.00.70");
+    version(ws2, "2.4.1");
+    expect(machine(ws2)?.mismatch).toBeNull();
+    version(ws2, "02.03.01.00");
+    expect(machine(ws2)?.mismatch).toEqual({ here: "2.3", source: "2.4" });
+    version(ws2, null);
+    expect(machine(ws2)?.mismatch).toBeNull();
+
+    // Picked as the source, a machine's Receive goes off.
+    await pickCatalogSource(db, adapters, "fake", { deviceId: ws2 });
+    const row = db.select().from(devices).where(eq(devices.id, ws2)).get();
+    expect(row?.presetLibraries.fake?.catalog).toEqual({ receive: false, share: true });
+  });
+
   it("with no install row able to, the first device, once a worker holds its cards", () => {
     const [ws1] = twoDevices();
     db.update(integrations)

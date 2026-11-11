@@ -375,6 +375,16 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     requestId: id,
     libraries: catalogSourcesSchema,
   }),
+  /**
+   * The libraries this device receives the catalog of (Receive catalog, ADR-0021), each with the
+   * fingerprint of the hub's copy (null = none yet); the answer is null. Live, so a connector
+   * before 5.5.0 Step 11's answers ENOTSUP; a connect has it in `X-Catalog-Install`.
+   */
+  z.object({
+    type: z.literal("catalog.install"),
+    requestId: id,
+    libraries: catalogSourcesSchema,
+  }),
   /** Edit connector: read its settings; the answer's result is a `connectorSettingsSchema`. */
   z.object({ type: z.literal("connector.settings.get"), requestId: id }),
   /**

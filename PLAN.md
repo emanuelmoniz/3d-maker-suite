@@ -2535,7 +2535,7 @@ Do Step 9 of the 5.5.0 plan in PLAN.md.
 Plan Step 10 of the 5.5.0 plan in PLAN.md. Use frontend-design for the Sources tabs.
 ```
 
-### [ ] Step 11 - Catalog to a machine  **[plan mode]**
+### [x] Step 11 - Catalog to a machine  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - New fixed connector operation `catalog.install` (ADR-0014's list gains it): on a machine with Receive catalog, the hub sends its copy of the catalog source's `system/` (Step 22 of 5.4.0) when the machine's fingerprint differs.

@@ -31,6 +31,8 @@ export const useCatalogSources = () =>
   useQuery({
     queryKey: ["catalog-sources"],
     queryFn: () => api<LibrarySources[]>("GET", "/api/catalog/sources"),
+    // Receive catalog's lines follow what the machines report.
+    refetchInterval: 30_000,
   });
 
 /**

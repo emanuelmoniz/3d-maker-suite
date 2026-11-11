@@ -115,6 +115,24 @@ export const presetInstallSlicerSchema = z.object({
 });
 export const presetInstallStatusSchema = z.array(presetInstallSlicerSchema).max(20);
 
+/** Receive catalog on one slicer of a device (`PUT /api/hub/device/catalog-install`). */
+export const catalogInstallSlicerSchema = z.object({
+  library: z.string().max(100),
+  /** The hub copy's fingerprint it was told; null = the hub has none yet. */
+  hub: z.string().max(10_000).nullable(),
+  /** Its own `system/`'s; equal to `hub` = up to date. */
+  fingerprint: z.string().max(10_000).nullable(),
+  /** The slicer is open: the write waits until it closes. */
+  waiting: z.boolean(),
+  /** The zip of `system/` made before the last write. */
+  backup: z.object({ path: z.string().max(4096), at: isoDate }).nullable(),
+  /** The last write failed. */
+  error: z.string().max(1000).nullable(),
+});
+export const catalogInstallStatusSchema = z.array(catalogInstallSlicerSchema).max(20);
+export type CatalogInstallSlicer = z.infer<typeof catalogInstallSlicerSchema>;
+export type CatalogInstallStatus = z.infer<typeof catalogInstallStatusSchema>;
+
 /** The connector's switches for one slicer library: Send presets (Share) and Install (Receive). */
 export const presetSwitchesSchema = z.object({ send: z.boolean(), install: z.boolean() });
 export type PresetSwitches = z.infer<typeof presetSwitchesSchema>;

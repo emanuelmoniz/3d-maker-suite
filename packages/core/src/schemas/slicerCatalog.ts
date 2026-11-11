@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isCatalogType, isUserPresetType, type SYNC_MERGES, USER_PRESET_TYPES } from "./enums.ts";
+import { catalogInstallSlicerSchema } from "./presets.ts";
 
 // What a slicer ships besides filament: vendors (brands), printer models with a thumbnail, and
 // machine presets. Read from its config folder; the server turns them into the catalog.
@@ -113,7 +114,16 @@ export const librarySourcesSchema = z.object({
   ),
   /** Machines with Catalog Share (or the source) or Catalog Receive on for it (ADR-0021). */
   machines: z.array(
-    z.object({ deviceId: z.uuid(), name: z.string(), share: z.boolean(), receive: z.boolean() }),
+    z.object({
+      deviceId: z.uuid(),
+      name: z.string(),
+      share: z.boolean(),
+      receive: z.boolean(),
+      /** What it last reported of Receive catalog; null = off, or it hasn't yet. */
+      install: catalogInstallSlicerSchema.nullable(),
+      /** Its slicer and the source's differ in major.minor: the hub sends it nothing (ADR-0021). */
+      mismatch: z.object({ here: z.string(), source: z.string() }).nullable(),
+    }),
   ),
   /** The row whose Catalog and System presets cards the source fills; null = none yet. */
   cardsOf: z.uuid().nullable(),

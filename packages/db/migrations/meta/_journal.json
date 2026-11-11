@@ -792,6 +792,13 @@
       "when": 1794358262155,
       "tag": "0112_machine_page",
       "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "6",
+      "when": 1794397267222,
+      "tag": "0113_catalog_install",
+      "breakpoints": true
     }
   ]
 }

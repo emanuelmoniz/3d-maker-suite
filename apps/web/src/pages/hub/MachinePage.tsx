@@ -485,16 +485,16 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
       <div className="grid grid-cols-2 items-center gap-x-6 sm:grid-cols-[6rem_auto_auto_1fr]">
         {rows.map((r) => {
           const edit = may.edit(r.kind);
-          // The catalog source's catalog is read from it: its Share stays on.
+          // The catalog source's catalog is read from it: its Share stays on, and it receives none.
           const fixed = r.kind === "catalog" && !!state?.catalogSource;
           return (
             <div key={r.kind} className="contents">
               <span className="col-span-2 pt-2 text-muted sm:col-span-1 sm:pt-0">{r.label}</span>
               <Setting
-                edit={edit}
+                edit={edit && !fixed}
                 label={t("hub:machine.receive")}
                 name={t(NAMES[r.kind].receive, { name })}
-                checked={r.values.receive}
+                checked={r.values.receive && !fixed}
                 busy={busy}
                 onChange={(receive) => send({ [r.kind]: { receive } })}
               />

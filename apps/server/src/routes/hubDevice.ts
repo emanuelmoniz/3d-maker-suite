@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import {
   apiErrorSchema,
+  catalogInstallStatusSchema,
   DEVICE_FOLDER_MAX_MB_LIMIT,
   desktopSlicerSchema,
   deviceFolderQuerySchema,
@@ -533,6 +534,28 @@ export const hubDeviceRoutes =
           chunks.push(chunk as Buffer);
         }
         await catalog.receive(deviceOf(req), req.params.library, Buffer.concat(chunks));
+        return reply.status(204).send(null);
+      },
+    );
+    // Receive catalog (ADR-0021): the hub's copy of a library's `system/`, zipped.
+    app.get(
+      "/catalog/:library/system",
+      { schema: { params: z.object({ library: z.string().max(100) }) } },
+      async (req, reply) =>
+        reply
+          .type("application/zip")
+          .send(await catalog.zipCopy(deviceOf(req), req.params.library)),
+    );
+    app.put(
+      "/catalog-install",
+      { schema: { body: catalogInstallStatusSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        const id = deviceOf(req);
+        const libraries = await catalog.installsOf(id);
+        db.update(devices)
+          .set({ catalogInstall: req.body.filter((s) => s.library in libraries) })
+          .where(eq(devices.id, id))
+          .run();
         return reply.status(204).send(null);
       },
     );

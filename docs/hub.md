@@ -171,6 +171,17 @@ So a PC can send its Bambu Studio filament presets and nothing else. A slicer th
 
 A slicer's system presets (its brands and printer models) are read from one place per library. On a hub with no slicer of its own for that library, a workstation's connector can be that place: turn on its **Catalog Share**, then **Use as catalog source** on **Catalog → Settings → Sources**. It sends the slicer's system presets when they differ from the hub's copy, which raises the catalog change alert; any other device gets `not_source`. A connector older than this answers `device_outdated` when you pick it. When the source moves, the old device's copy is removed on the next tick; a zip's copy stays.
 
+### Receive catalog
+
+With **Catalog Receive** on, on its [machine page](#machine-page), a machine gets the hub's copy of the catalog source's `system/` folder, so its slicer has the same vendor presets as the source. The copy comes from a source machine or from this server's slicer.
+
+- It is sent when the hub's copy differs from the machine's own, checked every minute and as soon as the source sends a new copy. A slicer update that rewrites `system/` on the machine changes it again, so the copy is written again after the update.
+- The connector waits until the slicer is closed. It then backs up the machine's `system/` to `catalog-backups/<slicer>.zip` in its data folder (only the last backup is kept), and writes the hub's preset files over the folder. It deletes nothing, so the slicer's own files, such as bed models, stay. The vendor presets show at the slicer's next start.
+- It is sent only to a slicer with the same major.minor version as the source's slicer (2.4 to 2.4). A newer copy may not load in an older slicer, and a newer slicer may replace an older copy when it starts. Otherwise the line says which versions differ. When either version is unknown, it is sent.
+- The catalog source can't receive: its own folder is the catalog. Its Receive switch is off and locked, and picking a machine as the source turns its Receive off.
+- **Catalog → Settings → Sources** shows each receiving machine's `system/` line: not received yet, waiting for the slicer to close, received (with the date and the presets' version), or the error. **Backup** shows the last backup.
+- A connector older than this answers `device_outdated` when you turn Receive on while it is online, and the switch stays off.
+
 ### Conflicts and skipped presets
 
 If a device and the hub both changed a preset, the device's version is kept as a *conflict copy* named like hub file conflicts, and you get a **Preset conflict** alert. Download both, keep what you need, then delete the copy. Conflict copies stay on the hub. A preset that isn't valid JSON is never stored or written, and one whose parent preset the slicer lacks isn't installed there: both raise **Preset skipped**.

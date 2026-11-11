@@ -45,6 +45,9 @@ export async function setPresetLibrary(
       ...(!now.presets.receive && {
         presetInstall: row.presetInstall?.filter((p) => p.library !== library) ?? null,
       }),
+      ...(!now.catalog.receive && {
+        catalogInstall: row.catalogInstall?.filter((p) => p.library !== library) ?? null,
+      }),
     })
     .where(eq(devices.id, row.id))
     .run();

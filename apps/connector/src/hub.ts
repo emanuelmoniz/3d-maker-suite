@@ -18,6 +18,7 @@ import {
 import { openFolder, systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
 import { createCatalogSend } from "./catalog.ts";
+import { createCatalogInstall } from "./catalogInstall.ts";
 import { createPresetInstall } from "./presetInstall.ts";
 import { createPresetShare, openPresetState } from "./presets.ts";
 import { createRootSync, type Request } from "./roots.ts";
@@ -222,6 +223,16 @@ export function createLink({
       log,
       configDir: presetConfigDir,
     });
+  const catalogInstall =
+    syncAt &&
+    createCatalogInstall({
+      request,
+      slicers: slicers.described,
+      dataDir: syncAt.dataDir,
+      log,
+      configDir: presetConfigDir,
+      ...presetHooks,
+    });
   const local = (rootId: string, path: string) =>
     sync ? sync.local(rootId, path) : Promise.resolve(null);
   /** Open folder: the project's synced copy in the file manager, ENOENT when it isn't here. */
@@ -361,6 +372,11 @@ export function createLink({
         void catalog?.set(event.data.libraries);
         return;
       }
+      if (event.success && event.data.type === "catalog.install") {
+        void reply(event.data.requestId, { ok: true, result: null });
+        void catalogInstall?.set(event.data.libraries);
+        return;
+      }
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -420,9 +436,11 @@ export function createLink({
       if (signal.aborted) return "offline";
       let libraries: unknown;
       let sources: unknown;
+      let installs: unknown;
       try {
         libraries = JSON.parse(res.headers.get("x-preset-libraries") ?? "{}");
         sources = JSON.parse(res.headers.get("x-catalog-sources") ?? "{}");
+        installs = JSON.parse(res.headers.get("x-catalog-install") ?? "{}");
       } catch {}
       store.set({
         sliceWorker: res.headers.get("x-slice-worker") === "1",
@@ -444,6 +462,7 @@ export function createLink({
         void presets?.start();
         void presetInstall?.start();
         void catalog?.set(catalogSourcesSchema.catch({}).parse(sources));
+        void catalogInstall?.set(catalogSourcesSchema.catch({}).parse(installs));
       });
       void slicers.prune();
       void loadBranding(hub, token, signal);
@@ -462,6 +481,7 @@ export function createLink({
       presets?.stop();
       presetInstall?.stop();
       catalog?.stop();
+      catalogInstall?.stop();
       void sync?.offline();
     }
   }
@@ -546,6 +566,7 @@ export function createLink({
       presets?.stop();
       presetInstall?.stop();
       catalog?.stop();
+      catalogInstall?.stop();
     },
     state: () => ({ status, error }),
     branding: () => branding,
@@ -561,6 +582,7 @@ export function createLink({
       presets?.stop();
       presetInstall?.stop();
       catalog?.stop();
+      catalogInstall?.stop();
       store.forget();
       branding = {};
       userName = undefined;

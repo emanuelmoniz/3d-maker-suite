@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bambuStudioAdapter, bambuStudioWorkerAdapter } from "@3d-maker-suite/adapter-bambu";
-import { BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, emptyPresetLibrary } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
-import { zipFolder } from "@3d-maker-suite/host";
+import { extract, zipFolder } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
@@ -107,12 +107,16 @@ async function hub() {
         });
       return {
         sources: JSON.parse(res.headers.get("x-catalog-sources") ?? "null"),
+        installs: JSON.parse(res.headers.get("x-catalog-install") ?? "null"),
         next,
         answer,
         close: () => reader.cancel(),
       };
     };
-    return { deviceId, upload, connect };
+    /** A device route, as its connector calls it. */
+    const call = (method: "GET" | "PUT", url: string, payload?: object) =>
+      app.inject({ method, url: `/api/hub/device${url}`, payload, headers });
+    return { deviceId, upload, connect, call };
   };
 
   const ws1 = await pair("WS-1");
@@ -170,8 +174,22 @@ it("a worker-only hub gets its catalog from the source device; another device se
       .statusCode,
   ).toBe(204);
   expect((await send("GET", "/api/catalog/sources")).json()[0].machines).toEqual([
-    { deviceId: ws1.deviceId, name: "WS-1", share: true, receive: false },
-    { deviceId: ws2.deviceId, name: "WS-2", share: true, receive: false },
+    {
+      deviceId: ws1.deviceId,
+      name: "WS-1",
+      share: true,
+      receive: false,
+      install: null,
+      mismatch: null,
+    },
+    {
+      deviceId: ws2.deviceId,
+      name: "WS-2",
+      share: true,
+      receive: false,
+      install: null,
+      mismatch: null,
+    },
   ]);
   const refused = pick(ws2.deviceId);
   const probe = await two.next("catalog.sources");
@@ -217,4 +235,92 @@ it("a worker-only hub gets its catalog from the source device; another device se
   await tell();
   expect(existsSync(copy)).toBe(true);
   // A hub with two paired devices takes a few seconds to build.
+}, 20_000);
+
+it("a machine with Receive catalog gets the hub's copy; the source can't receive", async () => {
+  const { db, dataDir, send, ws1, ws2 } = await hub();
+  const one = await ws1.connect();
+  expect(one.installs).toEqual({});
+  expect((await ws1.upload("01.00")).statusCode).toBe(204);
+  const receive = (deviceId: string, on: boolean) =>
+    send("PATCH", `/api/hub/devices/${deviceId}/slicers/bambu-studio`, {
+      catalog: { receive: on },
+    });
+  // The source reads its own folder: it receives none.
+  expect((await receive(ws1.deviceId, true)).json()).toMatchObject({
+    error: { code: "catalog_source" },
+  });
+  // Offline, the switch is saved; the connect says what to receive.
+  expect((await receive(ws2.deviceId, true)).statusCode).toBe(204);
+  const two = await ws2.connect();
+  expect(two.installs).toEqual({ "bambu-studio": "BBL=01.00" });
+
+  // The hub's copy, zipped, for a receiver only.
+  const zip = await ws2.call("GET", "/catalog/bambu-studio/system");
+  expect(zip.statusCode).toBe(200);
+  const out = mkdtempSync(join(dataDir, "received-"));
+  writeFileSync(join(out, "system.zip"), zip.rawPayload);
+  await extract(join(out, "system.zip"), out);
+  expect(JSON.parse(readFileSync(join(out, "system", "BBL.json"), "utf8")).version).toBe("01.00");
+  expect((await ws1.call("GET", "/catalog/bambu-studio/system")).json()).toMatchObject({
+    error: { code: "not_receiving" },
+  });
+
+  // What it reports shows on its line.
+  const report = {
+    library: "bambu-studio",
+    hub: "BBL=01.00",
+    fingerprint: "BBL=01.00",
+    waiting: false,
+    backup: null,
+    error: null,
+  };
+  expect((await ws2.call("PUT", "/catalog-install", [report])).statusCode).toBe(204);
+  const machine = async () =>
+    (await send("GET", "/api/catalog/sources"))
+      .json()[0]
+      .machines.find((m: { deviceId: string }) => m.deviceId === ws2.deviceId);
+  expect(await machine()).toMatchObject({ receive: true, install: report, mismatch: null });
+
+  // A new copy from the source: the receiver hears of it at once.
+  expect((await ws1.upload("01.01")).statusCode).toBe(204);
+  const told = await two.next("catalog.install");
+  expect(told.libraries).toEqual({ "bambu-studio": "BBL=01.01" });
+  await two.answer(told.requestId, { ok: true, result: null });
+
+  // Off: told, and its report goes.
+  expect((await receive(ws2.deviceId, false)).statusCode).toBe(204);
+  const off = await two.next("catalog.install");
+  expect(off.libraries).toEqual({});
+  await two.answer(off.requestId, { ok: true, result: null });
+  expect(await machine()).toBeUndefined();
+
+  // A connector too old for it refuses, and the switch stays off.
+  const refused = receive(ws2.deviceId, true);
+  const probe = await two.next("catalog.install");
+  await two.answer(probe.requestId, { ok: false, code: "ENOTSUP" });
+  expect((await refused).json()).toMatchObject({ error: { code: "device_outdated" } });
+  const row = db.select().from(schema.devices).where(eq(schema.devices.id, ws2.deviceId)).get();
+  expect(row?.presetLibraries["bambu-studio"]?.catalog.receive).toBe(false);
+  expect(row?.catalogInstall).toEqual([]);
+
+  // Another major.minor than the source's: nothing is sent.
+  const slicer = (version: string) => [{ id: "bambu-studio", version, path: "x" }];
+  db.update(schema.devices)
+    .set({ slicers: slicer("02.04.00.70") })
+    .where(eq(schema.devices.id, ws1.deviceId))
+    .run();
+  db.update(schema.devices)
+    .set({
+      slicers: slicer("02.03.01.00"),
+      presetLibraries: {
+        "bambu-studio": { ...emptyPresetLibrary(), catalog: { receive: true, share: false } },
+      },
+    })
+    .where(eq(schema.devices.id, ws2.deviceId))
+    .run();
+  expect((await machine())?.mismatch).toEqual({ here: "2.3", source: "2.4" });
+  expect((await ws2.call("GET", "/catalog/bambu-studio/system")).statusCode).toBe(403);
+  await one.close();
+  await two.close();
 }, 20_000);

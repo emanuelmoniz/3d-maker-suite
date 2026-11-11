@@ -245,17 +245,14 @@ export async function buildApp(
   useDeviceFiles(db, deviceFiles);
   app.addHook("onClose", async () => deviceFiles.close());
   // A source device's `system/` (ADR-0020): the catalog check raises what changed at once.
-  const deviceCatalog = createDeviceCatalog(
-    db,
-    opts.adapters ?? [],
-    hub,
-    dataDir,
-    () =>
-      void syncer
-        .checkCatalogs()
-        .then(evaluate)
-        .catch((err) => logFor("integrations").error({ err }, "catalog check failed")),
-  );
+  const deviceCatalog = createDeviceCatalog(db, opts.adapters ?? [], hub, dataDir, () => {
+    void syncer
+      .checkCatalogs()
+      .then(evaluate)
+      .catch((err) => logFor("integrations").error({ err }, "catalog check failed"));
+    // Receivers hear of the new copy now, not on the next tick (ADR-0021).
+    void deviceCatalog.tell().catch(() => {});
+  });
   await app.register(
     hubRoutes(
       db,
@@ -263,7 +260,7 @@ export async function buildApp(
       () => void evaluate(),
       (id) => hubFiles.releaseLocks({ deviceId: id }),
       () => hubFiles.versionsUsage(),
-      (id) => deviceCatalog.connected(id),
+      deviceCatalog,
       opts.adapters ?? [],
     ),
     { prefix: "/api/hub" },
