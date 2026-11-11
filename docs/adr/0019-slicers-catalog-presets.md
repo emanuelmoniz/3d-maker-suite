@@ -1,6 +1,6 @@
 # ADR-0019: Slicers, catalog and presets
 
-- Status: Accepted (Plan 5.4.0 Step 1, after the spikes). Amends ADR-0017's delete rule and its rejection of reading Bambu's preset API. Amended by ADR-0020: "everything about a slicer is on its card", the edit rules of catalog rows, and where the catalog comes from. Amended by ADR-0021: "profiles" are presets in the UI and the code (`machine_presets`, `process_presets`, `filament_presets`), and the Share and Install switches of a machine are set on its page.
+- Status: Accepted (Plan 5.4.0 Step 1, after the spikes). Amends ADR-0017's delete rule and its rejection of reading Bambu's preset API. Amended by ADR-0020: "everything about a slicer is on its card", the edit rules of catalog rows, and where the catalog comes from. Amended by ADR-0021: "profiles" are presets in the UI and the code (`machine_presets`, `process_presets`, `filament_presets`), and the Share and Install switches of a machine are set on its page. Amended by ADR-0022: a slicer's catalog and system presets start Automatic, like its user presets.
 - Date: 2026-11-04
 
 ## Context
@@ -17,8 +17,8 @@ ADR-0017 kept deletes away from desktops, because the cloud restored a removed f
 
 ### System catalog
 No schedule: what a slicer's files feed runs when the files change. Each type chooses:
-- **Manual (default):** when the source changes, nothing is written, not even new rows: an alert leads to a review.
-- **Automatic:** the type runs, under its own "what to sync" and "how to sync", with Keep my edits as the default. A first sight of a folder only records it.
+- **Manual:** when the source changes, nothing is written, not even new rows: an alert leads to a review. (The default until ADR-0022.)
+- **Automatic (the default since ADR-0022):** the type runs, under its own "what to sync" and "how to sync", with Keep my edits as the default. A first sight of a folder only records it.
 
 The check runs on the scheduler's one-minute tick, because the fingerprint is cheap. The trigger is a fingerprint of `system/`: the sorted `<vendor>=<version>` of each `system/<vendor>.json`. It is 12 small files, read in about 2 ms. File times can't be used: Studio recopied a whole vendor folder with no change of version, which would raise a false alert. Orca ≥ 2.5 has only `.opc` files (ADR-0013): each one's header stamps its vendor and version, which gives the same fingerprint without reading the rest.
 

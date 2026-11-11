@@ -1,6 +1,6 @@
 # ADR-0022: One slicer per slicer type
 
-- Status: Accepted (2026-11-11, design discussion after Plan 5.5.0 Step 11). Amends ADR-0020 (the catalog source is no longer a pick: it is the hub's slicer) and ADR-0021 (Catalog Share goes; a machine's Catalog and Presets switches become Use as slicer, Catalog and system presets, and User presets). ADR-0014's `catalog.sources` and `catalog.install` stay.
+- Status: Accepted (2026-11-11, design discussion after Plan 5.5.0 Step 11). Amends ADR-0019 (a slicer's catalog and system presets default to Automatic), ADR-0020 (the catalog source is no longer a pick: it is the hub's slicer) and ADR-0021 (Catalog Share goes; a machine's Catalog and Presets switches become Use as slicer, Catalog and system presets, and User presets; a Sources tab's sources are cards). ADR-0014's `catalog.sources` and `catalog.install` stay. Extended after the Step 11d review (2026-11-11): *Sources and defaults* below.
 - Date: 2026-11-11
 
 ## Context
@@ -41,6 +41,15 @@ So one library can slice on three installs while a fourth feeds the catalog, and
 - **Integrations, one card per slicer type:** the hub's slicer as a radio over the server's install and each machine that offers it; each install's setup, update and removal (`WorkerSlicer` moves back here from the machine page); Choose brands and the Catalog, System presets and User presets cards. Picking another version asks first: the catalog changes and every receiver gets the new one.
 - **Machine page → Slicers:** the three rows above, each with a link to its settings.
 - **Catalog → Settings → Sources** and **Presets → Settings → Sources:** **Source**, one read-only line per slicer type (the hub's slicer, "Change in Integrations") with the catalog's four lines and Choose brands; **Receive from the hub**, every machine with the slicer and This server, each with its switch and its `system/` state. Presets also lists **User presets** Share and Receive per machine, as today.
+
+### Sources and defaults (Step 11d review)
+- **Integrations:** the hub's slicer sits on a panel of its own at the top of its type's card, with **Change the hub's slicer…** (only the installs that can be picked). The installs follow under **Installs**, the hub's slicer's with a badge. The slicer installed on the server's computer is **This server**, with the server icon, like a downloaded one; a machine's is its name. "Use this program" picks the program an install runs, never the hub's slicer.
+- **Share to the hub shows only what is shared.** Catalog: per slicer type, only the hub's slicer (this server's or one machine's); other installs share nothing to the catalog and aren't listed. Presets: system preset lines only on the hub's slicer; user preset lines on every source that shares them (this server, an account, a machine with User presets Share). A machine that shares nothing isn't listed.
+- **One table per source and slicer**, the same columns everywhere: Item, On, When, What. On a machine's user preset lines, **On** is whether the machine sends that kind (`shareKinds`), and **When** is the hub's import of it like any line, or Off while it isn't sent. The separate kinds table goes.
+- **When:** only an account's lines have a schedule. A slicer's lines follow its files: *Automatic when the files change*, or Manual, shown as *When the files change, after your review*. Every slicer line, the catalog and system presets too, starts Automatic (migration 0116 turns Manual ones Automatic). Choose brands' *Only what I already have* keeps a vendor update to the rows you have.
+- **Cards:** each source of a Sources tab (this server, an account, a machine, the zip) is a card, closed at first, with its icon as on Integrations (an account's photo). One opened is remembered per page in the browser; a link into it opens it.
+- **A machine that is the hub's slicer** receives no catalog and no system presets (its own are the hub's); it can receive user presets, per kind.
+- **Its presets to slice with:** the hub's copy of a machine's `system/` becomes that install's preset folder, as a zip's does, so the hub's slicer on a machine slices without a zip.
 
 ## Consequences
 - One answer to "which catalog does this slice use": the hub's slicer's.

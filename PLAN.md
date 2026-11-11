@@ -2586,20 +2586,23 @@ Plan Step 11c of the 5.5.0 plan in PLAN.md.
 - Project, plate and quote slicer pickers name a slicer type (`SlicingSetup.tsx`, `SliceSetup.tsx`); the default slicer is a slicer type too.
 - `docs/slicing.md`, `docs/hub.md`.
 
+**Done after review** (ADR-0022, *Sources and defaults*): the hub's slicer on a panel with **Change the hub's slicer…**; **This server** with the server icon; the hub's copy of a machine's `system/` is its install's preset folder; Catalog Share lists only the hub's slicer; Presets: one table per source and slicer (On = the machine sends that kind), Item | On | When | What everywhere; Manual reads "When the files change, after your review" and the catalog and system presets default to Automatic (migration 0116); every Sources card closed at first, with its icon.
+
 **Done when:** the hub's slicer is picked only in Integrations and shows on the machine page; a machine's three rows save and lock as described; pickers list slicer types; browser check at phone width in both themes; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Plan Step 11d of the 5.5.0 plan in PLAN.md. Use frontend-design for the slicer card and the machine page.
 ```
 
-### [ ] Step 11e - Catalog and Presets Sources, simplified
+### [ ] Step 11e - Catalog and Presets: Receive from the hub
 **Model:** Opus · **Effort:** Medium
-**Scope:**
-- Catalog → Settings → Sources and Presets → Settings → Sources: **Source**, one read-only line per slicer type (the hub's slicer, its version, "Change in Integrations") with the catalog's four lines and Choose brands; **Receive from the hub**, every machine with the slicer and This server, each with its switch and its `system/` state (Step 11). Presets also shows **User presets** Share and Receive per machine and kind, as today.
-- "Use as catalog source", Catalog Share and the "Machines aren't offered" text go.
+**Scope:** Share to the hub is done (Step 11d review: only the hub's slicer shares the catalog and system presets, one table per source, cards). What's left:
+- **Share to the hub, the hub's slicer:** its version and **Change in Integrations** on its slicer heading, on both tabs.
+- **Receive from the hub**, Catalog and Presets tabs alike: a card per receiver (closed at first, its icon), every machine with the slicer except the hub's slicer, and **This server** for its own install when it isn't the hub's slicer (`catalogReceive`, Step 11c). Per slicer, one table with the same columns as Share (Item | On | When/State): a **Catalog and system presets** line with its Receive switch (`system.receive`, or `catalogReceive` for This server) and its `system/` state (Step 11), and on the Presets tab the **User presets** kind lines as today. The switch saves from either tab, with the machine page's rights (`machine.catalog`, `machine.presets`).
+- A machine's state line (offline, too old) and its backup details move into its card, as on Share.
 - `docs/import.md`, `docs/hub.md`; `pnpm screenshots` if a README page changed.
 
-**Done when:** both tabs show one source per slicer type and every receiver; a receiver switch saves from either tab; tests, e2e, lint and `pnpm i18n:check` pass.
+**Done when:** both tabs list every receiver with its switch and state; a receiver switch saves from either tab and the hub's slicer can't receive; tests, e2e, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 11e of the 5.5.0 plan in PLAN.md.
@@ -2624,7 +2627,8 @@ Plan Step 12 of the 5.5.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0 database to the alpha: presets keep their rows and slices; policies, device switches and shared folders keep their values.
-- Two machines: Use as slicer on one slicer of one machine only; the hub's slicer switched between the server and a machine, and that machine offline (jobs wait); Catalog and system presets received on the other machine and on the server's own slicer; Share and Receive presets on one slicer only, and filament presets only on the other; Restart and Stop from the hub; a user with one `machine.*` switch.
+- Two machines: Use as slicer on one slicer of one machine only; the hub's slicer switched between the server and a machine with **Change the hub's slicer…** (another version asks first), and that machine offline (jobs wait); the machine as the hub's slicer slices without a zip (its `system/` copy); Catalog and system presets received on the other machine and on the server's own slicer; Share and Receive presets on one slicer only, and filament presets only on the other; Restart and Stop from the hub; a user with one `machine.*` switch.
+- After the upgrade: the catalog and system preset lines are Automatic (migration 0116) and a slicer update imports on its own (only your rows under Only what I already have); Sources cards start closed and remember the ones opened.
 - Two Bambu Cloud accounts with their own photo and Sources.
 - Fix anything found. `docs/`, CHANGELOG, version `5.5.0-alpha.2`. Commit on `dev`, push, tag `v5.5.0-alpha.2` on `dev`. Check the run and the release.
 
@@ -2639,7 +2643,7 @@ Do Step 13 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix 
 ### [ ] Step 14 - Projects: Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Projects settings → Sources, Share to the hub (Step 6's layout): a block per machine with Share to the hub on, one line per shared folder (switch to pause it, its project folder, `⋯` Remove) and **Add folder**.
+- Projects settings → Sources, Share to the hub (Step 6's layout, as cards: closed at first, with the machine's icon): a block per machine with Share to the hub on, one line per shared folder (switch to pause it, its project folder, `⋯` Remove) and **Add folder**.
 - Add folder: `PathPicker` on the machine's whole disk (the connector's `fs.list` lists directories anywhere, no file contents), then a `ConfirmDialog`; each change is logged with its actor. Needs `hub.manage`, or the machine's own user with `machine.projects` and `projects` write.
 - The hub stores the list (`devices.sharedFolders`: `{ path, paused }`, null until reported) and pushes it (`folders.set`, queued). On its first connect after the update a connector sends its `state.json` list once (`PUT /api/hub/device/folders`), kept only while the column is null. The connector still refuses any file operation outside the saved list. The shared folders leave the connector's local page.
 - Adding a project folder picks a source, then a folder from it (the server, or the machine's shared folders). The Location select in `ProjectRoots.tsx` goes.
@@ -2685,7 +2689,7 @@ Do Step 16 of the 5.5.0 plan in PLAN.md.
 ### [ ] Step 17 - Projects to machines  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Projects settings → Sources, Receive from the hub (Step 6's layout): a block per machine with Receive from the hub on, one line per **pick** (switch to pause it, Who, Edit, `⋯` Remove) and **Add pick**. A pick is a project folder or a subfolder of one (`root1`, `root2/project2`), with a users and roles list at Read or Edit. Tables `device_picks` (with `paused`) and `device_pick_access`.
+- Projects settings → Sources, Receive from the hub (Step 6's layout, as cards): a block per machine with Receive from the hub on, one line per **pick** (switch to pause it, Who, Edit, `⋯` Remove) and **Add pick**. A pick is a project folder or a subfolder of one (`root1`, `root2/project2`), with a users and roles list at Read or Edit. Tables `device_picks` (with `paused`) and `device_pick_access`.
 - The machine syncs a pick only if its user is on the list, directly or through a role, and only up to that user's `projects` level and the folder's edit rights. Read-only files sync as `access: "read"`, as today.
 - The connector mirrors the picked paths under its sync folder (`root1/*`, `root2/project2`). A removed pick follows the existing delete guard.
 - Replaces `devices.syncMode` and `device_projects`: `all` becomes a pick per hub project folder with the machine's user at Edit; `selected` becomes a pick per `device_projects` row. `hubDefaultSyncMode` becomes **New machines receive**: every hub project folder, or nothing until picked. Open on a machine still adds a pick for that project. The mode select leaves the machine page.
