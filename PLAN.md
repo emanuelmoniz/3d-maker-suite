@@ -2502,7 +2502,7 @@ Plan Step 8 of the 5.5.0 plan in PLAN.md. Use frontend-design for the machine pa
 Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 9 - One slicer install per machine
+### [x] Step 9 - One slicer install per machine
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Add integration, for a slicer, is **this server** only: the installed slicer if one is found, else the download (merge of today's `local` and `server` locations, like `WorkerSlicer`'s source choice).

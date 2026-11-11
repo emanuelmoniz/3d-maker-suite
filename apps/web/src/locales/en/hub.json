@@ -202,7 +202,13 @@
     "useAsSlicer": "Use as slicer",
     "useAsSlicerOf": "Use {{name}} on this machine as a slicer for the hub",
     "notSlicer": "Not set up as a slicer.",
-    "setUpSlicer": "Set up in Integrations",
+    "setUpFound": "Use it as a slicer for the hub",
+    "setUpManaged": "Install it here for the hub",
+    "slicerSetup": "{{name}} for the hub",
+    "removeSlicer": "Remove from the hub's slicers",
+    "removeSlicerTitle": "Stop slicing with {{name}} on {{device}}?",
+    "removeSlicerBody": "A slicer the hub installed there is removed; one installed by hand stays.",
+    "addSlicer": "Install another slicer here…",
     "catalog": "Catalog",
     "presets": "Presets",
     "receive": "Receive",
@@ -238,7 +244,8 @@
     "stopped": "Stopped. It shows offline in a few seconds.",
     "errors": {
       "noWorker": "This slicer isn't set up to slice on this machine. Set it up in Integrations first.",
-      "catalogSource": "This machine is the catalog source. Pick another source in Catalog settings first."
+      "catalogSource": "This machine is the catalog source. Pick another source in Catalog settings first.",
+      "slicerExists": "This slicer is already set up on this machine."
     }
   }
 }

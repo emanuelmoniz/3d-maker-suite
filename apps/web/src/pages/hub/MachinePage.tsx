@@ -4,12 +4,14 @@ import {
   type MachineSection,
   mayEditMachine,
   type PairingCode,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
@@ -26,8 +28,16 @@ import {
   useDeviceActions,
   useDevices,
 } from "../../lib/hub.ts";
-import { useAdapterName } from "../../lib/integrations.ts";
+import {
+  libraryOf,
+  useAdapterName,
+  useAdapters,
+  useCreateIntegration,
+  useDeleteIntegration,
+  useIntegrations,
+} from "../../lib/integrations.ts";
 import { useUsers } from "../../lib/users.ts";
+import { WorkerSlicer } from "../settings/WorkerSlicer.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
@@ -37,6 +47,7 @@ const ERRORS: Record<string, string> = {
   device_timeout: "hub:edit.timeout",
   no_worker: "hub:machine.errors.noWorker",
   catalog_source: "hub:machine.errors.catalogSource",
+  slicer_exists: "hub:machine.errors.slicerExists",
 };
 
 const NAMES = {
@@ -69,6 +80,8 @@ function useMay(d: Device) {
   return {
     edit: (section: MachineSection) => !!rights && mayEditMachine(rights, me?.id, d, section),
     manage: useCan("hub.manage"),
+    // Its slicer's install is set up here, by who may set up slicers (Plan 5.5.0 Step 9).
+    setUp: useCan("integrations.manage"),
   };
 }
 
@@ -446,14 +459,7 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
           </span>
         </p>
         {state?.useAsSlicer === null || !state ? (
-          <p className="text-muted">
-            {t("hub:machine.notSlicer")}{" "}
-            {may.manage && (
-              <Link to="/integrations" className="underline">
-                {t("hub:machine.setUpSlicer")}
-              </Link>
-            )}
-          </p>
+          <p className="text-muted">{t("hub:machine.notSlicer")}</p>
         ) : (
           <Setting
             edit={may.edit("slicers")}
@@ -465,6 +471,9 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
           />
         )}
       </div>
+      {may.setUp && may.edit("slicers") && (
+        <SlicerSetup device={d} library={library} found={!!found} />
+      )}
       <div className="grid grid-cols-2 items-center gap-x-6 sm:grid-cols-[6rem_auto_auto_1fr]">
         {rows.map((r) => {
           const edit = may.edit(r.kind);
@@ -505,11 +514,109 @@ function SlicerBlock({ device: d, library }: { device: Device; library: string }
   );
 }
 
+/**
+ * The machine's install of a slicer: its worker row (ADR-0014), one per machine. Set up with the
+ * slicer found on it, else one the hub downloads there; then `WorkerSlicer` picks or installs it.
+ */
+function SlicerSetup({
+  device: d,
+  library,
+  found,
+}: {
+  device: Device;
+  library: string;
+  found: boolean;
+}) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  const adapter = useAdapters().data?.find((a) => a.kind === "worker" && a.libraryId === library);
+  const worker = useIntegrations().data?.find(
+    (i) =>
+      i.kind === "worker" &&
+      libraryOf(i) === library &&
+      workerConfigSchema.safeParse(i.config).data?.deviceId === d.id,
+  );
+  const create = useCreateIntegration();
+  const remove = useDeleteIntegration(worker?.id ?? "");
+  const [confirming, setConfirming] = useState(false);
+  const name = adapterName(library);
+  if (!adapter) return null;
+  if (!worker)
+    return (
+      <div className="grid gap-1">
+        <Button
+          className="justify-self-start"
+          disabled={create.isPending}
+          onClick={() =>
+            create.mutate({
+              adapterId: adapter.id,
+              config: { deviceId: d.id, source: found ? "installed" : "managed" },
+            })
+          }
+        >
+          {t(found ? "hub:machine.setUpFound" : "hub:machine.setUpManaged")}
+        </Button>
+        <Alert error={create.error} />
+      </div>
+    );
+  return (
+    <Collapsible title={t("hub:machine.slicerSetup", { name })} className="mt-1">
+      <div className="grid gap-3">
+        {worker.status === "unavailable" && (
+          <p className="text-muted">{t("integrations:worker.unavailableHint")}</p>
+        )}
+        <WorkerSlicer integration={worker} adapter={adapter} />
+        <Button
+          variant="ghost"
+          className="justify-self-start text-bad"
+          disabled={remove.isPending}
+          onClick={() => setConfirming(true)}
+        >
+          {t("hub:machine.removeSlicer")}
+        </Button>
+        <Alert error={remove.error} />
+      </div>
+      <ConfirmDialog
+        open={confirming}
+        title={t("hub:machine.removeSlicerTitle", { name, device: d.name })}
+        description={t("hub:machine.removeSlicerBody")}
+        confirmLabel={t("hub:machine.removeSlicer")}
+        destructive
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          remove.mutate();
+        }}
+      />
+    </Collapsible>
+  );
+}
+
 function Slicers({ device: d }: { device: Device }) {
   const { t } = useTranslation();
+  const adapterName = useAdapterName();
   const may = useMay(d);
-  // A desktop slicer's id is its library's; one it no longer reports keeps its switches.
-  const libraries = [...new Set([...d.slicers.map((s) => s.id), ...Object.keys(d.presets)])];
+  const adapters = useAdapters().data ?? [];
+  const [added, setAdded] = useState<string[]>([]);
+  // A desktop slicer's id is its library's; one it no longer reports keeps its switches, and a
+  // managed one (not in its list) is in `libraries`.
+  const libraries = [
+    ...new Set([
+      ...d.slicers.map((s) => s.id),
+      ...Object.keys(d.presets),
+      ...Object.keys(d.libraries),
+      ...added,
+    ]),
+  ];
+  // A slicer not found on it can be installed there.
+  const more =
+    may.setUp && may.edit("slicers")
+      ? adapters.flatMap((a) =>
+          a.kind === "worker" && a.libraryId && !libraries.includes(a.libraryId)
+            ? [{ value: a.libraryId, label: adapterName(a.libraryId) }]
+            : [],
+        )
+      : [];
   return (
     <Section title={t("hub:machine.slicers")} wide>
       {libraries.length ? (
@@ -521,6 +628,16 @@ function Slicers({ device: d }: { device: Device }) {
         </>
       ) : (
         <p className="text-muted">{t("hub:devices.noSlicers")}</p>
+      )}
+      {more.length > 0 && (
+        <div className="grid gap-1 border-t border-border pt-4 sm:max-w-md">
+          <Combobox
+            aria-label={t("hub:machine.addSlicer")}
+            value=""
+            options={[{ value: "", label: t("hub:machine.addSlicer") }, ...more]}
+            onChange={(v) => v && setAdded([...added, v])}
+          />
+        </div>
       )}
     </Section>
   );

@@ -32,7 +32,7 @@ Each device in **Hub management** opens its machine page. It has every setting o
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the status page port and start at login, read live from the connector.
 - **Slicers**: the default slicer (the one **Open** uses, or **Ask each time**). Then for each slicer the connector found:
-  - **Use as slicer**: whether it slices for the hub. It turns slicing on that slicer's worker location on or off ([Slice workers](#slice-workers)). A slicer not set up as a worker links to Integrations.
+  - **Use as slicer**: whether it slices for the hub. It turns slicing on that slicer's worker on or off ([Slice workers](#slice-workers)). With Integrations manage, a slicer not set up yet offers to set it up here, and **<slicer> for the hub** picks or installs its program; **Install another slicer here…** adds one the connector didn't find.
   - **Catalog**, **Receive** and **Share**. On the library's catalog source, Share stays on: pick another source in Catalog settings first.
   - **Presets**, **Receive** and **Share** ([Slicer presets](#slicer-presets)).
 - **Projects**: **Receive from the hub** (with what it syncs, below) and **Share to the hub** (its shared folders, below).
@@ -150,7 +150,7 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 
 ## Slice workers
 
-A device can slice for the hub. On the Integrations page, add **On a connected workstation** as a location of Bambu Studio or OrcaSlicer, pick the device and pick or install its slicer. That makes it a slice worker, and removing its last location ends it. On the [machine page](#machine-page), **Use as slicer** turns that slicer's slicing on or off without removing the location; its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
+A device can slice for the hub. On its [machine page](#machine-page), under **Slicers**, set up Bambu Studio or OrcaSlicer there and pick or install its program; one install per slicer and machine. That makes it a slice worker, and removing its last slicer ends it. **Use as slicer** turns that slicer's slicing on or off without removing it; its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 

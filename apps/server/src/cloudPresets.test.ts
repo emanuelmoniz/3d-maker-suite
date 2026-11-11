@@ -92,9 +92,16 @@ const setting = (key: string, value: unknown) =>
     .values({ key, value })
     .onConflictDoUpdate({ target: schema.settings.key, set: { value } })
     .run();
-const add = async (adapterId: string) =>
-  (await app.inject({ method: "POST", url: "/api/integrations", payload: { adapterId } })).json()
-    .id as string;
+// A second install on this server is refused now (slicer_exists): an older database's is a row.
+const add = async (adapterId: string) => {
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/integrations",
+    payload: { adapterId },
+  });
+  if (res.statusCode !== 409) return res.json().id as string;
+  return db.insert(schema.integrations).values({ adapterId }).returning().get().id;
+};
 const TYPE = "userFilamentPresets";
 const auto = (id: string) =>
   app.inject({

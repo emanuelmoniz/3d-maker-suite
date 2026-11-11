@@ -4,13 +4,15 @@ Slicing gives a project's plates their print time and grams, so costs and quotes
 
 ## Which slicer slices
 
-**Add integration** asks for the slicer, then where it runs. Each slicer has one card on the Integrations page, with a row per place it runs; **Add location** on the card adds another.
+A slicer is installed once per machine. **Add integration** adds it to this server: the copy installed on this computer if the app finds it, else one it downloads. Each slicer has one card on the Integrations page, with this server's install on it. A workstation's slicer is set up on its [machine page](hub.md#machine-page) instead.
 
 | Where it runs | What it uses | Set up |
 |---|---|---|
-| **Installed on this computer** | The PC that runs the server, using the installed program | Set its **Slicer program** ([open-in-slicer.md](open-in-slicer.md)). OrcaSlicer needs 2.5 or newer |
-| **Download it to this server** | The server, using a copy the app downloads | **Install** on its row |
-| **On a connected workstation** | A workstation or NAS with the connector | See [Slice on a worker](#slice-on-a-worker) |
+| **This computer** (found) | The PC that runs the server, using the installed program | Set its **Slicer program** ([open-in-slicer.md](open-in-slicer.md)). OrcaSlicer needs 2.5 or newer |
+| **This server** (not found) | The server, using a copy the app downloads | **Install** on its row |
+| A workstation | A workstation or NAS with the connector | Its machine page: see [Slice on a worker](#slice-on-a-worker) |
+
+A second install on the same machine is refused (`slicer_exists`). A database from before 5.5.0 that has both this computer's and a downloaded copy keeps both working; the card warns you to delete one.
 
 A plate slices with its own slicer, else its project's (**Print setup**), else the default slicer, else the first one that can slice. A slicer that is switched off is skipped; a deleted one is cleared. With one slicer, the plate shows its name instead of a picker.
 
@@ -33,7 +35,7 @@ The file's own changes, such as supports, still go on top of a picked process pr
 
 Use this on a NAS or any server without a desktop slicer.
 
-1. **Settings → Integrations → Add integration**, pick **Bambu Studio** or **OrcaSlicer**, then **Download it to this server**.
+1. **Settings → Integrations → Add integration**, pick **Bambu Studio** or **OrcaSlicer**. When this computer has no copy of it, the app downloads one.
 2. Its row opens on the slicer's card: press **Install**. Pick a version (pre-releases only when you tick them). The card shows the licence (both slicers are AGPL-3.0) and a link to the release's source.
 3. The server downloads the slicer from the vendor's GitHub releases, checks its checksum, unpacks it under `<data folder>/slicers/` and starts it once to test it. The app never ships or changes the slicer. Downloads are 150 to 700 MB.
 4. **Update** installs a newer version; the old one stays until the new one starts. **Remove** deletes the download and keeps your imported presets.
@@ -46,8 +48,8 @@ OrcaSlicer 2.5.0 is the minimum: 2.4 can't slice Bambu files. Until 2.5 is stabl
 
 Use this when the server can't run a slicer (an arm64 hub, a small VPS) or a workstation is simply faster. Needs the [hub](hub.md) and the connector on the device, at the hub's version.
 
-1. **Settings → Integrations → Add integration** (or **Add location** on the slicer's card), pick **Bambu Studio** or **OrcaSlicer**, then **On a connected workstation**. Pick the device (every online device with the connector is offered) and whether it uses the slicer installed on it or one the hub downloads there. This makes the device a slice worker; removing its last location makes it stop.
-2. On its row pick the slicer: **Use this one** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device.
+1. **Hub management**, open the device's machine page. Under **Slicers**, a slicer the connector found offers **Use it as a slicer for the hub**; for one it didn't find, pick it in **Install another slicer here…**, then **Install it here for the hub**. This needs Integrations manage. It makes the device a slice worker; **Remove from the hub's slicers** on its last slicer makes it stop, and **Use as slicer** turns slicing off without removing it.
+2. Under **<slicer> for the hub**, pick the slicer: **Use this one** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device.
 3. Import your presets from a zip as usual (**Presets → Settings → Sources**). Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
 
 The slicer pickers show the worker as "Bambu Studio (WS-3)", named after its device. A slice that runs on a worker takes at most 10 minutes, as on the server.

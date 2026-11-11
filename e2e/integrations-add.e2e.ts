@@ -1,42 +1,49 @@
 import { expect, test } from "./fixtures.ts";
 
 for (const width of [375, 1440])
-  test(`add a slicer by where it runs, then another location from its card (${width}px)`, async ({
-    page,
-  }) => {
+  test(`add a slicer to this server, once (${width}px)`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
+    // Installed here if this computer has it, else downloaded (Plan 5.5.0 Step 9).
+    const adapters: { id: string; detectedConfigDir: string | null }[] = await (
+      await page.request.get("/api/integrations/adapters")
+    ).json();
+    const found = !!adapters.find((a) => a.id === "bambu-studio")?.detectedConfigDir;
     await page.goto("/integrations/new");
     await page.getByRole("radio", { name: "Bambu Studio" }).check();
-    // The workstation needs the hub; this computer is free, so it is picked.
-    const tile = (name: string) => page.getByRole("radio", { name });
-    await expect(tile("On a connected workstation")).toBeDisabled();
-    await expect(page.getByText("Turn on the hub in Hub management")).toBeVisible();
-    await expect(tile("Installed on this computer")).toBeChecked();
+    // No choice of where: a workstation's slicer is set up on its machine page.
+    await expect(page.getByRole("radio", { name: /workstation/ })).toHaveCount(0);
+    await expect(
+      page.getByText(found ? "Uses the Bambu Studio installed" : "Bambu Studio isn't installed"),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Add", exact: true }).click();
 
-    // One card for the slicer, with the new location open.
+    // One card for the slicer, with this server's install open.
     await expect(page).toHaveURL(/\/integrations#integration-/);
     const card = page.getByRole("region", { name: "Bambu Studio" });
-    await expect(card.getByRole("heading", { name: "This computer", level: 3 })).toBeVisible();
-    await expect(card.getByRole("textbox", { name: "Config folder" })).toBeVisible();
-
-    // Add location: the slicer is picked, this computer is taken.
-    await card.getByRole("link", { name: "Add location" }).click();
-    await expect(page.getByRole("radio", { name: "Bambu Studio" })).toBeChecked();
-    await expect(tile("Installed on this computer")).toBeDisabled();
-    await expect(tile("Download it to this server")).toBeChecked();
-    await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(card.getByRole("heading", { name: "This server", level: 3 })).toBeVisible();
-    await expect(card.getByRole("button", { name: "Install slicer" })).toBeVisible();
+    const where = found ? "This computer" : "This server";
+    await expect(card.getByRole("heading", { name: where, level: 3 })).toBeVisible();
+    await expect(
+      found
+        ? card.getByRole("textbox", { name: "Config folder" })
+        : card.getByRole("button", { name: "Install slicer" }),
+    ).toBeVisible();
+    // Nothing more to add here: a second install is refused, from the form and the API.
+    await expect(card.getByRole("link", { name: "Add to this server" })).toHaveCount(0);
+    await page.goto("/integrations/new?product=bambu-studio");
+    await expect(page.getByText("Already on this server")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add", exact: true })).toBeDisabled();
+    const other = found ? "bambu-studio-server" : "bambu-studio";
+    const res = await page.request.post("/api/integrations", { data: { adapterId: other } });
+    expect(res.status()).toBe(409);
+    expect((await res.json()).error.code).toBe("slicer_exists");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
 
     // Its catalog cards are on Presets settings → Sources.
+    await page.goto("/integrations");
     await card.getByRole("link", { name: /^Catalog: / }).click();
     await expect(page).toHaveURL(/\/presets\/settings\/sources#library-bambu-studio$/);
-    // Each location is a route of the library's presets.
     const sources = page.getByRole("region", { name: "Where your presets come from" });
-    await expect(sources.getByRole("heading", { name: "This computer", level: 4 })).toBeVisible();
-    await expect(sources.getByRole("heading", { name: "This server", level: 4 })).toBeVisible();
+    await expect(sources.getByRole("heading", { name: where, level: 4 })).toBeVisible();
   });

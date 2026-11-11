@@ -99,17 +99,19 @@ export const hubRoutes =
 
     /** A machine's worker integration row for a slicer library: its Use as slicer (ADR-0021). */
     const workerRow = (deviceId: string, library: string) =>
+      workerRows(deviceId).find((w) => w.library === library)?.row;
+    /** A machine's worker rows, with their libraries: a managed one isn't in its slicer list. */
+    const workerRows = (deviceId: string) =>
       db
         .select()
         .from(integrations)
         .all()
-        .find((r) => {
-          const a = adapters.find((x) => x.id === r.adapterId);
-          return (
-            a?.kind === "worker" &&
-            presetLibrary(a) === library &&
-            workerConfigSchema.safeParse(r.config).data?.deviceId === deviceId
-          );
+        .flatMap((row) => {
+          const a = adapters.find((x) => x.id === row.adapterId);
+          return a?.kind === "worker" &&
+            workerConfigSchema.safeParse(row.config).data?.deviceId === deviceId
+            ? [{ row, library: presetLibrary(a) }]
+            : [];
         });
     const isCatalogSource = (deviceId: string, library: string) => {
       const source = catalogSource(db, adapters, library);
@@ -151,6 +153,7 @@ export const hubRoutes =
           const libs = new Set([
             ...deviceLibraries(adapters, d.slicers),
             ...Object.keys(d.presets),
+            ...workerRows(d.id).map((w) => w.library),
           ]);
           return {
             ...d,

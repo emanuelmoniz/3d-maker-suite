@@ -92,10 +92,16 @@ const upload = async (files: Record<string, string>) =>
     headers: { "content-type": "application/zip" },
     payload: await zipOf(files),
   });
-const addSlicer = async (adapterId: string, config?: object) =>
-  (
-    await app.inject({ method: "POST", url: "/api/integrations", payload: { adapterId, config } })
-  ).json().id as string;
+// A second install on a machine is refused now (slicer_exists): an older database's is a row.
+const addSlicer = async (adapterId: string, config?: object) => {
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/integrations",
+    payload: { adapterId, config },
+  });
+  if (res.statusCode !== 409) return res.json().id as string;
+  return db.insert(schema.integrations).values({ adapterId, config }).returning().get().id;
+};
 const list = async () => (await app.inject("/api/presets")).json() as SlicerPreset[];
 const userDir = (id: string) => join(dataDir, "slicers", id, "config", "user", "default");
 

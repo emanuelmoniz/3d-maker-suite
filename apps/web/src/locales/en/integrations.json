@@ -50,9 +50,10 @@
     "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path.",
     "menu": "More actions for {{name}}",
     "log": "Sync log",
-    "addLocation": "Add location",
+    "addLocation": "Add to this server",
     "summary": "Catalog: {{auto}} automatic · <review>{{review}} waiting for review</review>",
-    "summaryOff": "Catalog: nothing imported yet"
+    "summaryOff": "Catalog: nothing imported yet",
+    "twoInstalls": "Installed twice on this server: on this computer and as a download. Both keep working; delete one."
   },
   "account": {
     "addAnother": "Add another account",
@@ -116,25 +117,11 @@
   "form": {
     "title": "Add integration",
     "product": "What do you want to connect?",
-    "where": "Where does {{name}} run?",
-    "locations": {
-      "local": "Installed on this computer",
-      "localHint": "Uses the slicer and the presets already on the computer that runs this app.",
-      "server": "Download it to this server",
-      "serverHint": "The app downloads the slicer from the vendor's releases and slices with it here.",
-      "worker": "On a connected workstation",
-      "workerHint": "Slices on a computer paired with this hub, with its own slicer or one the hub installs there."
-    },
-    "taken": "Already added. Find it on the slicer's card.",
-    "noHub": "Turn on the hub in Hub management to slice on a workstation.",
-    "noDevice": "No workstation is online. Start the connector on it first.",
+    "installedHere": "Uses the {{name}} installed on this computer, with its presets.",
+    "downloadHere": "{{name}} isn't installed on this computer: the app downloads it from the vendor's releases and slices with it on this server.",
+    "machineHint": "A workstation's slicer is set up on its machine page in Hub management.",
+    "taken": "Already on this server. Find it on the slicer's card.",
     "takesCatalog": "If {{name}}'s folder is found on this computer, it becomes the catalog source instead of {{device}}: the catalog then matches the version the hub slices with.",
-    "device": "Workstation",
-    "source": {
-      "label": "Its slicer",
-      "installed": "The one installed on it",
-      "managed": "Download it there"
-    },
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
     "error": "Couldn't add the integration. Check the fields."
@@ -205,7 +192,7 @@
     "userProcessPresets": "User process presets",
     "userFilamentPresets": "User filament presets",
     "openInSlicer": "Open projects in the slicer",
-    "slice": "Slice projects (time and grams)"
+    "slice": "Use as slicer"
   },
   "actionHints": {
     "openInSlicer": "When active, you can open the slicer using a button on each project.",

@@ -192,7 +192,12 @@ export const integrationsRoutes =
 
     app.post(
       "/",
-      { schema: { body: integrationInputSchema, response: { 201: integrationSchema } } },
+      {
+        schema: {
+          body: integrationInputSchema,
+          response: { 201: integrationSchema, 409: apiErrorSchema },
+        },
+      },
       async (req, reply) => {
         const { adapterId, enabled, config, secrets } = req.body;
         const adapter = adapterOf(adapterId);
@@ -203,6 +208,24 @@ export const integrationsRoutes =
         };
         const plain = parse(adapter.secretsSchema, secrets, "invalid_secrets");
         const deviceId = workerDeviceId(adapter.kind, values.config);
+        // One install of a slicer per machine (Plan 5.5.0 Step 9): this server (installed or
+        // downloaded) or a workstation. A database with both from before keeps both.
+        if (adapter.kind !== "cloud") {
+          const library = presetLibrary(adapter);
+          const twice = db
+            .select()
+            .from(integrations)
+            .all()
+            .some((r) => {
+              const a = syncer.adapters.find((x) => x.id === r.adapterId);
+              if (!a || a.kind === "cloud" || presetLibrary(a) !== library) return false;
+              return adapter.kind === "worker"
+                ? workerDeviceId(a.kind, r.config) === deviceId
+                : a.kind !== "worker";
+            });
+          if (twice)
+            throw new HttpError(409, "slicer_exists", "This slicer is already on that machine");
+        }
         const id = db.transaction(() => {
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);

@@ -155,7 +155,13 @@ it("a device slices for the hub while a worker names it; the device PATCH can't 
 
   const a = await add();
   expect((await next("device.worker")).on).toBe(true);
-  const b = await add();
+  expect((await add()).error.code).toBe("slicer_exists");
+  // An older database could have two on one device.
+  const b = db
+    .insert(schema.integrations)
+    .values({ adapterId: "bambu-studio-worker", config: { deviceId, source: "installed" } })
+    .returning()
+    .get();
   const removed = send("DELETE", `/api/integrations/${a.id}`);
   await answer((await next("slicer.remove")).requestId, { ok: true, result: null });
   await removed;

@@ -38,7 +38,6 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches } from "./PolicyRow.tsx";
-import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
 // The status dot's colour; the line's text says the rest.
 const DOT: Record<IntegrationStatus | "disabled", string> = {
@@ -99,14 +98,15 @@ function CatalogLine({ library, rows }: { library: string; rows: Integration[] }
 }
 
 /**
- * One card per slicer (or account): its name, its catalog line and the places it runs, one row
- * each (ADR-0019). The rows' icons sit on a rail: one slicer, several places.
+ * One card per slicer (or account): its name, its catalog line and its install on this server
+ * (Plan 5.5.0 Step 9); a workstation's is on its machine page. An older database can have two here.
  */
 export function LibraryCard({ library, rows }: { library: string; rows: Integration[] }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const admin = useCan("integrations.manage");
   const slicer = rows.some((i) => i.kind !== "cloud");
+  const here = rows.filter((i) => i.kind !== "worker");
   return (
     <section
       aria-labelledby={`library-${library}`}
@@ -119,15 +119,20 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
           </h2>
           <CatalogLine library={library} rows={rows} />
         </div>
-        {admin && slicer && (
+        {admin && slicer && !here.length && (
           <Link to="/integrations/new" search={{ product: library }} className={addClass}>
             <Plus aria-hidden className="size-4" />
             {t("integrations:card.addLocation")}
           </Link>
         )}
       </div>
+      {here.length > 1 && (
+        <p role="note" className="mt-2 text-warn">
+          {t("integrations:card.twoInstalls")}
+        </p>
+      )}
       <ul className="mt-2">
-        {rows.map((i) => (
+        {here.map((i) => (
           <IntegrationCard key={i.id} integration={i} />
         ))}
       </ul>
@@ -172,8 +177,6 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
     ) : state === "unavailable" ? (
       i.kind === "server" ? (
         t("integrations:managed.notInstalledHint")
-      ) : i.kind === "worker" ? (
-        t("integrations:worker.unavailableHint")
       ) : (
         t("integrations:card.unavailableHint")
       )
@@ -278,13 +281,6 @@ export function IntegrationCard({ integration: i }: { integration: Integration }
                 libraryId={adapter.libraryId}
                 managed={adapter.managed}
               />
-              <DefaultSlicer integration={i} />
-              <ActionSwitches integration={i} />
-            </Part>
-          )}
-          {admin && i.enabled && i.kind === "worker" && adapter && (
-            <Part title={t("integrations:slicer.title")}>
-              <WorkerSlicer integration={i} adapter={adapter} />
               <DefaultSlicer integration={i} />
               <ActionSwitches integration={i} />
             </Part>

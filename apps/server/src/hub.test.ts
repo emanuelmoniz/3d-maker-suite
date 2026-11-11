@@ -802,6 +802,18 @@ describe("hub events", () => {
     expect((await send("PATCH", lib, { catalog: { receive: true } })).statusCode).toBe(204);
   });
 
+  it("refuses a second install of a slicer on the same machine", async () => {
+    const { send, deviceId } = await live({ adapters: adapters({ mock: false }) });
+    const add = (adapterId: string, config?: object) =>
+      send("POST", "/api/integrations", { adapterId, config });
+    const worker = { deviceId, source: "managed" };
+    expect((await add("bambu-studio-worker", worker)).statusCode).toBe(201);
+    expect((await add("bambu-studio-worker", worker)).json().error.code).toBe("slicer_exists");
+    // This server is one machine: installed or downloaded, not both.
+    expect((await add("bambu-studio-server")).statusCode).toBe(201);
+    expect((await add("bambu-studio")).json().error.code).toBe("slicer_exists");
+  });
+
   it("Stop, the default slicer and Share reach the connector; an older one is outdated", async () => {
     const { app, db, send, open, token, deviceId, bearer } = await live();
     const url = `/api/hub/devices/${deviceId}`;
