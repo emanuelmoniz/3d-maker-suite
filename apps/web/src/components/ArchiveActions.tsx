@@ -60,11 +60,11 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
   },
   machinePreset: {
     key: "common:archive.dependents.machinePreset",
-    to: "/presets/printer/$id",
+    to: "/catalog/printer-presets/$id",
   },
   processPreset: {
     key: "common:archive.dependents.processPreset",
-    to: "/presets/process/$id",
+    to: "/catalog/process-presets/$id",
   },
   printer: { key: "common:archive.dependents.printer", to: "/printers/$id" },
   accessory: { key: "common:archive.dependents.accessory", to: "/printers/accessories/$id" },
@@ -76,7 +76,7 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
   maintenanceTask: { key: "common:archive.dependents.maintenanceTask", to: "/maintenance" },
   filamentPreset: {
     key: "common:archive.dependents.filamentPreset",
-    to: "/presets/filament/$id",
+    to: "/catalog/filament-presets/$id",
   },
   spool: { key: "common:archive.dependents.spool", to: "/filament/spools/$id" },
   print: { key: "common:archive.dependents.print", to: "/prints/$id" },

@@ -58,7 +58,7 @@ test("a preset page lists every setting of its file, each with where it comes fr
 
   // Presets were profiles before 5.5: an old link lands on the preset.
   await page.goto(`/filament/profiles/${system.id}`);
-  await expect(page).toHaveURL(`/presets/filament/${system.id}`);
+  await expect(page).toHaveURL(`/catalog/filament-presets/${system.id}`);
   const all = page.getByRole("region", { name: "All settings" });
   await expect(page.getByRole("heading", { name: "All settings" })).toBeVisible();
   const row = (key: string) => page.getByRole("row").filter({ hasText: key });
@@ -81,21 +81,21 @@ test("a preset page lists every setting of its file, each with where it comes fr
   expect(file.suggestedFilename()).toBe("Bambu PLA Basic.json");
 
   // A user preset shows its own value over its parent's, and each parent's the rest.
-  await page.goto(`/presets/filament/${user.id}`);
+  await page.goto(`/catalog/filament-presets/${user.id}`);
   await expect(row("cool_plate_temp")).toContainText("40");
   await expect(row("cool_plate_temp")).toContainText("This preset");
   await expect(row("nozzle_temperature")).toContainText("Bambu PLA Basic @BBL X1C");
   await expect(row("filament_type")).toContainText("fdm_filament_common");
 
   // A preset the folder no longer has says so.
-  await page.goto(`/presets/filament/${gone.id}`);
+  await page.goto(`/catalog/filament-presets/${gone.id}`);
   await expect(page.getByRole("status")).toContainText("no longer has this preset");
   await expect(all).toBeVisible();
 });
 
 test("a slicer that isn't here says its files can't be read", async ({ page, app }) => {
   const preset = await filament(app, "Elsewhere", "bambu-studio:system/Elsewhere");
-  await page.goto(`/presets/filament/${preset.id}`);
+  await page.goto(`/catalog/filament-presets/${preset.id}`);
   await expect(page.getByRole("status")).toContainText("aren't available here");
   await expect(page.getByRole("link", { name: /in Integrations/ })).toBeVisible();
 });

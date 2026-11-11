@@ -73,7 +73,7 @@ export function MachinePresets() {
           header: t("printers:catalog.presets.name"),
           cell: (p) => (
             <Link
-              to="/presets/printer/$id"
+              to="/catalog/printer-presets/$id"
               params={{ id: p.id }}
               className="font-medium hover:underline"
             >
@@ -117,7 +117,7 @@ export function ProcessPresets() {
           header: t("printers:catalog.processPresets.name"),
           cell: (p) => (
             <Link
-              to="/presets/process/$id"
+              to="/catalog/process-presets/$id"
               params={{ id: p.id }}
               className="font-medium hover:underline"
             >
@@ -194,7 +194,7 @@ export function FilamentPresets() {
                 header: t("filament:spools.filament"),
                 cell: (p) => (
                   <Link
-                    to="/presets/filament/$id"
+                    to="/catalog/filament-presets/$id"
                     params={{ id: p.id }}
                     className="font-medium hover:underline"
                   >

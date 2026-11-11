@@ -54,7 +54,7 @@ for (const [name, width, height] of [
       `/maintenance/types/${type.id}/edit`,
       `/filament/spools/${spool.id}`,
       `/filament/spools/${spool.id}/edit`,
-      `/presets/filament/${preset.id}`,
+      `/catalog/filament-presets/${preset.id}`,
       `/prints/${print.id}`,
       `/prints/${print.id}/edit`,
       ...(alerts[0] ? [`/alerts/${alerts[0].id}`] : []),

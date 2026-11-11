@@ -252,12 +252,15 @@ export function PresetsTab() {
   );
   const [query, setQuery] = useState(fromName.join(":"));
   const catalogRows = [
-    ...(useFilamentPresets().data?.items ?? []).map((p) => ({ ...p, to: "/presets/filament/$id" })),
+    ...(useFilamentPresets().data?.items ?? []).map((p) => ({
+      ...p,
+      to: "/catalog/filament-presets/$id",
+    })),
     ...(useMachinePresets().data ?? []).map((p) => ({
       ...p,
-      to: "/presets/printer/$id",
+      to: "/catalog/printer-presets/$id",
     })),
-    ...(useProcessPresets().data ?? []).map((p) => ({ ...p, to: "/presets/process/$id" })),
+    ...(useProcessPresets().data ?? []).map((p) => ({ ...p, to: "/catalog/process-presets/$id" })),
   ];
   const presetOf = (p: SlicerPreset) => {
     const hit = catalogRows.find((r) => r.sourcePreset === `${p.library}:user/${p.name}`);

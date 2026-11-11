@@ -157,7 +157,7 @@ test("README screenshots", async ({ page, app }) => {
     ["maintenance-type", `/maintenance/types/${type.id}`],
     ["filament", "/filament"],
     ["spool", `/filament/spools/${spools[0]?.id}`],
-    ["filament-preset", `/presets/filament/${presetId}`],
+    ["filament-preset", `/catalog/filament-presets/${presetId}`],
     ["prints", "/prints"],
     ["print", `/prints/${lastPrint}`],
     ["projects", "/projects"],

@@ -215,9 +215,9 @@ const routes: AnyRoute[] = [
   ...[
     ["/filament/spools/$id", SpoolDetailPage],
     ["/filament/spools/$id/edit", SpoolEditPage],
-    ["/presets/filament/$id", FilamentPresetPage],
-    ["/presets/printer/$id", MachinePresetPage],
-    ["/presets/process/$id", ProcessPresetPage],
+    ["/catalog/filament-presets/$id", FilamentPresetPage],
+    ["/catalog/printer-presets/$id", MachinePresetPage],
+    ["/catalog/process-presets/$id", ProcessPresetPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,
@@ -233,16 +233,19 @@ const routes: AnyRoute[] = [
       component: component as () => ReactNode,
     }),
   ),
-  // Presets were profiles before 5.5, and lived in Printers and Filament (ADR-0021); old links and
-  // bookmarks still land.
+  // Presets were profiles before 5.5, lived in Printers and Filament, then had their own module
+  // (ADR-0021) until ADR-0023; old links and bookmarks still land.
   ...(
     [
-      ["/filament/profiles/$id", "/presets/filament/$id"],
-      ["/printers/machine-profiles/$id", "/presets/printer/$id"],
-      ["/printers/print-profiles/$id", "/presets/process/$id"],
-      ["/filament/presets/$id", "/presets/filament/$id"],
-      ["/printers/machine-presets/$id", "/presets/printer/$id"],
-      ["/printers/process-presets/$id", "/presets/process/$id"],
+      ["/filament/profiles/$id", "/catalog/filament-presets/$id"],
+      ["/printers/machine-profiles/$id", "/catalog/printer-presets/$id"],
+      ["/printers/print-profiles/$id", "/catalog/process-presets/$id"],
+      ["/filament/presets/$id", "/catalog/filament-presets/$id"],
+      ["/printers/machine-presets/$id", "/catalog/printer-presets/$id"],
+      ["/printers/process-presets/$id", "/catalog/process-presets/$id"],
+      ["/presets/filament/$id", "/catalog/filament-presets/$id"],
+      ["/presets/printer/$id", "/catalog/printer-presets/$id"],
+      ["/presets/process/$id", "/catalog/process-presets/$id"],
     ] as const
   ).map(([path, to]) =>
     createRoute({

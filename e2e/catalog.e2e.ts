@@ -25,6 +25,8 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
     printerModelId: model.id,
     nozzleDiameterMm: 0.4,
   });
+  // The library is the hub's: without it, its address falls back to Catalog settings.
+  await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/printers/settings#process-presets");
   await expect(page).toHaveURL(/\/catalog\/printers#process-presets$/);
@@ -36,8 +38,9 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
     ["/presets", "/catalog/printers#machine-presets"],
     ["/presets/process", "/catalog/printers#process-presets"],
     ["/presets/filament", "/catalog/filament#filament-presets"],
-    [`/printers/machine-presets/${machine.id}`, `/presets/printer/${machine.id}`],
-    [`/printers/machine-profiles/${machine.id}`, `/presets/printer/${machine.id}`],
+    [`/printers/machine-presets/${machine.id}`, `/catalog/printer-presets/${machine.id}`],
+    [`/printers/machine-profiles/${machine.id}`, `/catalog/printer-presets/${machine.id}`],
+    [`/presets/printer/${machine.id}`, `/catalog/printer-presets/${machine.id}`],
     ["/catalog/presets", "/catalog/settings/library"],
     ["/hub/presets", "/catalog/settings/library"],
     ["/presets/settings", "/catalog/settings"],
@@ -60,8 +63,12 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
   for (const name of ["Brands", "Printer models", "Printer presets", "Process presets"])
     await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
   await page.getByRole("link", { name: "Q1 0.4" }).click();
-  await expect(page).toHaveURL(`/presets/printer/${machine.id}`);
+  await expect(page).toHaveURL(`/catalog/printer-presets/${machine.id}`);
   await expect(page.getByRole("heading", { name: "Q1 0.4", level: 1 })).toBeVisible();
+  // A preset's page is in Catalog: its menu item is the current one.
+  await expect(
+    page.getByRole("complementary").getByRole("link", { name: "Catalog" }),
+  ).toHaveAttribute("data-status", "active");
   // Filament settings is its own page now, with General and Sources tabs.
   await page.goto("/filament/settings");
   await expect(page).toHaveURL(/\/filament\/settings$/);
