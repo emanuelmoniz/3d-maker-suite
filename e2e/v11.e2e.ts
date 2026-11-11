@@ -268,7 +268,7 @@ test("import a slicer catalog from a zip, then a changed preset updates its pres
       mimeType: "application/zip",
       buffer: await zipOf(preset(temp)),
     });
-    await page.getByRole("link", { name: "Filament system presets" }).click();
+    await page.getByRole("link", { name: "Filament presets", exact: true }).click();
     await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
     await page
       .getByRole("dialog")
@@ -289,7 +289,9 @@ test("import a slicer catalog from a zip, then a changed preset updates its pres
     mimeType: "application/zip",
     buffer: await zipOf(preset("250")),
   });
-  await page.getByRole("link", { name: "Filament system presets" }).click();
+  await page.getByRole("link", { name: "Filament presets", exact: true }).click();
+  // A zip's presets are system and user ones together: the review goes by the kind alone.
+  await expect(page.getByRole("heading", { name: "Filament presets", level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: "Changed (1)" })).toBeVisible();
   await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
   await page

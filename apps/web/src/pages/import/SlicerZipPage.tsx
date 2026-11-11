@@ -7,15 +7,16 @@ import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useZipSources, useZipUpload } from "../../lib/slicerCatalog.ts";
 
-// i18n keys are written out in full so `pnpm i18n:check` can see them.
-const TYPES = {
+// i18n keys are written out in full so `pnpm i18n:check` can see them. A zip is the whole config
+// folder: its presets are system and user ones together, so they go by their kind alone.
+export const ZIP_TYPES = {
   brands: "integrations:capabilities.brands",
   printerModels: "integrations:capabilities.printerModels",
-  machinePresets: "integrations:capabilities.machinePresets",
-  processPresets: "integrations:capabilities.processPresets",
+  machinePresets: "import:zip.types.machinePresets",
+  processPresets: "import:zip.types.processPresets",
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentMaterials: "integrations:capabilities.filamentMaterials",
-  filamentPresets: "integrations:capabilities.filamentPresets",
+  filamentPresets: "import:zip.types.filamentPresets",
 } as const;
 const ERRORS: Record<string, string> = {
   invalid_zip: "import:zip.errors.invalid_zip",
@@ -117,7 +118,7 @@ export function SlicerZipPage() {
                     params={{ source: "zip", id, type }}
                     className="font-medium underline"
                   >
-                    {t(TYPES[type])}
+                    {t(ZIP_TYPES[type])}
                   </Link>
                 </li>
               ))}

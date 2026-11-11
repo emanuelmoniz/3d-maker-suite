@@ -486,6 +486,11 @@
     "keepHint": "Nothing changes, and you aren't asked again until the slicer's presets change."
   },
   "zip": {
+    "types": {
+      "machinePresets": "Printer presets",
+      "processPresets": "Process presets",
+      "filamentPresets": "Filament presets"
+    },
     "cardTitle": "Printer and filament presets from a slicer",
     "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament presets from the zip, in each slicer's section of Catalog settings → Sources.",
     "link": "Import from a slicer zip",

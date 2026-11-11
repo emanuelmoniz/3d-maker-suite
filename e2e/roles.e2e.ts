@@ -177,7 +177,8 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   await expect(page.getByText("Your role doesn't allow that")).toHaveCount(0);
   // No task on spools: no gear, and its Sources tab sends them back.
   await page.goto("/filament/settings/sources");
-  await expect(page).toHaveURL(/\/filament$/);
+  // The page may already have added its default filter to the address.
+  await expect(page).toHaveURL(/\/filament(\?|$)/);
 
   // The same from the alerts: Review on the waiting prints, Open sources on the sync.
   await page.goto("/alerts");

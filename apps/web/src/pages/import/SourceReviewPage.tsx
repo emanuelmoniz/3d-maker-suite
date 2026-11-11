@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { useSourcePreview } from "../../lib/import.ts";
 import { GoneRows } from "./GoneRows.tsx";
 import { ReviewTable } from "./ReviewTable.tsx";
+import { ZIP_TYPES } from "./SlicerZipPage.tsx";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 export const TITLE: Record<ReviewedType, string> = {
@@ -44,7 +45,9 @@ export function SourceReviewPage() {
   return (
     <>
       <PageHeader
-        title={t(TITLE[type])}
+        title={t(
+          (zip && (ZIP_TYPES as Partial<Record<ReviewedType, string>>)[type]) || TITLE[type],
+        )}
         description={t("import:source.description")}
         // A zip goes back to the zip, where its other types wait.
         backTo={zip ? { to: "/import/slicer-zip/$id", params: { id } } : { to: "/integrations" }}
