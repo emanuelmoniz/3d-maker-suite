@@ -164,7 +164,7 @@ Every type except print history has two more settings. For an account's printers
 
 - **This server**: per slicer, its **User printer**, **process** and **filament presets** lines, and while it is the hub's slicer its **System** preset lines too. **Choose brands** links to Catalog settings.
 - Each account that allows user presets, with its user preset lines (Bambu Cloud's sit under Bambu Studio). The first source to bring a preset keeps it.
-- Each machine with **Presets Share**, per slicer: one line per kind (printer, process, filament) with its own switch, and when it last sent ([hub.md](hub.md#slicer-presets)). The machine that is the hub's slicer also has the **System** preset lines.
+- Each machine that shares something, per slicer, in one table: while its **User presets → Share** is on, a **User printer**, **process** and **filament presets** line, whose switch is whether the machine sends that kind (*On each save*, or *Off*) and whose **Edit** and **⋯** set how the hub imports it; on the hub's slicer, its **System** preset lines too. When it last sent sits by the slicer's name ([hub.md](hub.md#slicer-presets)). A machine that shares nothing isn't listed.
 
 System presets come only from each slicer's hub's slicer; user presets come from every install, account and machine that shares them.
 - **No connector? Upload a zip**: brings the presets of a desktop install that isn't connected, for example to a slicer on this server, which has no folder of yours to read (see [below](#slicer-catalog-from-a-zip)). Every slicer that can take a zip shows it, even before anything is connected. **How presets arrive** under the preset tables and the zip card on **Import | Export** lead here.

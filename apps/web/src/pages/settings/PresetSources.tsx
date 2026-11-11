@@ -21,7 +21,13 @@ import { useAdapterName, useIntegrations, useLocationLabel } from "../../lib/int
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCatalogSources, usePresetDevices } from "../../lib/presets.ts";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
-import { AccountBlock, IntegrationsLink, PolicyLines, useAccountTitle } from "./AccountSources.tsx";
+import {
+  AccountBlock,
+  IntegrationsLink,
+  PolicyLines,
+  type SendLine,
+  useAccountTitle,
+} from "./AccountSources.tsx";
 import { isSource, MachineBlock, serverRows, serverRowsCount } from "./CatalogSources.tsx";
 import { PresetsFromZip } from "./ManagedSlicer.tsx";
 import {
@@ -32,6 +38,13 @@ import {
   type StateLine,
   StateLines,
 } from "./Sources.tsx";
+
+/** The kind a user preset line is, for a machine's send of it. */
+const KIND_OF: Partial<Record<string, SlicerPresetKind>> = {
+  userMachinePresets: "machine",
+  userProcessPresets: "process",
+  userFilamentPresets: "filament",
+};
 
 // Written out so `pnpm i18n:check` sees the keys.
 const KINDS: Record<SlicerPresetKind, string> = {
@@ -83,9 +96,10 @@ export function PresetSources() {
     byLib(l.library)
       ?.routes.flatMap((r) => list.find((i) => i.id === r.integrationId) ?? [])
       .find((i) => i.kind === "worker" && i.deviceName === d.name);
+  // What it shares: its user presets (User presets Share), or the system ones as the hub's slicer.
   const shares = (d: PresetDevice, l: Library) => {
     const lib = byLib(l.library);
-    return l.send || (!!lib && isSource(lib, { deviceId: d.id })) || !!workerOf(d, l);
+    return l.send || (!!lib && isSource(lib, { deviceId: d.id }));
   };
   const sharing = devices.filter((d) => d.libraries.some((l) => shares(d, l)));
   const receiving = devices.filter((d) => d.libraries.some((l) => l.install));
@@ -263,7 +277,7 @@ function useKindSwitch(d: PresetDevice, l: Library, side: "shareKinds" | "receiv
   const actions = useDeviceActions();
   const may = useMayEdit(d);
   const slicer = useAdapterName()(l.library);
-  return (kind: SlicerPresetKind): StateLine["on"] => ({
+  return (kind: SlicerPresetKind): NonNullable<StateLine["on"]> => ({
     checked: l[side].includes(kind),
     label: t(
       side === "shareKinds"
@@ -300,7 +314,11 @@ function SwitchError({ error }: { error: Error | null }) {
   );
 }
 
-/** One slicer of a sharing machine: its system lines if it is the catalog source, a line per kind. */
+/**
+ * One slicer of a sharing machine, in one table: its system lines as the hub's slicer, and its user
+ * lines while User presets Share is on, each one's switch being whether the machine sends that kind
+ * (Edit and `⋯` are the hub's import of it).
+ */
 function ShareSlicer({
   device: d,
   library: l,
@@ -320,6 +338,31 @@ function ShareSlicer({
   const kind = useKindSwitch(d, l, "shareKinds");
   const source = !!lib && isSource(lib, { deviceId: d.id });
   const cards = source && lib?.cardsOf ? list.find((i) => i.id === lib.cardsOf) : undefined;
+  // Its user lines import what it sends: its own install's row, else the slicer's other route.
+  const importer =
+    worker ??
+    (lib?.routes ?? []).flatMap(
+      (r) => list.find((i) => i.id === r.integrationId && i.kind !== "cloud") ?? [],
+    )[0];
+  const sendState = (k: SlicerPresetKind) =>
+    l.shareKinds.includes(k)
+      ? t("settings:sources.presets.onSave")
+      : t("integrations:policies.modes.off");
+  const send = (type: string): SendLine | undefined => {
+    const k = KIND_OF[type];
+    return k && { ...kind(k), state: sendState(k) };
+  };
+  const user: string[] = l.send ? [...USER_PRESET_TYPES] : [];
+  const lines = (i: Integration, types: string[]) => (
+    <PolicyLines
+      integration={i}
+      types={types as Integration["policies"][number]["type"][]}
+      title={name}
+      what={false}
+      how={false}
+      send={send}
+    />
+  );
   return (
     <SlicerGroup
       id={`machine-${d.id}-${l.library}`}
@@ -337,42 +380,23 @@ function ShareSlicer({
       {!l.reported && (
         <p className="text-muted">{t("settings:sources.presets.notReported", { slicer: name })}</p>
       )}
-      {(cards || worker) && (
-        // One table when the worker row holds both: its system lines and its zip's user lines.
+      {cards && importer?.id === cards.id ? (
+        lines(cards, [...SLICER_PRESET_TYPES, ...user])
+      ) : (
         <>
-          {cards && cards.id !== worker?.id && (
-            <PolicyLines
-              integration={cards}
-              types={[...SLICER_PRESET_TYPES]}
-              title={name}
-              what={false}
-              how={false}
-            />
-          )}
-          {worker && (
-            <PolicyLines
-              integration={worker}
-              types={[
-                ...(cards?.id === worker.id ? SLICER_PRESET_TYPES : []),
-                ...USER_PRESET_TYPES,
-              ]}
-              title={name}
-              what={false}
-              how={false}
-            />
-          )}
+          {cards && lines(cards, [...SLICER_PRESET_TYPES])}
+          {importer && user.length > 0 && lines(importer, user)}
         </>
       )}
-      {l.send && (
+      {/* No install row imports what it sends yet: its kind switches alone. */}
+      {!importer && l.send && (
         <StateLines
           label={t("settings:sources.presets.linesOf", { slicer: name, machine: d.name })}
           rows={SLICER_PRESET_KINDS.map((k) => ({
             key: k,
             item: t(KINDS[k]),
             on: kind(k),
-            state: l.shareKinds.includes(k)
-              ? t("settings:sources.presets.onSave")
-              : t("integrations:policies.modes.off"),
+            state: sendState(k),
           }))}
         />
       )}

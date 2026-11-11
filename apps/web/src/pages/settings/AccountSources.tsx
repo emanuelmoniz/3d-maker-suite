@@ -40,7 +40,7 @@ import {
   useRunPolicy,
   useSummary,
 } from "./PolicyRow.tsx";
-import { SourceBlock, SourcesSection } from "./Sources.tsx";
+import { SourceBlock, SourcesSection, type StateLine } from "./Sources.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
 const EMPTY: Record<AccountType, { title: string; body: string }> = {
@@ -178,10 +178,14 @@ export const useManagesLine = (type: LineType) =>
     "manage",
   );
 
+/** A machine's own switch on a line: it sends that kind or not, and what that means now. */
+export type SendLine = NonNullable<StateLine["on"]> & { state: string };
+
 /**
  * A source's lines of one integration in one table: per type its switch, schedule, what and how,
  * Edit and `⋯` (ADR-0021). The switch off is the policy `off`; on again, the type's default mode.
- * Only the lines the caller may change or run.
+ * Only the lines the caller may change or run. `send`: a machine's line whose switch and When are
+ * its send of that kind (Edit and `⋯` stay the hub's import of it).
  */
 export function PolicyLines({
   integration: i,
@@ -189,6 +193,7 @@ export function PolicyLines({
   title,
   what = true,
   how = true,
+  send,
 }: {
   integration: Integration;
   types: LineType[];
@@ -196,6 +201,7 @@ export function PolicyLines({
   title: string;
   what?: boolean;
   how?: boolean;
+  send?: (type: LineType) => SendLine | undefined;
 }) {
   const { t } = useTranslation();
   const admin = useManagesLine(types[0] ?? "printers");
@@ -247,31 +253,47 @@ export function PolicyLines({
           {
             id: "on",
             header: t("settings:sources.columns.on"),
-            cell: (r) => (
-              <Switch
-                label={t("settings:sources.lineOn", { type: name(r.type), source: title })}
-                labelClassName="sr-only"
-                checked={r.mode !== "off"}
-                disabled={!admin || patch.isPending}
-                onChange={(e) =>
-                  patch.mutate({
-                    policies: [{ type: r.type, mode: e.target.checked ? mode(r.type) : "off" }],
-                  })
-                }
-              />
-            ),
+            cell: (r) => {
+              const s = send?.(r.type);
+              return s ? (
+                <Switch
+                  label={s.label}
+                  labelClassName="sr-only"
+                  checked={s.checked}
+                  disabled={s.disabled}
+                  onChange={(e) => s.set(e.target.checked)}
+                />
+              ) : (
+                <Switch
+                  label={t("settings:sources.lineOn", { type: name(r.type), source: title })}
+                  labelClassName="sr-only"
+                  checked={r.mode !== "off"}
+                  disabled={!admin || patch.isPending}
+                  onChange={(e) =>
+                    patch.mutate({
+                      policies: [{ type: r.type, mode: e.target.checked ? mode(r.type) : "off" }],
+                    })
+                  }
+                />
+              );
+            },
           },
           {
             id: "when",
             header: t("settings:sources.columns.when"),
             // The schedule, and under it the last run: one column, so the line fits a laptop.
-            cell: (r) => (
-              <When
-                policy={r}
-                files={files}
-                syncing={sync.isPending && sync.variables?.type === r.type}
-              />
-            ),
+            cell: (r) => {
+              const s = send?.(r.type);
+              return s ? (
+                <span className={cx(COL.when, "grid py-1.5")}>{s.state}</span>
+              ) : (
+                <When
+                  policy={r}
+                  files={files}
+                  syncing={sync.isPending && sync.variables?.type === r.type}
+                />
+              );
+            },
           },
           ...(what
             ? [
