@@ -3,14 +3,15 @@ import { Navigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { Tabs } from "../components/Tabs.tsx";
-import { meQuery, useCan } from "../lib/auth.ts";
+import { meQuery } from "../lib/auth.ts";
+import { useUsersShown } from "../lib/users.ts";
 import { RolesSection } from "./settings/RolesSection.tsx";
 import { UsersSection } from "./settings/UsersSection.tsx";
 
 /** Users and Roles tabs. Needs `users.manage`; while no account exists, only the first-admin offer. */
 export function UsersPage({ tab }: { tab: "users" | "roles" }) {
   const { t } = useTranslation();
-  const allowed = useCan("users.manage");
+  const allowed = useUsersShown();
   const me = useQuery(meQuery);
   if (!me.data) return null;
   if (!allowed) return <Navigate to="/" replace />;

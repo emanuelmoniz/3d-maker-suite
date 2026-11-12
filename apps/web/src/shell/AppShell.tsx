@@ -25,6 +25,7 @@ import { useHasTasks } from "../lib/integrations.ts";
 import { usePreferences } from "../lib/preferences.ts";
 import { useServerState, useSetServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
+import { useUsersShown } from "../lib/users.ts";
 import {
   ALL_ITEMS,
   CATALOG_ITEM,
@@ -314,7 +315,7 @@ function Sidebar() {
   const hubShown = useHubShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
-  const usersShown = useCan("users.manage");
+  const usersShown = useUsersShown();
   const tasks = useHasTasks();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
@@ -388,7 +389,7 @@ function BottomNav() {
   const hubShown = useHubShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
-  const usersShown = useCan("users.manage");
+  const usersShown = useUsersShown();
   const tasks = useHasTasks();
   const more = ALL_ITEMS.filter(
     (i) =>

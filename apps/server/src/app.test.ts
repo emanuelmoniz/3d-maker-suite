@@ -35,6 +35,7 @@ describe("api", () => {
       accent: "teal",
       hubEnabled: false,
       tagsEnabled: true,
+      accountsEnabled: true,
     });
     const patch = (payload: Record<string, unknown>) =>
       app.inject({ method: "PATCH", url: "/api/preferences", payload });

@@ -248,7 +248,6 @@ test("mobile: the More sheet reaches secondary pages", async ({ page }) => {
 
 test("hub switch: off by default, and waits for user accounts", async ({ page }) => {
   await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: "Hub" })).toBeVisible();
   const hub = page.getByRole("switch", { name: "Hub" });
   await expect(hub).not.toBeChecked();
   await expect(hub).toBeDisabled();

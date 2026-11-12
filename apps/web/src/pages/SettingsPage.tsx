@@ -17,6 +17,7 @@ import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
 import {
+  AccountsSwitch,
   HubSwitch,
   ServerActions,
   ServerSection,
@@ -149,6 +150,8 @@ export function SettingsPage() {
               </p>
             </div>
           )}
+          <AccountsSwitch />
+          {can.hub && <HubSwitch />}
           <StartAtLogin />
           <div className="grid gap-1.5">
             <span className="font-medium">{t("settings:dataDir.label")}</span>
@@ -183,12 +186,6 @@ export function SettingsPage() {
         {can.server && (
           <Section title={t("settings:sections.server")}>
             <ServerSection />
-          </Section>
-        )}
-
-        {can.hub && (
-          <Section title={t("settings:sections.hub")}>
-            <HubSwitch />
           </Section>
         )}
 

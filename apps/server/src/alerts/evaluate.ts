@@ -14,7 +14,7 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
-import { alertVisible, hasUsers } from "../lib/auth.ts";
+import { accountsOn, alertVisible } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
 import { printerTitle } from "../lib/numbers.ts";
@@ -458,7 +458,7 @@ export async function evaluateAlerts(
   const targets = new Set(
     channels.filter((c) => readChannel(db, key, c.id).enabled).map((c) => c.id),
   );
-  if (hasUsers(db)) {
+  if (accountsOn(db)) {
     if (targets.size) await notifyUsers(db, key, log, targets, now, baseUrl);
     return;
   }

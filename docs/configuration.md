@@ -13,7 +13,7 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `PORT` | `4300` | HTTP port |
 | `HOST` | `127.0.0.1` | Address to listen on. Only change this to reach the app from other devices. |
 | `APP_DATA_DIR` | see [install.md](install.md#where-your-data-is) | Where the database, thumbnails, backups and key file live |
-| `APP_PASSWORD` | unset | HTTP Basic password, used only until the first user account exists ([users.md](users.md)). Required when `HOST` is not a loopback address and no account exists. Any user name works. |
+| `APP_PASSWORD` | unset | HTTP Basic password, used only until the first user account exists, or while **User accounts** is off ([users.md](users.md#turn-accounts-off)). Required when `HOST` is not a loopback address and no account is in use. Any user name works. |
 | `APP_ALLOWED_HOSTS` | unset | Comma-separated public host names a reverse proxy forwards in `Host`, e.g. `3d.example.com,makersuite.example.org`. Bare names or IPs only (no scheme, port, path or wildcard; IPv6 in brackets). Exact matches, case-insensitive. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `APP_TRUST_PROXY` | unset | Comma-separated IPs or CIDRs of your reverse proxies, e.g. `127.0.0.1` or `172.16.0.0/12` (Docker). The app then takes the client's address from `X-Forwarded-For`, so the lockout after wrong passwords or pairing codes hits only that client. Addresses only: a hop count or `true` would let a client fake its address. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
@@ -42,7 +42,7 @@ Then open `http://<your-PC-address>:4300` from the other device and sign in. Cre
 HOST=0.0.0.0 APP_PASSWORD=choose-a-long-password pnpm start
 ```
 
-Once an account exists, `APP_PASSWORD` is ignored and you should remove it. Use HTTPS (a reverse proxy) if you expose it outside your home network. Without `APP_PASSWORD`, the server rejects requests that are not addressed to `localhost` or `HOST`.
+Once an account exists, `APP_PASSWORD` is ignored and you should remove it (unless you turn **User accounts** off, see [users.md](users.md#turn-accounts-off)). Use HTTPS (a reverse proxy) if you expose it outside your home network. Without `APP_PASSWORD`, the server rejects requests that are not addressed to `localhost` or `HOST`.
 
 ## Behind a reverse proxy
 

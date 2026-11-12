@@ -9,7 +9,7 @@ With the switch off, nothing changes.
 ## Turn the hub on
 
 1. Set up user accounts first ([users.md](users.md)): every device acts as a user.
-2. As an admin, go to **Settings → Server** and turn on **Hub**.
+2. As an admin, go to **Settings → General** and turn on **Hub** (below **User accounts**, which must be on).
 3. **Hub management** appears in the menu next to Integrations (admins only). It lists the devices: name, user, OS, connector version, and online or last seen. Its **Settings** page holds the sync, lock and version settings.
 
 If the hub is switched off again, connectors show "The hub is turned off on this server" and keep their pairing.

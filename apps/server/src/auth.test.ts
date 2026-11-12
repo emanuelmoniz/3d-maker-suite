@@ -762,6 +762,51 @@ describe("users", () => {
   });
 });
 
+describe("accounts switch", () => {
+  it("off takes the no-users path; on asks for a login again; users and roles stay", async () => {
+    const { db, app } = await setup({ access: { host: "0.0.0.0", password: "pw" } });
+    addUser(db, "admin");
+    const basic = { authorization: `Basic ${Buffer.from("x:pw").toString("base64")}` };
+    const cookie = cookieOf(await login(app, "admin@x.io"));
+    const get = (url: string, headers: Record<string, string> = {}) =>
+      app.inject({ url, headers: { host: "nas.lan", ...headers } });
+    const patch = (payload: object, headers: Record<string, string>) =>
+      app.inject({ method: "PATCH", url: "/api/preferences", payload, headers });
+
+    expect((await get("/api/printers", basic)).statusCode).toBe(401); // a session is needed
+    expect((await patch({ accountsEnabled: false }, { cookie })).statusCode).toBe(200);
+    // Off: APP_PASSWORD guards again, and nobody is signed in.
+    expect((await get("/api/printers")).statusCode).toBe(401);
+    expect((await get("/api/printers", basic)).statusCode).toBe(200);
+    expect((await get("/api/auth/me", { ...basic, cookie })).json().user).toBeNull();
+    const roles = db.select().from(schema.roles).all().length;
+
+    expect((await patch({ accountsEnabled: true }, basic)).statusCode).toBe(200);
+    expect((await get("/api/printers", { cookie })).statusCode).toBe(401); // the old session ended
+    const again = cookieOf(await login(app, "admin@x.io"));
+    expect((await get("/api/auth/me", { cookie: again })).json().user.email).toBe("admin@x.io");
+    expect(db.select().from(schema.users).all()).toHaveLength(1);
+    expect(db.select().from(schema.roles).all()).toHaveLength(roles);
+  });
+
+  it("blocks the hub, and the hub blocks it", async () => {
+    const { db, app } = await setup();
+    addUser(db, "admin");
+    const admin = as(app, cookieOf(await login(app, "admin@x.io")));
+    const patch = (body: object) => admin.send("PATCH", "/api/preferences", body);
+    const code = async (body: object) => (await patch(body)).json().error?.code;
+
+    expect((await patch({ hubEnabled: true })).statusCode).toBe(200);
+    expect(await code({ accountsEnabled: false })).toBe("hub_needs_users");
+    expect((await patch({ hubEnabled: false, accountsEnabled: false })).statusCode).toBe(200);
+    // Now in the no-users mode: no cookie needed, and the hub can't come on.
+    const anon = (payload: object) =>
+      app.inject({ method: "PATCH", url: "/api/preferences", payload });
+    expect((await anon({ hubEnabled: true })).json().error.code).toBe("hub_needs_users");
+    expect((await anon({ accountsEnabled: true, hubEnabled: true })).statusCode).toBe(200);
+  });
+});
+
 describe("roles and overrides (ADR-0016)", () => {
   const start = async () => {
     const { db, app } = await setup();

@@ -494,6 +494,9 @@ export const isPublic = (url: string) => {
 export const hasUsers = (db: Db) =>
   !!db.select({ id: schema.users.id }).from(schema.users).limit(1).get();
 
+/** Accounts are in force: some exist and the switch is on. Otherwise the no-users mode. */
+export const accountsOn = (db: Db) => readPreferences(db).accountsEnabled && hasUsers(db);
+
 export const isLoopbackIp = (ip: string) =>
   ip === "::1" || ip.startsWith("127.") || ip.startsWith("::ffff:127.");
 
@@ -548,7 +551,8 @@ export function readDevice(db: Db, token: string, now = new Date()) {
 }
 
 /**
- * The one onRequest hook (ADR-0012). No users: the old access guard (host guard, `APP_PASSWORD`).
+ * The one onRequest hook (ADR-0012). No users, or the accounts switch off: the old access guard
+ * (host guard, `APP_PASSWORD`).
  * Users: a session (or a device token, ADR-0014) for everything but the public routes, then the
  * permission table. The host guard stays
  * on for loopback binds, so a DNS-rebinding page can't reach setup from the server's own browser.
@@ -565,7 +569,7 @@ export function authGuard(
     accessGuard({ host: access.host, allowedHosts: access.allowedHosts });
 
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!hasUsers(db)) return legacy?.(req, reply);
+    if (!accountsOn(db)) return legacy?.(req, reply);
     const blocked = hostOnly && (await hostOnly(req, reply));
     if (blocked) return blocked;
     if (isPublic(req.url)) return;

@@ -78,6 +78,11 @@ const shape = {
   dashboardLayout: z.array(dashboardWidgetSchema),
   /** Off only hides tags in the UI: data, API, backups and exports stay. */
   tagsEnabled: z.boolean(),
+  /**
+   * Off: the no-users mode (host guard, `APP_PASSWORD`); users and roles stay. Turning it back on
+   * ends every session, so the next request signs in.
+   */
+  accountsEnabled: z.boolean(),
   /** Hub features (ADR-0014): devices, device roots and sync. Needs user accounts. */
   hubEnabled: z.boolean(),
   /** A device that deletes more files than this from one hub root at once pauses and asks. */
@@ -156,6 +161,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
     "Other",
   ],
   tagsEnabled: true,
+  accountsEnabled: true,
   hubEnabled: false,
   hubDeleteGuard: 20,
   hubLocks: "off",

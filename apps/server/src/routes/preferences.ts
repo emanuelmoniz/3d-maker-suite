@@ -36,10 +36,19 @@ export const preferencesRoutes =
         const denied = Object.keys(req.body).filter((k) => user && !mayPatchKey(user.rights, k));
         if (denied.length)
           throw new HttpError(403, "forbidden", `Not allowed for your role: ${denied.join(", ")}`);
-        // Devices act as a user, so the hub needs accounts (ADR-0014).
-        if (req.body.hubEnabled && !hasUsers(db))
+        // Devices act as a user, so the hub needs accounts (ADR-0014), and the switch stays on while
+        // the hub is.
+        const prev = read(db);
+        const next = { ...prev, ...req.body };
+        if (
+          (req.body.hubEnabled || req.body.accountsEnabled === false) &&
+          next.hubEnabled &&
+          !(next.accountsEnabled && hasUsers(db))
+        )
           throw new HttpError(409, "hub_needs_users", "The hub needs user accounts");
         db.transaction((tx) => {
+          // Back on: everyone signs in again, so a cookie from before doesn't skip the password.
+          if (next.accountsEnabled && !prev.accountsEnabled) tx.delete(schema.sessions).run();
           for (const [key, value] of Object.entries(req.body)) {
             // Display keys aren't nullable, so they never reach the delete below.
             if (user && OWN.includes(key))

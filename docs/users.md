@@ -107,6 +107,14 @@ Set the host to `0.0.0.0` and sign in from the other device with your account. Y
 
 **Moving from `APP_PASSWORD`:** the shared password is ignored once an account exists, and the server warns about it at start. Create your accounts, sign in once to check, then remove `APP_PASSWORD` from your environment or `docker-compose.yml`.
 
+## Turn accounts off
+
+An admin can switch **User accounts** off in Settings → General, for example when only one person uses the app again. The app then works as it did before accounts existed: nobody signs in, and whoever reaches the app has full access. On a network address (`HOST=0.0.0.0`) without `APP_PASSWORD`, only this PC reaches the app; with `APP_PASSWORD` set, it works as the shared password again ([configuration.md](configuration.md#access-from-other-devices)).
+
+Users, roles and their rights are kept. Turning the switch back on restores them and ends every session, so everyone, you included, signs in again with their existing password.
+
+The hub needs accounts, because each device acts as a user: turn the hub off before turning accounts off, and the hub can't be turned on while accounts are off. **Users | Roles** leaves the menu while accounts are off.
+
 ## Forgot the admin password
 
 Reset it from the server's shell. The new password is printed once; sign in with it and change it under **My account**. The command ends that user's sessions.

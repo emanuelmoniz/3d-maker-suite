@@ -7,7 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { api } from "../../lib/api.ts";
-import { useCan, useMe } from "../../lib/auth.ts";
+import { useCan, useIsAdmin, useMe } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useSetServerState } from "../../lib/serverState.ts";
 import { health } from "../../lib/updates.ts";
@@ -161,9 +161,10 @@ export function StartAtLogin() {
 /** The hub switch (ADR-0014): off by default, and only with user accounts (devices act as one). */
 export function HubSwitch() {
   const { t } = useTranslation();
-  const on = usePreferences().data?.values.hubEnabled;
+  const values = usePreferences().data?.values;
+  const on = values?.hubEnabled;
   const save = useSavePreferences();
-  // An admin without a session is the no-accounts mode (ADR-0012).
+  // An admin without a session is the no-accounts mode (ADR-0012), or the accounts switch is off.
   const noUsers = !useMe();
   if (on === undefined) return null;
   return (
@@ -178,12 +179,78 @@ export function HubSwitch() {
       <p id="hub-enabled-hint" className="text-muted">
         {t("settings:hub.enabledHint")}
       </p>
-      {noUsers && <p className="text-muted">{t("settings:hub.needsUsers")}</p>}
+      {noUsers && (
+        <p className="text-muted">
+          {values?.accountsEnabled
+            ? t("settings:hub.needsUsers")
+            : t("settings:hub.needsAccountsOn")}
+        </p>
+      )}
       {save.isError && (
         <p role="alert" className="text-bad">
           {t("settings:saveError")}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * The user accounts switch, Admin role only. Shown once an account exists (signed in) or while off.
+ * Each change reloads: off has no session, on sends everyone to the login.
+ */
+export function AccountsSwitch() {
+  const { t } = useTranslation();
+  const values = usePreferences().data?.values;
+  const signedIn = !!useMe();
+  const admin = useIsAdmin();
+  const config = useServerConfig().data;
+  const save = useSavePreferences();
+  const [confirm, setConfirm] = useState(false);
+  if (!values || !admin || (!signedIn && values.accountsEnabled)) return null;
+  const on = values.accountsEnabled;
+  const set = (accountsEnabled: boolean) =>
+    save.mutate(
+      { accountsEnabled },
+      { onSuccess: () => window.location.assign(accountsEnabled ? "/login" : "/settings") },
+    );
+  const localOnly = !!config && !LOOPBACK.includes(config.effective.host) && !config.passwordSet;
+  return (
+    <div>
+      <Switch
+        label={t("settings:general.accounts")}
+        aria-describedby="accounts-enabled-hint"
+        checked={on}
+        disabled={save.isPending || (on && values.hubEnabled)}
+        onChange={(e) => (e.target.checked ? set(true) : setConfirm(true))}
+      />
+      <p id="accounts-enabled-hint" className="text-muted">
+        {t("settings:general.accountsHint")}
+      </p>
+      {on && values.hubEnabled && (
+        <p className="text-muted">{t("settings:general.accountsHubOn")}</p>
+      )}
+      {save.isError && (
+        <p role="alert" className="text-bad">
+          {t("settings:saveError")}
+        </p>
+      )}
+      <ConfirmDialog
+        open={confirm}
+        destructive
+        title={t("settings:general.accountsOffTitle")}
+        description={
+          localOnly
+            ? `${t("settings:general.accountsOffBody")}\n\n${t("settings:general.accountsOffLocal")}`
+            : t("settings:general.accountsOffBody")
+        }
+        confirmLabel={t("settings:general.accountsOff")}
+        onConfirm={() => {
+          setConfirm(false);
+          set(false);
+        }}
+        onCancel={() => setConfirm(false)}
+      />
     </div>
   );
 }

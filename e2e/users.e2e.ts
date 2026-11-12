@@ -169,6 +169,41 @@ test("users: old Settings links land on Users | Roles", async ({ page, app }) =>
   await expect(page).toHaveURL(/\/users$/);
 });
 
+test("users: the accounts switch turns sign-in off and back on", async ({ page, app }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await app.api("POST", "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  await page.goto("/login");
+  await signIn(page, "ana@example.com", PASSWORD);
+  await expect(page).toHaveURL(/\/$/);
+
+  // Off asks first, then nobody is signed in and Users | Roles leaves the menu.
+  await page.goto("/settings");
+  const accounts = page.getByRole("switch", { name: "User accounts" });
+  await accounts.click({ force: true }); // stays on until confirmed
+  const confirm = page.getByRole("dialog", { name: "Turn off user accounts?" });
+  await confirm.getByRole("button", { name: "Turn off" }).click();
+  await expect(page.getByRole("switch", { name: "User accounts" })).not.toBeChecked();
+  await expect(page.getByLabel("Account menu for Ana Admin")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Users | Roles" })).toHaveCount(0);
+  await expect(page.getByRole("switch", { name: "Hub" })).toBeDisabled();
+  await expect(page.getByText("Turn on user accounts under General first.")).toBeVisible();
+  await page.goto("/printers");
+  await expect(page).toHaveURL(/\/printers$/);
+
+  // Back on: the next page is the login, and the account is still there.
+  await page.goto("/settings");
+  await page.getByRole("switch", { name: "User accounts" }).click({ force: true });
+  await expect(page).toHaveURL(/\/login/);
+  await signIn(page, "ana@example.com", PASSWORD);
+  await expect(page).not.toHaveURL(/\/login/);
+  await page.goto("/users");
+  await expect(page.getByRole("table", { name: "Users" }).getByText("Ana Admin")).toBeVisible();
+});
+
 test("users: login and sign out fit a phone", async ({ page, app }) => {
   await page.setViewportSize({ width: 375, height: 700 });
   await app.api("POST", "/api/auth/setup", {

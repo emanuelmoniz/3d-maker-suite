@@ -252,7 +252,9 @@ test("projects: the description editor writes the .md file and the preview file 
   await pick(create.getByLabel("Folder"), "sub");
   await create.getByRole("button", { name: "Create file" }).click();
   // Made with the text so far, and picked.
-  await expect(page.getByLabel("Project info file")).toHaveValue("sub/notes.md");
+  await expect(page.getByRole("combobox", { name: "Project info file" })).toHaveValue(
+    "sub/notes.md",
+  );
   expect(readFileSync(join(dir, "sub", "notes.md"), "utf8")).toBe("# Gadget");
 
   await editor.fill("# Gadget\n\nMade **fast**");

@@ -12,6 +12,14 @@ import {
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
+import { useCan } from "./auth.ts";
+import { usePreferences } from "./preferences.ts";
+
+/** Users | Roles: users.manage, unless the accounts switch is off. */
+export const useUsersShown = () => {
+  const on = usePreferences().data?.values.accountsEnabled ?? true;
+  return useCan("users.manage") && on;
+};
 
 const KEY = ["users"];
 const ROLES = ["roles"];

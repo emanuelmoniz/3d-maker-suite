@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./Button.tsx";
 
@@ -29,6 +29,7 @@ export function ConfirmDialog({
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const d = ref.current;
     if (!d || open === d.open) return;
@@ -39,6 +40,8 @@ export function ConfirmDialog({
     // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click is a pointer shortcut; Escape closes natively
     <dialog
       ref={ref}
+      // Named only while open, so a closed one doesn't answer a page's label lookups.
+      aria-labelledby={open ? titleId : undefined}
       onCancel={(e) => {
         e.preventDefault();
         onCancel();
@@ -46,7 +49,9 @@ export function ConfirmDialog({
       onClick={(e) => e.target === ref.current && onCancel()}
       className="m-auto w-[min(92vw,26rem)] rounded-lg border border-border bg-surface p-5 whitespace-normal text-fg"
     >
-      <h2 className="text-base font-semibold wrap-anywhere">{title}</h2>
+      <h2 id={titleId} className="text-base font-semibold wrap-anywhere">
+        {title}
+      </h2>
       {description && <p className="mt-2 whitespace-pre-line text-muted">{description}</p>}
       {children && <div className="mt-4 grid gap-3">{children}</div>}
       <div className="mt-5 flex justify-end gap-2">

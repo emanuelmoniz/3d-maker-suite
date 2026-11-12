@@ -158,7 +158,6 @@
     "alerts": "Alerts",
     "backup": "Backup & export",
     "server": "Network",
-    "hub": "Hub",
     "logs": "Logs",
     "about": "About & updates"
   },
@@ -172,7 +171,14 @@
     "time24h": "24-hour (14:30)",
     "time12h": "12-hour (2:30 PM)",
     "tags": "Tags",
-    "tagsHint": "Off hides tags everywhere. Your tags are kept, and turning this back on restores them."
+    "tagsHint": "Off hides tags everywhere. Your tags are kept, and turning this back on restores them.",
+    "accounts": "User accounts",
+    "accountsHint": "Off: nobody signs in and the app works for a single user, as before accounts existed. Users and roles are kept, and turning this back on restores them; then everyone signs in again.",
+    "accountsHubOn": "Turn the hub off first: it needs user accounts.",
+    "accountsOffTitle": "Turn off user accounts?",
+    "accountsOffBody": "Nobody needs to sign in any more, and everyone who reaches the app has full access. Users and roles are kept for when you turn accounts back on.",
+    "accountsOffLocal": "This server has no APP_PASSWORD, so only this PC will reach the app.",
+    "accountsOff": "Turn off"
   },
   "branding": {
     "title": "Branding",
@@ -463,7 +469,8 @@
   "hub": {
     "enabled": "Hub",
     "enabledHint": "Lets workstations, a NAS or a file server join this server with a small connector app, so project folders on those devices show up here and folders on this server can sync to them. Off: nothing changes.",
-    "needsUsers": "The hub needs user accounts, because each device acts as a user. Add an admin account under Users first."
+    "needsUsers": "The hub needs user accounts, because each device acts as a user. Add an admin account under Users first.",
+    "needsAccountsOn": "The hub needs user accounts, because each device acts as a user. Turn on user accounts under General first."
   },
   "logs": {
     "hint": "Keeps a record of what the app does in its database, for troubleshooting. Credentials are never written.",

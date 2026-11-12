@@ -2872,7 +2872,7 @@ Do Step 3 of the 5.6.0 plan in PLAN.md.
 Do Step 4 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5 - User accounts switch
+### [x] Step 5 - User accounts switch
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - `accountsEnabled` in `schemas/preferences.ts`, default `true`, admin only. Off: `authGuard` (`lib/auth.ts`) takes the no-users path, the same as `hasUsers(db)` false, and `useMe`/`useRights` behave as with no users. Users, roles and sessions stay in the database.
