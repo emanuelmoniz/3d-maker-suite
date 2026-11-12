@@ -40,7 +40,7 @@ export function RolesSection() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="min-w-0 flex-1 text-muted">{t("users:roles.hint")}</p>
         <Link
-          to="/settings/roles/new"
+          to="/users/roles/new"
           className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90"
         >
           <Plus className="size-4" aria-hidden />
@@ -63,7 +63,7 @@ export function RolesSection() {
               header: t("users:roles.columns.name"),
               cell: (r) => (
                 <span className="inline-flex items-center gap-2">
-                  <Link to="/settings/roles/$id" params={{ id: r.id }} className={textLink}>
+                  <Link to="/users/roles/$id" params={{ id: r.id }} className={textLink}>
                     {r.name}
                   </Link>
                   {r.builtIn && (

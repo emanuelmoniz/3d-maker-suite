@@ -82,7 +82,7 @@ function RoleForm({ role, roles }: { role: Role | null; roles: Role[] }) {
         else
           create.mutate(draft, {
             onSuccess: (r) =>
-              navigate({ to: "/settings/roles/$id", params: { id: r.id }, replace: true }),
+              navigate({ to: "/users/roles/$id", params: { id: r.id }, replace: true }),
           });
       }}
     >
@@ -169,7 +169,7 @@ function RoleForm({ role, roles }: { role: Role | null; roles: Role[] }) {
   );
 }
 
-/** A role's name, state and rights (users.manage only); `/settings/roles/new` adds one. */
+/** A role's name, state and rights (users.manage only); `/users/roles/new` adds one. */
 export function RoleEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id?: string };
@@ -179,7 +179,7 @@ export function RoleEditPage() {
 
   return (
     <>
-      <PageHeader title={title} backTo={{ to: "/settings" }} />
+      <PageHeader title={title} backTo={{ to: "/users/roles" }} />
       {roles.isError && (
         <p role="alert" className="text-bad">
           {t("users:list.errors.generic")}

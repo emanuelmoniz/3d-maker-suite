@@ -277,7 +277,7 @@ function Uncovered() {
         kinds: formatList(kinds.map((k) => t(`alerts:kindNames.${k}`))),
       })}{" "}
       {roles && (
-        <Link to="/settings" hash="roles" className={textLink}>
+        <Link to="/users/roles" className={textLink}>
           {t("settings:alerts.editRoles")}
         </Link>
       )}

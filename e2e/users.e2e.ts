@@ -12,8 +12,8 @@ const signIn = async (page: Page, email: string, password: string) => {
 test("users: setup, add a user, sign out and in, change password", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  // First run: Settings offers to create the admin.
-  await page.goto("/settings");
+  // First run: Users | Roles offers to create the admin.
+  await page.goto("/users");
   await page.getByRole("link", { name: "Create the first admin" }).click();
   await expect(page).toHaveURL(/\/setup$/);
   await page.getByLabel("Name").fill("Ana Admin");
@@ -29,8 +29,8 @@ test("users: setup, add a user, sign out and in, change password", async ({ page
   await expect(page.getByText("ana@example.com · Admin")).toBeVisible();
 
   // The admin adds an editor.
-  await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+  await page.goto("/users");
+  await expect(page.getByRole("heading", { name: "Users | Roles" })).toBeVisible();
   await page.getByRole("button", { name: "Add user" }).click();
   const add = page.getByRole("dialog", { name: "Add user" });
   await add.getByLabel("Name").fill("Eva Editor");
@@ -102,7 +102,7 @@ test("users: a custom role and an override change what a user sees", async ({ pa
   });
 
   // A new role from Viewer that manages printers, picked by keyboard on the ladder.
-  await page.goto("/settings");
+  await page.goto("/users/roles");
   await page.getByRole("link", { name: "New role" }).click();
   await page.getByLabel("Name").fill("Printer tech");
   const printers = page.getByRole("group", { name: /^Printers and accessories/ });
@@ -116,7 +116,7 @@ test("users: a custom role and an override change what a user sees", async ({ pa
   await expect(page.getByRole("heading", { name: "Printer tech" })).toBeVisible();
 
   // Pat gets the role, plus write on quotes, orders and clients as an override.
-  await page.goto("/settings");
+  await page.goto("/users");
   await page.getByRole("table", { name: "Users" }).getByRole("link", { name: "Pat Tech" }).click();
   await page.getByRole("combobox", { name: "Role" }).fill("Printer tech");
   await page.getByRole("option", { name: "Printer tech" }).click();
@@ -142,6 +142,30 @@ test("users: a custom role and an override change what a user sees", async ({ pa
   await expect(page.getByRole("link", { name: "Add client" }).first()).toBeVisible();
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Users" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Users | Roles" })).toHaveCount(0);
+  await page.goto("/users");
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("users: old Settings links land on Users | Roles", async ({ page, app }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await app.api("POST", "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  await page.goto("/login");
+  await signIn(page, "ana@example.com", PASSWORD);
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/settings#roles");
+  await expect(page).toHaveURL(/\/users\/roles$/);
+  await expect(page.getByRole("table", { name: "Roles" })).toBeVisible();
+  await page.goto("/settings#users");
+  await expect(page).toHaveURL(/\/users$/);
+  await page.goto("/settings/roles/new");
+  await expect(page).toHaveURL(/\/users\/roles\/new$/);
+  await page.getByRole("link", { name: "Users | Roles" }).first().click();
+  await expect(page).toHaveURL(/\/users$/);
 });
 
 test("users: login and sign out fit a phone", async ({ page, app }) => {
@@ -187,7 +211,7 @@ test("users: my alerts and delivery on My account, an admin sets another user's 
   });
 
   // The admin gives Vic maintenance alerts by notify.
-  await page.goto(`/settings/users/${eva.id}`);
+  await page.goto(`/users/${eva.id}`);
   const maintenance = page.getByLabel("Maintenance due");
   await expect(maintenance).toHaveValue("");
   await maintenance.selectOption("notify");

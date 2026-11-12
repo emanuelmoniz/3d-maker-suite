@@ -35,6 +35,7 @@ import {
   NAV_GROUPS,
   type NavItem,
   SETTINGS_ITEM,
+  USERS_ITEM,
 } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
@@ -313,6 +314,7 @@ function Sidebar() {
   const hubShown = useHubShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
+  const usersShown = useCan("users.manage");
   const tasks = useHasTasks();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
@@ -337,6 +339,7 @@ function Sidebar() {
         {catalogShown && <SideLink item={CATALOG_ITEM} />}
         {importShown && <SideLink item={IMPORT_ITEM} />}
         {logsShown && <SideLink item={LOGS_ITEM} />}
+        {usersShown && <SideLink item={USERS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <UserMenu />
         <ThemeToggle className="mt-1.5 flex-col lg:flex-row" />
@@ -385,10 +388,12 @@ function BottomNav() {
   const hubShown = useHubShown();
   const importShown = useCan("integrations.manage");
   const catalogShown = useCan("catalog", "read");
+  const usersShown = useCan("users.manage");
   const tasks = useHasTasks();
   const more = ALL_ITEMS.filter(
     (i) =>
       !i.primary &&
+      (usersShown || i !== USERS_ITEM) &&
       (catalogShown || i !== CATALOG_ITEM) &&
       (logsShown || i !== LOGS_ITEM) &&
       (importShown || i !== IMPORT_ITEM) &&

@@ -22,7 +22,7 @@ Each kind of alert needs a permission, and a user never gets a kind whose permis
 
 A sync alert also follows the sync policy's "users with the Sync (Review) permission" switch, unless the user manages integrations.
 
-Per kind, a role sets **Off**, **In app** or **Notify** (notify also sends it by email or ntfy). In **Settings → Roles** this is the alerts card; on a user's page, **Same as role** follows the role, also when it changes later. Under **Settings → Alerts** a warning shows when no enabled user gets a condition alert (for example maintenance due).
+Per kind, a role sets **Off**, **In app** or **Notify** (notify also sends it by email or ntfy). In the **Roles** tab of **Users | Roles** this is the alerts card; on a user's page, **Same as role** follows the role, also when it changes later. Under **Settings → Alerts** a warning shows when no enabled user gets a condition alert (for example maintenance due).
 
 Read, snooze and dismiss are per person. A condition alert (maintenance due, low spool) resolves for everyone once the cause is fixed; an event alert (sync failed, slice failed) stays until each person dismisses it.
 

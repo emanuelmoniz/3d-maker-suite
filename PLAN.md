@@ -2858,7 +2858,7 @@ Do Step 3 of the 5.6.0 plan in PLAN.md.
 
 ## Phase 38 - Accounts and brand
 
-### [ ] Step 4 - Users | Roles page
+### [x] Step 4 - Users | Roles page
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - New `/users` page with Users and Roles tabs (the `Tabs` component from 5.5.0 Step 3). `UsersSection` and `RolesSection` move there from `SettingsPage.tsx`.

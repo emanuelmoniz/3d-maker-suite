@@ -12,7 +12,7 @@ Until the first account exists, anyone who can open the page can create it. Do t
 
 ## Roles
 
-A role is a set of permissions. Each user has one role, and gets what it allows. Manage roles under **Settings → Roles**.
+A role is a set of permissions. Each user has one role, and gets what it allows. Manage roles under the **Roles** tab of **Users | Roles**.
 
 Three roles come built in:
 
@@ -61,7 +61,7 @@ Admin, Editor and Viewer see everyone's projects. Admin and Editor edit them. On
 
 ### Give one user more or less
 
-Open a user under **Settings → Users** to change any permission or project right for that user only. **Same as role** follows the role, also when the role changes later. Each row shows the user's value and the role's.
+Open a user under **Users | Roles** to change any permission or project right for that user only. **Same as role** follows the role, also when the role changes later. Each row shows the user's value and the role's.
 
 Admin-role users have every permission; the only thing to change for them is **Edit files on other workstations**.
 
@@ -93,7 +93,7 @@ Which alerts a person gets is set per role (Off, In app or Notify) and can be ov
 
 ## Manage users
 
-People with **Users and roles** open **Settings → Users** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.
+People with **Users and roles** open **Users | Roles** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.
 
 Each person changes their own name and password under **My account** in the account menu.
 

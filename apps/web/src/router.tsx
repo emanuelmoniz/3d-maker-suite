@@ -78,6 +78,7 @@ import { ProjectFolderPage } from "./pages/settings/ProjectFolderPage.tsx";
 import { RoleEditPage } from "./pages/settings/RoleEditPage.tsx";
 import { UserEditPage } from "./pages/settings/UserEditPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
+import { UsersPage } from "./pages/UsersPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
 import {
   ALL_ITEMS,
@@ -87,6 +88,7 @@ import {
   INTEGRATIONS_ITEM,
   LOGS_ITEM,
   SETTINGS_ITEM,
+  USERS_ITEM,
 } from "./shell/nav.ts";
 
 function NotFound() {
@@ -118,6 +120,7 @@ const built = [
   INTEGRATIONS_ITEM.to,
   HUB_ITEM.to,
   SETTINGS_ITEM.to,
+  USERS_ITEM.to,
   LOGS_ITEM.to,
   "/printers",
   "/maintenance",
@@ -580,15 +583,24 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: SETTINGS_ITEM.to,
+    // The Users and Roles sections were here before 5.6.0: their `#users` and `#roles` links land.
+    beforeLoad: ({ location }) => {
+      const h = location.hash.replace(/^#/, "");
+      if (h === "users") throw redirect({ to: "/users" });
+      if (h === "roles") throw redirect({ to: "/users/roles" });
+    },
     loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
     component: SettingsPage,
   }),
-  // "/settings/roles/new" is declared before "/settings/roles/$id" so it wins the match.
+  // Users | Roles: a tab each. "/users/roles" and "/users/roles/new" are declared next to
+  // "/users/$id"; static segments win the match.
   ...(
     [
-      ["/settings/users/$id", UserEditPage],
-      ["/settings/roles/new", RoleEditPage],
-      ["/settings/roles/$id", RoleEditPage],
+      ["/users", () => <UsersPage tab="users" />],
+      ["/users/roles", () => <UsersPage tab="roles" />],
+      ["/users/$id", UserEditPage],
+      ["/users/roles/new", RoleEditPage],
+      ["/users/roles/$id", RoleEditPage],
     ] as const
   ).map(([path, component]) =>
     createRoute({
@@ -596,6 +608,22 @@ const routes: AnyRoute[] = [
       path,
       loader: () => loadNamespace("users"),
       component,
+    }),
+  ),
+  // Their edit pages were under Settings before 5.6.0.
+  ...(
+    [
+      ["/settings/users/$id", "/users/$id"],
+      ["/settings/roles/new", "/users/roles/new"],
+      ["/settings/roles/$id", "/users/roles/$id"],
+    ] as const
+  ).map(([path, to]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      beforeLoad: ({ params }) => {
+        throw redirect({ to, params });
+      },
     }),
   ),
   createRoute({

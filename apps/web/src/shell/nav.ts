@@ -15,6 +15,7 @@ import {
   ScrollText,
   Settings,
   Spool,
+  UserCog,
   Users,
   Wrench,
 } from "lucide-react";
@@ -166,13 +167,21 @@ export const LOGS_ITEM: NavItem = {
   description: "nav:items.logs.description",
 };
 
+/** Right before Settings, with `users.manage`. */
+export const USERS_ITEM: NavItem = {
+  to: "/users",
+  icon: UserCog,
+  label: "nav:items.users.label",
+  description: "nav:items.users.description",
+};
+
 export const SETTINGS_ITEM: NavItem = {
   to: "/settings",
   icon: Settings,
   label: "nav:items.settings.label",
 };
 
-/** The bottom block (ADR-0021, ADR-0023): Hub management, Integrations, Catalog, Import | Export, Logs, Settings. */
+/** The bottom block (ADR-0021, ADR-0023): Hub management, Integrations, Catalog, Import | Export, Logs, Users | Roles, Settings. */
 export const ALL_ITEMS = [
   ...NAV_GROUPS.flatMap((g) => g.items),
   HUB_ITEM,
@@ -180,5 +189,6 @@ export const ALL_ITEMS = [
   CATALOG_ITEM,
   IMPORT_ITEM,
   LOGS_ITEM,
+  USERS_ITEM,
   SETTINGS_ITEM,
 ];

@@ -1,4 +1,5 @@
 {
+  "tabs": { "label": "Users and roles" },
   "fields": {
     "email": "Email",
     "password": "Password",

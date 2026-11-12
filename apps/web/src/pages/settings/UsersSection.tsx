@@ -135,7 +135,7 @@ export function UsersSection() {
               cell: (u) => (
                 <span className="inline-flex items-center gap-2">
                   {mayChange(u) ? (
-                    <Link to="/settings/users/$id" params={{ id: u.id }} className={textLink}>
+                    <Link to="/users/$id" params={{ id: u.id }} className={textLink}>
                       {u.displayName}
                     </Link>
                   ) : (
@@ -160,7 +160,7 @@ export function UsersSection() {
               cell: (u) => {
                 const r = roleOf(u.roleId);
                 return r ? (
-                  <Link to="/settings/roles/$id" params={{ id: r.id }} className={textLink}>
+                  <Link to="/users/roles/$id" params={{ id: r.id }} className={textLink}>
                     {r.name}
                   </Link>
                 ) : null;

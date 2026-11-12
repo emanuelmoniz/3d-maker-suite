@@ -8,7 +8,7 @@ import { PageHeader } from "../components/PageHeader.tsx";
 import { Section } from "../components/Section.tsx";
 import { Switch } from "../components/Switch.tsx";
 import { api } from "../lib/api.ts";
-import { useCan, useMe } from "../lib/auth.ts";
+import { useCan } from "../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, type Accent, useTheme } from "../lib/theme.ts";
 import { ThemeToggle } from "../shell/ThemeToggle.tsx";
@@ -16,14 +16,12 @@ import { AboutSection } from "./settings/AboutSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
 import { LogSection } from "./settings/LogSection.tsx";
-import { RolesSection } from "./settings/RolesSection.tsx";
 import {
   HubSwitch,
   ServerActions,
   ServerSection,
   StartAtLogin,
 } from "./settings/ServerSection.tsx";
-import { UsersSection } from "./settings/UsersSection.tsx";
 
 const ACCENT_LABELS = {
   teal: "settings:appearance.accents.teal",
@@ -60,13 +58,11 @@ export function SettingsPage() {
   const save = useSavePreferences();
   const can = {
     branding: useCan("settings.branding"),
-    users: useCan("users.manage"),
     server: useCan("settings.server"),
     hub: useCan("hub.manage"),
     backup: useCan("settings.backup"),
     logs: useCan("settings.logs"),
   };
-  const signedIn = !!useMe();
   const { accent, setAccent } = useTheme();
 
   if (isError)
@@ -181,18 +177,6 @@ export function SettingsPage() {
           <Section title={t("settings:branding.title")}>
             <p className="text-muted">{t("settings:branding.everyone")}</p>
             <BrandingFields />
-          </Section>
-        )}
-
-        {can.users && (
-          <Section title={t("users:list.title")} id="users" wide>
-            <UsersSection />
-          </Section>
-        )}
-
-        {can.users && signedIn && (
-          <Section title={t("users:roles.title")} id="roles" wide>
-            <RolesSection />
           </Section>
         )}
 
