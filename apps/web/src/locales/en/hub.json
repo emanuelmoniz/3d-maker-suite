@@ -221,7 +221,7 @@
     "projectCount_other": "{{count}} projects",
     "folderCount_one": "{{count}} folder",
     "folderCount_other": "{{count}} folders",
-    "foldersHint": "Its shared folders are picked on its connector page for now.",
+    "foldersHint": "Its shared folders are picked in Projects settings → Sources.",
     "projectsSettings": "Projects settings",
     "stopReceivingTitle": "Stop receiving projects on {{name}}?",
     "stopReceivingBody": "Its copies of hub projects are removed from the machine. Nothing is deleted on the hub.",

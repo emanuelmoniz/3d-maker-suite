@@ -5,6 +5,17 @@ import { ROOT_EDIT_BY } from "./enums.ts";
 /** Where a root's files live (ADR-0014): "hub" is a folder on this server. */
 export const ROOT_HUB = "hub";
 
+/**
+ * `path` is `folder` or inside it, both absolute paths of one machine in its own form: a drive or
+ * UNC path compares as Windows does (`\` or `/`, any case).
+ */
+export function devicePathIn(folder: string, path: string) {
+  const win = /^([A-Za-z]:|\\\\)/.test(folder);
+  const fold = (p: string) =>
+    (win ? p.replace(/\//g, "\\").toLowerCase() : p).replace(/[\\/]+$/, "") + (win ? "\\" : "/");
+  return fold(path).startsWith(fold(folder));
+}
+
 /** A folder searched for projects, with its own scan settings. */
 export const rootSchema = z.object({
   id,

@@ -392,6 +392,8 @@ export function createLink({
       store.set({ deviceName: event.data.name, cursor: seq });
     else if (event.success && event.data.type === "device.worker")
       store.set({ sliceWorker: event.data.on, cursor: seq });
+    else if (event.success && event.data.type === "folders.set")
+      store.set({ sharedFolders: event.data.folders, cursor: seq });
     else store.set({ cursor: seq });
     if (!event.success) return;
     // Reconnecting runs the update first, and reports how it went when the stream opens again.
@@ -456,7 +458,7 @@ export function createLink({
       online = true;
       error = undefined;
       log(`online at ${hub}`);
-      void roots.start();
+      void roots.start(true);
       void sync?.start();
       // Its slicers first: they say which folders to watch.
       void slicers.refresh().then(() => {

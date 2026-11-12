@@ -661,6 +661,97 @@ describe("hub events", () => {
     await s.cancel();
   });
 
+  it("keeps a machine's shared folders: the connector's list once, then the hub's (ADR-0021)", async () => {
+    const { app, db, send, viewer, token, deviceId, open, logged } = await live();
+    const report = (payload: object) =>
+      app.inject({
+        method: "PUT",
+        url: "/api/hub/device/folders",
+        payload,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    const url = `/api/hub/devices/${deviceId}/folders`;
+    const saved = () =>
+      db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get();
+
+    // Nothing reported yet (an older connector): nothing to edit.
+    expect((await send("POST", url, { path: "D:\\Models" })).json().error.code).toBe(
+      "device_outdated",
+    );
+    const first = [{ path: "D:\\Models", paused: false }];
+    expect((await report(first)).json()).toEqual(first);
+    expect(saved()).toMatchObject({ sharedFolders: first, shareProjects: true });
+    // The hub's list wins after.
+    expect((await report([{ path: "E:\\Other", paused: false }])).json()).toEqual(first);
+    expect((await send("GET", "/api/hub/devices")).json()[0].sharedFolders).toEqual(first);
+
+    const s = await open();
+    await s.until(": open");
+    expect((await send("POST", url, { path: "d:\\models\\Acme" })).json().error.code).toBe(
+      "folder_covered",
+    );
+    expect((await send("POST", url, { path: "models" })).statusCode).toBe(400);
+    // A parent takes the place of the folders inside it, and the connector is told.
+    expect((await send("POST", url, { path: "D:\\" })).json()).toEqual([
+      { path: "D:\\", paused: false },
+    ]);
+    expect(await s.until('"folders.set"')).toContain('"type":"folders.set"');
+    expect((await send("PATCH", url, { path: "E:\\", paused: true })).statusCode).toBe(404);
+    expect((await send("PATCH", url, { path: "D:\\", paused: true })).json()).toEqual([
+      { path: "D:\\", paused: true },
+    ]);
+    expect(logged.some((l) => l.includes("shared folder paused") && l.includes('"actor"'))).toBe(
+      true,
+    );
+
+    // A project folder only inside an active shared folder; refused before the device is asked.
+    const addRoot = (path: string) => send("POST", "/api/roots", { path, location: deviceId });
+    expect((await addRoot("D:\\Models")).json().error.code).toBe("path_denied");
+    await send("PATCH", url, { path: "D:\\", paused: false });
+    expect((await addRoot("E:\\Models")).json().error.code).toBe("path_denied");
+    const adding = addRoot("D:\\Models");
+    const text = (await s.until((t) => t.includes('"fs.list"'))) ?? "";
+    const requestId = /"requestId":"([^"]+)"/.exec(text)?.[1];
+    await app.inject({
+      method: "POST",
+      url: `/api/hub/device/replies/${requestId}`,
+      payload: { ok: true, result: { path: "D:\\Models", parent: "D:\\", sep: "\\", entries: [] } },
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect((await adding).statusCode).toBe(201);
+    // Share off: none of its folders takes a new project folder.
+    db.update(schema.devices)
+      .set({ shareProjects: false })
+      .where(eq(schema.devices.id, deviceId))
+      .run();
+    expect((await addRoot("D:\\Other")).json().error.code).toBe("path_denied");
+
+    // Removed with a project folder inside: allowed, it shows unshared once the connector says so.
+    expect((await send("DELETE", url, { path: "D:\\" })).json()).toEqual([]);
+
+    // Its own user: with machine.projects and projects write only, as on the machine page.
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: viewer.email, password: PW },
+    });
+    const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    const mine = () =>
+      app.inject({ method: "POST", url, payload: { path: "F:\\" }, headers: { cookie } });
+    const browse = () =>
+      app.inject({ url: `/api/fs/list?device=${deviceId}`, headers: { cookie } });
+    expect((await mine()).statusCode).toBe(403);
+    expect((await browse()).statusCode).toBe(403);
+    db.update(schema.users)
+      .set({ permissions: { "machine.projects": true, projects: "write" } })
+      .where(eq(schema.users.id, viewer.id))
+      .run();
+    expect((await mine()).json()).toEqual([{ path: "F:\\", paused: false }]);
+    await s.cancel();
+    // Offline: its disk can't be listed, but the user got past the rights check.
+    await vi.waitFor(async () => expect((await browse()).json().error.code).toBe("device_offline"));
+  });
+
   it("Send presets and Install per slicer: offline on the next connect, online asked (ADR-0020)", async () => {
     const { app, send, open, token, deviceId, db } = await live({
       adapters: adapters({ mock: false }),

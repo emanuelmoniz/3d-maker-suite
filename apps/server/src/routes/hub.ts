@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { posix, win32 } from "node:path";
 import {
   apiErrorSchema,
   connectorInfoSchema,
@@ -7,6 +8,7 @@ import {
   connectorSettingsSchema,
   connectorUpdateFailureSchema,
   deviceLibraryUpdateSchema,
+  devicePathIn,
   deviceSchema,
   deviceUpdateSchema,
   deviceUserChangeSchema,
@@ -24,6 +26,9 @@ import {
   pairResultSchema,
   pairSchema,
   presetSwitches,
+  type SharedFolder,
+  sharedFolderPathSchema,
+  sharedFolderSchema,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -147,6 +152,7 @@ export const hubRoutes =
           presets: devices.presetLibraries,
           receiveProjects: devices.receiveProjects,
           shareProjects: devices.shareProjects,
+          sharedFolders: devices.sharedFolders,
           lastSeenAt: devices.lastSeenAt,
           createdAt: devices.createdAt,
         })
@@ -171,8 +177,6 @@ export const hubRoutes =
             libraries: Object.fromEntries(
               [...libs].map((lib) => [lib, { hubSlicer: isHubSlicer(d.id, lib) }]),
             ),
-            folders:
-              db.select({ n: count() }).from(roots).where(eq(roots.location, d.id)).get()?.n ?? 0,
             online: channel.online(d.id),
             port: channel.port(d.id),
             outdated,
@@ -304,6 +308,87 @@ export const hubRoutes =
         )
           channel.publish(row.id, { type: "roots.changed" });
         return reply.status(204).send(null);
+      },
+    );
+
+    /**
+     * A machine's shared folders (ADR-0021), from Projects settings → Sources: its user with
+     * machine.projects and projects write, or hub.manage. Each change is saved, queued for the
+     * connector (`folders.set`) and logged with its actor; the answer is the new list.
+     */
+    const foldersSchema = {
+      params,
+      response: { 200: z.array(sharedFolderSchema), ...errors, 400: apiErrorSchema },
+    };
+    const foldersOf = (req: FastifyRequest, id: string) => {
+      const row = machineGuard(db, req.user, id, "projects");
+      if (!row.sharedFolders)
+        throw new HttpError(
+          409,
+          "device_outdated",
+          "Its connector hasn't sent its shared folders yet: update it",
+        );
+      return { row, list: row.sharedFolders };
+    };
+    const saveFolders = (
+      req: FastifyRequest,
+      deviceId: string,
+      list: SharedFolder[],
+      message: string,
+      path: string,
+    ) => {
+      db.update(devices).set({ sharedFolders: list }).where(eq(devices.id, deviceId)).run();
+      channel.publish(deviceId, { type: "folders.set", folders: list });
+      req.log.info({ deviceId, path }, message);
+      return list;
+    };
+    const listed = (list: SharedFolder[], path: string) => {
+      if (!list.some((f) => f.path === path))
+        throw new HttpError(404, "not_found", "Not a shared folder of this machine");
+    };
+
+    // A folder inside a shared one is shared already; folders inside a new one become part of it.
+    app.post(
+      "/devices/:id/folders",
+      { schema: { ...foldersSchema, body: sharedFolderPathSchema } },
+      async (req) => {
+        const { row, list } = foldersOf(req, req.params.id);
+        const { path } = req.body;
+        if (!win32.isAbsolute(path) && !posix.isAbsolute(path))
+          throw new HttpError(400, "validation_error", "Path must be absolute");
+        if (list.some((f) => devicePathIn(f.path, path)))
+          throw new HttpError(409, "folder_covered", "This folder is shared already");
+        const next = [...list.filter((f) => !devicePathIn(path, f.path)), { path, paused: false }];
+        return saveFolders(req, row.id, next, "shared folder added", path);
+      },
+    );
+    app.patch(
+      "/devices/:id/folders",
+      { schema: { ...foldersSchema, body: sharedFolderSchema } },
+      async (req) => {
+        const { row, list } = foldersOf(req, req.params.id);
+        const { path, paused } = req.body;
+        listed(list, path);
+        const next = list.map((f) => (f.path === path ? { path, paused } : f));
+        return saveFolders(
+          req,
+          row.id,
+          next,
+          paused ? "shared folder paused" : "shared folder resumed",
+          path,
+        );
+      },
+    );
+    // Its project folders stay, "unshared", until it's shared again.
+    app.delete(
+      "/devices/:id/folders",
+      { schema: { ...foldersSchema, body: sharedFolderPathSchema } },
+      async (req) => {
+        const { row, list } = foldersOf(req, req.params.id);
+        const { path } = req.body;
+        listed(list, path);
+        const next = list.filter((f) => f.path !== path);
+        return saveFolders(req, row.id, next, "shared folder removed", path);
       },
     );
 

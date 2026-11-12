@@ -506,7 +506,8 @@ const routes: AnyRoute[] = [
       // integrations: the accounts' lines on Sources (ADR-0021).
       ["/printers/settings", PrintersConfigPage, ["printers", "catalog", "integrations"]],
       ["/prints/settings", PrintsConfigPage, ["prints", "integrations"]],
-      ["/projects/settings", ProjectsConfigPage, ["projects"]],
+      // hub: the machines on Sources (ADR-0021).
+      ["/projects/settings", ProjectsConfigPage, ["projects", "hub"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
       ["/hub/settings", HubConfigPage, ["hub"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "integrations"]],

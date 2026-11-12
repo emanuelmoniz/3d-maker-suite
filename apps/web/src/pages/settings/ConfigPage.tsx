@@ -1,10 +1,8 @@
 import { DEVICE_FOLDER_MAX_MB_LIMIT, type Preferences } from "@3d-maker-suite/core";
 import { useQuery } from "@tanstack/react-query";
-import { Link, type LinkProps, Navigate, useLocation } from "@tanstack/react-router";
-import { Cable, Server } from "lucide-react";
+import { type LinkProps, Navigate, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import {
@@ -18,6 +16,7 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { PresetsTab } from "../presets/LibraryTab.tsx";
 import { AccountSources } from "./AccountSources.tsx";
 import { CatalogSources } from "./CatalogSources.tsx";
+import { ProjectSources } from "./ProjectSources.tsx";
 
 /** Data types: their settings have General and Sources tabs (ADR-0021). */
 const SOURCE_MODULES: SettingsModule[] = ["printers", "prints", "filament", "projects", "catalog"];
@@ -160,30 +159,8 @@ export function ConfigPage({
         <div className="grid gap-10">
           <CatalogSources />
         </div>
-      ) : tab === "sources" ? (
-        <EmptyState
-          icon={Cable}
-          title={t("settings:sources.emptyTitle")}
-          description={t("settings:sources.emptyText")}
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Link
-                to="/integrations"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
-              >
-                <Cable className="size-4" aria-hidden="true" />
-                {t("settings:sources.integrations")}
-              </Link>
-              <Link
-                to="/hub"
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
-              >
-                <Server className="size-4" aria-hidden="true" />
-                {t("settings:sources.hub")}
-              </Link>
-            </div>
-          }
-        />
+      ) : tab === "sources" && module === "projects" ? (
+        <ProjectSources />
       ) : tab === "library" ? (
         <PresetsTab />
       ) : (

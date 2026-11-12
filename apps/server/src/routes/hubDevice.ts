@@ -32,11 +32,12 @@ import {
   presetUploadSchema,
   ROOT_HUB,
   type SlicerPresetKind,
+  sharedFolderSchema,
   sliceFileName,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset, presetName } from "@3d-maker-suite/host";
-import { and, asc, count, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -491,6 +492,30 @@ export const hubDeviceRoutes =
           .where(eq(devices.id, deviceOf(req)))
           .run();
         return reply.status(204).send(null);
+      },
+    );
+    // Its own shared folders, sent on each connect (ADR-0021): kept only while the hub has none, so
+    // the connector's list arrives once and the hub's wins after. The answer is the hub's list. A
+    // machine that shares a folder has Share on (it was guessed from its roots before, 0112); a new
+    // one keeps its default.
+    app.put(
+      "/folders",
+      {
+        schema: {
+          body: z.array(sharedFolderSchema).max(200),
+          response: { 200: z.array(sharedFolderSchema), ...errors },
+        },
+      },
+      async (req) => {
+        const id = deviceOf(req);
+        db.update(devices)
+          .set({ sharedFolders: req.body, ...(req.body.length > 0 && { shareProjects: true }) })
+          .where(and(eq(devices.id, id), isNull(devices.sharedFolders)))
+          .run();
+        return (
+          db.select({ f: devices.sharedFolders }).from(devices).where(eq(devices.id, id)).get()
+            ?.f ?? []
+        );
       },
     );
 

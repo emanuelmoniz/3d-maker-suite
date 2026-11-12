@@ -31,6 +31,7 @@ import {
   type ProjectRights,
   ROLE_BUILT_INS,
   ROOT_EDIT_BY,
+  type SharedFolder,
   SLICER_PRESET_KINDS,
   type SlicerSystem,
   SPOOL_STATUSES,
@@ -1245,6 +1246,11 @@ export const devices = sqliteTable(
     receiveProjects: integer({ mode: "boolean" }).notNull().default(true),
     /** Share its folders with the hub (ADR-0021); off = every root on it is unshared. */
     shareProjects: integer({ mode: "boolean" }).notNull().default(true),
+    /**
+     * Its shared folders, picked on the hub (ADR-0021) and pushed with `folders.set`; null until its
+     * connector sent its own list once (`PUT .../folders`).
+     */
+    sharedFolders: text({ mode: "json" }).$type<SharedFolder[]>(),
     lastSeenAt: text(),
     ...timestamps,
   },

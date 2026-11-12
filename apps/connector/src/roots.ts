@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream, type FSWatcher, type ReadStream, watch } from "node:fs";
 import { readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import {
   DEVICE_COVER_MAX,
@@ -14,13 +14,14 @@ import {
   galleryImages,
   type HubEvent,
   PROJECT_TRASH_DIR,
+  sharedFolderSchema,
 } from "@3d-maker-suite/core";
 import {
   discoverFolders,
   folderDigest,
   inRoot,
   isHidden,
-  listShared,
+  listFolder,
   readCover,
   readPlatePreviews,
   rootMkdir,
@@ -67,9 +68,6 @@ type Live = {
   tries: Map<string, number>;
 };
 
-/** Why a shared folder wasn't added or removed (status page). */
-export type FolderError = "notAbsolute" | "notFound" | "covered" | "inUse" | "waiting";
-
 const isDir = async (p: string) => (await stat(p).catch(() => null))?.isDirectory() ?? false;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -79,9 +77,9 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * stable. Nothing is queued while offline: the next connect syncs everything again, and digests
  * keep that cheap (an unchanged folder is never opened).
  *
- * The hub sees only the shared folders (`folders` in the store): it browses inside them, and a
- * root outside them isn't synced, watched or served, only reported "unshared". A connector without
- * folders yet (new, or older than them) seeds them from its roots on the first fetch.
+ * The hub keeps the shared folders (ADR-0021; `sharedFolders` in the store, `folders.set`): a
+ * root outside the unpaused ones isn't synced, watched or served, only reported "unshared". The
+ * hub lists any folder on the disk (names only) to pick them.
  */
 export function createRootSync({
   request,
@@ -93,8 +91,6 @@ export function createRootSync({
   store: Store;
 }) {
   let live: Live[] = [];
-  /** The roots of the last fetch, by real path: a folder holding one with projects stays. */
-  let known: { base: string; projects: number }[] | undefined;
   /** This device's roots from the hub, each with its real path (`path` while it's missing). */
   async function fetchRoots() {
     const roots = await call("/roots", undefined, z.array(deviceRootSchema));
@@ -104,11 +100,8 @@ export function createRootSync({
         base: (await realpath(root.path).catch(() => null)) ?? root.path,
       })),
     );
-    known = found.map((f) => ({ base: f.base, projects: f.root.projects }));
     return found;
   }
-  /** Started and not stopped: a folder change syncs again. */
-  let on = false;
   let run = 0;
   let error: string | undefined;
   /** One thing at a time: a sync, a folder sent. */
@@ -300,25 +293,37 @@ export function createRootSync({
     live = [];
   }
 
-  /** The folders the hub may use: none while Share to the hub is off (the list stays). */
-  const shared = () => (store.get().shareProjects === false ? [] : (store.get().folders ?? []));
+  /** The folders the hub may use: the unpaused ones, none while Share to the hub is off. */
+  const shared = () =>
+    store.get().shareProjects === false
+      ? []
+      : (store.get().sharedFolders ?? []).filter((f) => !f.paused).map((f) => f.path);
 
-  /** Reads this device's roots from the hub, syncs each shared one and watches it. */
-  function start() {
+  /**
+   * On connect: its own list goes to the hub, which keeps it only while it has none (an update
+   * from a connector that kept them itself), and answers with the list it keeps. Unreachable: the
+   * saved list stays.
+   */
+  async function reportFolders() {
+    const s = store.get();
+    const mine = s.sharedFolders ?? (s.folders ?? []).map((path) => ({ path, paused: false }));
+    const kept = await call("/folders", { method: "PUT", body: mine }, z.array(sharedFolderSchema));
+    store.set({ sharedFolders: kept, folders: undefined });
+  }
+
+  /**
+   * Reads this device's roots from the hub, syncs each shared one and watches it; on connect
+   * (`report`) its shared folders are settled with the hub first.
+   */
+  function start(report = false) {
     halt();
-    on = true;
     const mine = run;
     return serial(async () => {
+      if (report) await reportFolders().catch((e) => log(`shared folders: ${e.message ?? e}`));
       const roots = await fetchRoots();
       if (mine !== run) return;
-      if (!store.get().folders) {
-        // Shortest first, so a root inside another is covered by it.
-        const outer: string[] = [];
-        for (const { base } of roots.toSorted((x, y) => x.base.length - y.base.length))
-          if (!within(outer, base)) outer.push(base);
-        store.set({ folders: outer });
-      }
-      const folders = shared();
+      // Real paths, as the roots' are: a link or another spelling covers the same folder.
+      const folders = await Promise.all(shared().map((p) => realpath(p).catch(() => p)));
       for (const { root, base } of roots) {
         if (mine !== run) return;
         if (!within(folders, base)) {
@@ -373,47 +378,16 @@ export function createRootSync({
     }
   }
 
-  /** Adds a shared folder (an absolute path to an existing one); one inside it is replaced. */
-  async function addFolder(path: string): Promise<FolderError | undefined> {
-    const folders = store.get().folders;
-    if (!folders) return "waiting";
-    if (!isAbsolute(path)) return "notAbsolute";
-    const real = await realpath(path).catch(() => null);
-    if (!real || !(await isDir(real))) return "notFound";
-    if (within(folders, real)) return "covered";
-    store.set({ folders: [...folders.filter((f) => !within([real], f)), real] });
-    if (on) void start();
-  }
-
-  /**
-   * Removes a shared folder, unless a root in it has projects: asked of the hub now, or as it last
-   * answered while offline (it must have answered once).
-   */
-  async function removeFolder(folder: string): Promise<FolderError | undefined> {
-    await fetchRoots().catch(() => {});
-    const folders = store.get().folders ?? [];
-    if (!known) return "waiting";
-    if (known.some((r) => r.projects > 0 && within([folder], r.base))) return "inUse";
-    store.set({ folders: folders.filter((f) => f !== folder) });
-    if (on) void start();
-  }
-
   return {
     start,
-    stop: () => {
-      on = false;
-      halt();
-    },
-    folders: {
-      list: () => store.get().folders ?? [],
-      add: addFolder,
-      remove: removeFolder,
-    },
+    stop: halt,
     /** A hub event for the roots; anything else is ignored. */
     handle(event: HubEvent) {
-      if (event.type === "roots.changed") void start();
+      if (event.type === "roots.changed" || event.type === "folders.set") void start();
+      // Folders anywhere, names only, to pick the shared ones (ADR-0021); every other file
+      // operation stays inside them.
       else if (event.type === "fs.list")
-        void answer(event.requestId, () => listShared(event.path, shared()));
+        void answer(event.requestId, () => listFolder(event.path, "folder"));
       else if (event.type === "fs.upload") void upload(event.requestId, event.rootId, event.rel);
       else if (event.type === "fs.mkdir")
         void answer(event.requestId, async () => {

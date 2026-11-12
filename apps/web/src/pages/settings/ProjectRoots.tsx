@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { inputClass } from "../../components/FormField.tsx";
-import { PathPicker } from "../../components/PathPicker.tsx";
+import { PathPicker, type PickSource } from "../../components/PathPicker.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMe } from "../../lib/auth.ts";
@@ -163,26 +163,44 @@ function EditBy({
 
 /**
  * The project folder roots, each with its depths, auto slice switch and a remove button. With the
- * hub on, a new root can be a folder on an online device (ADR-0014).
+ * hub on, a new root can be a folder in an online machine's shared folders (ADR-0014, ADR-0021):
+ * the picker asks for the source first.
  */
 export function ProjectRoots() {
   const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const [depths, setDepths] = useState<Depths>(ROOT_DEFAULTS);
+  // Where the last folder added came from: its error names the server or the machine.
   const [location, setLocation] = useState(ROOT_HUB);
   const hubOn = !!usePreferences().data?.values.hubEnabled;
-  const devices = useDevices();
-  const online = hubOn ? (devices.data ?? []).filter((d) => d.online) : [];
-  const device = location === ROOT_HUB ? undefined : location;
+  const devices = useDevices(hubOn);
+  const machines: PickSource[] = (hubOn ? (devices.data ?? []) : []).flatMap((d) => {
+    const shared = d.shareProjects ? (d.sharedFolders ?? []).filter((f) => !f.paused) : [];
+    return d.online && shared.length
+      ? [
+          {
+            id: d.id,
+            name: d.name,
+            device: d.id,
+            within: shared.map((f) => f.path),
+            pickRoots: true,
+          },
+        ]
+      : [];
+  });
+  const sources = machines.length
+    ? [{ id: ROOT_HUB, name: t("settings:projects.locationHub"), canCreate: true }, ...machines]
+    : undefined;
   const roots = useRoots();
   // Users who can be picked to edit a root; the server refuses anyone without projects write.
   const editors = useUsers(!!useMe()).data ?? [];
   const save = useChangeRoot();
   const code = save.error instanceof ApiError ? save.error.code : undefined;
-  const add = (dir: string) => {
+  const add = (dir: string, at = ROOT_HUB) => {
     const d = dir.trim();
-    if (d && !roots.some((r) => r.path === d && r.location === location))
-      save.mutate({ add: { path: d, location, ...depths } });
+    setLocation(at);
+    if (d && !roots.some((r) => r.path === d && r.location === at))
+      save.mutate({ add: { path: d, location: at, ...depths } });
   };
   const change = (id: string, patch: RootPatch) => save.mutate({ id, patch });
   return (
@@ -238,27 +256,6 @@ export function ProjectRoots() {
           setTyped("");
         }}
       >
-        {online.length > 0 && (
-          <label className="flex basis-full items-center gap-2">
-            <span>{t("settings:projects.location")}</span>
-            <select
-              className={`${inputClass} w-auto!`}
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              aria-describedby="root-location-hint"
-            >
-              <option value={ROOT_HUB}>{t("settings:projects.locationHub")}</option>
-              {online.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            <span id="root-location-hint" className="text-muted">
-              {t("settings:projects.locationHint")}
-            </span>
-          </label>
-        )}
         <input
           className={`${inputClass} min-w-0 basis-full sm:flex-1 sm:basis-auto`}
           value={typed}
@@ -271,20 +268,20 @@ export function ProjectRoots() {
           {t("settings:projects.addRoot")}
         </Button>
         <PathPicker
-          key={location}
           label={t("settings:projects.roots")}
           mode="folder"
-          canCreate={!device}
-          device={device}
-          initial={roots.findLast((r) => r.location === location)?.path}
-          onPick={add}
+          canCreate
+          sources={sources}
+          initial={roots.findLast((r) => r.location === ROOT_HUB)?.path}
+          onPick={(path, at) => add(path, at)}
         />
       </form>
+      {sources && <p className="text-muted">{t("settings:projects.locationHint")}</p>}
       {save.isError && (
         <p role="alert" className="text-bad">
           {t(
             code === "invalid_folder"
-              ? device
+              ? location !== ROOT_HUB
                 ? "settings:projects.rootMissingDevice"
                 : "settings:projects.rootMissing"
               : code && code in ROOT_ERRORS

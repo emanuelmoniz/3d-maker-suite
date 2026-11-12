@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { SharedFolder } from "@3d-maker-suite/core";
 import { type Blob, decrypt, encrypt, loadKey } from "@3d-maker-suite/host";
 
 /** The hub's product id, which names its data folder next to the connector's. */
@@ -87,8 +88,8 @@ export function writeConfig(dir: string, patch: { port?: number; autostart?: boo
 
 /**
  * `cursor` is the last hub event handled (the stream's `Last-Event-ID`); `defaultSlicer` the id of
- * the slicer Open uses (slicers.ts); `folders` the real paths the hub may use (roots.ts), none yet
- * until the first roots fetch seeds them.
+ * the slicer Open uses (slicers.ts); `sharedFolders` the folders the hub may use, as the hub keeps
+ * them (roots.ts, ADR-0021).
  */
 type State = {
   hubUrl?: string;
@@ -96,8 +97,10 @@ type State = {
   deviceName?: string;
   cursor?: number;
   defaultSlicer?: string;
+  sharedFolders?: SharedFolder[];
+  /** Before 5.5.0 it kept the list itself: sent to the hub once, then dropped. */
   folders?: string[];
-  /** Share to the hub (`projects.share`, `X-Share-Projects`); false = none of `folders` is shared. */
+  /** Share to the hub (`projects.share`, `X-Share-Projects`); false = none of its folders is shared. */
   shareProjects?: boolean;
   /** An admin made this device a slice worker (`device.worker`): it runs the hub's slices. */
   sliceWorker?: boolean;

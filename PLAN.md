@@ -2694,7 +2694,7 @@ Do Step 13 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix 
 
 ## Phase 35 - Projects
 
-### [ ] Step 14 - Projects: Sources  **[plan mode]**
+### [x] Step 14 - Projects: Sources  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Projects settings → Sources, Share to the hub (Step 6's layout, as cards: closed at first, with the machine's icon): a block per machine with Share to the hub on, one line per shared folder (switch to pause it, its project folder, `⋯` Remove) and **Add folder**.

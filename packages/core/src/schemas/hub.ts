@@ -103,6 +103,14 @@ export const deviceSlicerInstallSchema = z.object({
   result: deviceSlicerCheckSchema.optional(),
 });
 
+const devicePath = z.string().trim().min(1).max(4096);
+/**
+ * A folder of a machine shared with the hub (ADR-0021), in the machine's own path form. Paused: kept
+ * in the list, but the connector treats it as not shared.
+ */
+export const sharedFolderSchema = z.object({ path: devicePath, paused: z.boolean() });
+export type SharedFolder = z.infer<typeof sharedFolderSchema>;
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -136,10 +144,13 @@ export const deviceSchema = z.object({
   /** Receive projects from the hub, and Share its folders (ADR-0021). */
   receiveProjects: z.boolean(),
   shareProjects: z.boolean(),
-  /** Its project folders on the hub (roots on it). */
-  folders: z.number().int().nonnegative(),
+  /** Its shared folders (ADR-0021); null until its connector reported its own list once. */
+  sharedFolders: z.array(sharedFolderSchema).nullable(),
   createdAt: isoDate,
 });
+
+/** Add or remove one of a machine's shared folders (`/api/hub/devices/:id/folders`). */
+export const sharedFolderPathSchema = z.object({ path: devicePath });
 
 const name = z.string().trim().min(1).max(100);
 
@@ -409,6 +420,11 @@ export const hubEventSchema = z.discriminatedUnion("type", [
    * (every root "unshared") and keeps the list. A connect has it in `X-Share-Projects`.
    */
   z.object({ type: z.literal("projects.share"), requestId: id, on: z.boolean() }),
+  /**
+   * The machine's shared folders as the hub keeps them (ADR-0021), queued: the connector saves the
+   * list and refuses every file operation outside its unpaused folders.
+   */
+  z.object({ type: z.literal("folders.set"), folders: z.array(sharedFolderSchema).max(200) }),
   /**
    * Slice workers: run `program` (the worker's `slicerPath`) with `args` in a work folder of the
    * data folder, after writing `files` there; `{dir}` in the args is that folder. The 3MF goes

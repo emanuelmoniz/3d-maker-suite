@@ -9,7 +9,6 @@ import { hostname } from "node:os";
 import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
-import type { FolderError } from "./roots.ts";
 import type { Store } from "./state.ts";
 import { RESTART, type Updater } from "./update.ts";
 
@@ -48,13 +47,6 @@ const SYNC_STATES: Record<DeviceSyncState["state"], string> = {
   syncing: "connector:sync.states.syncing",
   paused: "connector:sync.states.paused",
   error: "connector:sync.states.error",
-};
-const FOLDER_ERRORS: Record<FolderError, string> = {
-  notAbsolute: "connector:folders.errors.notAbsolute",
-  notFound: "connector:folders.errors.notFound",
-  covered: "connector:folders.errors.covered",
-  inUse: "connector:folders.errors.inUse",
-  waiting: "connector:folders.errors.waiting",
 };
 const PAIR_ERRORS: Record<PairErrorCode, string> = {
   badUrl: "connector:pair.errors.badUrl",
@@ -223,7 +215,6 @@ ${link.userName() ? `<dt>${t("connector:status.user")}</dt><dd>${esc(link.userNa
 <dt>${t("connector:status.version")}</dt><dd>${esc(version)}</dd>
 <dt>${t("connector:status.syncFolder")}</dt><dd>${esc(syncDir)}</dd>
 <dt>${t("connector:status.roots")}</dt><dd>${roots.watching}</dd>
-<dt>${t("connector:folders.title")}</dt><dd>${link.roots.folders.list().map(esc).join("<br>") || t("connector:folders.none")}<br><a href="/folders">${t("connector:folders.manage")}</a></dd>
 </dl>
 ${error ? `<p class="error">${t("connector:status.lastError", { error })}</p>` : ""}
 ${roots.error ? `<p class="error">${t("connector:status.rootsError", { error: roots.error })}</p>` : ""}
@@ -281,31 +272,7 @@ ${locks}
 </section>`;
   };
 
-  // Its own page: the status view's refresh would wipe a path being typed.
-  const foldersView = (error?: FolderError, typed = "") => {
-    const rows = link.roots.folders
-      .list()
-      .map(
-        (f) => `<li class="row"><span>${esc(f)}</span>
-<form method="post" action="/folders/remove"><input type="hidden" name="folder" value="${esc(f)}"><button type="submit" class="danger">${t("connector:folders.remove")}</button></form></li>`,
-      )
-      .join("\n");
-    return `<section aria-labelledby="folders">
-<h2 id="folders">${t("connector:folders.title")}</h2>
-<p class="muted">${t("connector:folders.intro")}</p>
-${error ? `<p class="error" role="alert">${t(FOLDER_ERRORS[error])}</p>` : ""}
-${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
-<form method="post" action="/folders/add">
-<label for="path">${t("connector:folders.path")}</label>
-<input id="path" name="path" required maxlength="4096" spellcheck="false" aria-describedby="path-hint" value="${esc(typed)}">
-<small id="path-hint">${t("connector:folders.pathHint")}</small>
-<button type="submit">${t("connector:folders.add")}</button>
-</form>
-<p><a href="${HOME}">${t("connector:folders.back")}</a></p>
-</section>`;
-  };
-
-  // No login here, so the user only changes with a code from the hub. Its own page, as for folders.
+  // No login here, so the user only changes with a code from the hub. Its own page: the status view's refresh would wipe a code being typed.
   const userForm = (error?: PairErrorCode, form?: URLSearchParams) => {
     const stay = form?.get("projects") === "stay";
     return `<section aria-labelledby="change-user">
@@ -508,18 +475,6 @@ ${body}
             throw e;
           }
         }
-      }
-      if (req.method === "GET" && path === "/folders")
-        return send(200, html, page(foldersView(), false));
-      if (req.method === "POST" && (path === "/folders/add" || path === "/folders/remove")) {
-        const form = await readForm(req);
-        const typed = form.get("path")?.trim() ?? "";
-        const error =
-          path === "/folders/add"
-            ? await link.roots.folders.add(typed)
-            : await link.roots.folders.remove(form.get("folder") ?? "");
-        if (error) return send(400, html, page(foldersView(error, typed), false));
-        return res.writeHead(303, { location: "/folders" }).end();
       }
       // The answer goes out first, then the process ends.
       if (req.method === "POST" && (path === "/restart" || path === "/stop")) {

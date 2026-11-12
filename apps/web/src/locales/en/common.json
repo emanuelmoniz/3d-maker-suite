@@ -48,8 +48,9 @@
     "deviceOffline": "The device is offline. Start its connector, then try again.",
     "deviceTimeout": "The device didn't answer. Check that its connector is running, then try again.",
     "deviceOutdated": "The device's connector is too old for this. Update it, then try again.",
-    "notShared": "The device doesn't share this folder. Add it to the shared folders on the device's connector page.",
-    "deviceNone": "The device shares no folders yet. Add one on the device's connector page."
+    "notShared": "The machine doesn't share this folder. Share it first in Projects settings → Sources.",
+    "deviceNone": "Nothing to show on this machine.",
+    "sources": "Sources"
   },
   "theme": {
     "label": "Theme",

@@ -51,22 +51,31 @@ const below = (p: string, root: string, sep: Sep) => {
   return p.toLowerCase().startsWith(r + sep);
 };
 
+/** Where a folder can come from: this server, or a machine's shared folders (ADR-0021). */
+export type PickSource = {
+  id: string;
+  name: string;
+  device?: string;
+  within?: string[];
+  pickRoots?: boolean;
+  canCreate?: boolean;
+};
+
 /**
  * "Browse…" button + modal that lists folders on the server's machine (or on a paired `device`,
  * through its connector), because a browser can't hand over a full local path. The text input
- * next to it stays the source of truth.
+ * next to it stays the source of truth. With `sources`, a source is picked first, then a folder
+ * from it with that source's settings.
  */
 export function PathPicker({
   label,
   mode,
   ext,
   initial,
-  within,
-  pickRoots,
-  canCreate,
-  device,
+  sources,
   onPick,
   children,
+  ...own
 }: {
   /** The field's label; titles the dialog and names the button for screen readers. */
   label: string;
@@ -82,7 +91,10 @@ export function PathPicker({
   canCreate?: boolean;
   /** Browse this device's folders instead (folder mode; no "New folder"). */
   device?: string;
-  onPick: (path: string) => void;
+  /** Pick a source first; its fields replace `within`, `pickRoots`, `canCreate` and `device`. */
+  sources?: PickSource[];
+  /** The folder, and the id of the source it came from (with `sources`). */
+  onPick: (path: string, source?: string) => void;
   /** Button text; default "Browse…". */
   children?: ReactNode;
 }) {
@@ -91,6 +103,11 @@ export function PathPicker({
   const listRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
   const [path, setPath] = useState<string | null>(null);
+  const [sourceId, setSourceId] = useState<string | null>(null);
+  const source = sources?.find((s) => s.id === sourceId);
+  // Still choosing where to browse.
+  const choosing = !!sources && !source;
+  const { within, pickRoots, canCreate, device } = sources ? (source ?? {}) : own;
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
   const create = useMutation({
@@ -108,7 +125,7 @@ export function PathPicker({
     queryKey: ["fs", device, "roots"],
     queryFn: () => fetchList(device ? { device } : {}),
     retry: !device,
-    enabled: open,
+    enabled: open && !choosing,
   });
   const sep = roots.data?.sep;
   const filter = sep && ext?.(sep);
@@ -130,7 +147,7 @@ export function PathPicker({
           ...roots.data,
           // Just the root's own name: the way there isn't the user's business inside the roots.
           entries: within.map((r) => ({
-            name: r.split(/[/]/).filter(Boolean).at(-1) ?? r,
+            name: r.split(/[\\/]/).filter(Boolean).at(-1) ?? r,
             path: r,
             type: "dir" as const,
           })),
@@ -149,7 +166,7 @@ export function PathPicker({
           sep &&
           dir.data?.path &&
           (below(dir.data.path, r, sep) ||
-            (pickRoots && dir.data.path.toLowerCase() === r.replace(/[/]+$/, "").toLowerCase())),
+            (pickRoots && dir.data.path.toLowerCase() === r.replace(/[\\/]+$/, "").toLowerCase())),
       ));
 
   useEffect(() => {
@@ -166,13 +183,14 @@ export function PathPicker({
     setNewName("");
     setNaming(false);
     create.reset();
-    const from = initial?.trim();
+    setSourceId(null);
+    const from = sources ? undefined : initial?.trim();
     setPath(from ? (mode === "folder" ? from : parentOf(from)) : null);
     setOpen(true);
   };
   const pick = (p: string) => {
     setOpen(false);
-    onPick(p);
+    onPick(p, source?.id);
   };
 
   return (
@@ -196,8 +214,10 @@ export function PathPicker({
           <Button
             variant="ghost"
             className="shrink-0"
-            disabled={!path}
-            onClick={() => setPath(atRoot ? null : (dir.data?.parent ?? null))}
+            disabled={!path && !source}
+            onClick={() =>
+              path ? setPath(atRoot ? null : (dir.data?.parent ?? null)) : setSourceId(null)
+            }
           >
             {t("common:pathPicker.up")}
           </Button>
@@ -206,11 +226,26 @@ export function PathPicker({
               <button
                 type="button"
                 className={`inline-flex min-h-8 items-center px-1 ${textLink}`}
-                onClick={() => setPath(null)}
+                onClick={() => {
+                  setSourceId(null);
+                  setPath(null);
+                }}
               >
-                {t("common:pathPicker.roots")}
+                {sources ? t("common:pathPicker.sources") : t("common:pathPicker.roots")}
               </button>
             </li>
+            {source && (
+              <li className="flex items-center gap-1">
+                <span aria-hidden="true">›</span>
+                <button
+                  type="button"
+                  className={`inline-flex min-h-8 items-center px-1 ${textLink}`}
+                  onClick={() => setPath(null)}
+                >
+                  {source.name}
+                </button>
+              </li>
+            )}
             {data?.path &&
               sep &&
               crumbs(data.path, sep)
@@ -279,7 +314,28 @@ export function PathPicker({
             )}
           </div>
         )}
-        {(path ? dir.isError : roots.isError) ? (
+        {choosing ? (
+          <ul
+            ref={listRef}
+            className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border"
+          >
+            {sources.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-3 text-left hover:bg-surface-2 focus-visible:bg-surface-2"
+                  onClick={() => {
+                    setSourceId(s.id);
+                    setPath(null);
+                  }}
+                >
+                  <span aria-hidden="true">{s.device ? "💻" : "🖥️"}</span>
+                  <span className="break-all">{s.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (path ? dir.isError : roots.isError) ? (
           <p role="alert" className="text-bad">
             {t(DEVICE_ERRORS[failure ?? ""] ?? "common:pathPicker.error")}
           </p>

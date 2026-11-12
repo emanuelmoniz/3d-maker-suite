@@ -10,7 +10,6 @@
   },
   "sources": {
     "emptyTitle": "No sources yet",
-    "emptyText": "Sources that feed this data will be listed here. Connect an account in Integrations or a machine in Hub management.",
     "integrations": "Open Integrations",
     "hub": "Open Hub management",
     "share": "Share to server",
@@ -25,7 +24,8 @@
       "what": "What",
       "how": "How",
       "actions": "Actions",
-      "state": "State"
+      "state": "State",
+      "projectFolder": "Project folder"
     },
     "lineOn": "Sync {{type}} from {{source}}",
     "edit": "Edit",
@@ -94,6 +94,24 @@
       "queued_one": "{{count}} being written",
       "queued_other": "{{count}} being written",
       "user": "User presets"
+    },
+    "folders": {
+      "empty": "Machines that share folders with the server are listed here. Turn on Share to server on a machine's page in Hub management.",
+      "lines": "Folders {{machine}} shares",
+      "on": "Share {{path}}",
+      "menu": "More for {{path}}",
+      "noProjectFolder": "No project folder yet",
+      "none": "No shared folders yet.",
+      "notReported": "Its connector hasn't sent its shared folders yet. Update the connector, then they show here.",
+      "add": "Add folder",
+      "addTitle": "Add a folder on {{machine}}",
+      "addConfirmTitle": "Share {{path}} with the server?",
+      "addConfirm": "Its projects become visible to the people who can see {{machine}}'s projects.",
+      "share": "Share",
+      "covered": "This folder is shared already, inside another shared folder.",
+      "remove": "Remove",
+      "removeConfirmTitle": "Stop sharing {{path}}?",
+      "removeConfirm": "Project folders inside it stay, shown as not shared, until it's shared again. Nothing on the machine changes."
     }
   },
   "loadError": "Couldn't load settings. Is the server running?",
@@ -190,12 +208,11 @@
     "rootMissing": "That folder doesn't exist on the server.",
     "rootMissingDevice": "That folder doesn't exist on the device.",
     "rootNested": "This folder is inside another project folder on that device, or holds one.",
-    "rootNotShared": "The device doesn't share this folder. Add it to the shared folders on the device's connector page first.",
+    "rootNotShared": "The machine doesn't share this folder. Share it first in Projects settings → Sources.",
     "deviceOffline": "The device is offline. Start its connector, then try again.",
     "deviceTimeout": "The device didn't answer. Check that its connector is running, then try again.",
-    "location": "Location",
     "locationHub": "This server",
-    "locationHint": "A folder on a device stays on that device. Its connector watches it and sends the projects to the hub.",
+    "locationHint": "A folder on a machine stays on that machine. Its connector watches it and sends the projects to the server.",
     "rootOn": "On {{device}}",
     "autoSlice": "Auto slice",
     "autoSliceFor": "Auto slice projects in {{path}}",

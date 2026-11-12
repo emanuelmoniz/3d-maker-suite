@@ -7,6 +7,7 @@ import type {
   DeviceSyncMode,
   HubVersionsUsage,
   PairingCode,
+  SharedFolder,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -93,6 +94,20 @@ export function useDeviceActions() {
         receiveProjects?: boolean;
         shareProjects?: boolean;
       }) => api("PATCH", `/api/hub/devices/${id}`, patch),
+      onSuccess: refresh,
+    }),
+    /** A machine's shared folders (ADR-0021): add (POST), pause or resume (PATCH), remove. */
+    folders: useMutation({
+      mutationFn: ({
+        id,
+        method,
+        ...body
+      }: {
+        id: string;
+        method: "POST" | "PATCH" | "DELETE";
+        path: string;
+        paused?: boolean;
+      }) => api<SharedFolder[]>(method, `/api/hub/devices/${id}/folders`, body),
       onSuccess: refresh,
     }),
     /** A slicer's switches on the machine page: Use as slicer, Catalog, Presets. */

@@ -13,7 +13,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HubEvent } from "@3d-maker-suite/core";
+import type { HubEvent, SharedFolder } from "@3d-maker-suite/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRootSync, type Request, type RootSync } from "./roots.ts";
 import { openStore, type Store } from "./state.ts";
@@ -28,6 +28,8 @@ const rootId = randomUUID();
 let sent: { path: string; body?: unknown; sha256?: string; data?: Buffer }[];
 /** What the fake hub's `GET /roots` answers: paths and project counts. */
 let roots: { id: string; path: string; projects: number }[];
+/** The fake hub's shared folders for this device: null until the connector sends its own. */
+let hubFolders: SharedFolder[] | null;
 let request: Request;
 
 beforeEach(async () => {
@@ -41,6 +43,7 @@ beforeEach(async () => {
   await symlink(outside, join(base, "out"), "junction");
   sent = [];
   roots = [{ id: rootId, path: base, projects: 1 }];
+  hubFolders = null;
   request = async (path, init) => {
     if (path === "/roots")
       return Response.json(
@@ -59,12 +62,17 @@ beforeEach(async () => {
     for await (const chunk of file?.stream ?? []) chunks.push(chunk as Buffer);
     const data = file && Buffer.concat(chunks);
     sent.push({ path, body: init?.body, sha256: file?.sha256, data });
+    if (path === "/folders") {
+      hubFolders ??= init?.body as SharedFolder[];
+      return Response.json(hubFolders);
+    }
     if (path.endsWith("/index")) return Response.json({ want: [] });
     return new Response(null, { status: 204 });
   };
   // Apart from `dir`: a test checks nothing else is in it.
   data = await mkdtemp(join(tmpdir(), "connector-state-"));
   store = openStore(data);
+  store.set({ sharedFolders: [{ path: base, paused: false }] });
   sync = createRootSync({ request, log: () => {}, store });
   await sync.start();
 });
@@ -140,34 +148,50 @@ describe("device root requests", () => {
 });
 
 describe("shared folders", () => {
-  it("seeds them from its roots on the first fetch, outermost only", async () => {
-    expect(store.get().folders).toEqual([base]);
-    store.set({ folders: undefined });
-    roots = [
-      { id: randomUUID(), path: join(base, "001_Box"), projects: 0 },
-      { id: rootId, path: base, projects: 1 },
-    ];
-    await sync.start();
-    expect(store.get().folders).toEqual([base]);
-    // Seeded once: an empty list stays empty.
-    store.set({ folders: [] });
-    await sync.start();
-    expect(store.get().folders).toEqual([]);
+  it("sends the list it kept itself on connect, then keeps the hub's (ADR-0021)", async () => {
+    store.set({ sharedFolders: undefined, folders: [base] });
+    sent = [];
+    await sync.start(true);
+    expect(sent[0]).toMatchObject({ path: "/folders", body: [{ path: base, paused: false }] });
+    expect(store.get()).toMatchObject({ sharedFolders: [{ path: base, paused: false }] });
+    expect(store.get().folders).toBeUndefined();
+    expect(sync.state().watching).toBe(1);
+    // The hub's list wins: its root is outside it now.
+    hubFolders = [{ path: outside, paused: false }];
+    sent = [];
+    await sync.start(true);
+    expect(store.get().sharedFolders).toEqual(hubFolders);
+    expect(sent).toMatchObject([
+      { path: "/folders" },
+      { path: `/roots/${rootId}/index`, body: { state: "unshared" } },
+    ]);
   });
 
-  it("lets the hub list only inside them, also through `..` and links", async () => {
-    expect(await ask({ type: "fs.list", path: null })).toMatchObject({
-      body: { ok: true, result: { entries: [{ path: base }] } },
+  it("keeps its saved list when the hub doesn't answer it", async () => {
+    const down: Request = (path, init) =>
+      path === "/folders"
+        ? Promise.resolve(new Response(null, { status: 503 }))
+        : request(path, init);
+    const other = createRootSync({ request: down, log: () => {}, store });
+    await other.start(true);
+    expect(store.get().sharedFolders).toEqual([{ path: base, paused: false }]);
+    expect(other.state().watching).toBe(1);
+    other.stop();
+  });
+
+  it("lets the hub list folders anywhere, names only", async () => {
+    expect((await ask({ type: "fs.list", path: null })).body).toMatchObject({ ok: true });
+    expect(await ask({ type: "fs.list", path: dir })).toMatchObject({
+      body: { ok: true, result: { path: dir, entries: [{ name: "outside" }, { name: "root" }] } },
     });
-    expect(await ask({ type: "fs.list", path: base })).toMatchObject({
-      body: { ok: true, result: { path: base, parent: null } },
+    // Folders only: the file inside isn't listed.
+    expect(await ask({ type: "fs.list", path: outside })).toMatchObject({
+      body: { ok: true, result: { entries: [] } },
     });
-    for (const path of [dir, outside, join(base, ".."), join(base, "out")])
-      expect(await ask({ type: "fs.list", path })).toMatchObject(failed("EACCES"));
   });
 
   it("reports a root outside them as unshared and serves none of it", async () => {
-    store.set({ folders: [outside] });
+    store.set({ sharedFolders: [{ path: outside, paused: false }] });
     sent = [];
     await sync.start();
     expect(sent).toMatchObject([{ path: `/roots/${rootId}/index`, body: { state: "unshared" } }]);
@@ -177,29 +201,18 @@ describe("shared folders", () => {
     );
   });
 
-  it("adds a folder that covers others, and keeps one holding a root with projects", async () => {
-    expect(await sync.folders.add("relative")).toBe("notAbsolute");
-    expect(await sync.folders.add(join(dir, "nope"))).toBe("notFound");
-    expect(await sync.folders.add(join(base, "001_Box"))).toBe("covered");
-    expect(await sync.folders.add(dir)).toBeUndefined();
-    expect(sync.folders.list()).toEqual([dir]);
-    expect(await sync.folders.remove(dir)).toBe("inUse");
-    // Asked of the hub at the time, not as it was on the last sync.
-    roots = [{ id: rootId, path: base, projects: 0 }];
-    expect(await sync.folders.remove(dir)).toBeUndefined();
-    expect(sync.folders.list()).toEqual([]);
+  it("treats a paused folder as not shared, on the hub's folders.set", async () => {
+    store.set({ sharedFolders: [{ path: base, paused: true }] });
+    sent = [];
+    sync.handle({ type: "folders.set", folders: [{ path: base, paused: true }] });
     await sync.idle();
-    expect(sync.state().watching).toBe(0);
-  });
-
-  it("waits for the hub before a change", async () => {
-    const other = openStore(join(data, "other"));
-    const offline: Request = async () => {
-      throw new Error("offline");
-    };
-    const waiting = createRootSync({ request: offline, log: () => {}, store: other });
-    expect(await waiting.folders.add(base)).toBe("waiting");
-    other.set({ folders: [base] });
-    expect(await waiting.folders.remove(base)).toBe("waiting");
+    await sync.idle();
+    expect(sent).toMatchObject([{ path: `/roots/${rootId}/index`, body: { state: "unshared" } }]);
+    expect(await ask({ type: "fs.mkdir", rootId, rel: "002_Cup" })).toMatchObject(failed("ENOENT"));
+    // Share to the hub off: none is shared, the list stays.
+    store.set({ sharedFolders: [{ path: base, paused: false }], shareProjects: false });
+    sent = [];
+    await sync.start();
+    expect(sent).toMatchObject([{ path: `/roots/${rootId}/index`, body: { state: "unshared" } }]);
   });
 });

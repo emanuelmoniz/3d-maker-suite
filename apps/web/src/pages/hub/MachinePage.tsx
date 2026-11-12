@@ -541,11 +541,14 @@ function Projects({ device: d }: { device: Device }) {
             />
             {d.shareProjects && (
               <span className="text-muted">
-                {t("hub:machine.folderCount", { count: d.folders })}
+                {t("hub:machine.folderCount", { count: d.sharedFolders?.length ?? 0 })}
               </span>
             )}
           </div>
-          {link}
+          {/* Its card on the Sources tab opens from the hash. */}
+          <Link to="/projects/settings/sources" hash={`machine-${d.id}`} className={textLink}>
+            {t("hub:machine.projectsSettings")}
+          </Link>
         </div>
         <p className="text-muted">{t("hub:machine.foldersHint")}</p>
       </div>

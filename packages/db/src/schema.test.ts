@@ -1914,9 +1914,15 @@ describe("migration 0112", () => {
       },
       113,
     );
+    // Only the columns it had then: later ones (shared_folders, 0119) aren't there yet.
     const devices = Object.fromEntries(
       now
-        .select()
+        .select({
+          id: s.devices.id,
+          presetLibraries: s.devices.presetLibraries,
+          receiveProjects: s.devices.receiveProjects,
+          shareProjects: s.devices.shareProjects,
+        })
         .from(s.devices)
         .all()
         .map((d) => [d.id, d]),

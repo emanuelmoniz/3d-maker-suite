@@ -12,6 +12,7 @@ import { type DirEntry, listFolder, readEntries as readLocal } from "@3d-maker-s
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { HttpError } from "../errors.ts";
+import { machineGuard } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { insideRoots } from "../lib/launcher.ts";
 import { rootPaths } from "../projects/rootFs.ts";
@@ -61,7 +62,9 @@ export const fsRoutes =
         const { path, mode, ext, device } = req.query;
         const confined = confinedTo(req);
         if (device) {
-          if (confined) throw new HttpError(403, "not_allowed", "Only admins browse a device");
+          // A machine's own user picks its shared folders (ADR-0021); its whole disk lists, folders
+          // only, and its connector refuses every file operation outside the shared ones.
+          if (confined) machineGuard(db, req.user, device, "projects");
           return channel.ask(
             device,
             (requestId) => ({ type: "fs.list", requestId, path: path ?? null }),

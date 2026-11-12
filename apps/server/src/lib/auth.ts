@@ -182,7 +182,7 @@ const RULES: [RegExp, string, Need][] = [
   // The machine page (ADR-0021): its own user too, narrowed by the route (`machineGuard`). Revoke,
   // pairing, a user code and Update now stay hub.manage.
   [/^\/api\/hub\/devices$/, "R", SESSION],
-  [/^\/api\/hub\/devices\/[^/]+\/settings$/, "*", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/(settings|folders)$/, "*", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/(restart|stop)$/, "POST", SESSION],
   [/^\/api\/hub\/devices\/[^/]+$/, "PATCH", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/projects\/[^/]+$/, "DELETE", SESSION],

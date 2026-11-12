@@ -406,14 +406,17 @@ describe("connector and hub", () => {
       await c.link.pair(h.url, await h.code(), "WS-1");
       await until(() => status(c.link) === "online");
       const [device] = (await h.send("GET", "/api/hub/devices")).json();
-      const root = mkdtempSync(join(tmpdir(), "device-root-"));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "device-root-")));
       cleanup.push(() => rmSync(root, { recursive: true, force: true }));
       mkdirSync(join(root, "001_Box"));
       copyFileSync(fixture("single_color.3mf"), join(root, "001_Box", "box.3mf"));
-      // A new connector shares nothing: seeded empty from its (no) roots, then the folder added.
-      await until(() => c.store.get().folders !== undefined);
-      expect(c.store.get().folders).toEqual([]);
-      expect(await c.link.roots.folders.add(root)).toBeUndefined();
+      // A new connector shares nothing: its empty list reaches the hub, which adds the folder.
+      const folders = async () => (await h.send("GET", "/api/hub/devices")).json()[0].sharedFolders;
+      await until(async () => (await folders()) !== null);
+      expect(await folders()).toEqual([]);
+      const share = await h.send("POST", `/api/hub/devices/${device.id}/folders`, { path: root });
+      expect(share.statusCode).toBe(200);
+      await until(() => !!c.store.get().sharedFolders?.length);
       const projects = async () => (await h.send("GET", "/api/projects")).json().items;
       return { h, c, device, root, projects };
     };
@@ -501,9 +504,9 @@ describe("connector and hub", () => {
       expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
     }, 120_000);
 
-    it("lists and adds only inside the shared folders; an unshared root keeps its data", async () => {
+    it("lists any folder, adds project folders only inside the shared ones; an unshared root keeps its data", async () => {
       const { h, c, device, root, projects } = await setup();
-      const outside = mkdtempSync(join(tmpdir(), "device-outside-"));
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), "device-outside-")));
       cleanup.push(() => rmSync(outside, { recursive: true, force: true }));
       const list = async (path?: string) =>
         (
@@ -512,10 +515,9 @@ describe("connector and hub", () => {
             `/api/fs/list?device=${device.id}${path === undefined ? "" : `&path=${encodeURIComponent(path)}`}`,
           )
         ).json();
-      const real = realpathSync(root);
-      expect((await list()).entries).toEqual([{ name: real, path: real, type: "dir" }]);
-      for (const path of [outside, join(root, ".."), join(outside, "nope")])
-        expect((await list(path)).error.code).toBe("path_denied");
+      // The whole disk lists, folders only (ADR-0021), to pick the shared folders.
+      expect((await list()).entries.length).toBeGreaterThan(0);
+      expect((await list(outside)).path).toBe(outside);
       const denied = await h.send("POST", "/api/roots", { path: outside, location: device.id });
       expect(denied.statusCode).toBe(403);
       expect(denied.json().error.code).toBe("path_denied");
@@ -523,34 +525,33 @@ describe("connector and hub", () => {
       const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
       await until(async () => (await projects()).length === 1, 10_000);
       const [p] = await projects();
-      // A root with projects keeps its shared folder.
-      expect(await c.link.roots.folders.remove(real)).toBe("inUse");
-      expect(c.link.roots.folders.list()).toEqual([real]);
 
-      // Unshared on the device (e.g. by hand in state.json): last known data, never missing.
-      c.store.set({ folders: [] });
-      void c.link.roots.start();
+      // Paused on the hub: last known data, never missing; resumed: back to ok.
+      const url = `/api/hub/devices/${device.id}/folders`;
+      const pause = (paused: boolean) => h.send("PATCH", url, { path: root, paused });
+      expect((await pause(true)).statusCode).toBe(200);
       const roots = async () => (await h.send("GET", "/api/roots")).json();
       await until(async () => (await roots())[0].state === "unshared");
       expect((await roots())[0].id).toBe(added.json().id);
       expect(c.link.roots.state().watching).toBe(0);
       expect(await projects()).toMatchObject([{ id: p.id, offline: true }]);
       expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
-
-      // Shared again: back to ok.
-      expect(await c.link.roots.folders.add(root)).toBeUndefined();
+      expect((await pause(false)).statusCode).toBe(200);
       await until(async () => (await roots())[0].state === "ok");
       expect((await projects())[0].offline).toBe(false);
 
       // Share to the hub off (ADR-0021): every root unshared, the list kept; on again, back.
-      const share = (on: boolean) =>
+      const shareAll = (on: boolean) =>
         h.send("PATCH", `/api/hub/devices/${device.id}`, { shareProjects: on });
-      expect((await share(false)).statusCode).toBe(204);
+      expect((await shareAll(false)).statusCode).toBe(204);
       await until(async () => (await roots())[0].state === "unshared");
-      expect((await list(real)).error.code).toBe("path_denied");
-      expect(c.link.roots.folders.list()).toEqual([real]);
-      expect((await share(true)).statusCode).toBe(204);
+      expect(c.store.get().sharedFolders).toEqual([{ path: root, paused: false }]);
+      expect((await shareAll(true)).statusCode).toBe(204);
       await until(async () => (await roots())[0].state === "ok");
+
+      // Removed with a project folder in it: unshared until it's shared again.
+      expect((await h.send("DELETE", url, { path: root })).json()).toEqual([]);
+      await until(async () => (await roots())[0].state === "unshared");
     }, 30_000);
 
     it("pulls a file when needed, slices it on the hub, and writes on the device", async () => {

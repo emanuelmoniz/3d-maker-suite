@@ -68,8 +68,9 @@ The connector keeps its identity, roots and settings, and acts with the new user
 
 A project root can live on a paired device instead of the server.
 
-1. In **Settings → Projects**, choose **Add root**. Pick the location, **This server** or an online device, then browse to the folder. A device browse goes through the connector; the picker says why it failed (offline, no answer, or a connector that is too old).
-2. The connector watches the folder, waits until a project folder's files stop changing, and sends the hub its scan and the 3MF details. On every connect it checks what changed. The projects use the same page as any other project.
+1. Share the folder first, in **Projects settings → Sources** ([below](#shared-folders-on-a-device)).
+2. In **Projects settings**, under Project folders, choose **Browse…**. Pick the source, **This server** or an online machine with a shared folder, then the folder: on a machine, only its active shared folders and what is inside them. A machine browse goes through the connector; the picker says why it failed (offline, no answer, or a connector that is too old).
+3. The connector watches the folder, waits until a project folder's files stop changing, and sends the hub its scan and the 3MF details. On every connect it checks what changed. The projects use the same page as any other project.
 
 The hub fetches a file only when it needs it: slicing, auto slicing, a download or the 3D view. It asks the connector, checks the file's hash and keeps it in a temporary cache (1 hour, 10 GB at most). Creating a project folder and moving one to the trash run on the device. **Open in slicer** and **Open folder** are hidden on device projects, because they would open on the hub.
 
@@ -207,12 +208,16 @@ Both slicers sync user presets through their cloud account, and the connector wr
 
 ## Shared folders on a device
 
-The hub can browse and use only the folders a device **shares**, while **Share to server** is on on its [machine page](#machine-page). Off, every device root on it shows **Not shared on the device**; the list stays on the device for when it's back on. Upgrading to 5.5.0, a device with a device root starts with Share on, one without with Share off. On the connector's local page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.
+The hub uses only the folders a device **shares**, while **Share to server** is on on its [machine page](#machine-page). Off, every device root on it shows **Not shared on the device**; the list stays for when it's back on.
 
-- Browsing from the web app starts at the shared folders and can't leave them, also through `..` or links.
-- A device root outside the shared folders can't be added. If a folder stops being shared, its root shows **Not shared on the device** with the last known data, and isn't synced or served.
-- You can't stop sharing a folder while a device root inside it still has projects on the hub; remove those first.
-- Upgraded connectors start by sharing the folders their roots are in, so nothing changes until you edit the list.
+The shared folders are picked on the hub, in **Projects settings → Sources**: a card per machine with Share to server on, one line per folder with the project folders inside it.
+
+- **Add folder** browses the machine's whole disk (folder names only, no files) and asks before it shares: "Share D:\Models with the server?". A folder inside a shared one is shared already; a folder that holds shared ones takes their place.
+- A line's switch pauses the folder: it stays in the list, but the device treats it as not shared. **⋯ → Remove** stops sharing it. Either way, a device root inside it shows **Not shared on the device** with the last known data, and isn't synced or served, until it's shared again.
+- It takes `hub.manage`, or the machine's own user with `machine.projects` and Projects write; that user sees only their own machine's card. Each change is in the log, with who made it.
+- The hub keeps the list and sends it to the connector, also when the connector was offline. The connector still refuses every file operation outside its active shared folders, so the hub can't read further than what was shared.
+- A device root can be added only inside an active shared folder.
+- Upgrading to 5.5.0, the connector sends the list it kept on its first connect, and from then on the hub's list wins. A connector that hasn't sent it yet (an older one) shows "Its connector hasn't sent its shared folders yet" on its card, and its own list still applies.
 - The sync folder for hub roots isn't affected.
 
 ## Owners and permissions
@@ -237,7 +242,7 @@ Download the connector file for your system from the [releases page](https://git
 | macOS | `….dmg` | Drag the app to Applications |
 | Linux | `….tar.gz` | Unpack, run `install.sh` |
 
-The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the machine's page on the hub once paired, and the pair screen before. With the hub out of reach it opens the connector's **local page**, <http://127.0.0.1:4301/local>: the machine, its user, the hub and whether it's reachable, with **Open on the hub**, **Open sync folder**, held deletes, **Done editing**, **Change user**, **Manage shared folders**, **Restart server**, **Stop server** and **Unpair**. Every other setting is on the [machine page](#machine-page). Its sync folder is `<home>/3D Maker Suite`.
+The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the machine's page on the hub once paired, and the pair screen before. With the hub out of reach it opens the connector's **local page**, <http://127.0.0.1:4301/local>: the machine, its user, the hub and whether it's reachable, with **Open on the hub**, **Open sync folder**, held deletes, **Done editing**, **Change user**, **Restart server**, **Stop server** and **Unpair**. Every other setting is on the [machine page](#machine-page). Its sync folder is `<home>/3D Maker Suite`.
 
 ### Warnings you will see
 

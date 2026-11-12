@@ -1,9 +1,11 @@
-import type { Permission } from "@3d-maker-suite/core";
+import { mayEditMachine, type Permission } from "@3d-maker-suite/core";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useCan, useRights } from "../lib/auth.ts";
+import { useCan, useMe, useRights } from "../lib/auth.ts";
+import { useDevices } from "../lib/hub.ts";
 import { type AccountType, feeds, useIntegrations, useMayTask } from "../lib/integrations.ts";
+import { usePreferences } from "../lib/preferences.ts";
 
 export type SettingsModule =
   | "quotes"
@@ -45,11 +47,13 @@ export const ACCOUNT_TYPE: Partial<Record<SettingsModule, AccountType>> = {
 
 /**
  * The settings page, or only its Sources tab: an editor may sync or review an account's type
- * there without the settings (ADR-0012), as they could on its card before ADR-0021.
+ * there without the settings (ADR-0012), as they could on its card before ADR-0021; a machine's
+ * own user picks its shared folders on Projects → Sources (ADR-0021).
  */
 export function useSettingsAccess(module: SettingsModule) {
   const settings = useCanSettings(module);
-  const p = useRights()?.permissions;
+  const rights = useRights();
+  const p = rights?.permissions;
   const type = ACCOUNT_TYPE[module];
   const tasks =
     !!type &&
@@ -57,10 +61,20 @@ export function useSettingsAccess(module: SettingsModule) {
     !!(p?.["integrations.sync"] || p?.["integrations.review"] || p?.["integrations.manage"]);
   const may = useMayTask();
   const { data } = useIntegrations(tasks);
+  const me = useMe();
+  const machines = module === "projects" && !settings && !!p;
+  const prefs = usePreferences();
+  const hubOn = !!prefs.data?.values.hubEnabled;
+  const devices = useDevices(machines && hubOn);
+  const mine =
+    !!rights && !!devices.data?.some((d) => mayEditMachine(rights, me?.id, d, "projects"));
   const sources =
-    settings || (tasks && !!data?.some((i) => feeds(i, type) && may(i.id, type, "any")));
-  // Until the list is in, a task can't be told from none.
-  return { settings, sources, loading: tasks && !data };
+    settings ||
+    (machines && hubOn && mine) ||
+    (tasks && !!data?.some((i) => feeds(i, type) && may(i.id, type, "any")));
+  // Until the lists are in, a task or a machine can't be told from none.
+  const loading = (tasks && !data) || (machines && (!prefs.data || (hubOn && !devices.data)));
+  return { settings, sources, loading };
 }
 
 /** Gear button for a module's PageHeader actions; opens the module's config page. */

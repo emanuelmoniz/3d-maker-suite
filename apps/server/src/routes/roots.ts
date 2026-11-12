@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 import {
   apiErrorSchema,
+  devicePathIn,
   effectiveRights,
   fsListResponseSchema,
   hasLevel,
@@ -31,13 +32,6 @@ const errors = {
   409: apiErrorSchema,
   504: apiErrorSchema,
 };
-
-/** Whether two folders on one device are the same or one holds the other. */
-function overlap(a: string, b: string, sep: string) {
-  const fold = (p: string) => (sep === "\\" ? p.toLowerCase() : p).replace(/[\\/]+$/, "") + sep;
-  const [x, y] = [fold(a), fold(b)];
-  return x.startsWith(y) || y.startsWith(x);
-}
 
 /** The project roots (ADR-0014). Everyone reads them (pickers); only admins change them. */
 export const rootsRoutes =
@@ -121,11 +115,18 @@ export const rootsRoutes =
           const dir = isAbsolute(path) && (await stat(path).catch(() => null))?.isDirectory();
           if (!dir) throw new HttpError(400, "invalid_folder", "Folder not found");
         } else {
-          if (!db.select().from(devices).where(eq(devices.id, location)).get())
-            throw new HttpError(404, "not_found", "Device not found");
-          // The device checks the folder: it must be there, absolute on the device's OS and in one
-          // of its shared folders (403 path_denied).
-          const list = await channel
+          const device = db.select().from(devices).where(eq(devices.id, location)).get();
+          if (!device) throw new HttpError(404, "not_found", "Device not found");
+          // In one of the shared folders the hub keeps (ADR-0021), active and with Share on. Until
+          // its connector sent them (an older one), the connector's own list decides, below.
+          const shared = device.sharedFolders;
+          if (
+            shared &&
+            (!device.shareProjects || !shared.some((f) => !f.paused && devicePathIn(f.path, path)))
+          )
+            throw new HttpError(403, "path_denied", "This folder isn't shared by the machine");
+          // The device checks the folder: it must be there and absolute on the device's OS.
+          await channel
             .ask(
               location,
               (requestId) => ({ type: "fs.list", requestId, path }),
@@ -142,7 +143,7 @@ export const rootsRoutes =
               ),
             );
           const others = db.select().from(roots).where(eq(roots.location, location)).all();
-          if (others.some((o) => overlap(o.path, path, list.sep)))
+          if (others.some((o) => devicePathIn(o.path, path) || devicePathIn(path, o.path)))
             throw new HttpError(
               409,
               "root_nested",

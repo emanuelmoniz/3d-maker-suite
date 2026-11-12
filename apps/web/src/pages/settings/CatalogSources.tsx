@@ -205,11 +205,14 @@ export function CatalogSources() {
 export function MachineBlock({
   id,
   name,
+  subtitle,
   receive,
   children,
 }: {
   id: string;
   name: string;
+  /** Its user, where it matters whose machine it is. */
+  subtitle?: string;
   /** In Receive from the hub: its own anchor. */
   receive?: boolean;
   children: React.ReactNode;
@@ -220,6 +223,7 @@ export function MachineBlock({
       id={`${receive ? "receive" : "machine"}-${id}`}
       icon={<SourceIcon icon={LOCATION_ICONS.worker} />}
       title={name}
+      subtitle={subtitle}
       link={{
         to: "/hub/devices/$deviceId",
         params: { deviceId: id },

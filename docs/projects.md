@@ -1,6 +1,6 @@
 # Projects and folders
 
-A project is a folder of files on disk: models (`.3mf`, `.stl`, `.step`, `.stp`), pictures, notes (`.md`, `.txt`, `.pdf`) and `.url` shortcuts. You tell the app which **project folders** (roots) to watch in Settings → Projects, and it finds the projects inside them. Nothing is moved or renamed for you, and what you edit in the app (name, description, tags, cover) is never overwritten by a scan.
+A project is a folder of files on disk: models (`.3mf`, `.stl`, `.step`, `.stp`), pictures, notes (`.md`, `.txt`, `.pdf`) and `.url` shortcuts. You tell the app which **project folders** (roots) to watch in Settings → Projects, and it finds the projects inside them. With the hub on, **Browse…** asks for the source first: **This server**, or a paired machine, where you pick inside the folders it shares (Projects settings → Sources, see [hub.md](hub.md#shared-folders-on-a-device)). Nothing is moved or renamed for you, and what you edit in the app (name, description, tags, cover) is never overwritten by a scan.
 
 ## Recommended structure
 

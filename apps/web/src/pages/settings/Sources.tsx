@@ -254,8 +254,19 @@ export type StateLine = {
  */
 export const LINE_COLUMNS = { item: "w-64", on: "w-20", what: "w-64", actions: "w-32" };
 
-/** A block's state lines in one table, Item | On | State, in line with the schedule lines. */
-export function StateLines({ label, rows }: { label: string; rows: StateLine[] }) {
+/**
+ * A block's state lines in one table, Item | On | State, in line with the schedule lines. The
+ * State column can go by another name (`stateHeader`).
+ */
+export function StateLines({
+  label,
+  rows,
+  stateHeader,
+}: {
+  label: string;
+  rows: StateLine[];
+  stateHeader?: string;
+}) {
   const { t } = useTranslation();
   return (
     <DataTable
@@ -286,7 +297,7 @@ export function StateLines({ label, rows }: { label: string; rows: StateLine[] }
         },
         {
           id: "state",
-          header: t("settings:sources.columns.state"),
+          header: stateHeader ?? t("settings:sources.columns.state"),
           cell: (r) => (
             <span className={cx("inline-block py-1.5", r.tone === "warn" && "text-warn")}>
               {r.state}

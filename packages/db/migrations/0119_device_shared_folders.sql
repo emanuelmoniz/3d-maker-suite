@@ -1,0 +1,1 @@
+ALTER TABLE `devices` ADD `shared_folders` text;
