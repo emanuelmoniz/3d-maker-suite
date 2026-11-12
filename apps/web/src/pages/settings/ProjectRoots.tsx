@@ -6,20 +6,20 @@ import {
   type RootPatch,
   type User,
 } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { inputClass } from "../../components/FormField.tsx";
-import { PathPicker, type PickSource } from "../../components/PathPicker.tsx";
+import { PathPicker } from "../../components/PathPicker.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
-import { ApiError } from "../../lib/api.ts";
 import { useMe } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatNumber } from "../../lib/format.ts";
-import { useDevices } from "../../lib/hub.ts";
-import { usePreferences } from "../../lib/preferences.ts";
-import { useChangeRoot, useRoots } from "../../lib/roots.ts";
+import { rootErrorKey, useChangeRoot, useRoots } from "../../lib/roots.ts";
 import { useUsers } from "../../lib/users.ts";
+import { useRootSources } from "./ProjectFolderPage.tsx";
 
 type Depths = Pick<Root, "projectDepth" | "filesDepth">;
 const PROJECT_DEPTHS = [1, 2, 3, 4, 5];
@@ -85,15 +85,6 @@ function DepthFields({
     </>
   );
 }
-
-const ROOT_ERRORS = {
-  root_in_use: "settings:projects.rootInUse",
-  root_exists: "settings:projects.rootExists",
-  root_nested: "settings:projects.rootNested",
-  path_denied: "settings:projects.rootNotShared",
-  device_offline: "settings:projects.deviceOffline",
-  device_timeout: "settings:projects.deviceTimeout",
-} as const;
 
 const EDIT_BY: Record<(typeof ROOT_EDIT_BY)[number], string> = {
   roles: "settings:projects.editBy.roles",
@@ -172,30 +163,12 @@ export function ProjectRoots() {
   const [depths, setDepths] = useState<Depths>(ROOT_DEFAULTS);
   // Where the last folder added came from: its error names the server or the machine.
   const [location, setLocation] = useState(ROOT_HUB);
-  const hubOn = !!usePreferences().data?.values.hubEnabled;
-  const devices = useDevices(hubOn);
-  const machines: PickSource[] = (hubOn ? (devices.data ?? []) : []).flatMap((d) => {
-    const shared = d.shareProjects ? (d.sharedFolders ?? []).filter((f) => !f.paused) : [];
-    return d.online && shared.length
-      ? [
-          {
-            id: d.id,
-            name: d.name,
-            device: d.id,
-            within: shared.map((f) => f.path),
-            pickRoots: true,
-          },
-        ]
-      : [];
-  });
-  const sources = machines.length
-    ? [{ id: ROOT_HUB, name: t("settings:projects.locationHub"), canCreate: true }, ...machines]
-    : undefined;
+  const all = useRootSources().sources;
+  const sources = all.length > 1 ? all : undefined;
   const roots = useRoots();
   // Users who can be picked to edit a root; the server refuses anyone without projects write.
   const editors = useUsers(!!useMe()).data ?? [];
   const save = useChangeRoot();
-  const code = save.error instanceof ApiError ? save.error.code : undefined;
   const add = (dir: string, at = ROOT_HUB) => {
     const d = dir.trim();
     setLocation(at);
@@ -212,7 +185,14 @@ export function ProjectRoots() {
           {roots.map((r) => (
             <li key={r.path} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 pr-1 pl-3">
               <span className="flex min-w-0 basis-full flex-wrap items-center gap-2 sm:flex-1 sm:basis-auto">
-                <span className="break-all">{r.path}</span>
+                <Link
+                  to="/projects/settings/folders/$id"
+                  params={{ id: r.id }}
+                  className={`break-all ${textLink}`}
+                  aria-label={t("settings:folder.edit", { path: r.path })}
+                >
+                  {r.path}
+                </Link>
                 {r.deviceName && (
                   <span className="text-muted">
                     {t("settings:projects.rootOn", { device: r.deviceName })}
@@ -277,17 +257,14 @@ export function ProjectRoots() {
         />
       </form>
       {sources && <p className="text-muted">{t("settings:projects.locationHint")}</p>}
+      <p>
+        <Link to="/projects/settings/folders/new" className={textLink}>
+          {t("settings:folder.add")}
+        </Link>
+      </p>
       {save.isError && (
         <p role="alert" className="text-bad">
-          {t(
-            code === "invalid_folder"
-              ? location !== ROOT_HUB
-                ? "settings:projects.rootMissingDevice"
-                : "settings:projects.rootMissing"
-              : code && code in ROOT_ERRORS
-                ? ROOT_ERRORS[code as keyof typeof ROOT_ERRORS]
-                : "settings:saveError",
-          )}
+          {t(rootErrorKey(save.error, location))}
         </p>
       )}
       <div className="grid gap-2 text-muted lg:grid-cols-3 lg:gap-6">

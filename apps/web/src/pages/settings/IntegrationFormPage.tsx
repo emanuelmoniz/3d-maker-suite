@@ -39,7 +39,7 @@ function read(f: FormData, prefix: string, fields: Field[]) {
   return out;
 }
 
-const tileClass =
+export const tileClass =
   "flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 has-checked:border-accent has-disabled:cursor-not-allowed has-disabled:opacity-60";
 
 /** Add an account, or a slicer on this server:the one installed here if found, else a download. */

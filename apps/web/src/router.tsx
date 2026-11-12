@@ -74,6 +74,7 @@ import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx"
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { MyAccountPage } from "./pages/settings/MyAccountPage.tsx";
+import { ProjectFolderPage } from "./pages/settings/ProjectFolderPage.tsx";
 import { RoleEditPage } from "./pages/settings/RoleEditPage.tsx";
 import { UserEditPage } from "./pages/settings/UserEditPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
@@ -564,6 +565,16 @@ const routes: AnyRoute[] = [
       path,
       loader: () => loadNamespace("users"),
       component,
+    }),
+  ),
+  // A project folder's page; "/new" is declared before "/$id" so it wins the match.
+  ...(["/projects/settings/folders/new", "/projects/settings/folders/$id"] as const).map((path) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      // users: the save bar.
+      loader: () => Promise.all(["settings", "hub", "users"].map(loadNamespace)),
+      component: ProjectFolderPage,
     }),
   ),
   createRoute({

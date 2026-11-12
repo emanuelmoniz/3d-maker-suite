@@ -2710,7 +2710,7 @@ Do Step 13 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix 
 Plan Step 14 of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 15 - Project folder edit page  **[plan mode]**
+### [x] Step 15 - Project folder edit page  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - New routes for add and edit under the projects settings, following `UserEditPage.tsx`, with an explicit Save.
