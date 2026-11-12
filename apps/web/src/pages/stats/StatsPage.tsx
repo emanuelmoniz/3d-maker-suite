@@ -380,7 +380,7 @@ export function StatsPage() {
               </div>
             </section>
 
-            <div className="grid gap-6 2xl:grid-cols-2">
+            <div className="grid gap-6">
               <DataTable
                 label={t("stats:by.printer")}
                 rows={data.breakdowns.printer}
