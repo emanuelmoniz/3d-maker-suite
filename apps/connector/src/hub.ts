@@ -6,7 +6,6 @@ import {
   type ConnectorUpdateFailure,
   catalogDirsSchema,
   catalogSourcesSchema,
-  type DeviceSyncMode,
   type DeviceUserChange,
   deviceUserPreviewSchema,
   deviceUserResultSchema,
@@ -600,13 +599,6 @@ export function createLink({
     roots,
     sync,
     slicers,
-    /** The status page's sync mode switch; the hub answers with `roots.changed`. */
-    setDefaultSlicer,
-    setMode: (mode: DeviceSyncMode) =>
-      request("/sync/mode", { method: "PUT", body: { mode } }).then((res) => {
-        if (!res.ok) throw new Error(`sync mode: HTTP ${res.status}`);
-      }),
-
     /** Who a code would change this device's user to; the code stays unused. */
     checkUser: (code: string) => askWithCode("/user/check", { code }, deviceUserPreviewSchema),
 

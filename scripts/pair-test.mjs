@@ -1,5 +1,5 @@
 // Pairs an installed connector with a running hub and checks the whole path (ADR-0014): pairing
-// through the connector's status page, online in Hub management, a rename arriving over the event
+// through the connector's local page, online in Hub management, a rename arriving over the event
 // stream, and a revoke sending the connector back to its pair form. Node stdlib only.
 // The hub needs no users yet (it creates the first admin, from this PC) or the admin below.
 //   node scripts/pair-test.mjs [--hub http://127.0.0.1:4300] [--connector http://127.0.0.1:4301]
@@ -100,8 +100,8 @@ if (device.connectorVersion !== connector.version)
   fail(`the hub lists ${device.connectorVersion}, the connector says ${connector.version}`);
 
 await hub("PATCH", `/api/hub/devices/${device.id}`, { name: "Renamed by the hub" });
-await until("the rename on the status page", async () =>
-  (await page("GET", "/")).text.includes("Renamed by the hub"),
+await until("the rename on the local page", async () =>
+  (await page("GET", "/local")).text.includes("Renamed by the hub"),
 );
 step("rename arrived over the event stream");
 

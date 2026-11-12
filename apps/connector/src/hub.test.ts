@@ -204,7 +204,7 @@ describe("connector and hub", () => {
     expect(used.code).toBe("invalidCode");
   });
 
-  it("changes its user on its status page, with both owner choices, and refuses a bad code", async () => {
+  it("changes its user on its local page, with both owner choices, and refuses a bad code", async () => {
     const h = await hub();
     const c = connector();
     await c.link.pair(h.url, await h.code(), "WS-1");
@@ -277,7 +277,7 @@ describe("connector and hub", () => {
     const codeFor = async (userId: string, id = device.id) =>
       (await h.send("POST", `/api/hub/devices/${id}/user-code`, { userId })).json().code as string;
 
-    expect((await call("GET", "/")).body).toContain("viewer");
+    expect((await call("GET", "/local")).body).toContain("viewer");
 
     // Wrong, and another device's: refused with the same message, nothing changes.
     for (const code of ["AAAA-AAAA", await codeFor(h.admin.id, otherDevice.id)]) {
@@ -300,7 +300,7 @@ describe("connector and hub", () => {
     expect(ownerOf(onDevice)).toBe(h.admin.id);
     expect(ownerOf(onHub)).toBe(h.viewer.id);
     expect(c.link.userName()).toBe("admin");
-    expect((await call("GET", "/")).body).toContain("admin");
+    expect((await call("GET", "/local")).body).toContain("admin");
 
     // Used: refused.
     const used = await call("POST", "/user/confirm", `code=${toAdmin}&projects=move`);

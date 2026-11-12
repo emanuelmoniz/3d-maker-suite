@@ -35,8 +35,9 @@
     "lastError": "Last error: {{error}}",
     "rootsError": "Could not send the project roots to the hub: {{error}}",
     "openFolder": "Open sync folder",
-    "openApp": "Open the web app",
-    "manage": "Rename or remove this device in Hub management in the web app. Unpair here if the hub needs a fresh install.",
+    "openHub": "Open on the hub",
+    "hubUnreachable": "Can't reach {{hub}}. Files sync again when it's back.",
+    "manage": "Change this machine's settings on its page on the hub. Unpair here if the hub needs a fresh install.",
     "updateFailed": "The update to version {{version}} did not start, so this connector stays on {{current}}.",
     "updateError": "Could not download the update: {{error}}",
     "hubOlder": "The hub runs an older version than this connector. Install the connector that matches the hub.",
@@ -100,32 +101,12 @@
     "held_one": "{{count}} file was deleted in {{root}} at once. The hub keeps it until you choose.",
     "held_other": "{{count}} files were deleted in {{root}} at once. The hub keeps them until you choose.",
     "confirm": "Delete on the hub too",
-    "restore": "Restore them",
-    "mode": {
-      "all": "This device syncs all the hub's project folders.",
-      "selected": "This device syncs only selected projects. Open in the web app adds a project; Hub management removes one.",
-      "toAll": "Sync everything",
-      "toSelected": "Sync selected projects only"
-    }
+    "restore": "Restore them"
   },
   "locks": {
     "title": "Checked out here",
     "intro": "Other devices can only read these files until you're done. On Windows and Linux, closing the slicer releases them. Otherwise click Done editing, or they're released after the idle time set on the hub.",
     "done": "Done editing"
-  },
-  "slicers": {
-    "title": "Slicers",
-    "intro": "Open in the web app opens files here, in the default slicer.",
-    "none": "No supported slicer is installed on this device, so files can't be opened here from the web app. Install one, then restart the connector.",
-    "default": "Default",
-    "makeDefault": "Use by default",
-    "ask": "Ask each time",
-    "asking": "No default: the web app asks which slicer opens a file.",
-    "worker": "This device is a slice worker: the hub sends it slices to run in the background, with the hub's presets. Your own slicer settings aren't touched.",
-    "sharing": "Send presets: user presets you save in a slicer marked so go to the hub.",
-    "installingIntro": "Install: the hub's presets are written to a slicer marked so while it is closed, and show at its next start.",
-    "sending": "Sends presets",
-    "installing": "Installs presets"
   },
   "folders": {
     "title": "Shared folders",
@@ -136,7 +117,7 @@
     "pathHint": "The full path of an existing folder, for example C:\\Users\\me\\3D or /home/me/3d",
     "add": "Share folder",
     "remove": "Stop sharing",
-    "back": "Back to status",
+    "back": "Back to the local page",
     "errors": {
       "notAbsolute": "Enter the full path of the folder, starting at the drive or at /.",
       "notFound": "There is no folder at this path.",

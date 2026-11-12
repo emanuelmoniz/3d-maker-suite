@@ -107,13 +107,13 @@ it("answers health, shows the pair form, and refuses a cross-site pair", async (
 it("shows the hub user it acts as, and none when the hub names none", async () => {
   const online = { state: () => ({ status: "online" as const, error: undefined }) };
   const named = await serve({ ...online, userName: () => "<Zoë>" });
-  const { body } = await named.call("GET", "/");
+  const { body } = await named.call("GET", "/local");
   const row = `<dt>${t("connector:status.user")}</dt>`;
   expect(body).toContain(`${row}<dd>&#60;Zoë&#62;<br><a href="/user">`);
   close();
 
   const none = await serve({ ...online, userName: () => undefined });
-  const empty = (await none.call("GET", "/")).body;
+  const empty = (await none.call("GET", "/local")).body;
   expect(empty).not.toContain(row);
   expect(empty).not.toContain('href="/user"');
 });
@@ -131,7 +131,7 @@ it("changes the user only with a code, only from its own page, after confirming"
     },
   });
   // Unpaired: nothing to change.
-  expect((await s.call("GET", "/user")).location).toBe("/");
+  expect((await s.call("GET", "/user")).location).toBe("/local");
   s.store.set({ hubUrl: "http://hub.example", deviceId: "d", token: "t" });
 
   const form = await s.call("GET", "/user");
@@ -218,30 +218,46 @@ it("tells only its hub's page which device it is", async () => {
   expect((await s.call("OPTIONS", "/pair", { origin: hub })).status).toBe(403);
 });
 
-it("can drop the default slicer so the hub asks", async () => {
-  const s = await serve();
-  s.store.set({ defaultSlicer: "orca-slicer" });
+it("opens the machine's page on the hub when paired and online, else the local page", async () => {
+  let status: ReturnType<Link["state"]>["status"] = "online";
+  const s = await serve({ state: () => ({ status, error: undefined }) });
+  s.store.set({ hubUrl: "https://hub.example/maker", deviceId: "dev 1", token: "t" });
+  expect(await s.call("GET", "/")).toMatchObject({
+    status: 303,
+    location: "https://hub.example/maker/hub/devices/dev%201",
+  });
+  const local = (await s.call("GET", "/local")).body;
+  expect(local).toContain(
+    `<a href="https://hub.example/maker/hub/devices/dev%201">${t("connector:status.openHub")}</a>`,
+  );
+  expect(local).toContain('content="5; url=/local"');
+  expect(local).not.toContain('action="/sync/mode"');
+  expect(local).not.toContain('action="/slicer"');
+  // Settings are on the hub now.
   const form = { "content-type": "application/x-www-form-urlencoded", origin: s.origin() };
-  expect((await s.call("POST", "/slicer", form, "slicer=")).status).toBe(303);
-  expect(s.store.get().defaultSlicer).toBe("");
-  // Only a slicer that was found can become the default.
-  await s.call("POST", "/slicer", form, "slicer=nope");
-  expect(s.store.get().defaultSlicer).toBe("");
-});
+  expect((await s.call("POST", "/sync/mode", form, "mode=all")).status).toBe(404);
+  expect((await s.call("POST", "/slicer", form, "slicer=")).status).toBe(404);
 
-it("shows when the hub made the device a slice worker", async () => {
-  // Paired before the page starts, so it shows the status view.
-  openStore(dir).set({ hubUrl: "http://127.0.0.1:9", deviceId: "dev-1", token: "t" });
-  const s = await serve();
-  expect((await s.call("GET", "/")).body).not.toContain(t("connector:slicers.worker"));
-  s.store.set({ sliceWorker: true });
-  expect((await s.call("GET", "/")).body).toContain(t("connector:slicers.worker"));
+  for (const down of ["offline", "hubOff"] as const) {
+    status = down;
+    expect(await s.call("GET", "/")).toMatchObject({ status: 303, location: "/local" });
+  }
+  status = "offline";
+  const off = (await s.call("GET", "/local")).body;
+  expect(off).not.toContain(t("connector:status.openHub"));
+  expect(off).toContain(t("connector:status.hubUnreachable", { hub: "hub.example" }));
+  // A stream still connecting gets a moment, then the hub.
+  status = "connecting";
+  setTimeout(() => {
+    status = "online";
+  }, 200);
+  expect((await s.call("GET", "/")).location).toBe("https://hub.example/maker/hub/devices/dev%201");
 });
 
 it("creates and opens the sync folder", async () => {
   const s = await serve();
   const res = await s.call("POST", "/open-folder", { origin: s.origin() });
-  expect(res).toMatchObject({ status: 303, location: "/" });
+  expect(res).toMatchObject({ status: 303, location: "/local" });
   expect(s.opened).toEqual([s.syncDir]);
 });
 
@@ -250,7 +266,7 @@ it("restarts, and stops only once confirmed and only from its own page", async (
   expect((await s.call("POST", "/restart", { origin: "https://evil.example" })).status).toBe(403);
   const restart = await s.call("POST", "/restart", { origin: s.origin() });
   expect(restart.body).toContain(t("connector:restarting"));
-  expect(restart.body).toContain('content="5; url=/"');
+  expect(restart.body).toContain('content="5; url=/local"');
 
   const ask = await s.call("GET", "/stop");
   expect(ask.body).toContain(t("connector:stop.body"));

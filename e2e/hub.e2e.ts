@@ -166,7 +166,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
       }
     }
   })();
-  await expect(page.getByLabel("Status page port")).toHaveValue("4301");
+  await expect(page.getByLabel("Local page port")).toHaveValue("4301");
   await expect(page.getByLabel("Start with the computer")).toBeChecked();
 
   const identity = page.getByRole("region", { name: "Identity" });

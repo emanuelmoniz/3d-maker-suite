@@ -2662,7 +2662,7 @@ Plan Step 11h of the 5.5.0 plan in PLAN.md. Use frontend-design for the cards.
 Plan Step 11i of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Connector: hub page first, permissions  **[plan mode]**
+### [x] Step 12 - Connector: hub page first, permissions  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - The connector's icon, launcher and tray: paired, open the machine's page on the hub; not paired, the local pair screen.

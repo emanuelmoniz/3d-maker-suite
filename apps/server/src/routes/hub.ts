@@ -174,6 +174,7 @@ export const hubRoutes =
             folders:
               db.select({ n: count() }).from(roots).where(eq(roots.location, d.id)).get()?.n ?? 0,
             online: channel.online(d.id),
+            port: channel.port(d.id),
             outdated,
             updateFailed: outdated ? d.updateFailed : null,
             projects: db

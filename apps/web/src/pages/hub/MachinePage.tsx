@@ -27,6 +27,7 @@ import {
   useDevices,
 } from "../../lib/hub.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
+import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
 import { useUsers } from "../../lib/users.ts";
 import { SourceBadge } from "../settings/Sources.tsx";
 import { SyncLine } from "./SyncLine.tsx";
@@ -105,7 +106,7 @@ function Setting({
   );
 }
 
-/** A code for another user, entered on the connector: its status page has no login to check. */
+/** A code for another user, entered on the connector: its local page has no login to check. */
 function ChangeUserDialogs({
   device: d,
   open,
@@ -747,6 +748,23 @@ function Actions({ device: d }: { device: Device }) {
   );
 }
 
+/** This browser runs on the machine (its connector answers `whoami`): a link to its local page. */
+function LocalPage({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const here = useConnectorId([d.port], d.online).data === d.id;
+  if (!here) return null;
+  return (
+    <p>
+      <a
+        href={`http://127.0.0.1:${d.port ?? CONNECTOR_PORT}/local`}
+        className="underline underline-offset-2"
+      >
+        {t("hub:machine.localPage")}
+      </a>
+    </p>
+  );
+}
+
 /**
  * A machine's page (ADR-0021): hub.manage, or the machine's own user, read-only or editing the
  * sections its `machine.*` switches allow. Live controls say so while it's offline.
@@ -793,6 +811,7 @@ export function MachinePage() {
       {device && (
         <div className="grid gap-4">
           {!device.online && <p className="text-muted">{t("hub:machine.offline")}</p>}
+          <LocalPage device={device} />
           <Identity key={device.name} device={device} manage={manage} />
           <Software device={device} manage={manage} />
           <Connection

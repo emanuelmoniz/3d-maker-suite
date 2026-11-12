@@ -114,6 +114,8 @@ export const deviceSchema = z.object({
   lastSeenAt: isoDate.nullable(),
   /** Its event stream is open now. */
   online: z.boolean(),
+  /** Its local page's port, for the `/api/whoami` probe; null = offline or not reported. */
+  port: z.number().int().nullable(),
   /** Its connector version isn't the hub's. */
   outdated: z.boolean(),
   /** What it reported last time its stream opened; null = no failed update. */

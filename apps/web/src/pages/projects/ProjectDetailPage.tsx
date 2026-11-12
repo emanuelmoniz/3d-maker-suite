@@ -424,7 +424,7 @@ export function ProjectDetailPage() {
       : undefined
     : (withSlicer.find((d) => d.id === deviceId) ?? withSlicer[0]);
   const folderDevice = beside ?? devices.find((d) => d.id === deviceId) ?? devices[0];
-  // The device's default slicer opens it; none picked on its status page: the user picks.
+  // The device's default slicer opens it; none picked on its machine page: the user picks.
   const adapterName = useAdapterName();
   const [deviceSlicerId, setDeviceSlicerId] = useState<string>();
   // What the dialog asks for: a file's Open, or Open folder (no file).

@@ -582,7 +582,7 @@ export const hubDeviceRoutes =
       },
     );
 
-    // The status page's switch; the connector syncs again from scratch, as after Hub management's.
+    // A connector older than 5.5.0 has this switch on its page; the connector syncs again from scratch, as after Hub management's.
     app.put(
       "/sync/mode",
       {

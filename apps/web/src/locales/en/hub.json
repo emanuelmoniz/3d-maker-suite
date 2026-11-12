@@ -32,8 +32,8 @@
       "idle_other": "Hub folders up to date · {{count}} files",
       "syncing_one": "Syncing the hub folders, {{count}} change waiting",
       "syncing_other": "Syncing the hub folders, {{count}} changes waiting",
-      "paused_one": "Sync paused: {{count}} file deleted in {{roots}} at once. Confirm or restore it on the device's status page.",
-      "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Confirm or restore them on the device's status page.",
+      "paused_one": "Sync paused: {{count}} file deleted in {{roots}} at once. Confirm or restore it on the device's local page.",
+      "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Confirm or restore them on the device's local page.",
       "error": "Something didn't sync: {{error}}"
     },
     "syncMode": "Syncs",
@@ -52,7 +52,7 @@
     "identity": "Identity",
     "software": "Software",
     "connection": "Connection",
-    "port": "Status page port",
+    "port": "Local page port",
     "portHint": "The connector's page on its own computer. A new port applies after a restart.",
     "autostart": "Start with the computer",
     "autostartHint": "Starts the connector when you log in.",
@@ -69,7 +69,7 @@
     "title": "Change this connector's user",
     "hint": "It will act as this user, with their role. Nothing changes until the code is entered on the connector.",
     "codeTitle": "Code for {{name}}",
-    "codeBody": "Enter this code on this connector's status page. It works once, until {{time}}, only on {{name}}, and isn't shown again."
+    "codeBody": "Enter this code on this connector's local page. It works once, until {{time}}, only on {{name}}, and isn't shown again."
   },
   "pair": {
     "action": "Pair a device",
@@ -80,13 +80,13 @@
   },
   "code": {
     "title": "Pairing code",
-    "body": "Enter this code on the connector's status page. It works once, until {{time}}, and isn't shown again.",
+    "body": "Enter this code on the connector's local page. It works once, until {{time}}, and isn't shown again.",
     "done": "Done"
   },
   "settings": {
     "title": "Sync",
     "deleteGuard": "Pause after this many deletes at once",
-    "deleteGuardHint": "When a device deletes more files than this from one hub folder at once, its sync pauses and asks on the device's status page before anything moves to the hub's trash.",
+    "deleteGuardHint": "When a device deletes more files than this from one hub folder at once, its sync pauses and asks on the device's local page before anything moves to the hub's trash.",
     "locks": "Check-out locks",
     "lockModes": {
       "off": "Off",
@@ -183,8 +183,9 @@
     "titleFallback": "Machine",
     "byline": "{{user}} · {{os}} · connector {{version}}",
     "offline": "Offline: changes apply when it reconnects.",
+    "localPage": "You're on this machine: open its local page",
     "nameIs": "Name: {{name}}",
-    "portIs": "Status page port: {{port}}",
+    "portIs": "Local page port: {{port}}",
     "valueOn": "{{label}}: on",
     "valueOff": "{{label}}: off",
     "slicers": "Slicers",

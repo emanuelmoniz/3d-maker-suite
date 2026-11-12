@@ -269,10 +269,10 @@ export const useOpenTargets = (id: string) =>
   });
 
 /** The connector's port when its device didn't report one (packaging/build.mjs). */
-const CONNECTOR_PORT = 4301;
+export const CONNECTOR_PORT = 4301;
 
 /**
- * The device id of the connector running beside this browser, from its status page's
+ * The device id of the connector running beside this browser, from its local page's
  * `/api/whoami` (ADR-0014); null when there is none or the browser blocks it (Safari, a declined
  * local network prompt). A hint only: asked once a page session, never an error.
  */

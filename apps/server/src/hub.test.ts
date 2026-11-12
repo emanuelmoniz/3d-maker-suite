@@ -277,6 +277,7 @@ describe("hub devices", () => {
       syncMode: "selected", // the default for new devices
       // Online = its event stream is open; a plain request doesn't make it so.
       online: false,
+      port: null,
     });
     expect(JSON.stringify(listed)).not.toContain(token);
 
@@ -381,7 +382,11 @@ describe("hub events", () => {
   it("is for devices only and records the connector's version", async () => {
     const { send, open, deviceId } = await live();
     expect((await send("GET", "/api/hub/events")).statusCode).toBe(403);
-    const s = await open({ "x-connector-version": "5.0.1", "x-connector-os": "linux x64" });
+    const s = await open({
+      "x-connector-version": "5.0.1",
+      "x-connector-os": "linux x64",
+      "x-connector-port": "4305",
+    });
     expect(s.res.headers.get("content-type")).toBe("text/event-stream");
     expect(s.res.headers.get("x-accel-buffering")).toBe("no");
     await s.until(": open");
@@ -391,6 +396,8 @@ describe("hub events", () => {
       connectorVersion: "5.0.1",
       os: "linux x64",
       online: true,
+      // Its local page, for the machine page's link there.
+      port: 4305,
     });
     await s.cancel();
   });

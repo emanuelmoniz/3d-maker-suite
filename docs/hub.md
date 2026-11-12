@@ -19,9 +19,9 @@ If the hub is switched off again, connectors show "The hub is turned off on this
 Only admins pair devices.
 
 1. In **Hub management**, choose **Pair a device**, pick the user the device will act as, and copy the pairing code. It works once, for 10 minutes, and is shown once.
-2. On the device, install the connector (below) and open its status page, <http://127.0.0.1:4301>.
+2. On the device, install the connector (below) and open it from the start menu or app menu (or <http://127.0.0.1:4301>). Not paired yet, it shows the pair screen.
 3. Enter the hub's address (the one you open the web app at), the code and a device name, then **Pair**.
-4. The device shows **Online** on its status page and in Hub management.
+4. The device shows **Online** in Hub management, and the browser goes on to its machine page on the hub.
 
 The hub stores only a hash of the device token. On a device's page you can **Rename** it or **Revoke** it: a revoked device loses access at once, its local files stay on its disk, and it needs a new code to join again. The connector connects out to the hub, so devices need no open ports and no VPN. It works behind Caddy, nginx and Traefik with default settings: the hub marks its event stream as unbuffered and sends a heartbeat every 15 seconds.
 
@@ -30,7 +30,7 @@ The hub stores only a hash of the device token. On a device's page you can **Ren
 Each device in **Hub management** opens its machine page. It has every setting of that machine:
 
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
-- **Connection**: the status page port and start at login, read live from the connector.
+- **Connection**: the local page port and start at login, read live from the connector.
 - **Slicers**: the default slicer (the one **Open** uses, or **Ask each time**). Then for each slicer the connector found:
   - **Use as slicer**: **Offer** offers this slicer to the hub; the admin picks the hub's slicer among the offers on the slicer's card in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)). It says *Offered: pick it in Integrations*, or *The hub's slicer* on the picked one, whose offer stays on until another is picked. With Integrations manage, **Integrations** links to the card, where the machine's install is set up, updated and removed ([Slice workers](#slice-workers)).
   - **System presets**: **Receive** only, the hub's slicer's whole `system/` folder (its system presets, brands and printer models). Off and locked on the hub's slicer: its own are the hub's.
@@ -39,6 +39,8 @@ Each device in **Hub management** opens its machine page. It has every setting o
   Both Receive switches on give the machine a full copy of the hub's slicer. System presets alone keeps the machine's own user presets; User presets alone keeps its own `system/` ([ADR-0023](adr/0023-one-catalog-module.md)).
 - **Projects**: **Receive from the hub** (with what it syncs, below) and **Share to the hub** (its shared folders, below).
 - **Actions**: **Restart connector**, **Stop connector** and **Revoke**.
+
+Opened in a browser on that machine, the page also links to the connector's [local page](#install-the-connector).
 
 **Manage the hub** changes everything on every machine. The machine's own user changes a section with its switch:
 
@@ -57,10 +59,10 @@ The port, start at login, default slicer, Restart and Stop need the connector on
 
 ### Change a connector's user
 
-The status page and the device's card in Hub management show the user a connector acts as. To change it without pairing again:
+The local page and the device's card in Hub management show the user a connector acts as. To change it without pairing again:
 
 1. In **Hub management**, open the connector's edit page, choose **Change user**, pick the user and copy the code. It works once, for 10 minutes, only on this connector, and is shown once. Nothing changes yet.
-2. On the connector's status page, choose **Change user** and enter the code. The hub has to be online. After 5 wrong codes, wait 15 minutes.
+2. On the connector's local page, choose **Change user** and enter the code. The hub has to be online. After 5 wrong codes, wait 15 minutes.
 3. Choose what happens to the projects in this connector's folders: **Move to the new user**, or **Stay with their owner**. An owner who stays may no longer be able to edit them, and the new user may not see them. Then confirm.
 
 The connector keeps its identity, roots and settings, and acts with the new user's rights from then on. Projects in hub roots aren't affected. The change is written to the log.
@@ -86,13 +88,13 @@ The scan carries the plate previews of each 3MF, so a project page doesn't downl
 
 ## Hub roots: sync with devices
 
-A root on **This server** is a hub root. Each device keeps a copy of it in its sync folder (`<home>/3D Maker Suite/<root>`) and the two stay in step both ways: save in your slicer as usual and the hub gets the change; a change made on the hub or another device arrives on its own. Files download to a hidden temporary file, are hash-checked and then renamed into place, so a half-copied file never shows. Files the root marks download-only are read-only on the device. The device's status page shows the sync state and how many changes wait.
+A root on **This server** is a hub root. Each device keeps a copy of it in its sync folder (`<home>/3D Maker Suite/<root>`) and the two stay in step both ways: save in your slicer as usual and the hub gets the change; a change made on the hub or another device arrives on its own. Files download to a hidden temporary file, are hash-checked and then renamed into place, so a half-copied file never shows. Files the root marks download-only are read-only on the device. The device's local page shows the sync state and how many changes wait.
 
 A restarted connector downloads nothing it already has.
 
 ### Which projects a device syncs
 
-A device syncs hub projects while **Receive from the hub** is on, on its [machine page](#machine-page). Turning it off removes its copies of hub projects from the device; nothing is deleted on the hub. The machine page (and the connector's status page) set what it syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
+A device syncs hub projects while **Receive from the hub** is on, on its [machine page](#machine-page). Turning it off removes its copies of hub projects from the device; nothing is deleted on the hub. The machine page sets what it syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
 
 ### Open
 
@@ -102,11 +104,11 @@ The project page and the model file rows have one **Open** button. It opens the 
 - **On a computer with the connector:** the page asks the connector on this computer which device it is, and that device opens the file, even when you have other devices paired. The hub selects the project for that device, the connector downloads it if it isn't there yet and opens the file. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
 - **When the page can't ask** (no connector here, Safari, or you declined the browser's local network prompt): your online devices with a slicer. One opens without asking; with several, Open asks which.
 
-**Open folder** works the same way. On the server's computer it opens the project folder there. On a computer with the connector it opens the project's copy in the sync folder, if that device syncs the project. If not, the page says so: open one of its models with **Open** (that adds the project to the device), or set the device to sync everything on its connector's status page or in Hub management. Elsewhere the button is hidden.
+**Open folder** works the same way. On the server's computer it opens the project folder there. On a computer with the connector it opens the project's copy in the sync folder, if that device syncs the project. If not, the page says so: open one of its models with **Open** (that adds the project to the device), or set the device to sync everything on its machine page. Elsewhere the button is hidden.
 
 The page only finds the connector when the connector was paired with the same address you use in the browser (for example both `http://3dms.lan:4300`). With another address it falls back to the list.
 
-The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. The status page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, the device isn't offered.
+The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. Its machine page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, the device isn't offered.
 
 Locks are soft: see [Locks](#locks).
 
@@ -121,7 +123,7 @@ Locks are soft: see [Locks](#locks).
 A checked-out file is released when:
 
 - the slicer **Open** launched exits (Windows and Linux only),
-- you choose **Done editing** (the project page or the connector's status page),
+- you choose **Done editing** (the project page or the connector's local page),
 - it has had no save for the idle time (**Release a checked-out file after this many minutes without a save**, default 60),
 - an admin force-unlocks it, or the device is revoked or its user deleted, or locks are switched off.
 
@@ -147,11 +149,11 @@ If a device uploads a file that changed on the hub or on another device since it
 
 A file deleted on a device moves to the root's trash on the hub, never a hard delete, and only when the hub has no newer version of it.
 
-**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Settings → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its status page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
+**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Settings → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its local page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
 
 ## Slice workers
 
-A device can slice for the hub. Its user offers a slicer with **Use as slicer** on its [machine page](#machine-page); in **Settings → Integrations**, the slicer's card sets up its install there (**Set up**, or **Add a machine…**), picks or installs its program (**Use this program**), and **Change the hub's slicer…** picks it. One install per slicer and machine. Having an install makes it a slice worker, and removing its last slicer ends it; only the hub's slicer slices. Its status page also says it is a worker. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
+A device can slice for the hub. Its user offers a slicer with **Use as slicer** on its [machine page](#machine-page); in **Settings → Integrations**, the slicer's card sets up its install there (**Set up**, or **Add a machine…**), picks or installs its program (**Use this program**), and **Change the hub's slicer…** picks it. One install per slicer and machine. Having an install makes it a slice worker, and removing its last slicer ends it; only the hub's slicer slices. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 
@@ -208,7 +210,7 @@ Both slicers sync user presets through their cloud account, and the connector wr
 
 ## Shared folders on a device
 
-The hub can browse and use only the folders a device **shares**, while **Share to the hub** is on on its [machine page](#machine-page). Off, every device root on it shows **Not shared on the device**; the list stays on the device for when it's back on. Upgrading to 5.5.0, a device with a device root starts with Share on, one without with Share off. On the connector's status page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.
+The hub can browse and use only the folders a device **shares**, while **Share to the hub** is on on its [machine page](#machine-page). Off, every device root on it shows **Not shared on the device**; the list stays on the device for when it's back on. Upgrading to 5.5.0, a device with a device root starts with Share on, one without with Share off. On the connector's local page, **Manage shared folders** adds a folder (the full path of an existing folder) or stops sharing one. Adding a folder inside a shared one isn't needed; the device already shares it.
 
 - Browsing from the web app starts at the shared folders and can't leave them, also through `..` or links.
 - A device root outside the shared folders can't be added. If a folder stops being shared, its root shows **Not shared on the device** with the last known data, and isn't synced or served.
@@ -238,7 +240,7 @@ Download the connector file for your system from the [releases page](https://git
 | macOS | `….dmg` | Drag the app to Applications |
 | Linux | `….tar.gz` | Unpack, run `install.sh` |
 
-The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the status page. Its sync folder is `<home>/3D Maker Suite`.
+The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the machine's page on the hub once paired, and the pair screen before. With the hub out of reach it opens the connector's **local page**, <http://127.0.0.1:4301/local>: the machine, its user, the hub and whether it's reachable, with **Open on the hub**, **Open sync folder**, held deletes, **Done editing**, **Change user**, **Manage shared folders**, **Restart server**, **Stop server** and **Unpair**. Every other setting is on the [machine page](#machine-page). Its sync folder is `<home>/3D Maker Suite`.
 
 ### Warnings you will see
 
@@ -254,7 +256,7 @@ Self-updates don't warn again.
 
 Hub management marks a device whose connector isn't on the hub's version: **Outdated**, or **Update failed** with the reason (the download failed, or the new version didn't start and the connector went back). The hub also raises an alert, which clears once the versions match. **Update now** makes an online connector download the hub's version at once, even one that went back before.
 
-The machine page has **Restart connector** and **Stop connector**; both need it online. The status page has **Restart server**, **Stop server** and **Unpair**, also on the pair screen. Unpair forgets the hub on this machine (for a hub that needs a fresh install); the hub shows the device offline until an admin removes it. A connector does not start on a machine where a hub is running: one hub per machine. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
+The machine page has **Restart connector** and **Stop connector**; both need it online. The local page has **Restart server**, **Stop server** and **Unpair**, also on the pair screen. Unpair forgets the hub on this machine (for a hub that needs a fresh install); the hub shows the device offline until an admin removes it. A connector does not start on a machine where a hub is running: one hub per machine. Stop takes the device offline for the hub until the connector starts again: from the start menu or app menu, or at the next login.
 
 ## For company IT
 
@@ -272,6 +274,6 @@ The machine page has **Restart connector** and **Stop connector**; both need it 
   | macOS | `/Applications/3D Maker Suite Connector.app` | `~/Library/Application Support/3d-maker-suite-connector` |
   | Linux | `~/.local/share/3d-maker-suite-connector/install` | `~/.local/share/3d-maker-suite-connector` |
 
-- **Network.** Outbound HTTPS (or HTTP on a LAN) from the device to the hub, plus GitHub release downloads for updates. The status page listens on `127.0.0.1:4301` only.
+- **Network.** Outbound HTTPS (or HTTP on a LAN) from the device to the hub, plus GitHub release downloads for updates. The local page listens on `127.0.0.1:4301` only.
 - **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers, open a file in a slicer). It never runs a command the hub sends. The device token is stored encrypted and never logged.
 - **Signing.** Nothing is code-signed yet; see ADR-0014, "Unsigned builds".

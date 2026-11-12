@@ -10,7 +10,7 @@ import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import type { FolderError } from "./roots.ts";
-import { presetsOn, type Store } from "./state.ts";
+import type { Store } from "./state.ts";
 import { RESTART, type Updater } from "./update.ts";
 
 type Messages = { [k: string]: string | Messages };
@@ -84,6 +84,9 @@ export function allowed(method: string | undefined, headers: IncomingHttpHeaders
 
 const openDir = (dir: string) => void openFolder(dir).catch(() => {});
 
+/** The slim local page (ADR-0021); `/` sends a paired connector to its machine page on the hub. */
+const HOME = "/local";
+
 async function readForm(req: IncomingMessage) {
   let body = "";
   for await (const chunk of req) {
@@ -145,7 +148,10 @@ type Options = {
   exit?: (code: number) => void;
 };
 
-/** The connector's only UI (ADR-0014): pair, hub, state, sync folder. 127.0.0.1 only. */
+/**
+ * The connector's own page (ADR-0021), 127.0.0.1 only: the pair screen, or the slim local page for a
+ * hub that can't be reached and for what only works here. Its settings are on the hub's machine page.
+ */
 export function createStatusPage({
   link,
   store,
@@ -155,6 +161,25 @@ export function createStatusPage({
   open = openDir,
   exit = (code) => process.exit(code),
 }: Options) {
+  /** This machine's page on the hub; undefined until paired. */
+  const machineUrl = () => {
+    const { hubUrl, deviceId } = store.get();
+    if (!hubUrl || !deviceId) return undefined;
+    try {
+      const base = hubUrl.endsWith("/") ? hubUrl : `${hubUrl}/`;
+      return new URL(`hub/devices/${encodeURIComponent(deviceId)}`, base).href;
+    } catch {
+      return undefined;
+    }
+  };
+  const hubHost = (url: string) => {
+    try {
+      return new URL(url).host;
+    } catch {
+      return url;
+    }
+  };
+
   // Restart and stop the connector's own server; on the pair screen too, where nothing else is left to do.
   const controls = (unpair: boolean) => `<div class="actions divider">
 <form method="post" action="/restart"><button type="submit" class="secondary">${t("connector:status.restart")}</button></form>
@@ -207,20 +232,19 @@ ${update.error ? note(t("connector:status.updateError", { error: update.error })
 ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}
 <div class="actions">
 <form method="post" action="/open-folder"><button type="submit">${t("connector:status.openFolder")}</button></form>
-<a href="${esc(state.hubUrl ?? "")}">${t("connector:status.openApp")}</a>
+${status === "online" ? `<a href="${esc(machineUrl() ?? "")}">${t("connector:status.openHub")}</a>` : ""}
 </div>
+${status === "offline" ? note(t("connector:status.hubUnreachable", { hub: hubHost(state.hubUrl ?? "") })) : ""}
 ${controls(true)}
 <p class="muted">${t("connector:status.manage")}</p>
 </section>
-${syncView()}
-${slicersView()}`;
+${syncView()}`;
   };
 
   // The hub roots' sync; held deletes ask here, nowhere else.
   const syncView = () => {
     const s = link.sync?.state();
     if (!s) return "";
-    const selected = link.sync?.mode() === "selected";
     const held = s.held
       .map(
         (h) => `<div role="alert">
@@ -254,46 +278,6 @@ ${slicersView()}`;
 ${s.error ? `<p class="error">${t("connector:sync.error", { error: s.error })}</p>` : ""}
 ${held}
 ${locks}
-<p>${t(selected ? "connector:sync.mode.selected" : "connector:sync.mode.all")}</p>
-<form method="post" action="/sync/mode"><input type="hidden" name="mode" value="${selected ? "all" : "selected"}"><button type="submit">${t(selected ? "connector:sync.mode.toAll" : "connector:sync.mode.toSelected")}</button></form>
-</section>`;
-  };
-
-  // Open uses the default; with several and none picked, the hub asks which one each time.
-  const slicersView = () => {
-    const found = link.slicers.list();
-    const pick = found.find((f) => f.id === store.get().defaultSlicer);
-    const described = link.slicers.described();
-    // Send presets and Install, per slicer (ADR-0020).
-    const presets = (id: string) => {
-      const lib = described.find((d) => d.id === id)?.library;
-      const on = (["send", "install"] as const).filter(
-        (k) => lib && presetsOn(store.get(), k, lib),
-      );
-      return on.length
-        ? `<span class="muted">${on.map((k) => t(k === "send" ? "connector:slicers.sending" : "connector:slicers.installing")).join(" · ")}</span>`
-        : "";
-    };
-    const rows = found
-      .map(
-        (f) => `<li class="row"><span>${esc(f.name)}${f.version ? ` ${esc(f.version)}` : ""}</span>
-${presets(f.id)}
-${
-  f === pick
-    ? `<span class="muted">${t("connector:slicers.default")}</span>`
-    : `<form method="post" action="/slicer"><input type="hidden" name="slicer" value="${esc(f.id)}"><button type="submit">${t("connector:slicers.makeDefault")}</button></form>`
-}</li>`,
-      )
-      .join("\n");
-    const ask = pick
-      ? `<form method="post" action="/slicer"><input type="hidden" name="slicer" value=""><button type="submit">${t("connector:slicers.ask")}</button></form>`
-      : `<p class="muted">${t("connector:slicers.asking")}</p>`;
-    return `<section aria-labelledby="slicers">
-<h2 id="slicers">${t("connector:slicers.title")}</h2>
-${store.get().sliceWorker ? `<p>${t("connector:slicers.worker")}</p>` : ""}
-${presetsOn(store.get(), "send") ? `<p>${t("connector:slicers.sharing")}</p>` : ""}
-${presetsOn(store.get(), "install") ? `<p>${t("connector:slicers.installingIntro")}</p>` : ""}
-${found.length ? `<p class="muted">${t("connector:slicers.intro")}</p><ul>${rows}</ul>${found.length > 1 ? ask : ""}` : `<p class="muted">${t("connector:slicers.none")}</p>`}
 </section>`;
   };
 
@@ -317,7 +301,7 @@ ${rows ? `<ul>${rows}</ul>` : `<p>${t("connector:folders.none")}</p>`}
 <small id="path-hint">${t("connector:folders.pathHint")}</small>
 <button type="submit">${t("connector:folders.add")}</button>
 </form>
-<p><a href="/">${t("connector:folders.back")}</a></p>
+<p><a href="${HOME}">${t("connector:folders.back")}</a></p>
 </section>`;
   };
 
@@ -339,7 +323,7 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 </fieldset>
 <div class="actions">
 <button type="submit">${t("connector:user.continue")}</button>
-<a href="/">${t("connector:user.cancel")}</a>
+<a href="${HOME}">${t("connector:user.cancel")}</a>
 </div>
 </form>
 </section>`;
@@ -361,7 +345,7 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 <input type="hidden" name="projects" value="${projects}">
 <div class="actions">
 <button type="submit">${t("connector:user.change")}</button>
-<a href="/">${t("connector:user.cancel")}</a>
+<a href="${HOME}">${t("connector:user.cancel")}</a>
 </div>
 </form>
 </section>`;
@@ -373,7 +357,7 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 <p>${t("connector:stop.body")}</p>
 <div class="row">
 <form method="post" action="/stop"><button type="submit" class="danger">${t("connector:stop.confirm")}</button></form>
-<a href="/">${t("connector:stop.cancel")}</a>
+<a href="${HOME}">${t("connector:stop.cancel")}</a>
 </div>
 </section>`;
   // Unpair clears the token and state here; the hub keeps the device, offline, until an admin removes it.
@@ -382,7 +366,7 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 <p>${t("connector:unpair.body")}</p>
 <div class="row">
 <form method="post" action="/unpair"><button type="submit" class="danger">${t("connector:unpair.confirm")}</button></form>
-<a href="/">${t("connector:unpair.cancel")}</a>
+<a href="${HOME}">${t("connector:unpair.cancel")}</a>
 </div>
 </section>`;
   const note = (html: string) => `<section><p role="status">${html}</p></section>`;
@@ -395,7 +379,7 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-${refresh ? '<meta http-equiv="refresh" content="5; url=/">' : ""}
+${refresh ? `<meta http-equiv="refresh" content="5; url=${HOME}">` : ""}
 ${favicon ? `<link rel="icon" href="/branding/favicon?v=${favicon.data.length}">` : ""}
 <title>${title}</title>
 <style>${CSS}</style>
@@ -413,6 +397,21 @@ ${body}
     return s === "unpaired" || s === "revoked"
       ? page(pairForm(error, form), false)
       : page(statusView(s, e), true);
+  };
+
+  /**
+   * Where the icon and the launcher land (they open `/`): paired and the hub online, this machine's
+   * page there; paired otherwise, the local page; else the pair screen. The launcher opens it as
+   * soon as /api/health answers, so a stream still connecting gets a few seconds first.
+   */
+  const entry = async () => {
+    let { status } = link.state();
+    for (let i = 0; status === "connecting" && i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      ({ status } = link.state());
+    }
+    if (status === "unpaired" || status === "revoked") return undefined;
+    return (status === "online" && machineUrl()) || HOME;
   };
 
   /**
@@ -446,7 +445,7 @@ ${body}
     const send = (code: number, type: string, body: string) =>
       res.writeHead(code, { "content-type": type, "cache-control": "no-store" }).end(body);
     const html = "text/html; charset=utf-8";
-    const back = () => res.writeHead(303, { location: "/" }).end();
+    const back = (location = HOME) => res.writeHead(303, { location }).end();
     const path = new URL(req.url ?? "/", "http://x").pathname;
     // whoami's preflight is a read like its GET: any Origin may ask, the Host must still be ours.
     const whoami = path === "/api/whoami" && (req.method === "GET" || req.method === "OPTIONS");
@@ -463,7 +462,11 @@ ${body}
           .writeHead(200, { "content-type": logo.type, "x-content-type-options": "nosniff" })
           .end(logo.data);
       }
-      if (req.method === "GET" && path === "/") return send(200, html, render());
+      if (req.method === "GET" && path === "/") {
+        const to = await entry();
+        return to ? back(to) : send(200, html, render());
+      }
+      if (req.method === "GET" && path === HOME) return send(200, html, render());
       if (req.method === "POST" && path === "/pair") {
         const form = await readForm(req);
         const name = form.get("name")?.trim() || hostname();
@@ -473,7 +476,8 @@ ${body}
           if (e instanceof PairError) return send(400, html, render(e.code, form));
           throw e;
         }
-        return back();
+        // To the entry: a fresh pair lands on the hub.
+        return back("/");
       }
       if (req.method === "GET" && path === "/stop") return send(200, html, page(stopForm, false));
       if (req.method === "GET" && path === "/unpair")
@@ -538,16 +542,6 @@ ${body}
       if (req.method === "POST" && path === "/sync/done") {
         const key = (await readForm(req)).get("key") ?? "";
         void link.sync?.done(key);
-        return back();
-      }
-      if (req.method === "POST" && path === "/sync/mode") {
-        const mode = (await readForm(req)).get("mode");
-        if (mode === "all" || mode === "selected") await link.setMode(mode).catch(() => {}); // offline: the page still shows the old mode
-        return back();
-      }
-      if (req.method === "POST" && path === "/slicer") {
-        // An empty one: no default, the hub asks which slicer opens.
-        link.setDefaultSlicer((await readForm(req)).get("slicer") ?? "");
         return back();
       }
       if (req.method === "POST" && path === "/open-folder") {
