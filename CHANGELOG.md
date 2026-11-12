@@ -2,6 +2,25 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.5.0-alpha.4] - 2026-11-12
+
+Pre-release, fourth of 5.5.0. Lists everything since 5.5.0-alpha.3. No migration.
+
+### Added
+- **Unlink folders** on the selection bar of **Projects settings → Change project folder…**: the selected projects' folders are unlinked and kept as they are, and the ones that couldn't be unlinked stay selected, with the reason ([docs/projects.md](docs/projects.md#moving-projects-to-another-project-folder))
+- The machine page's Projects section has **Sync sources configurations**, which opens Projects settings → Sources
+
+### Changed
+- On the machine page, **Actions** (Restart, Stop, Revoke) is at the top
+- **Receive from server** shows its sync state next to the picks count, now worded *Up to date · N files*; **Share to server** shows *Up to date* next to its folder count while the machine is online. The line about where these are set is gone
+
+### Fixed
+- Unlinking a project whose folder is missing, with Keep, now just forgets the folder instead of keeping a dead link to it
+
+### Tested
+- Automatic: unit and integration tests (1228), Playwright e2e (221), lint, the translation check and the version check pass. The e2e covers Unlink folders: the project leaves the table and its files stay on disk.
+- Not tested by hand: the machine page and Unlink folders on the real VPS.
+
 ## [5.5.0-alpha.3] - 2026-11-12
 
 Pre-release, third of 5.5.0. Lists everything since 5.5.0-alpha.2. Back up before updating. Migration 0119 adds the machines' shared folders, 0120 replaces each machine's sync mode and selected projects with picks, and 0121 gives a pick a level for the machine's user.
