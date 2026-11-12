@@ -64,7 +64,7 @@ for (const width of [375, 1440])
           await page.request.patch(`/api/hub/devices/${idOf(name)}/slicers/${library}`, { data })
         ).status(),
       ).toBe(204);
-    // The hub's slicer (ADR-0022): an install on a machine; the first one, until one is picked in
+    // Server's slicer (ADR-0022): an install on a machine; the first one, until one is picked in
     // Integrations. It is the catalog source.
     const worker = async (name: string) =>
       (
@@ -79,9 +79,9 @@ for (const width of [375, 1440])
     await worker("WS-2");
     await page.goto("/catalog/settings/sources");
     await openSources(page);
-    const share1 = block(page, "Share to the hub", "WS-1");
-    const share2 = block(page, "Share to the hub", "WS-2");
-    const hubSlicer = (b: typeof share1) => b.getByText("The hub's slicer", { exact: true });
+    const share1 = block(page, "Share to server", "WS-1");
+    const share2 = block(page, "Share to server", "WS-2");
+    const hubSlicer = (b: typeof share1) => b.getByText("Server's slicer", { exact: true });
     await expect(hubSlicer(share1)).toBeVisible();
     // Every machine with the slicer is listed for its user presets; only the hub's slicer shares
     // the catalog.
@@ -111,10 +111,10 @@ for (const width of [375, 1440])
       "/integrations#library-bambu-studio",
     );
 
-    // Receive from the hub: every machine with the slicer, its System and User presets lines on one
-    // card. The hub's slicer receives user presets only: its own folder is the catalog.
-    const receive2 = block(page, "Receive from the hub", "WS-2");
-    await expect(receive2.getByText("The hub's slicer", { exact: true })).toBeVisible();
+    // Receive from server: every machine with the slicer, its System and User presets lines on one
+    // card. Server's slicer receives user presets only: its own folder is the catalog.
+    const receive2 = block(page, "Receive from server", "WS-2");
+    await expect(receive2.getByText("Server's slicer", { exact: true })).toBeVisible();
     await expect(receive2.getByRole("switch", { name: /Receive the system presets/ })).toHaveCount(
       0,
     );
@@ -123,7 +123,7 @@ for (const width of [375, 1440])
     ).toBeVisible();
     const catalogLine =
       "Receive the system presets, brands and printer models in Bambu Studio on WS-1";
-    const receive1 = block(page, "Receive from the hub", "WS-1");
+    const receive1 = block(page, "Receive from server", "WS-1");
     const system = receive1.getByRole("switch", { name: catalogLine });
     await expect(system).not.toBeChecked();
     await expect(receive1.getByText("Offline", { exact: true })).toBeVisible();
@@ -146,7 +146,7 @@ for (const width of [375, 1440])
 
     // WS-1 shares Bambu Studio's filament presets and nothing else: a kind on turns Share on.
     // OrcaSlicer is listed too, every kind off.
-    const shares = block(page, "Share to the hub", "WS-1");
+    const shares = block(page, "Share to server", "WS-1");
     const kindLine = (kind: string, slicer = "Bambu Studio") =>
       shares.getByRole("switch", { name: `Share ${kind} from ${slicer} on WS-1` });
     for (const kind of ["Printer presets", "Process presets", "Filament presets"])
@@ -174,7 +174,7 @@ for (const width of [375, 1440])
     await ws1(["bambu-studio"]);
     await page.reload();
     await openSources(page);
-    const receives = block(page, "Receive from the hub", "WS-1");
+    const receives = block(page, "Receive from server", "WS-1");
     await expect(
       receives.getByText("OrcaSlicer is no longer found on this machine."),
     ).toBeVisible();
@@ -195,7 +195,7 @@ for (const width of [375, 1440])
     await page.reload();
     await openSources(page);
     const server = page
-      .getByRole("region", { name: "Receive from the hub", exact: true })
+      .getByRole("region", { name: "Receive from server", exact: true })
       .locator("#receive-server");
     const userLine = server.getByRole("switch", {
       name: "Receive user presets in Bambu Studio on This server",

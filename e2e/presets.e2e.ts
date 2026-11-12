@@ -197,7 +197,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await tabs.getByRole("link", { name: "Sources" }).click();
   await openSources(page);
   const machine = page
-    .getByRole("region", { name: "Receive from the hub" })
+    .getByRole("region", { name: "Receive from server" })
     .getByRole("region", { name: "OrcaSlicer", exact: true });
   // One User presets line for every kind (ADR-0023); no switch without the machine's right.
   await expect(machine.getByRole("row", { name: /User presets/ })).toContainText(

@@ -52,7 +52,7 @@ export async function gotoIntegrations(page: Page) {
  */
 export async function openSources(page: Page) {
   await page
-    .getByRole("heading", { name: /^(Share to|Receive from) the hub$/ })
+    .getByRole("heading", { name: /^(Share to|Receive from) server$/ })
     .first()
     .waitFor();
   const closed = page.locator("li[aria-labelledby] > div > h3 > button[aria-expanded=false]");

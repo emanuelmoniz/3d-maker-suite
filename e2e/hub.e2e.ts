@@ -311,8 +311,8 @@ test("hub: a machine's own user sees its slicers and edits only what their switc
       .getByRole("region", { name: "Sync sources configurations" })
       .getByRole("link", { name: "Catalog" }),
   ).toBeVisible();
-  await expect(page.getByRole("switch", { name: "Receive from the hub" })).toHaveCount(0);
-  await expect(page.getByText("Receive from the hub: on")).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Receive from server" })).toHaveCount(0);
+  await expect(page.getByText("Receive from server: on")).toBeVisible();
   await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Actions" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Change user" })).toHaveCount(0);

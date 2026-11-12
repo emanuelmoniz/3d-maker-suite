@@ -22,7 +22,7 @@ for (const width of [375, 1440])
     const card = page.getByRole("region", { name: "Bambu Studio" });
     const where = "This server";
     await expect(card.getByRole("heading", { name: where, level: 4 })).toBeVisible();
-    const hub = card.getByRole("region", { name: "The hub's slicer" });
+    const hub = card.getByRole("region", { name: "Server's slicer" });
     await expect(hub.getByText(where, { exact: true })).toBeVisible();
     await expect(hub.getByText("Slicer machine used by the server.")).toBeVisible();
     // Nothing else to pick: no Change.
@@ -56,5 +56,5 @@ for (const width of [375, 1440])
     await page.goto("/catalog/settings/sources#server-bambu-studio");
     const slicer = page.locator("#server-bambu-studio");
     await expect(slicer.getByRole("heading", { name: "Bambu Studio", level: 4 })).toBeVisible();
-    await expect(slicer.getByText("The hub's slicer", { exact: true })).toBeVisible();
+    await expect(slicer.getByText("Server's slicer", { exact: true })).toBeVisible();
   });

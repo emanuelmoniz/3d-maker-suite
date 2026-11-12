@@ -393,6 +393,7 @@ The profile has no region; the card keeps the region from the integration's conf
 - **Machine page → Slicers** lists the machine's slicers (version, *The hub's slicer*) and the default slicer, with no switches, and links to Catalog settings → Sources. Every slicer a machine reports is listed there under Share and Receive; User presets Share is on while any of its kind lines is.
 - A slicer type's card in Integrations drops its installs' sync log and status line; like the account card, it has one Sync sources configurations section.
 - A slicer install's **Enabled** switch (this server's or a machine's) only says whether it can be picked as the hub's slicer. Switched off, it keeps syncing and stays on Catalog settings → Sources; an account's Enabled still turns its sync off (`working()` in `capabilities.ts`).
+- Labels (2026-11-12): *The hub's slicer* reads **Server's slicer**, *Share to the hub* **Share to server** and *Receive from the hub* **Receive from server**, on Sources and on the machine page alike. The text above keeps the old names.
 
 ## Sources (checked 2026-11-10)
 - OpenBambuAPI, [cloud-http.md](https://github.com/Doridian/OpenBambuAPI/blob/main/cloud-http.md): `GET /v1/user-service/my/profile`, `GET /v1/design-user-service/my/preference`.

@@ -418,7 +418,7 @@
     }
   },
   "hub": {
-    "title": "The hub's slicer",
+    "title": "Server's slicer",
     "hint": "This server's installs and every machine's install can be picked.",
     "isHub": "Slicer machine used by the server. Its catalog and system presets are the server's, and every machine that receives them gets this copy.",
     "notOffered": "Switched off, so it can't be picked. Turn it on to pick it above.",

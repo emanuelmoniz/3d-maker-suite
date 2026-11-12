@@ -13,8 +13,8 @@
     "emptyText": "Sources that feed this data will be listed here. Connect an account in Integrations or a machine in Hub management.",
     "integrations": "Open Integrations",
     "hub": "Open Hub management",
-    "share": "Share to the hub",
-    "receive": "Receive from the hub",
+    "share": "Share to server",
+    "receive": "Receive from server",
     "account": "{{adapter}} · {{account}}",
     "toAccount": "Account",
     "lines": "What {{source}} syncs",
@@ -58,7 +58,7 @@
       "filament": "Filament presets"
     },
     "catalog": {
-      "source": "The hub's slicer",
+      "source": "Server's slicer",
       "change": "Change in Integrations",
       "unreadable": "Folder not found",
       "fromDevice": "The machine's connector sends this slicer's system presets whenever a slicer update changes them. Until it has, the catalog stays as it is.",
