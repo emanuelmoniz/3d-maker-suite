@@ -1,6 +1,5 @@
 import {
   type Integration,
-  type IntegrationStatus,
   isAction,
   type LibrarySources,
   SYNC_RUN_STATUSES,
@@ -24,7 +23,7 @@ import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
-import { formatDate, formatDateTime, formatRelative } from "../../lib/format.ts";
+import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useDevices } from "../../lib/hub.ts";
 import {
   libraryOf,
@@ -37,7 +36,6 @@ import {
   useLocationLabel,
   usePatchIntegration,
   usePickHubSlicer,
-  useSyncIntegration,
   useSyncRuns,
 } from "../../lib/integrations.ts";
 import { useSavePreferences } from "../../lib/preferences.ts";
@@ -48,15 +46,6 @@ import { ActionSwitches } from "./PolicyRow.tsx";
 import { SourceBadge, SyncSources } from "./Sources.tsx";
 import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
-// The status dot's colour; the line's text says the rest.
-const DOT: Record<IntegrationStatus | "disabled", string> = {
-  new: "bg-border",
-  syncing: "bg-accent",
-  ok: "bg-ok",
-  error: "bg-bad",
-  unavailable: "bg-warn",
-  disabled: "bg-border",
-};
 const TRIGGERS = { manual: "integrations:runs.manual", scheduled: "integrations:runs.scheduled" };
 const RUN_STATUSES = { ok: "integrations:runs.ok", error: "integrations:runs.error" };
 
@@ -382,7 +371,7 @@ function HubSlicer({
 type HubRole = { checked: boolean; notOffered: boolean };
 
 /**
- * One place a slicer runs (or an account): where, on/off and a status line; then its account
+ * One place a slicer runs (or an account): where and on/off, no status line; then its account
  * (cloud) or slicer. `hub`: its role on its slicer type's card.
  */
 export function IntegrationCard({
@@ -396,14 +385,12 @@ export function IntegrationCard({
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
-  // An editor gets the status line and their task rows only (ADR-0012). Accounts have their own
-  // card (AccountCard.tsx).
+  // Its controls are for integrations.manage (ADR-0012). Accounts have their own card (AccountCard.tsx).
   const admin = useCan("integrations.manage");
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
-  const sync = useSyncIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
-  const failed = [patch, sync, remove].some((m) => m.isError);
+  const failed = [patch, remove].some((m) => m.isError);
   const where = locationLabel(i);
   const name = t("integrations:nameOnDevice", { name: adapterName(i.adapterId), device: where });
   const Icon = LOCATION_ICONS[i.kind];
@@ -411,45 +398,6 @@ export function IntegrationCard({
   const [open, setOpen] = useState(() => location.hash === `#integration-${i.id}`);
   const bodyId = useId();
   const H = hub ? "h4" : "h3";
-
-  // The status line: one sentence for where the integration stands.
-  const state = !i.enabled ? "disabled" : sync.isPending ? "syncing" : i.status;
-  // A machine's install with its program set that isn't the hub's slicer: it gets the system presets
-  // (and slices) only once it is picked, so nothing is missing yet.
-  const standby =
-    state === "unavailable" && i.kind === "worker" && !!i.slicerPath && !!hub && !hub.checked;
-  const status =
-    state === "disabled" ? (
-      t("integrations:card.disabledHint")
-    ) : state === "syncing" ? (
-      t("integrations:card.syncing")
-    ) : state === "unavailable" ? (
-      i.kind === "server" ? (
-        t("integrations:managed.notInstalledHint")
-      ) : i.kind === "worker" ? (
-        // Its program is picked, or the hub has no system presets for it yet: one sentence each.
-        t(
-          standby
-            ? "integrations:worker.standbyHint"
-            : i.slicerPath
-              ? "integrations:worker.noPresetsHint"
-              : "integrations:worker.unavailableHint",
-        )
-      ) : (
-        t("integrations:card.unavailableHint")
-      )
-    ) : state === "error" && i.lastError ? (
-      t(ERRORS[i.lastError])
-    ) : i.lastSyncAt ? (
-      <time dateTime={i.lastSyncAt} title={formatDateTime(i.lastSyncAt)}>
-        {t("integrations:card.lastSync", { date: formatRelative(i.lastSyncAt) })}
-      </time>
-    ) : state === "ok" ? (
-      // A local source that is set up but hasn't imported anything yet.
-      t("integrations:card.ready")
-    ) : (
-      t("integrations:card.never")
-    );
 
   return (
     <li id={`integration-${i.id}`} className={RAIL}>
@@ -514,16 +462,6 @@ export function IntegrationCard({
           )}
         </div>
 
-        <p
-          role={state === "error" ? "alert" : undefined}
-          className={cx("flex items-start gap-2", state === "error" ? "text-bad" : "text-muted")}
-        >
-          <span
-            aria-hidden
-            className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[standby ? "new" : state])}
-          />
-          <span>{status}</span>
-        </p>
         {hub?.notOffered && <p className="text-muted">{t("integrations:hub.notOffered")}</p>}
         {failed && (
           <p role="alert" className="mt-1 text-bad">

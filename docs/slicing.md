@@ -52,7 +52,7 @@ Use this when the server can't run a slicer (an arm64 hub, a small VPS) or a wor
 
 1. **Settings → Integrations**, on the slicer's card: a machine that has the slicer without an install shows **Set up**; any other paired machine is in **Add a machine…**. This needs Integrations manage. The install uses the slicer the connector found there, else the hub installs its managed release.
 2. Open the machine's row under **Installs** to pick the program it runs: **Use this program** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device. **Delete** in its `⋯` menu removes it: a slicer the hub installed there is removed, one installed by hand stays.
-3. Pick it with **Change slicer machine** on the card. Until then its row says *Ready. It slices once it is picked as the slicer machine.*: only the hub's slicer gets the system presets and slices. Picked, until the hub has the slicer's system presets (sent by the hub's slicer, or a zip), its row says so.
+3. Pick it with **Change slicer machine** on the card: only the hub's slicer gets the system presets and slices. Once picked, it slices when the hub has the slicer's system presets (sent by the hub's slicer, or a zip).
 4. Import your presets from a zip as usual (**Catalog → Settings → Sources**). Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
 
 A slice that runs on a worker takes at most 10 minutes, as on the server.

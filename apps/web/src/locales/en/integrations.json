@@ -37,7 +37,6 @@
     "lastSync": "Synced {{date}}",
     "never": "Not synced yet",
     "syncing": "Syncing…",
-    "ready": "Ready, nothing synced yet",
     "signedIn": "Signed in",
     "enabled": "Enabled",
     "test": "Test connection",
@@ -46,8 +45,6 @@
     "actionError": "That didn't work. Try again.",
     "signIn": "Sign in",
     "signInAgain": "Sign in again",
-    "disabledHint": "Switched off: nothing is synced, imported or offered in the app. Tick Enabled to use it and change its settings.",
-    "unavailableHint": "The slicer's config folder wasn't found on this server. If it's on another computer, mount it here and set Config folder to that path.",
     "menu": "More actions for {{name}}",
     "log": "Sync log",
     "addLocation": "Add to this server",
@@ -318,7 +315,6 @@
     "makeDefault": "Make default slicer"
   },
   "worker": {
-    "unavailableHint": "Pick the program it runs on the device below.",
     "noDevice": "Its device was revoked. Pick another one.",
     "online": "{{name}} is online.",
     "offline": "{{name}} is offline now.",
@@ -346,13 +342,10 @@
       "device_no_slicer": "The device doesn't have that slicer any more.",
       "not_worker": "The device isn't a slice worker. Turn it on in Hub management.",
       "device_outdated": "The connector on the device is too old for slice workers. Update it to the hub's version, then try again."
-    },
-    "noPresetsHint": "Its program is set. It slices once the hub has this slicer's system presets: sent by the hub's slicer, or from a zip on Catalog settings → Sources.",
-    "standbyHint": "Ready. It slices once it is picked as the slicer machine."
+    }
   },
   "managed": {
     "notInstalled": "Not installed.",
-    "notInstalledHint": "Install the slicer below. The server downloads it from the vendor's GitHub releases and runs it itself.",
     "installed": "Version {{version}} installed.",
     "install": "Install slicer",
     "otherVersion": "Install another version",
