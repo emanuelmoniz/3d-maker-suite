@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { useMachinePresets, useProcessPresets } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useFilamentPresets } from "../../lib/filament.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import {
@@ -189,11 +190,7 @@ function PresetRow({
         <div id={panel} className="mt-1 ml-7 grid gap-3 border-l-2 border-border pl-3">
           {p.usedBy.length > 0 && <Dependents details={{ dependents: p.usedBy }} />}
           {catalogRow && (
-            <Link
-              to={catalogRow.to}
-              params={{ id: catalogRow.id }}
-              className="font-medium text-accent hover:underline"
-            >
+            <Link to={catalogRow.to} params={{ id: catalogRow.id }} className={textLink}>
               {t("hub:presets.openPreset")}
             </Link>
           )}
@@ -307,7 +304,7 @@ export function PresetsTab() {
           description={t("hub:presets.emptyBody")}
           action={
             integrations && (
-              <Link to="/integrations" className="font-medium text-accent hover:underline">
+              <Link to="/integrations" className={textLink}>
                 {t("hub:presets.toIntegrations")}
               </Link>
             )

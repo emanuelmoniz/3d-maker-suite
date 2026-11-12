@@ -20,6 +20,7 @@ import {
   usePrinterModels,
   useProcessPresets,
 } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { filamentLabel, useFilamentPresets } from "../../lib/filament.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
@@ -72,11 +73,7 @@ export function MachinePresets() {
           id: "name",
           header: t("printers:catalog.presets.name"),
           cell: (p) => (
-            <Link
-              to="/catalog/printer-presets/$id"
-              params={{ id: p.id }}
-              className="font-medium hover:underline"
-            >
+            <Link to="/catalog/printer-presets/$id" params={{ id: p.id }} className={textLink}>
               {p.name}
             </Link>
           ),
@@ -116,11 +113,7 @@ export function ProcessPresets() {
           id: "name",
           header: t("printers:catalog.processPresets.name"),
           cell: (p) => (
-            <Link
-              to="/catalog/process-presets/$id"
-              params={{ id: p.id }}
-              className="font-medium hover:underline"
-            >
+            <Link to="/catalog/process-presets/$id" params={{ id: p.id }} className={textLink}>
               {p.name}
             </Link>
           ),
@@ -196,7 +189,7 @@ export function FilamentPresets() {
                   <Link
                     to="/catalog/filament-presets/$id"
                     params={{ id: p.id }}
-                    className="font-medium hover:underline"
+                    className={textLink}
                   >
                     {filamentLabel(p)}
                   </Link>

@@ -287,7 +287,9 @@ test("hub screenshots", async ({ page, app }) => {
 
   await page.goto("/hub");
   await page.waitForLoadState("networkidle");
-  await expect(page.getByText("Online")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("tbody").getByText("Online", { exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
   await page.screenshot({ path: `${IMAGES}/hub.png` });
 
   await page.goto(`/projects/${vase.id}`);

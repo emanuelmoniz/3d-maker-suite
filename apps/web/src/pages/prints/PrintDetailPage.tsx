@@ -8,6 +8,7 @@ import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCatalogItem } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { spoolName, useSpool } from "../../lib/filament.ts";
 import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts";
 import { orderName, useOrder } from "../../lib/orders.ts";
@@ -22,7 +23,6 @@ const OUTCOMES = {
   failed: "prints:outcomes.failed",
   cancelled: "prints:outcomes.cancelled",
 } as const;
-const link = "font-medium underline";
 
 function PrinterLink({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -30,7 +30,7 @@ function PrinterLink({ id }: { id: string }) {
   const name = printer && printerName(t, printer);
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <Link to="/printers/$id" params={{ id }} className={link}>
+      <Link to="/printers/$id" params={{ id }} className={textLink}>
         {name}
       </Link>
       {printer?.archivedAt && <ArchivedBadge />}
@@ -46,7 +46,7 @@ function OrderLink({ id }: { id: string }) {
   const { t } = useTranslation();
   const order = useOrder(id).data;
   return (
-    <Link to="/orders/$id" params={{ id }} className={link}>
+    <Link to="/orders/$id" params={{ id }} className={textLink}>
       {order && orderName(t, order)}
     </Link>
   );
@@ -56,7 +56,7 @@ function SpoolLink({ id }: { id: string }) {
   const { t } = useTranslation();
   const spool = useSpool(id).data;
   return (
-    <Link to="/filament/spools/$id" params={{ id }} className={link}>
+    <Link to="/filament/spools/$id" params={{ id }} className={textLink}>
       {spool && spoolName(t, spool)}
     </Link>
   );
@@ -131,7 +131,7 @@ export function PrintDetailPage() {
               <PrinterLink id={print.printerId} />
             </Info>
             <Info label={t("prints:detail.project")}>
-              {print.projectId ? <ProjectRef id={print.projectId} className={link} /> : none}
+              {print.projectId ? <ProjectRef id={print.projectId} className={textLink} /> : none}
             </Info>
             {print.orderId && (
               <Info label={t("orders:printOrder.label")}>
@@ -161,7 +161,7 @@ export function PrintDetailPage() {
             </Info>
             <Info label={t("prints:detail.source")}>
               {print.sourceUrl ? (
-                <a href={print.sourceUrl} target="_blank" rel="noreferrer" className={link}>
+                <a href={print.sourceUrl} target="_blank" rel="noreferrer" className={textLink}>
                   {t("prints:list.openDesign")}
                 </a>
               ) : (

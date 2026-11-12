@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { useSourcePreview } from "../../lib/import.ts";
 import { GoneRows } from "./GoneRows.tsx";
 import { ReviewTable } from "./ReviewTable.tsx";
@@ -56,10 +57,7 @@ export function SourceReviewPage() {
         {preview.isError && (
           <p role="alert" className="text-bad">
             {t(zip ? "import:zip.expired" : "import:source.error")}{" "}
-            <Link
-              to={zip ? "/import/slicer-zip" : "/integrations"}
-              className="font-medium underline"
-            >
+            <Link to={zip ? "/import/slicer-zip" : "/integrations"} className={textLink}>
               {t(zip ? "import:zip.again" : "import:source.openIntegrations")}
             </Link>
           </p>

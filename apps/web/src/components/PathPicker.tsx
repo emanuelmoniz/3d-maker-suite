@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../lib/api.ts";
+import { textLink } from "../lib/cx.ts";
 import { Button } from "./Button.tsx";
 import { inputClass } from "./FormField.tsx";
 
@@ -204,7 +205,7 @@ export function PathPicker({
             <li>
               <button
                 type="button"
-                className="inline-flex min-h-8 items-center px-1 underline"
+                className={`inline-flex min-h-8 items-center px-1 ${textLink}`}
                 onClick={() => setPath(null)}
               >
                 {t("common:pathPicker.roots")}
@@ -227,7 +228,7 @@ export function PathPicker({
                     <span aria-hidden="true">›</span>
                     <button
                       type="button"
-                      className="inline-flex min-h-8 items-center px-1 underline"
+                      className={`inline-flex min-h-8 items-center px-1 ${textLink}`}
                       onClick={() => setPath(c.path)}
                     >
                       {c.label}

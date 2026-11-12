@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { useZipSources, useZipUpload } from "../../lib/slicerCatalog.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them. A zip is the whole config
@@ -116,7 +117,7 @@ export function SlicerZipPage() {
                   <Link
                     to="/import/$source/$id/$type"
                     params={{ source: "zip", id, type }}
-                    className="font-medium underline"
+                    className={textLink}
                   >
                     {t(ZIP_TYPES[type])}
                   </Link>

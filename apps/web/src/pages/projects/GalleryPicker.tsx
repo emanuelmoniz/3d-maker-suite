@@ -6,7 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { ImageViewer } from "../../components/ImageViewer.tsx";
 import { SearchPicker } from "../../components/SearchPicker.tsx";
-import { cx } from "../../lib/cx.ts";
+import { cx, mutedLink } from "../../lib/cx.ts";
 import { projectImageUrl } from "../../lib/projects.ts";
 
 const parentsOf = (path: string) => {
@@ -136,7 +136,7 @@ export function GalleryPicker({
           {cover && (
             <>
               {" "}
-              <button type="button" className="underline" onClick={() => onCover("")}>
+              <button type="button" className={mutedLink} onClick={() => onCover("")}>
                 {t("projects:form.coverClear")}
               </button>
             </>

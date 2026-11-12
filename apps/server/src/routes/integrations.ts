@@ -1,12 +1,8 @@
 import {
-  ACCOUNT_ALLOW_TYPES,
   accountConfigOf,
   accountMode,
   adapterInfoSchema,
-  allowCapabilities,
-  allows,
   apiErrorSchema,
-  type Capability,
   defaultPolicy,
   deviceSlicerCheckSchema,
   hasLevel,
@@ -131,7 +127,6 @@ export const integrationsRoutes =
                 email: profile.email ?? null,
                 name: profile.name ?? null,
                 avatar: !!profile.avatarUrl,
-                allow: Object.fromEntries(ACCOUNT_ALLOW_TYPES.map((t) => [t, allows(config, t)])),
               }
             : null,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
@@ -290,8 +285,7 @@ export const integrationsRoutes =
       },
       async (req) => {
         const cur = get(req.params.id);
-        const { config, secrets, slicerConfigDir, slicerPath, policies, allow, ...fields } =
-          req.body;
+        const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
         // ADR-0020, ADR-0023: catalog import cards (presets too) need catalog manage, everything
         // else integrations.manage.
         const rights = req.user?.rights;
@@ -329,36 +323,18 @@ export const integrationsRoutes =
             throw new HttpError(400, "not_local", "Only a slicer on this computer receives");
           if (!presetReceive) Object.assign(fields, { presetInstall: null });
         }
-        const adapter =
-          config || secrets || policies || allow ? adapterOf(cur.adapterId) : undefined;
-        if (allow && adapter?.kind !== "cloud")
-          throw new HttpError(400, "invalid_allow", "Only an account has Allow switches");
+        const adapter = config || secrets || policies ? adapterOf(cur.adapterId) : undefined;
         // The server's own fields (ADR-0021) survive a new config: a client never writes them.
         const kept = accountConfigOf(cur.config);
         const nextConfig =
-          (config || allow) && adapter
-            ? {
-                ...(config
-                  ? parse(adapter.configSchema, config, "invalid_config")
-                  : (cur.config as object)),
-                ...kept,
-                ...(allow && { allow: { ...kept.allow, ...allow } }),
-              }
+          config && adapter
+            ? { ...parse(adapter.configSchema, config, "invalid_config"), ...kept }
             : undefined;
         // A worker moved to another machine: that one may have this slicer already.
         if (nextConfig && adapter?.kind === "worker") {
           const to = workerDeviceId(adapter.kind, nextConfig);
           if (to !== workerDeviceId(adapter.kind, cur.config)) slicerExists(adapter, to, cur.id);
         }
-        // An Allow switch turned off stops its types, on again gives them a new account's mode.
-        // The data stays either way.
-        const allowed = ACCOUNT_ALLOW_TYPES.filter(
-          (t) => allow?.[t] !== undefined && allow[t] !== allows(cur.config, t),
-        ).flatMap((t) =>
-          allowCapabilities(t)
-            .filter((c) => adapter?.capabilities.some((a) => a === c))
-            .map((c) => ({ type: c as Capability, on: !!allow?.[t] })),
-        );
         for (const p of policies ?? [])
           if (!adapter?.capabilities.includes(p.type) || (isAction(p.type) && p.mode === "auto"))
             throw new HttpError(400, "invalid_policy", `No such policy for "${p.type}"`);
@@ -372,13 +348,6 @@ export const integrationsRoutes =
                   set,
                 })
                 .run();
-          for (const { type, on } of allowed) {
-            const set = { mode: on ? accountMode(type) : ("off" as const) };
-            db.insert(syncPolicies)
-              .values({ integrationId: cur.id, type, ...defaultPolicy(type), ...set })
-              .onConflictDoUpdate({ target: [syncPolicies.integrationId, syncPolicies.type], set })
-              .run();
-          }
           db.update(integrations)
             .set({
               // Always something to set, also when only policies or secrets change.

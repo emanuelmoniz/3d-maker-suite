@@ -19,6 +19,7 @@ import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
 import { useCan } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { spoolName, useSpools } from "../../lib/filament.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
@@ -203,7 +204,7 @@ export function PrintReviewPage() {
         title={t("prints:review.title")}
         description={t("prints:review.description")}
         actions={
-          <Link to="/prints" className="inline-flex h-9 items-center hover:underline">
+          <Link to="/prints" className={`inline-flex h-9 items-center ${textLink}`}>
             {t("prints:review.back")}
           </Link>
         }
@@ -256,11 +257,7 @@ export function PrintReviewPage() {
                 header: t("prints:review.columns.print"),
                 archivedMark: true,
                 cell: (i) => (
-                  <Link
-                    to="/prints/$id"
-                    params={{ id: i.printId }}
-                    className="font-medium hover:underline"
-                  >
+                  <Link to="/prints/$id" params={{ id: i.printId }} className={textLink}>
                     {printName(t, { number: i.printNumber, title: i.printTitle })}
                   </Link>
                 ),

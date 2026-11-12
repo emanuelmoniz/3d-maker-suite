@@ -15,6 +15,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { useAppliesTo, useDue, useLogDone } from "../../lib/maintenance.ts";
@@ -212,7 +213,7 @@ export function MaintenancePage() {
                       <Link
                         to={i.target === "printer" ? "/printers/$id" : "/printers/accessories/$id"}
                         params={{ id: i.targetId }}
-                        className="font-medium hover:underline"
+                        className={textLink}
                       >
                         {i.targetName}
                       </Link>
@@ -227,7 +228,7 @@ export function MaintenancePage() {
                       <Link
                         to="/maintenance/types/$id"
                         params={{ id: i.typeId }}
-                        className="hover:underline"
+                        className={textLink}
                       >
                         {i.typeName}
                       </Link>
@@ -310,11 +311,7 @@ export function MaintenancePage() {
                   header: t("maintenance:types.name"),
                   cell: (m) => (
                     <>
-                      <Link
-                        to="/maintenance/types/$id"
-                        params={{ id: m.id }}
-                        className="font-medium hover:underline"
-                      >
+                      <Link to="/maintenance/types/$id" params={{ id: m.id }} className={textLink}>
                         {m.name}
                       </Link>
                       {m.description && <span className="block text-muted">{m.description}</span>}

@@ -16,6 +16,7 @@ import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDuration, formatNumber } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -88,11 +89,7 @@ export function PrintersPage() {
                 id: "name",
                 header: t("printers:list.columns.name"),
                 cell: (p) => (
-                  <Link
-                    to="/printers/$id"
-                    params={{ id: p.id }}
-                    className="font-medium hover:underline"
-                  >
+                  <Link to="/printers/$id" params={{ id: p.id }} className={textLink}>
                     {printerName(t, p)}
                   </Link>
                 ),
@@ -221,11 +218,7 @@ function AccessoriesTable() {
                 id: "name",
                 header: t("printers:accessories.columns.name"),
                 cell: (a) => (
-                  <Link
-                    to="/printers/accessories/$id"
-                    params={{ id: a.id }}
-                    className="font-medium hover:underline"
-                  >
+                  <Link to="/printers/accessories/$id" params={{ id: a.id }} className={textLink}>
                     {accessoryName(t, a)}
                   </Link>
                 ),
@@ -262,7 +255,7 @@ function AccessoriesTable() {
                   return (
                     p && (
                       <span className="flex items-center gap-2">
-                        <Link to="/printers/$id" params={{ id: p.id }} className="hover:underline">
+                        <Link to="/printers/$id" params={{ id: p.id }} className={textLink}>
                           {printerName(t, p)}
                         </Link>
                         {p.archivedAt && <ArchivedBadge />}

@@ -16,6 +16,7 @@ import {
   useRemoveAccessoryPhoto,
   useUploadAccessoryPhoto,
 } from "../../lib/accessories.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatCurrency, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
@@ -112,11 +113,7 @@ export function AccessoryDetailPage() {
             <dl className="grid gap-3 sm:grid-cols-2">
               <Info label={t("printers:accessories.detail.printer")}>
                 {current ? (
-                  <Link
-                    to="/printers/$id"
-                    params={{ id: current.printerId }}
-                    className="text-accent hover:underline"
-                  >
+                  <Link to="/printers/$id" params={{ id: current.printerId }} className={textLink}>
                     {current.printerLabel}
                   </Link>
                 ) : (
@@ -189,11 +186,7 @@ export function AccessoryDetailPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <Link
-                        to="/printers/$id"
-                        params={{ id: i.printerId }}
-                        className="font-medium hover:underline"
-                      >
+                      <Link to="/printers/$id" params={{ id: i.printerId }} className={textLink}>
                         {i.printerLabel}
                       </Link>
                       {printers.find((p) => p.id === i.printerId)?.archivedAt && <ArchivedBadge />}

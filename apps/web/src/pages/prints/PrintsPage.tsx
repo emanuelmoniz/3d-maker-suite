@@ -20,6 +20,7 @@ import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useMoney } from "../../lib/cost.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
@@ -96,7 +97,7 @@ export function PrintsTable({
           archivedMark: true,
           cell: (p) => (
             <span className="flex items-center gap-2">
-              <Link to="/prints/$id" params={{ id: p.id }} className="font-medium hover:underline">
+              <Link to="/prints/$id" params={{ id: p.id }} className={textLink}>
                 {printName(t, p)}
               </Link>
               {p.sourceUrl && (
@@ -244,7 +245,7 @@ export function PrintsPage() {
       {waiting > 0 && (
         <p className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-2 p-3">
           {t("prints:review.banner", { count: waiting })}
-          <Link to="/prints/review" className="font-medium underline">
+          <Link to="/prints/review" className={textLink}>
             {t("prints:review.open")}
           </Link>
         </p>

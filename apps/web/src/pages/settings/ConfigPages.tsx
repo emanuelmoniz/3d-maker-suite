@@ -9,6 +9,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Section } from "../../components/Section.tsx";
 import { useAlertCoverage } from "../../lib/alerts.ts";
 import { useCan } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatList, formatMegabytes, formatSize } from "../../lib/format.ts";
 import { useVersionsUsage } from "../../lib/hub.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -277,7 +278,7 @@ function Uncovered() {
         kinds: formatList(kinds.map((k) => t(`alerts:kindNames.${k}`))),
       })}{" "}
       {roles && (
-        <Link to="/settings" hash="roles" className="font-medium text-accent hover:underline">
+        <Link to="/settings" hash="roles" className={textLink}>
           {t("settings:alerts.editRoles")}
         </Link>
       )}
@@ -357,12 +358,7 @@ export function PrintersConfigPage() {
                 <Trans
                   i18nKey="catalog:moved"
                   components={{
-                    link: (
-                      <Link
-                        to="/catalog/printers"
-                        className="font-medium text-accent hover:underline"
-                      />
-                    ),
+                    link: <Link to="/catalog/printers" className={textLink} />,
                   }}
                 />
               </p>

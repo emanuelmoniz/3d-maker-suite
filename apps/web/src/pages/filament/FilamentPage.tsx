@@ -11,6 +11,7 @@ import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCatalogWithArchived } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { spoolName } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
@@ -116,11 +117,7 @@ export function FilamentPage() {
                     cell: (s) => (
                       <span className="flex items-center gap-2">
                         <Swatch hex={s.colorHex} />
-                        <Link
-                          to="/filament/spools/$id"
-                          params={{ id: s.id }}
-                          className="font-medium hover:underline"
-                        >
+                        <Link to="/filament/spools/$id" params={{ id: s.id }} className={textLink}>
                           {spoolName(t, s)}
                         </Link>
                       </span>

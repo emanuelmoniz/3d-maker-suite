@@ -1,8 +1,9 @@
 import { expect, test } from "./fixtures.ts";
 
-// ADR-0021: one block per account, told apart by who it is; Allow switches with their links.
+// ADR-0021: one block per account, told apart by who it is, each with its Enabled switch; the
+// Sources tabs its types are set up on are buttons for the whole card.
 for (const width of [375, 1440])
-  test(`two accounts show apart, and an Allow switch asks before it stops (${width}px)`, async ({
+  test(`two accounts show apart, each switched on and off on its own (${width}px)`, async ({
     page,
     app,
   }) => {
@@ -23,17 +24,25 @@ for (const width of [375, 1440])
       card.getByRole("heading", { name: "workshop@example.com", level: 3 }),
     ).toBeVisible();
 
-    const spools = ana.getByRole("switch", { name: "Spools" });
-    await expect(spools).toBeChecked();
-    await expect(ana.getByRole("link", { name: "Filament settings" })).toBeVisible();
-    await spools.click({ force: true });
-    const dialog = page
-      .getByRole("dialog")
-      .filter({ hasText: "Stop syncing spools from this account?" });
-    await expect(dialog.getByText("The spools already imported stay.")).toBeVisible();
-    await dialog.getByRole("button", { name: "Stop syncing" }).click();
-    await expect(spools).not.toBeChecked();
-    await expect(ana.getByRole("link", { name: "Filament settings" })).toHaveCount(0);
+    const sources = card.getByRole("region", { name: "Sync sources configurations" });
+    for (const name of ["Printers", "Prints", "Filament"])
+      await expect(sources.getByRole("link", { name, exact: true })).toBeVisible();
+    await expect(sources.getByRole("link", { name: "Filament", exact: true })).toHaveAttribute(
+      "href",
+      "/filament/settings/sources",
+    );
+
+    const enabled = ana.getByRole("switch", { name: "Enabled: ana@example.com" });
+    await expect(enabled).toBeChecked();
+    await enabled.click({ force: true });
+    await expect(enabled).not.toBeChecked();
+    await expect(ana.getByText("Switched off: nothing is synced from this account.")).toBeVisible();
+    await expect(
+      card
+        .getByRole("listitem")
+        .filter({ hasText: "workshop@example.com" })
+        .getByRole("switch", { name: "Enabled: workshop@example.com" }),
+    ).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );

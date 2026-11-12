@@ -765,19 +765,21 @@ describe("hub events", () => {
     ).toBe(204);
   });
 
-  it("Use as slicer offers it; the picked hub's slicer stays offered and receives no catalog", async () => {
+  it("a machine's install is offered as it is; the hub's slicer receives no catalog", async () => {
     const { db, send, deviceId } = await live({ adapters: adapters({ mock: false }) });
     const lib = `/api/hub/devices/${deviceId}/slicers/bambu-studio`;
     expect(
-      (await send("PATCH", `/api/hub/devices/${deviceId}/slicers/nope`, { slicer: true }))
-        .statusCode,
+      (
+        await send("PATCH", `/api/hub/devices/${deviceId}/slicers/nope`, {
+          system: { receive: true },
+        })
+      ).statusCode,
     ).toBe(404);
+    // No Use as slicer switch any more (ADR-0022): a machine offers what it has.
+    expect((await send("PATCH", lib, { slicer: true })).statusCode).toBe(400);
     const saved = () =>
       db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
         ?.presetLibraries["bambu-studio"];
-    // Consent can come before the install (ADR-0022).
-    expect((await send("PATCH", lib, { slicer: true })).statusCode).toBe(204);
-    expect(saved()?.slicer).toBe(true);
 
     const worker = db
       .insert(schema.integrations)
@@ -786,22 +788,16 @@ describe("hub events", () => {
       .get();
     const listed = async () =>
       (await send("GET", "/api/hub/devices")).json()[0].libraries["bambu-studio"];
-    // The only install that's offered: the hub's slicer by default, which receives no catalog.
+    // The only install: the hub's slicer by default, which receives no catalog.
     expect((await listed()).hubSlicer).toBe(true);
     expect((await send("PATCH", lib, { system: { receive: true } })).json().error.code).toBe(
       "hub_slicer",
     );
-    // A default one can be withdrawn: the default moves on.
-    expect((await send("PATCH", lib, { slicer: false })).statusCode).toBe(204);
-    expect((await listed()).hubSlicer).toBe(false);
-    expect((await send("PATCH", lib, { slicer: true })).statusCode).toBe(204);
 
-    // Picked, it stays offered until another is picked.
     const pick = (integrationId: string) =>
       send("PUT", "/api/integrations/slicers/bambu-studio", { integrationId });
     expect((await pick(worker.id)).statusCode).toBe(204);
-    expect((await send("PATCH", lib, { slicer: false })).json().error.code).toBe("hub_slicer");
-    expect(saved()).toMatchObject({ slicer: true, system: { receive: false } });
+    expect(saved()?.system.receive ?? false).toBe(false);
     expect((await pick(crypto.randomUUID())).json().error.code).toBe("not_an_option");
   });
 

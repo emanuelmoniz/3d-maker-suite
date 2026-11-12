@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { textLink } from "../lib/cx.ts";
 import { spoolName, useFilamentPresets, useSpools } from "../lib/filament.ts";
 import { formatWeight } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.ts";
@@ -32,7 +33,7 @@ defineWidget({
       <WidgetCard
         title={t("dashboard:widgets.lowSpools")}
         more={
-          <Link to="/filament" className="text-accent hover:underline">
+          <Link to="/filament" className={textLink}>
             {t("dashboard:viewAll")}
           </Link>
         }
@@ -44,7 +45,7 @@ defineWidget({
                 <Link
                   to="/filament/spools/$id"
                   params={{ id: x.id }}
-                  className="flex items-center gap-2 font-medium hover:underline"
+                  className={`flex items-center gap-2 ${textLink}`}
                 >
                   <span
                     aria-hidden

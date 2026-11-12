@@ -6,6 +6,7 @@ import {
 import { useTranslation } from "react-i18next";
 import type { Column } from "../../components/DataTable.tsx";
 import { imageUrl, useFilamentBrands, useFilamentMaterials } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useFilamentPresets } from "../../lib/filament.ts";
 import { formatCurrency, formatList } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -79,7 +80,7 @@ export function FilamentCatalog() {
             header: t("filament:catalog.brands.url"),
             cell: (b) =>
               b.url ? (
-                <a href={b.url} target="_blank" rel="noreferrer" className="hover:underline">
+                <a href={b.url} target="_blank" rel="noreferrer" className={textLink}>
                   {new URL(b.url).host}
                 </a>
               ) : (

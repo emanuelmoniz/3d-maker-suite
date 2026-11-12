@@ -1,6 +1,6 @@
 # ADR-0021: Sources and data types
 
-- Status: Accepted (2026-11-10, Plan 5.5.0 Step 1, after the profile spike). Amends ADR-0014 (the connector opens the hub page, shared folders on the hub, picks replace sync mode, whole-disk `fs.list`, new operations), ADR-0016 (`machine.*` switches, a `presets` module), ADR-0017 and ADR-0019 (presets instead of profiles; a machine's Share and Install per preset kind) and ADR-0020 (a Presets module, where the device switches live, the device × slicer table). Amended by ADR-0022: one slicer per slicer type; Catalog Share goes, and a machine's switches are Use as slicer, Catalog and system presets, and User presets. Amended by ADR-0023: the Presets module, the `presets` level, `machine.presets` and the per-kind Receive lines go.
+- Status: Accepted (2026-11-10, Plan 5.5.0 Step 1, after the profile spike). Amends ADR-0014 (the connector opens the hub page, shared folders on the hub, picks replace sync mode, whole-disk `fs.list`, new operations), ADR-0016 (`machine.*` switches, a `presets` module), ADR-0017 and ADR-0019 (presets instead of profiles; a machine's Share and Install per preset kind) and ADR-0020 (a Presets module, where the device switches live, the device × slicer table). Amended by ADR-0022: one slicer per slicer type; Catalog Share goes, and a machine's switches are Use as slicer, Catalog and system presets, and User presets. Amended by ADR-0023: the Presets module, the `presets` level, `machine.presets` and the per-kind Receive lines go. Amended 2026-11-12 (below): the Allow switches and the machine page's slicer switches go.
 - Date: 2026-11-10
 
 ## Context
@@ -385,6 +385,13 @@ Read with the app's stored token (`data/app.sqlite`, Global region), `GET` only,
 The profile has no region; the card keeps the region from the integration's config.
 
 `GET /v1/design-user-service/my/preference` → 200, for comparison: `uid`, `name`, `handle`, `avatar` (same host), `bio`, links, about 120 notification and privacy switches, `country`, `birthday`, `gender`, `deviceNames`. No email. Rejected above.
+
+## Amendment (2026-11-12): no Allow, Use as slicer or machine slicer switches
+
+- **Accounts:** the Allow switches go (`integrations.config.allow`, the `allow` patch field and `account.allow`). An enabled account is listed on the Sources tab of every type it has, where each line is switched on or off; an `allow` left in a config is ignored. Its card has an **Enabled** switch per account instead of Turn on / Turn off, and one **Sync sources configurations** section for the whole card: a button per Sources tab its types feed (Printers, Prints, Filament, Catalog).
+- **Use as slicer goes:** a machine's install of a slicer (found there, or installed by the hub) is an option for the hub's slicer while it is enabled. The `slicer` flag leaves `devicePresetLibrarySchema` and `PATCH /api/hub/devices/:id/slicers/:library`; `LibrarySources.machines[].slicer` now says the machine reports the slicer.
+- **Machine page → Slicers** lists the machine's slicers (version, *The hub's slicer*) and the default slicer, with no switches, and links to Catalog settings → Sources. Every slicer a machine reports is listed there under Share and Receive; User presets Share is on while any of its kind lines is.
+- A slicer type's card in Integrations drops its installs' sync log; like the account card, it has one Sync sources configurations section.
 
 ## Sources (checked 2026-11-10)
 - OpenBambuAPI, [cloud-http.md](https://github.com/Doridian/OpenBambuAPI/blob/main/cloud-http.md): `GET /v1/user-service/my/profile`, `GET /v1/design-user-service/my/preference`.

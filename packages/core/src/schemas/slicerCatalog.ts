@@ -127,6 +127,7 @@ export const librarySourcesSchema = z.object({
       online: z.boolean(),
       /** Its connector is older than the hub. */
       outdated: z.boolean(),
+      /** It reports the slicer installed: it is offered as the hub's slicer once set up (ADR-0022). */
       slicer: z.boolean(),
       receive: z.boolean(),
       /** What it last reported of Receive catalog; null = off, or it hasn't yet. */

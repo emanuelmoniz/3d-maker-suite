@@ -1469,7 +1469,6 @@ describe("accounts (ADR-0021)", () => {
       email: null,
       name: null,
       avatar: false,
-      allow: { printers: true, prints: true, spools: true, userPresets: true },
     });
     await syncType(i.id, "printers");
     expect((await get(`/api/integrations/${i.id}`)).account.email).toBe("s3cr3t-token@example.com");
@@ -1500,30 +1499,13 @@ describe("accounts (ADR-0021)", () => {
     expect((await get(`/api/integrations/${i.id}`)).account.email).toBe("s3cr3t-token@example.com");
   });
 
-  it("an Allow switch off stops its types and keeps the data; on again gives a new account's mode", async () => {
+  it("a new config keeps the server's own fields", async () => {
     const i = await create();
     await syncType(i.id, "printers");
-    const before = (await get("/api/printers")).items.length;
-    expect(before).toBeGreaterThan(0);
-    const off = (
-      await send("PATCH", `/api/integrations/${i.id}`, { allow: { printers: false } })
-    ).json();
-    expect(off.account.allow.printers).toBe(false);
-    expect(off.policies.find((p: { type: string }) => p.type === "printers").mode).toBe("off");
-    expect((await get("/api/printers")).items.length).toBe(before);
-    expect(
-      (await send("POST", `/api/integrations/${i.id}/sync`, { type: "printers" })).statusCode,
-    ).toBe(409);
-    // A new config keeps the server's own fields.
     const patched = (
       await send("PATCH", `/api/integrations/${i.id}`, { config: { label: "x", email: "hack" } })
     ).json();
     expect(patched.account).toMatchObject({ email: "s3cr3t-token@example.com" });
-    expect(patched.account.allow.printers).toBe(false);
-    const on = (
-      await send("PATCH", `/api/integrations/${i.id}`, { allow: { printers: true } })
-    ).json();
-    expect(on.policies.find((p: { type: string }) => p.type === "printers").mode).toBe("auto");
   });
 
   it("serves the photo through the server, fetched once, images only", async () => {

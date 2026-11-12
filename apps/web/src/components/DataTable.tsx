@@ -65,8 +65,8 @@ type ServerProps = {
 
 /** Row selection with a bar of its own, for a list that isn't one of ADR-0018's `BULK_ITEMS`. */
 export type Selection<T> = {
-  /** The list select all reads, page by page. */
-  path: string;
+  /** Server mode: the list select all reads, page by page. In client mode it takes the view's rows. */
+  path?: string;
   can: boolean;
   name: (row: T) => string;
   when?: (row: T) => boolean;
@@ -135,7 +135,7 @@ export function DataTable<T>({
   server?: ServerProps;
   /** Client mode: keep the list query yourself (e.g. to act on the rows it shows); see `viewOf`. */
   client?: { query: ListQuery; onQueryChange: (q: ListQuery) => void };
-  /** Server mode: tick rows and act on them with the table's own bar, instead of `archiveColumn`'s. */
+  /** Tick rows and act on them with the table's own bar, instead of `archiveColumn`'s. */
   select?: Selection<T>;
 }) {
   const { t } = useTranslation();
@@ -186,7 +186,8 @@ export function DataTable<T>({
     bar: (s) => <BulkBar kind={bulkColumn.kind} rows={s.rows} onClear={s.clear} onDone={s.done} />,
   };
   const picked = select ?? bulkOfColumn;
-  const bulk = picked?.can && server ? picked : undefined;
+  // `archiveColumn`'s bar acts on a server list; a `select` of its own works on either.
+  const bulk = picked?.can && (server || picked === select) ? picked : undefined;
   const qc = useQueryClient();
   const list = filtersOf({ ...query, ...server?.scope });
   const [selection, setSelection] = useState<{
@@ -208,14 +209,19 @@ export function DataTable<T>({
 
   const selectAll = async () => {
     if (!bulk || current.status === "busy") return;
+    if (!server || !bulk.path) {
+      const rows = view.filter(selectable).map(toRow);
+      setSelection({ list, rows: new Map(rows.map((r) => [r.id, r])), full: rows.length });
+      return;
+    }
     setSelection({ ...current, status: "busy" });
     // Ignored if the list changes meanwhile: the result would be some other list's rows.
     const finish = (next: Omit<typeof selection, "list">) =>
       setSelection((s) => (s.list === list ? { list, ...next } : s));
     try {
-      const found = await allRows<T>(bulk.path, { ...query, ...server?.scope }, rowKey);
+      const found = await allRows<T>(bulk.path, { ...query, ...server.scope }, rowKey);
       // Anything but the table's own count means these aren't the rows it shows.
-      if (found.length !== server?.total) throw new Error("list changed");
+      if (found.length !== server.total) throw new Error("list changed");
       const rows = found.filter(selectable).map(toRow);
       finish({ rows: new Map(rows.map((r) => [r.id, r])), full: rows.length });
     } catch {

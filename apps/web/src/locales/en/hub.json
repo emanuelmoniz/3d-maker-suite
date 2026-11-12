@@ -45,7 +45,25 @@
     "projects": "Selected projects",
     "unselect": "Stop syncing {{name}} on this device",
     "noProjects": "No projects selected yet. Open on a project page adds one.",
-    "noSlicers": "No slicer found, so files can't be opened on this device."
+    "columns": {
+      "status": "Status",
+      "user": "User",
+      "os": "Base OS",
+      "version": "Connector version"
+    },
+    "os": {
+      "windows": "Windows",
+      "linux": "Linux",
+      "macos": "macOS"
+    },
+    "bulk": {
+      "restart": "Restart",
+      "revokeTitle_one": "Revoke {{count}} device?",
+      "revokeTitle_other": "Revoke {{count}} devices?",
+      "revoked": "Revoked.",
+      "failed_one": "{{count}} device couldn't do it. It stays selected:",
+      "failed_other": "{{count}} devices couldn't do it. They stay selected:"
+    }
   },
   "edit": {
     "notFound": "This device doesn't exist anymore.",
@@ -194,22 +212,7 @@
     "askEachTime": "Ask each time",
     "installed": "installed",
     "installedVersion": "{{version}} · installed",
-    "notFound": "not found on this machine",
-    "useAsSlicer": "Use as slicer",
-    "useAsSlicerOf": "Use {{name}} on this machine as a slicer for the hub",
-    "system": "System presets",
-    "presets": "User presets",
-    "receive": "Receive",
-    "share": "Share",
-    "receiveOf": {
-      "system": "Receive the {{name}} system presets, brands and printer models from the hub",
-      "presets": "Receive {{name}} user presets from the hub"
-    },
-    "shareOf": {
-      "presets": "Share {{name}} user presets with the hub"
-    },
     "hubSlicer": "The hub's slicer",
-    "catalogSettings": "Catalog settings",
     "projects": "Projects",
     "receiveProjects": "Receive from the hub",
     "shareProjects": "Share to the hub",
@@ -231,10 +234,6 @@
     "errors": {
       "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first."
     },
-    "offer": "Offer",
-    "offered": "Offered: pick it in Integrations",
-    "ownAreHubs": "Its own are the hub's",
-    "toIntegrations": "Integrations",
     "installInIntegrations": "Install a slicer on this machine in Integrations"
   }
 }

@@ -437,7 +437,7 @@ describe("one preset, one route", () => {
   });
 });
 
-it("an account is a preset route only while it allows user presets (ADR-0021)", async () => {
+it("an account is a preset route while it is enabled (ADR-0021)", async () => {
   app = await buildApp(db, false, dataDir, {
     adapters: [{ ...cloudAdapter, presetsLibrary: "bambu-studio" }, bambuStudioAdapter()],
   });
@@ -453,13 +453,7 @@ it("an account is a preset route only while it allows user presets (ADR-0021)", 
   await app.inject({
     method: "PATCH",
     url: `/api/integrations/${id}`,
-    payload: { allow: { userPresets: false } },
+    payload: { enabled: false },
   });
   expect(await routes()).not.toContain(id);
-  const policies = db
-    .select()
-    .from(syncPolicies)
-    .all()
-    .filter((p) => p.integrationId === id);
-  expect(policies.map((p) => p.mode)).toEqual(["off", "off", "off"]);
 });

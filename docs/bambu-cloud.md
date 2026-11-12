@@ -21,13 +21,13 @@ The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005
 
 ## Your accounts
 
-The **Bambu Cloud** card on the Integrations page has one block per account, with **Add another account** at the top. Each block shows the account's photo (or its initials), name, email and region, and whether it is signed in. **Sign in again** and **Test connection** sit next to the name. **More actions** turns the account off or deletes it.
+The **Bambu Cloud** card on the Integrations page has one block per account, with **Add another account** at the top. Each block shows the account's photo (or its initials), name, email and region, and whether it is signed in. **Sign in again**, **Test connection** and the **Enabled** switch sit next to the name; switched off, nothing syncs from that account. **More actions** deletes it.
 
 The name, email and photo are read from your Bambu profile when you sign in and on each sync. If that read fails, the last values stay and the sync goes on. The server downloads the photo from `public-cdn.bblmw.com` and keeps a copy, so your browser never calls Bambu. On a NAS or server with a firewall, allow that host too, or the card shows initials.
 
-**Allow** has one switch per type: Printers, Prints, Spools and User presets. Next to each switch that is on is a link to that type's settings. Turning one off asks first, stops syncing that type from this account and keeps everything already imported. Turning it on again brings back the default schedule.
+**Sync sources configurations**, at the bottom of the card, has a button per type the accounts feed: **Printers**, **Prints**, **Filament** and **Catalog**. Each opens that type's **Settings → Sources** tab, where every account is listed.
 
-Each allowed type is set on that type's **Settings → Sources** tab: **Printers**, **Prints** and **Filament** (spools), and **Catalog** for user presets. There, each account has a block with one line per type. The line's switch turns the sync off or on again, and **Edit** opens its settings: when it runs, what and how to sync, new spools, track usage, alerts and what editors may do. The line's **⋯** menu has **Sync now**, **Review and import** (with how many rows wait) and the sync log. For print history, it also has **Review and import a period…**. An editor whose role lets them sync or review a type reaches that tab from the gear on the type's page and sees only those tasks.
+Each type is set on that type's **Settings → Sources** tab: **Printers**, **Prints** and **Filament** (spools), and **Catalog** for user presets. There, each account has a block with one line per type. The line's switch turns the sync off or on again, and **Edit** opens its settings: when it runs, what and how to sync, new spools, track usage, alerts and what editors may do. The line's **⋯** menu has **Sync now**, **Review and import** (with how many rows wait) and the sync log. For print history, it also has **Review and import a period…**. An editor whose role lets them sync or review a type reaches that tab from the gear on the type's page and sees only those tasks.
 
 ## What syncs
 

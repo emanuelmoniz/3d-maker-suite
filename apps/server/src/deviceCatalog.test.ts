@@ -23,8 +23,8 @@ afterEach(async () => {
 });
 
 /**
- * A worker-only hub: two paired devices that report Bambu Studio, the first one a worker that
- * offers it (Use as slicer), so the hub's slicer by default (ADR-0022).
+ * A worker-only hub: two paired devices that report Bambu Studio, the first one a worker, so the
+ * hub's slicer by default (ADR-0022).
  */
 async function hub() {
   const db = openDb(":memory:");
@@ -131,10 +131,7 @@ async function hub() {
         config: { deviceId, source: "installed" },
       })
     ).json() as { id: string };
-  const offer = (deviceId: string) =>
-    send("PATCH", `/api/hub/devices/${deviceId}/slicers/bambu-studio`, { slicer: true });
   const worker = await addWorker(ws1.deviceId);
-  await offer(ws1.deviceId);
   const fingerprint = () =>
     db.select().from(schema.integrations).where(eq(schema.integrations.id, worker.id)).get()
       ?.catalogFingerprint;
@@ -144,12 +141,12 @@ async function hub() {
       await new Promise((r) => setTimeout(r, 20));
     return fingerprint();
   };
-  return { db, dataDir, send, ws1, ws2, worker, checked, addWorker, offer };
+  return { db, dataDir, send, ws1, ws2, worker, checked, addWorker };
 }
 
 it("a worker-only hub gets its catalog from the hub's slicer's machine; another sends nothing", async () => {
-  const { db, dataDir, send, ws1, ws2, worker, checked, addWorker, offer } = await hub();
-  // No row on the server: the machine that offers it is the hub's slicer, so the source.
+  const { db, dataDir, send, ws1, ws2, worker, checked, addWorker } = await hub();
+  // No row on the server: the machine's install is the hub's slicer, so the source.
   const one = await ws1.connect();
   expect(one.sources).toEqual({ "bambu-studio": null });
   const two = await ws2.connect();
@@ -175,13 +172,11 @@ it("a worker-only hub gets its catalog from the hub's slicer's machine; another 
   // A connector too old for it refuses the pick, which stays as it was.
   const pick = (integrationId: string) =>
     send("PUT", "/api/integrations/slicers/bambu-studio", { integrationId });
-  // Only a machine that offers the slicer (Use as slicer) can be picked (ADR-0022).
+  // Every machine install is an option (ADR-0022).
   const options = async () =>
     (await send("GET", "/api/catalog/sources")).json()[0].options.map((o: object) => o);
   expect(await options()).toEqual([{ deviceId: ws1.deviceId, name: "WS-1" }]);
   const other = await addWorker(ws2.deviceId);
-  expect((await pick(other.id)).json()).toMatchObject({ error: { code: "not_an_option" } });
-  expect((await offer(ws2.deviceId)).statusCode).toBe(204);
   expect((await send("GET", "/api/catalog/sources")).json()[0].machines).toEqual([
     {
       deviceId: ws1.deviceId,

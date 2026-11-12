@@ -156,10 +156,11 @@ const presetKinds = z
   .array(slicerPresetKindSchema)
   .max(SLICER_PRESET_KINDS.length)
   .transform((k) => [...new Set(k)]);
-/** A machine page's switches for one slicer library (`PATCH /api/hub/devices/:id/slicers/:library`). */
+/**
+ * A machine's switches for one slicer library (`PATCH /api/hub/devices/:id/slicers/:library`), set
+ * on Catalog settings → Sources (ADR-0023).
+ */
 export const deviceLibraryUpdateSchema = z.strictObject({
-  /** Use as slicer: offers this slicer to the hub (ADR-0022). */
-  slicer: z.boolean().optional(),
   system: z.strictObject({ receive: z.boolean() }).optional(),
   user: z
     .strictObject({

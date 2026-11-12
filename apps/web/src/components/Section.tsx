@@ -1,6 +1,7 @@
 import { REPO_URL } from "@3d-maker-suite/core";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
+import { textLink } from "../lib/cx.ts";
 
 /** A settings card. Its fields stay a narrow column unless `wide`. */
 export function Section({
@@ -38,7 +39,7 @@ export function Section({
             href={`${REPO_URL}/blob/main/${help}`}
             target="_blank"
             rel="noreferrer"
-            className="text-sm font-medium text-accent hover:underline"
+            className={`text-sm ${textLink}`}
           >
             {t("common:help")}
           </a>

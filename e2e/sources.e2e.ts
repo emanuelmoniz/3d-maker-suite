@@ -64,8 +64,8 @@ for (const width of [375, 1440])
           await page.request.patch(`/api/hub/devices/${idOf(name)}/slicers/${library}`, { data })
         ).status(),
       ).toBe(204);
-    // The hub's slicer (ADR-0022): an install on a machine that offers it (Use as slicer); the first
-    // one, until one is picked in Integrations. It is the catalog source.
+    // The hub's slicer (ADR-0022): an install on a machine; the first one, until one is picked in
+    // Integrations. It is the catalog source.
     const worker = async (name: string) =>
       (
         await page.request.post("/api/integrations", {
@@ -78,16 +78,15 @@ for (const width of [375, 1440])
     await worker("WS-1");
     const w2 = await worker("WS-2");
     await page.goto("/catalog/settings/sources");
+    await openSources(page);
     const share1 = block(page, "Share to the hub", "WS-1");
     const share2 = block(page, "Share to the hub", "WS-2");
-    await expect(share1).toHaveCount(0);
-    await set("WS-1", "bambu-studio", { slicer: true });
-    await set("WS-2", "bambu-studio", { slicer: true });
-    await page.reload();
-    await openSources(page);
-    await expect(share1.getByText("The hub's slicer", { exact: true })).toBeVisible();
-    // Only the hub's slicer shares the catalog: another machine with it isn't listed.
-    await expect(share2).toHaveCount(0);
+    const hubSlicer = (b: typeof share1) => b.getByText("The hub's slicer", { exact: true });
+    await expect(hubSlicer(share1)).toBeVisible();
+    // Every machine with the slicer is listed for its user presets; only the hub's slicer shares
+    // the catalog.
+    await expect(share2).toBeVisible();
+    await expect(hubSlicer(share2)).toHaveCount(0);
     expect(
       (
         await page.request.put("/api/integrations/slicers/bambu-studio", {
@@ -97,8 +96,8 @@ for (const width of [375, 1440])
     ).toBe(204);
     await page.reload();
     await openSources(page);
-    await expect(share2.getByText("The hub's slicer", { exact: true })).toBeVisible();
-    await expect(share1).toHaveCount(0);
+    await expect(hubSlicer(share2)).toBeVisible();
+    await expect(hubSlicer(share1)).toHaveCount(0);
     // Its heading says where it is changed.
     await expect(share2.getByRole("link", { name: "Change in Integrations" })).toHaveAttribute(
       "href",
@@ -138,21 +137,18 @@ for (const width of [375, 1440])
     await system.dispatchEvent("click");
     await expect(system).not.toBeChecked();
 
-    // WS-1 shares Bambu Studio's filament presets and nothing else; OrcaSlicer stays off.
-    await set("WS-1", "bambu-studio", { user: { share: true } });
-    await page.reload();
-    await openSources(page);
+    // WS-1 shares Bambu Studio's filament presets and nothing else: a kind on turns Share on.
+    // OrcaSlicer is listed too, every kind off.
     const shares = block(page, "Share to the hub", "WS-1");
-    for (const kind of ["Printer presets", "Process presets"]) {
-      const line = shares.getByRole("switch", { name: `Share ${kind} from Bambu Studio on WS-1` });
-      // On the switch itself: a forced click at phone width can land on the bottom bar.
-      await line.dispatchEvent("click");
-      await expect(line).not.toBeChecked();
-    }
-    await expect(
-      shares.getByRole("switch", { name: "Share Filament presets from Bambu Studio on WS-1" }),
-    ).toBeChecked();
-    await expect(shares.getByRole("region", { name: "OrcaSlicer", exact: true })).toHaveCount(0);
+    const kindLine = (kind: string, slicer = "Bambu Studio") =>
+      shares.getByRole("switch", { name: `Share ${kind} from ${slicer} on WS-1` });
+    for (const kind of ["Printer presets", "Process presets", "Filament presets"])
+      await expect(kindLine(kind)).not.toBeChecked();
+    // On the switch itself: a forced click at phone width can land on the bottom bar.
+    await kindLine("Filament presets").dispatchEvent("click");
+    await expect(kindLine("Filament presets")).toBeChecked();
+    await expect(kindLine("Printer presets")).not.toBeChecked();
+    await expect(kindLine("Filament presets", "OrcaSlicer")).not.toBeChecked();
     const [device] = (await (await page.request.get("/api/presets/devices")).json()).filter(
       (d: { name: string }) => d.name === "WS-1",
     );

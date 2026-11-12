@@ -1,6 +1,5 @@
 import {
   type Device,
-  type DeviceLibraryUpdate,
   type MachineSection,
   mayEditMachine,
   type PairingCode,
@@ -19,6 +18,7 @@ import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
 import {
   useConnectorActions,
@@ -29,7 +29,7 @@ import {
 import { useAdapterName } from "../../lib/integrations.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
 import { useUsers } from "../../lib/users.ts";
-import { SourceBadge } from "../settings/Sources.tsx";
+import { SourceBadge, SyncSources } from "../settings/Sources.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
@@ -392,169 +392,53 @@ function DefaultSlicer({ device: d, edit }: { device: Device; edit: boolean }) {
   );
 }
 
-/**
- * One slicer on the machine (ADR-0022, ADR-0023): Use as slicer (it offers it; the admin picks the
- * hub's slicer in Integrations), System presets (Receive only: the hub's whole `system/`, none on
- * the hub's slicer) and User presets (Receive and Share), each with a link to where the rest of it is. The columns line
- * up across slicers; below `sm` each line stacks.
- */
-function SlicerBlock({ device: d, library }: { device: Device; library: string }) {
+/** One slicer on the machine: its version, and whether it is the hub's slicer (ADR-0022). */
+function SlicerLine({ device: d, library }: { device: Device; library: string }) {
   const { t } = useTranslation();
-  const adapterName = useAdapterName();
-  const may = useMay(d);
-  const { library: patch } = useDeviceActions();
-  const name = adapterName(library);
+  const name = useAdapterName()(library);
   const found = d.slicers.find((s) => s.id === library);
-  const lib = d.presets[library];
-  // The hub's slicer stays offered until another is picked, and its own folder is the catalog.
-  const hub = !!d.libraries[library]?.hubSlicer;
-  const send = (body: DeviceLibraryUpdate) => patch.mutate({ id: d.id, library, ...body });
-  const busy = patch.isPending;
-  const link = "underline underline-offset-2";
-  const rows: {
-    key: string;
-    label: string;
-    controls: ReactNode;
-    state?: ReactNode;
-    link?: ReactNode;
-  }[] = [
-    {
-      key: "slicer",
-      label: t("hub:machine.useAsSlicer"),
-      controls: (
-        <Setting
-          edit={may.edit("slicers") && !hub}
-          label={t("hub:machine.offer")}
-          name={t("hub:machine.useAsSlicerOf", { name })}
-          checked={!!lib?.slicer || hub}
-          busy={busy}
-          onChange={(slicer) => send({ slicer })}
-        />
-      ),
-      state: hub ? (
-        <SourceBadge>{t("hub:machine.hubSlicer")}</SourceBadge>
-      ) : lib?.slicer ? (
-        <span className="text-muted">{t("hub:machine.offered")}</span>
-      ) : undefined,
-      link: may.integrations && (
-        <Link to="/integrations" hash={`library-${library}`} className={link}>
-          {t("hub:machine.toIntegrations")}
-        </Link>
-      ),
-    },
-    {
-      key: "system",
-      label: t("hub:machine.system"),
-      controls: (
-        <Setting
-          edit={may.edit("catalog") && !hub}
-          label={t("hub:machine.receive")}
-          name={t("hub:machine.receiveOf.system", { name })}
-          checked={!!lib?.system.receive && !hub}
-          busy={busy}
-          onChange={(receive) => send({ system: { receive } })}
-        />
-      ),
-      state: hub && <span className="text-muted">{t("hub:machine.ownAreHubs")}</span>,
-      link: (
-        <Link to="/catalog/settings/sources" hash={`receive-${d.id}`} className={link}>
-          {t("hub:machine.catalogSettings")}
-        </Link>
-      ),
-    },
-    {
-      key: "user",
-      label: t("hub:machine.presets"),
-      controls: (
-        <>
-          <Setting
-            edit={may.edit("catalog")}
-            label={t("hub:machine.receive")}
-            name={t("hub:machine.receiveOf.presets", { name })}
-            checked={!!lib?.user.receive}
-            busy={busy}
-            onChange={(receive) => send({ user: { receive } })}
-          />
-          <Setting
-            edit={may.edit("catalog")}
-            label={t("hub:machine.share")}
-            name={t("hub:machine.shareOf.presets", { name })}
-            checked={!!lib?.user.share}
-            busy={busy}
-            onChange={(share) => send({ user: { share } })}
-          />
-        </>
-      ),
-      link: (
-        <Link
-          to="/catalog/settings/sources"
-          hash={`${lib?.user.share ? "machine" : "receive"}-${d.id}`}
-          className={link}
-        >
-          {t("hub:machine.catalogSettings")}
-        </Link>
-      ),
-    },
-  ];
   return (
-    <div className="grid gap-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <h3 className="wrap-anywhere">
-        <span className="font-semibold">{name}</span>{" "}
-        <span className="text-muted">
-          {found
-            ? found.version
-              ? t("hub:machine.installedVersion", { version: found.version })
-              : t("hub:machine.installed")
-            : t("hub:machine.notFound")}
-        </span>
-      </h3>
-      <div className="grid items-center gap-x-6 sm:grid-cols-[minmax(9rem,auto)_auto_1fr_auto]">
-        {rows.map((r) => (
-          <div key={r.key} className="contents">
-            <span className="pt-2 text-muted sm:pt-0">{r.label}</span>
-            <div className="flex flex-wrap items-center gap-x-4">{r.controls}</div>
-            <div className="min-w-0">{r.state}</div>
-            <div className="sm:justify-self-end">{r.link}</div>
-          </div>
-        ))}
-      </div>
-      <Alert error={patch.error} />
-    </div>
+    <li className="flex flex-wrap items-center gap-x-2 gap-y-1 wrap-anywhere">
+      <span className="font-semibold">{name}</span>
+      <span className="text-muted">
+        {found?.version
+          ? t("hub:machine.installedVersion", { version: found.version })
+          : t("hub:machine.installed")}
+      </span>
+      {d.libraries[library]?.hubSlicer && <SourceBadge>{t("hub:machine.hubSlicer")}</SourceBadge>}
+    </li>
   );
 }
 
+/**
+ * The slicers on the machine: the ones it reports and the hub's downloads. Each one's System and
+ * User presets are set up on Catalog settings → Sources, where the machine is listed (ADR-0023).
+ */
 function Slicers({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const may = useMay(d);
-  // A desktop slicer's id is its library's; one it no longer reports keeps its switches, and a
-  // managed one (not in its list) is in `libraries`.
-  const libraries = [
-    ...new Set([
-      ...d.slicers.map((s) => s.id),
-      ...Object.keys(d.presets),
-      ...Object.keys(d.libraries),
-    ]),
-  ];
+  const libraries = [...new Set([...d.slicers.map((s) => s.id), ...Object.keys(d.libraries)])];
   return (
     <Section title={t("hub:machine.slicers")} wide>
-      {libraries.length ? (
+      {libraries.length > 0 && (
         <>
           <DefaultSlicer device={d} edit={may.edit("slicers")} />
-          {libraries.map((lib) => (
-            <SlicerBlock key={lib} device={d} library={lib} />
-          ))}
+          <ul className="grid gap-2">
+            {libraries.map((lib) => (
+              <SlicerLine key={lib} device={d} library={lib} />
+            ))}
+          </ul>
         </>
-      ) : (
-        <p className="text-muted">{t("hub:devices.noSlicers")}</p>
       )}
       {/* A slicer is installed on a machine from its card in Integrations. */}
       {may.integrations && (
-        <p className="text-muted">
-          <Link to="/integrations" className="underline underline-offset-2">
+        <p>
+          <Link to="/integrations" className={textLink}>
             {t("hub:machine.installInIntegrations")}
           </Link>
         </p>
       )}
+      {libraries.length > 0 && <SyncSources types={["machinePresets"]} hash={`machine-${d.id}`} />}
     </Section>
   );
 }
@@ -566,7 +450,7 @@ function Projects({ device: d }: { device: Device }) {
   const { projects, syncMode, unselect } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
   const link = (
-    <Link to="/projects/settings" className="underline">
+    <Link to="/projects/settings" className={textLink}>
       {t("hub:machine.projectsSettings")}
     </Link>
   );
@@ -755,10 +639,7 @@ function LocalPage({ device: d }: { device: Device }) {
   if (!here) return null;
   return (
     <p>
-      <a
-        href={`http://127.0.0.1:${d.port ?? CONNECTOR_PORT}/local`}
-        className="underline underline-offset-2"
-      >
+      <a href={`http://127.0.0.1:${d.port ?? CONNECTOR_PORT}/local`} className={textLink}>
         {t("hub:machine.localPage")}
       </a>
     </p>
@@ -778,9 +659,8 @@ export function MachinePage() {
   const me = useMe();
   const manage = useCan("hub.manage");
   const unknown = t("hub:devices.unknown");
-  // One column: the header's status lines up with the sections.
   return (
-    <div className="max-w-3xl">
+    <>
       <PageHeader
         title={device?.name ?? t("hub:machine.titleFallback")}
         description={
@@ -823,6 +703,6 @@ export function MachinePage() {
           <Actions device={device} />
         </div>
       )}
-    </div>
+    </>
   );
 }

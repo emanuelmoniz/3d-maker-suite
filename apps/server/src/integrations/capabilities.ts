@@ -149,7 +149,8 @@ export const saveHubSlicerPick = (db: Db, lib: string, integrationId: string) =>
 
 /**
  * What can be a library's hub's slicer (ADR-0022), oldest first: the server's installs (a folder on
- * this computer, a managed slicer) and each machine's that offers it (Use as slicer).
+ * this computer, a managed slicer) and each machine's install (the hub's download, or one found
+ * there).
  */
 export function slicerOptions(db: Db, adapters: IntegrationAdapter[], lib: string): Install[] {
   return db
@@ -160,8 +161,6 @@ export function slicerOptions(db: Db, adapters: IntegrationAdapter[], lib: strin
     .flatMap((row) => {
       const adapter = adapters.find((a) => a.id === row.adapterId);
       if (!adapter || adapter.library?.id !== lib || !row.enabled) return [];
-      if (adapter.kind === "worker" && !workerDevice(db, row)?.presetLibraries[lib]?.slicer)
-        return [];
       return [{ row, adapter }];
     });
 }

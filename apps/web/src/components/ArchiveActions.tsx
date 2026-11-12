@@ -15,6 +15,7 @@ import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../lib/api.ts";
+import { textLink } from "../lib/cx.ts";
 import { Button } from "./Button.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import type { Column } from "./DataTable.tsx";
@@ -118,7 +119,7 @@ export function Dependents({ details, onLeave }: { details: InUseDetails; onLeav
                     to={to}
                     params={{ id: i.id }}
                     onClick={onLeave}
-                    className="underline wrap-anywhere"
+                    className={`wrap-anywhere ${textLink}`}
                   >
                     {i.label}
                   </Link>

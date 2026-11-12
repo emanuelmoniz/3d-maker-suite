@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { textLink } from "../lib/cx.ts";
 import { formatDate } from "../lib/format.ts";
 import { printName, usePrints } from "../lib/prints.ts";
 import { defineWidget } from "./registry.ts";
@@ -26,7 +27,7 @@ defineWidget({
       <WidgetCard
         title={t("dashboard:widgets.recentPrints")}
         more={
-          <Link to="/prints" className="text-accent hover:underline">
+          <Link to="/prints" className={textLink}>
             {t("dashboard:viewAll")}
           </Link>
         }

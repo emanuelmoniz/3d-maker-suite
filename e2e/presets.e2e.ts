@@ -162,7 +162,8 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     await tab.click();
   };
 
-  // Receive is the machine's switch (ADR-0021); its owner, here the admin, turns it on.
+  // Receive is the machine's switch on Catalog settings → Sources (ADR-0023); its owner, here the
+  // admin, turns it on.
   expect((await device("GET", "/presets", undefined)).status).toBe(403);
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   const slicer = `/api/hub/devices/${id}/slicers/orca-slicer`;
@@ -230,15 +231,21 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   // Someone else's machine is as unknown as a missing one.
   expect((await page.request.patch(slicer, receive)).status()).toBe(404);
 
-  // The machine page has the switch, and a link to its lines.
+  // The machine page lists its slicer with no switches, and links to its card on Catalog
+  // settings → Sources, where they are.
   await signInAs("ana@example.com");
   await page.goto(`/hub/devices/${id}`);
+  const slicers = page.getByRole("region", { name: "Slicers" });
+  await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
+  await expect(slicers.getByRole("switch")).toHaveCount(0);
+  await slicers
+    .getByRole("region", { name: "Sync sources configurations" })
+    .getByRole("link", { name: "Catalog" })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/catalog/settings/sources#machine-${id}$`));
   await expect(
-    page.getByRole("switch", { name: "Receive OrcaSlicer user presets from the hub" }),
+    page.getByRole("switch", { name: "Receive user presets in OrcaSlicer on Desk PC" }),
   ).toBeChecked();
-  // Its System and User presets rows both link to its card on Catalog settings → Sources.
-  await page.getByRole("link", { name: "Catalog settings" }).last().click();
-  await expect(page).toHaveURL(new RegExp(`/catalog/settings/sources#receive-${id}$`));
 
   // Hub off: hidden for all.
   await page.request.patch("/api/preferences", { data: { hubEnabled: false } });
@@ -291,7 +298,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
       text: JSON.stringify({ name: "Farm PLA", filament_cost: [cost] }),
     });
   expect((await preset("20")).status).toBe(403);
-  // Share is the machine's switch (ADR-0021).
+  // Share is on while a kind is, on Catalog settings → Sources (ADR-0021).
   const [{ id }] = await (await page.request.get("/api/presets/devices")).json();
   const share = { data: { user: { share: true } } };
   expect(

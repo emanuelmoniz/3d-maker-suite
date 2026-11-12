@@ -100,11 +100,6 @@ export const USER_PRESET_TYPES = [
 ] as const;
 export const isUserPresetType = (t: string): t is (typeof USER_PRESET_TYPES)[number] =>
   (USER_PRESET_TYPES as readonly string[]).includes(t);
-/** What an account's card allows, one switch each (ADR-0021). `userPresets` = the three kinds. */
-export const ACCOUNT_ALLOW_TYPES = ["printers", "prints", "spools", "userPresets"] as const;
-export type AccountAllowType = (typeof ACCOUNT_ALLOW_TYPES)[number];
-export const allowCapabilities = (type: AccountAllowType): readonly string[] =>
-  type === "userPresets" ? USER_PRESET_TYPES : [type];
 export const SYNC_TYPES = [
   "printers",
   "prints",

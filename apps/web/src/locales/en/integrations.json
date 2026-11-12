@@ -57,34 +57,8 @@
     "addAnother": "Add another account",
     "untitled": "{{adapter}} account",
     "signedOut": "Signed out",
-    "disabledHint": "Switched off: nothing is synced from this account. Turn it on from More actions.",
-    "turnOff": "Turn off",
-    "turnOn": "Turn on",
-    "allowTitle": "Allow",
-    "allowLegend": "What {{name}} may sync",
-    "allow": {
-      "printers": "Printers",
-      "prints": "Prints",
-      "spools": "Spools",
-      "userPresets": "User presets"
-    },
-    "settings": {
-      "printers": "Printers settings",
-      "prints": "Prints settings",
-      "filament": "Filament settings",
-      "presets": "Catalog settings"
-    },
-    "stop": {
-      "printers": "Stop syncing printers from this account?",
-      "printersBody": "The printers already imported stay.",
-      "prints": "Stop syncing prints from this account?",
-      "printsBody": "The prints already imported stay.",
-      "spools": "Stop syncing spools from this account?",
-      "spoolsBody": "The spools already imported stay.",
-      "userPresets": "Stop syncing user presets from this account?",
-      "userPresetsBody": "The presets already imported stay."
-    },
-    "stopConfirm": "Stop syncing"
+    "disabledHint": "Switched off: nothing is synced from this account.",
+    "enabledOf": "Enabled: {{name}}"
   },
   "deleteDialog": {
     "title": "Delete {{name}}?",
@@ -451,10 +425,10 @@
   },
   "hub": {
     "title": "The hub's slicer",
-    "hint": "This server's installs can be picked, and a machine's once its user turns on Use as slicer on its machine page.",
+    "hint": "This server's installs and every machine's install can be picked.",
     "isHub": "Slices this slicer type for the hub. Its catalog and system presets are the hub's, and every machine that receives them gets this copy.",
-    "notOffered": "Not offered: its user turns on Use as slicer on the machine page, then it can be picked above.",
-    "offers": "Offers it, not set up yet.",
+    "notOffered": "Switched off, so it can't be picked. Turn it on to pick it above.",
+    "offers": "Has it installed, not set up yet.",
     "setUp": "Set up",
     "addMachine": "Add a machine…",
     "version": "v{{version}}",
@@ -465,14 +439,14 @@
       "device_offline": "That machine is offline. Pick it once it is online.",
       "device_outdated": "The connector on that machine is too old. Update it to the hub's version, then pick it again.",
       "device_timeout": "That machine didn't answer. Try again.",
-      "not_an_option": "It can't be the hub's slicer now: it was switched off, or its machine stopped offering it.",
+      "not_an_option": "It can't be the hub's slicer now: it was switched off or removed.",
       "slicer_exists": "This slicer is already set up on that machine."
     },
     "none": "No install yet. Add one to this server, or to a machine below.",
     "pickBodyUnknown": "The catalog and system presets become this install's: every machine that receives them gets the new ones, and plates sliced with another version are sliced again.",
     "change": "Change the hub's slicer…",
     "option": "{{where}}, version {{version}}",
-    "noneYet": "None yet: set up an install below, or have a machine offer it.",
+    "noneYet": "None yet: set up an install below.",
     "installs": "Installs"
   }
 }

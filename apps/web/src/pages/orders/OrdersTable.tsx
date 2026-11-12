@@ -7,6 +7,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { useClients } from "../../lib/clients.ts";
 import { useMoney } from "../../lib/cost.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { orderName, useOrderStatusLabel, useOrders } from "../../lib/orders.ts";
@@ -58,7 +59,7 @@ export function OrdersTable({
           id: "number",
           header: t("orders:list.columns.number"),
           cell: (o) => (
-            <Link to="/orders/$id" params={{ id: o.id }} className="font-medium hover:underline">
+            <Link to="/orders/$id" params={{ id: o.id }} className={textLink}>
               {/* The column header already says "Order". */}
               {String(o.number).padStart(3, "0")}
             </Link>
@@ -75,7 +76,7 @@ export function OrdersTable({
                 cell: (o: Order) => {
                   const c = clients.find((x) => x.id === o.clientId);
                   return c ? (
-                    <Link to="/clients/$id" params={{ id: c.id }} className="hover:underline">
+                    <Link to="/clients/$id" params={{ id: c.id }} className={textLink}>
                       {c.name}
                     </Link>
                   ) : (

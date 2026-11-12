@@ -1,5 +1,4 @@
 import {
-  allows,
   type Capability,
   type CatalogSourcePick,
   defaultPolicy,
@@ -140,8 +139,7 @@ export function librarySources(
     return {
       library,
       routes: all
-        // An account is a route only while it allows user presets (ADR-0021).
-        .filter((r) => r.enabled && libraryOf(r) === library && allows(r.config, "userPresets"))
+        .filter((r) => r.enabled && libraryOf(r) === library)
         .map((r) => ({ integrationId: r.id, presets: counts.get(r.id) ?? 0 })),
       source,
       options: slicerOptions(db, adapters, library).flatMap((o): LibrarySources["options"] => {
@@ -166,7 +164,7 @@ export function librarySources(
             userId: d.userId,
             online: online(d.id),
             outdated: !!d.connectorVersion && d.connectorVersion !== VERSION,
-            slicer: !!d.presetLibraries[library]?.slicer,
+            slicer: deviceLibraries(adapters, d.slicers).includes(library),
             receive,
             install: (receive && d.catalogInstall?.find((s) => s.library === library)) || null,
             mismatch: receive ? catalogMismatch(db, adapters, library, d) : null,

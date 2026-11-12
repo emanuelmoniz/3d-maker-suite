@@ -13,6 +13,7 @@ import { Cable, FileArchive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useDeviceActions } from "../../lib/hub.ts";
 import { useAdapterName, useIntegrations, useLocationLabel } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -91,7 +92,7 @@ const serverRows = (lib: LibrarySources, list: Integration[]) =>
 
 /**
  * Catalog settings → Sources (ADR-0023). Share to the hub: this server's slicers, the accounts that
- * allow user presets, the machines that share (the hub's slicer, or User presets Share on) and the
+ * have user presets, the machines with a slicer (the hub's slicer, or one it reports) and the
  * zip, each slicer one table of its lines. Receive from the hub: every other install, per slicer its
  * System and User presets lines.
  */
@@ -129,8 +130,8 @@ export function CatalogSources() {
         .map((i) => [i.id, i]),
     ).values(),
   ];
-  // A machine shares a slicer as the hub's slicer, or with User presets Share on. The first is
-  // known to anyone; the second only with `catalog` write (`devices`).
+  // A machine shares a slicer as the hub's slicer, or its user presets from one it reports (or still
+  // sends). The first is known to anyone; the second only with `catalog` write (`devices`).
   const machines = new Map<string, { name: string; libraries: string[] }>();
   const add = (id: string, name: string, library: string) => {
     const m = machines.get(id) ?? { name, libraries: [] };
@@ -140,7 +141,8 @@ export function CatalogSources() {
   for (const lib of libraries)
     for (const m of lib.machines)
       if (isSource(lib, { deviceId: m.deviceId })) add(m.deviceId, m.name, lib.library);
-  for (const d of devices) for (const l of d.libraries) if (l.send) add(d.id, d.name, l.library);
+  for (const d of devices)
+    for (const l of d.libraries) if (l.reported || l.send) add(d.id, d.name, l.library);
   const receivers = receiversOf(libraries, list);
   const zipLibs = admin ? zips : [];
   if (!server.length && !accounts.length && !machines.size && !receivers.length && !zipLibs.length)
@@ -199,7 +201,7 @@ export function CatalogSources() {
   );
 }
 
-/** A machine's card, linking back to its page, where its Slicers switches are. */
+/** A machine's card, linking back to its page. */
 export function MachineBlock({
   id,
   name,
@@ -234,11 +236,7 @@ function ChangeHubSlicer({ library }: { library: string }) {
   const { t } = useTranslation();
   if (!useCan("integrations.manage")) return null;
   return (
-    <Link
-      to="/integrations"
-      hash={`library-${library}`}
-      className="text-sm font-medium text-accent hover:underline"
-    >
+    <Link to="/integrations" hash={`library-${library}`} className={`text-sm ${textLink}`}>
       {t("settings:sources.catalog.change")}
     </Link>
   );
@@ -327,37 +325,40 @@ export function useMayEdit(d: PresetDevice | undefined) {
   return !!d && !!rights && mayEditMachine(rights, me?.id, d, "catalog");
 }
 
-/** A Share kind line's switch: it writes `shareKinds`; the hub filters (ADR-0021). */
+/**
+ * A Share kind line's switch: it writes `shareKinds`, and User presets Share is on while any kind
+ * is (the connector sends, the hub filters, ADR-0021).
+ */
 function useKindSwitch(d: PresetDevice | undefined, l: Library | undefined) {
   const { t } = useTranslation();
   const actions = useDeviceActions();
   const may = useMayEdit(d);
   const slicer = useAdapterName()(l?.library ?? "");
   return (kind: SlicerPresetKind): SendLine => ({
-    checked: !!l?.shareKinds.includes(kind),
+    checked: !!l?.send && l.shareKinds.includes(kind),
     label: t("settings:sources.presets.shareOn", {
       type: t(KINDS[kind]),
       slicer,
       machine: d?.name,
     }),
     disabled: !d || !l || !may || !l.reported || actions.library.isPending,
-    set: (on) =>
-      l &&
-      d &&
+    set: (on) => {
+      if (!l || !d) return;
+      const kinds = l.send ? l.shareKinds : [];
+      const shareKinds = on ? [...kinds, kind] : kinds.filter((k) => k !== kind);
       actions.library.mutate({
         id: d.id,
         library: l.library,
-        user: {
-          shareKinds: on ? [...l.shareKinds, kind] : l.shareKinds.filter((k) => k !== kind),
-        },
-      }),
+        user: { share: shareKinds.length > 0, shareKinds },
+      });
+    },
   });
 }
 
 /**
- * One slicer of a sharing machine, in one table: its system lines as the hub's slicer, and its user
- * lines while User presets Share is on, each one's switch being whether the machine sends that kind
- * (Edit and `⋯` are the hub's import of it). Without `device` (no `catalog` write), only the first.
+ * One slicer of a machine, in one table: its system lines as the hub's slicer, and its user lines,
+ * each one's switch being whether the machine sends that kind (Edit and `⋯` are the hub's import of
+ * it). Without `device` (no `catalog` write), only the first.
  */
 function ShareSlicer({
   id,
@@ -386,7 +387,7 @@ function ShareSlicer({
   const importer =
     routes.find((i) => i.kind === "worker" && i.deviceName === d?.name) ??
     routes.find((i) => i.kind !== "cloud");
-  const user = l?.send ? LINES.filter((type) => !SYSTEM.includes(type)) : [];
+  const user = l ? LINES.filter((type) => !SYSTEM.includes(type)) : [];
   const send = (type: LineType) => {
     const k = KIND_OF[type];
     return k && kind(k);
@@ -417,7 +418,7 @@ function ShareSlicer({
         </>
       )}
       {/* No install row imports what it sends yet: its kind switches alone. */}
-      {!importer && d && l?.send && (
+      {!importer && d && l && (
         <StateLines
           label={t("settings:sources.presets.linesOf", { slicer: name, machine: d.name })}
           rows={SLICER_PRESET_KINDS.map(
@@ -425,15 +426,19 @@ function ShareSlicer({
               key: k,
               item: t(KINDS[k]),
               on: kind(k),
-              state: l.shareKinds.includes(k)
-                ? t("settings:sources.presets.onSave")
-                : t("integrations:policies.modes.off"),
+              state:
+                l.send && l.shareKinds.includes(k)
+                  ? t("settings:sources.presets.onSave")
+                  : t("integrations:policies.modes.off"),
             }),
           )}
         />
       )}
       {l && l.held > 0 && (
-        <Link to="/catalog/settings/library" className="w-fit text-warn underline">
+        <Link
+          to="/catalog/settings/library"
+          className="w-fit font-medium text-warn hover:underline"
+        >
           {t("settings:sources.presets.held", { count: l.held })}
         </Link>
       )}

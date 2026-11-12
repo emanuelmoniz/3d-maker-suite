@@ -1,15 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { textLink } from "../lib/cx.ts";
 import { projectName, useProjects } from "../lib/projects.ts";
 
 /** A project's name, linked to its page; "Other project" for one the user can't see (ADR-0014). */
-export function ProjectRef({
-  id,
-  className = "hover:underline",
-}: {
-  id: string;
-  className?: string;
-}) {
+export function ProjectRef({ id, className = textLink }: { id: string; className?: string }) {
   const { t } = useTranslation();
   const projects = useProjects(true).data?.items;
   if (!projects) return null;

@@ -102,9 +102,8 @@ function twoDevices() {
   return [device("WS-1", 2), device("WS-2", 3)] as const;
 }
 
-/** A worker install of the slicer on `deviceId`; `offered`: its Use as slicer is on. */
-function worker(deviceId: string, min: number, offered = true) {
-  if (offered) offer(deviceId);
+/** A worker install of the slicer on `deviceId`: an option for the hub's slicer (ADR-0022). */
+function worker(deviceId: string, min: number) {
   return db
     .insert(integrations)
     .values({
@@ -115,12 +114,12 @@ function worker(deviceId: string, min: number, offered = true) {
     .returning()
     .get().id;
 }
-const offer = (deviceId: string, on = true, receive = false) =>
+const receiveOn = (deviceId: string) =>
   db
     .update(devices)
     .set({
       presetLibraries: {
-        fake: { ...emptyPresetLibrary(), slicer: on, system: { receive } },
+        fake: { ...emptyPresetLibrary(), system: { receive: true } },
       },
     })
     .where(eq(devices.id, deviceId))
@@ -158,10 +157,11 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
     expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
   });
 
-  it("offers a machine's install only while its Use as slicer is on, beside the server's", async () => {
+  it("offers every enabled machine install, beside the server's", async () => {
     const [ws1, ws2] = twoDevices();
     const w1 = worker(ws1, 4);
-    const w2 = worker(ws2, 5, false);
+    const w2 = worker(ws2, 5);
+    db.update(integrations).set({ enabled: false }).where(eq(integrations.id, w2)).run();
     // The server's own installs don't keep machines out any more.
     expect(sources()[0]).toMatchObject({
       source: { integrationId: first, picked: false },
@@ -192,8 +192,8 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
     await check().checkCatalogs();
     expect(fingerprints()).toEqual({ [first]: null, [second]: null, [w1]: null, [w2]: null });
 
-    // Use as slicer off: no longer an option, the default takes over.
-    offer(ws1, false);
+    // Switched off: no longer an option, the default takes over.
+    db.update(integrations).set({ enabled: false }).where(eq(integrations.id, w1)).run();
     expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
   });
 
@@ -201,13 +201,13 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
     const [ws1, ws2] = twoDevices();
     db.delete(integrations).run();
     const w1 = worker(ws1, 4);
-    offer(ws1, true, true);
-    offer(ws2, false, true);
+    receiveOn(ws1);
+    receiveOn(ws2);
     const machine = (id: string) => sources()[0]?.machines.find((m) => m.deviceId === id);
     // WS-1 is the default hub's slicer: it shows as not receiving.
     expect(sources()[0]?.source).toEqual({ deviceId: ws1, picked: false });
     expect(machine(ws1)).toMatchObject({ slicer: true, receive: false });
-    expect(machine(ws2)).toMatchObject({ slicer: false, receive: true, install: null });
+    expect(machine(ws2)).toMatchObject({ slicer: true, receive: true, install: null });
 
     const version = (id: string, v: string | null) =>
       db
@@ -222,14 +222,14 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
     expect(machine(ws2)?.mismatch).toEqual({ here: "2.3", source: "2.4" });
     // A machine with the slicer and no switches is still listed: it can receive.
     db.update(devices).set({ presetLibraries: {} }).where(eq(devices.id, ws2)).run();
-    expect(machine(ws2)).toMatchObject({ slicer: false, receive: false, mismatch: null });
+    expect(machine(ws2)).toMatchObject({ slicer: true, receive: false, mismatch: null });
     version(ws2, null);
     expect(machine(ws2)?.mismatch).toBeNull();
 
     // Picked as the hub's slicer, a machine's Receive goes off.
     await pickHubSlicer(db, adapters, "fake", w1);
     const row = db.select().from(devices).where(eq(devices.id, ws1)).get();
-    expect(row?.presetLibraries.fake).toMatchObject({ slicer: true, system: { receive: false } });
+    expect(row?.presetLibraries.fake).toMatchObject({ system: { receive: false } });
   });
 
   it("picking turns slicing and the Catalog and System presets cards on, and refuses the rest", async () => {

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { textLink } from "../lib/cx.ts";
 import { useDue } from "../lib/maintenance.ts";
 import { defineWidget } from "./registry.ts";
 import { WidgetCard } from "./Widget.tsx";
@@ -24,7 +25,7 @@ defineWidget({
       <WidgetCard
         title={t("dashboard:widgets.maintenanceDue")}
         more={
-          <Link to="/maintenance" className="text-accent hover:underline">
+          <Link to="/maintenance" className={textLink}>
             {t("dashboard:viewAll")}
           </Link>
         }

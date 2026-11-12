@@ -5,6 +5,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { mutedLink } from "../../lib/cx.ts";
 import { ExportSection } from "./ExportSection.tsx";
 import { ENTITIES, SHEET_ENTITIES } from "./entities.ts";
 import { ImportFlow } from "./ImportFlow.tsx";
@@ -25,7 +26,7 @@ export function ImportPage() {
           <p className="text-muted">
             <Trans
               i18nKey="import:catalogMoved"
-              components={{ link: <Link to="/catalog/printers" className="underline" /> }}
+              components={{ link: <Link to="/catalog/printers" className={mutedLink} /> }}
             />
           </p>
 

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Trans, useTranslation } from "react-i18next";
+import { textLink } from "../../lib/cx.ts";
 import { useZipSources } from "../../lib/slicerCatalog.ts";
 
 /**
@@ -16,8 +17,8 @@ export function PresetsHint() {
         <Trans
           i18nKey="catalog:arrive.body"
           components={{
-            integrations: <Link to="/integrations" className="underline" />,
-            zip: <Link to="/catalog/settings/sources" className="underline" />,
+            integrations: <Link to="/integrations" className={textLink} />,
+            zip: <Link to="/catalog/settings/sources" className={textLink} />,
           }}
         />
       </p>

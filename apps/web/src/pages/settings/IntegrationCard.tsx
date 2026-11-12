@@ -14,7 +14,6 @@ import { ChevronRight, Plus } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
-import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable, type ListQuery } from "../../components/DataTable.tsx";
@@ -46,7 +45,7 @@ import { useCatalogSources } from "../../lib/presets.ts";
 import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches } from "./PolicyRow.tsx";
-import { SourceBadge } from "./Sources.tsx";
+import { SourceBadge, SyncSources } from "./Sources.tsx";
 import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
 // The status dot's colour; the line's text says the rest.
@@ -133,7 +132,8 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
   const slicer = !rows.length || rows.some((i) => i.kind !== "cloud");
   const here = rows.filter((i) => i.kind !== "worker" && i.kind !== "cloud");
   // A slicer type: it has a hub's slicer (a mock source or an API has none).
-  const type = !!useAdapters().data?.some((a) => a.libraryId === library);
+  const adapters = (useAdapters().data ?? []).filter((a) => a.libraryId === library);
+  const type = adapters.length > 0;
   const lib = useCatalogSources(admin && type).data?.find((l) => l.library === library);
   return (
     <section
@@ -170,6 +170,13 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
           ))}
         </ul>
       )}
+      {/* For the whole slicer type: its installs all feed the same Sources tabs. */}
+      <SyncSources
+        types={[
+          ...rows.flatMap((i) => i.policies.map((p) => p.type)),
+          ...adapters.flatMap((a) => a.capabilities),
+        ]}
+      />
     </section>
   );
 }
@@ -370,8 +377,7 @@ type HubRole = { checked: boolean; notOffered: boolean };
 
 /**
  * One place a slicer runs (or an account): where, on/off and a status line; then its account
- * (cloud) or slicer, what it imports that isn't catalog, and the sync log. `hub`: its role on its
- * slicer type's card.
+ * (cloud) or slicer. `hub`: its role on its slicer type's card.
  */
 export function IntegrationCard({
   integration: i,
@@ -384,12 +390,9 @@ export function IntegrationCard({
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
-  // An editor gets the status line and their task rows only (ADR-0012).
+  // An editor gets the status line and their task rows only (ADR-0012). Accounts have their own
+  // card (AccountCard.tsx).
   const admin = useCan("integrations.manage");
-  const on = i.policies.filter((p) => p.mode !== "off");
-  // Disabled = switched off entirely, so only the toggle and Delete stay; the log is for anything
-  // that syncs. Accounts have their own card (AccountCard.tsx).
-  const logged = admin && i.enabled && on.some((p) => !isAction(p.type));
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchIntegration(i.id);
   const sync = useSyncIntegration(i.id);
@@ -541,14 +544,6 @@ export function IntegrationCard({
             <Part title={t("integrations:slicer.title")}>
               <WorkerSlicer integration={i} adapter={adapter} />
             </Part>
-          )}
-          {logged && (
-            <Collapsible title={t("integrations:card.log")} className="mt-5">
-              <SyncLog
-                id={i.id}
-                types={i.policies.map((p) => p.type).filter((c) => !isAction(c))}
-              />
-            </Collapsible>
           )}
         </div>
       )}

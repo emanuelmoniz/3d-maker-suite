@@ -11,7 +11,7 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMe, useRights } from "../../lib/auth.ts";
-import { cx } from "../../lib/cx.ts";
+import { cx, textLink } from "../../lib/cx.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import { mayAssign, useRoles, useUserActions, useUsers } from "../../lib/users.ts";
 
@@ -87,7 +87,7 @@ export function UsersSection() {
     return (
       <>
         <p className="text-muted">{t("users:list.noAccounts")}</p>
-        <Link to="/setup" className="font-medium text-accent hover:underline">
+        <Link to="/setup" className={textLink}>
           {t("users:list.createFirst")}
         </Link>
       </>
@@ -135,11 +135,7 @@ export function UsersSection() {
               cell: (u) => (
                 <span className="inline-flex items-center gap-2">
                   {mayChange(u) ? (
-                    <Link
-                      to="/settings/users/$id"
-                      params={{ id: u.id }}
-                      className="font-medium hover:underline"
-                    >
+                    <Link to="/settings/users/$id" params={{ id: u.id }} className={textLink}>
                       {u.displayName}
                     </Link>
                   ) : (
@@ -164,7 +160,7 @@ export function UsersSection() {
               cell: (u) => {
                 const r = roleOf(u.roleId);
                 return r ? (
-                  <Link to="/settings/roles/$id" params={{ id: r.id }} className="hover:underline">
+                  <Link to="/settings/roles/$id" params={{ id: r.id }} className={textLink}>
                     {r.name}
                   </Link>
                 ) : null;

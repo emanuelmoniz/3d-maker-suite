@@ -105,13 +105,12 @@ export type PresetSwitches = z.infer<typeof presetSwitchesSchema>;
 
 const kinds = z.array(slicerPresetKindSchema).max(SLICER_PRESET_KINDS.length);
 /**
- * A machine's switches for one slicer library (ADR-0022, ADR-0023), on its page: Use as slicer
- * (offers it to the hub), System (Receive only: the hub's whole `system/`), User presets (Receive
- * every kind, Share the kinds in `shareKinds`). `devices.presetLibraries` keeps them by library,
- * with when a preset was last stored.
+ * A machine's switches for one slicer library (ADR-0022, ADR-0023), on Catalog settings → Sources:
+ * System (Receive only: the hub's whole `system/`), User presets (Receive every kind, Share the
+ * kinds in `shareKinds`). `devices.presetLibraries` keeps them by library, with when a preset was
+ * last stored.
  */
 export const devicePresetLibrarySchema = z.object({
-  slicer: z.boolean(),
   system: z.object({ receive: z.boolean() }),
   user: z.object({
     receive: z.boolean(),
@@ -123,7 +122,6 @@ export const devicePresetLibrarySchema = z.object({
 export type DevicePresetLibrary = z.infer<typeof devicePresetLibrarySchema>;
 /** A library with every switch off, before its first change. */
 export const emptyPresetLibrary = (): DevicePresetLibrary => ({
-  slicer: false,
   system: { receive: false },
   user: {
     receive: false,

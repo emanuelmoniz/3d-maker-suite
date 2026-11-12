@@ -23,6 +23,8 @@ Only admins pair devices.
 3. Enter the hub's address (the one you open the web app at), the code and a device name, then **Pair**.
 4. The device shows **Online** in Hub management, and the browser goes on to its machine page on the hub.
 
+**Hub management** lists the devices in a table, as the other lists: name, status (online or offline, with when it was last seen, and whether its connector is outdated), user, base OS (Windows, Linux or macOS) and connector version. Each column sorts and filters. Tick devices to **Restart** their connectors (online ones only) or **Revoke** them together (it asks first); the ones that couldn't stay ticked.
+
 The hub stores only a hash of the device token. On a device's page you can **Rename** it or **Revoke** it: a revoked device loses access at once, its local files stay on its disk, and it needs a new code to join again. The connector connects out to the hub, so devices need no open ports and no VPN. It works behind Caddy, nginx and Traefik with default settings: the hub marks its event stream as unbuffered and sends a heartbeat every 15 seconds.
 
 ## Machine page
@@ -31,12 +33,7 @@ Each device in **Hub management** opens its machine page. It has every setting o
 
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the local page port and start at login, read live from the connector.
-- **Slicers**: the default slicer (the one **Open** uses, or **Ask each time**). Then for each slicer the connector found:
-  - **Use as slicer**: **Offer** offers this slicer to the hub; the admin picks the hub's slicer among the offers on the slicer's card in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)). It says *Offered: pick it in Integrations*, or *The hub's slicer* on the picked one, whose offer stays on until another is picked. With Integrations manage, **Integrations** links to the card, where the machine's install is set up, updated and removed ([Slice workers](#slice-workers)).
-  - **System presets**: **Receive** only, the hub's slicer's whole `system/` folder (its system presets, brands and printer models). Off and locked on the hub's slicer: its own are the hub's.
-  - **User presets**: **Receive** (every kind) and **Share** ([Slicer presets](#slicer-presets)).
-
-  Both Receive switches on give the machine a full copy of the hub's slicer. System presets alone keeps the machine's own user presets; User presets alone keeps its own `system/` ([ADR-0023](adr/0023-one-catalog-module.md)).
+- **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *The hub's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)); and the default slicer (the one **Open** uses, or **Ask each time**). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
 - **Projects**: **Receive from the hub** (with what it syncs, below) and **Share to the hub** (its shared folders, below).
 - **Actions**: **Restart connector**, **Stop connector** and **Revoke**.
 
@@ -47,8 +44,8 @@ Opened in a browser on that machine, the page also links to the connector's [loc
 | Section | Switch | Also needs |
 |---|---|---|
 | Connection, Restart, Stop | **Connection** | |
-| Default slicer, Use as slicer | **Slicers** | |
-| System presets Receive, User presets Receive and Share | **Catalog** | Catalog write |
+| Default slicer | **Slicers** | |
+| System presets Receive, User presets Receive and Share (on **Catalog → Settings → Sources**) | **Catalog** | Catalog write |
 | Projects Receive and Share | **Projects** | Projects write |
 
 Identity, Update now and Revoke stay with **Manage the hub**.
@@ -108,7 +105,7 @@ The project page and the model file rows have one **Open** button. It opens the 
 
 The page only finds the connector when the connector was paired with the same address you use in the browser (for example both `http://3dms.lan:4300`). With another address it falls back to the list.
 
-The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. Its machine page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, the device isn't offered.
+The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. Its machine page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, Open doesn't offer the device.
 
 Locks are soft: see [Locks](#locks).
 
@@ -153,7 +150,7 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 
 ## Slice workers
 
-A device can slice for the hub. Its user offers a slicer with **Use as slicer** on its [machine page](#machine-page); in **Settings → Integrations**, the slicer's card sets up its install there (**Set up**, or **Add a machine…**), picks or installs its program (**Use this program**), and **Change the hub's slicer…** picks it. One install per slicer and machine. Having an install makes it a slice worker, and removing its last slicer ends it; only the hub's slicer slices. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
+A device can slice for the hub. In **Settings → Integrations**, the slicer's card sets up its install there (**Set up**, or **Add a machine…**), picks or installs its program (**Use this program**), and **Change the hub's slicer…** picks it. One install per slicer and machine. Having an install makes it a slice worker, and removing its last slicer ends it; only the hub's slicer slices. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
 
 Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or when a workstation is faster. The hub keeps the presets and prepares each job; only the slicer runs on the device. Run the connector in its own data folder: it refuses to start in the hub's, because it would clean up the hub's slicer installs.
 
@@ -163,7 +160,7 @@ On a hub, one library holds the user presets (printer, process, filament) of Bam
 
 Open it from **Catalog → Settings → Preset library** (shown while the hub is on; `/hub/presets`, `/catalog/presets` and `/presets/settings/library` still land there). A preset imported from a user preset links to its entry here, and the entry links back to it. Anyone who can see the presets or projects can browse and download presets and their earlier versions. Changing things needs **Catalog** write, which Admin and Editor have (the old **Presets** right is part of **Catalog** since [ADR-0023](adr/0023-one-catalog-module.md); updating keeps the higher of the two): delete a preset, clean up conflict copies, and set the two switches below.
 
-Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Per machine and per slicer, User presets **Share** and **Receive** are switches on its [machine page](#machine-page) (both off by default). What Share sends is set per kind on **Catalog → Settings → Sources**: the machine's **Printer**, **Process** and **Filament user presets** lines, all on at first. Receive takes every kind. The machine's user turns them on and off with `machine.catalog`, as on the machine page.
+Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Every slicer a machine reports is listed on **Catalog → Settings → Sources**, under both **Share to the hub** and **Receive from the hub** (all off by default). Share is set per kind: the machine's **Printer**, **Process** and **Filament user presets** lines; the machine shares while any of them is on. Receive takes every kind. The machine's user turns them on and off with `machine.catalog`.
 
 - **Share** (Send presets): the connector sends each preset saved in that slicer to the hub within a minute. It follows the account the slicer last used, or the signed-out folder. The slicer shows when a preset it sent was last stored, and the deletes held for you. The hub ignores a preset of a kind whose line is off, and its deletes; a file saved meanwhile reaches the hub on its next save.
 - **Receive** (Install): the connector writes every preset of the library into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first and the preset shows at the slicer's next start. Its **User presets** line on **Catalog → Settings → Sources** has the switch and shows whether it is up to date or how many wait, and under **Folder and backup** where it writes and the last backup. Updating to 5.5.0-alpha.2, a machine that received only some kinds receives all three; nothing it has is removed.
@@ -172,17 +169,17 @@ So a PC can send its Bambu Studio filament presets and nothing else. A slicer th
 
 ### Catalog source
 
-A slicer's system presets (its brands and printer models) are read from one place per library. That place is the slicer's **hub's slicer** ([ADR-0022](adr/0022-one-slicer-per-type.md)): this server's install, or a workstation's. On a hub with no slicer of its own for that library, turn on **Use as slicer → Offer** on the workstation's [machine page](#machine-page), then pick it as the hub's slicer on the slicer's card in **Settings → Integrations**. Its connector then sends the slicer's system presets when they differ from the hub's copy, which raises the catalog change alert; any other device gets `not_source`. A connector older than this answers `device_outdated` when you pick it. When the hub's slicer moves, the old device's copy is removed on the next tick; a zip's copy stays. A machine whose hub's slicer is a managed (downloaded) install sends from that install's own folder (`resources/profiles` in its data folder), not from a desktop config folder; the hub tells its connector where.
+A slicer's system presets (its brands and printer models) are read from one place per library. That place is the slicer's **hub's slicer** ([ADR-0022](adr/0022-one-slicer-per-type.md)): this server's install, or a workstation's. On a hub with no slicer of its own for that library, set up the workstation's install on the slicer's card in **Settings → Integrations** (the oldest install is the hub's slicer until one is picked), or pick it there with **Change the hub's slicer…**. Its connector then sends the slicer's system presets when they differ from the hub's copy, which raises the catalog change alert; any other device gets `not_source`. A connector older than this answers `device_outdated` when you pick it. When the hub's slicer moves, the old device's copy is removed on the next tick; a zip's copy stays. A machine whose hub's slicer is a managed (downloaded) install sends from that install's own folder (`resources/profiles` in its data folder), not from a desktop config folder; the hub tells its connector where.
 
 ### Receive catalog
 
-With **System presets → Receive** on, on its [machine page](#machine-page), a machine gets the hub's copy of the hub's slicer's `system/` folder, so its slicer has the same vendor presets as the hub's. The copy comes from the hub's slicer, on a machine or on this server.
+With its **System presets** line's **Receive** on, on **Catalog → Settings → Sources**, a machine gets the hub's copy of the hub's slicer's `system/` folder, so its slicer has the same vendor presets as the hub's. The copy comes from the hub's slicer, on a machine or on this server.
 
 - It is sent when the hub's copy differs from the machine's own, checked every minute and as soon as the hub's slicer sends a new copy. A slicer update that rewrites `system/` on the machine changes it again, so the copy is written again after the update.
 - The connector waits until the slicer is closed. It then backs up the machine's `system/` to `catalog-backups/<slicer>.zip` in its data folder (only the last backup is kept), and writes the hub's preset files over the folder. It deletes nothing, so the slicer's own files, such as bed models, stay. The vendor presets show at the slicer's next start.
 - It is sent only to a slicer with the same major.minor version as the hub's slicer (2.4 to 2.4). A newer copy may not load in an older slicer, and a newer slicer may replace an older copy when it starts. Otherwise the line says which versions differ. When either version is unknown, it is sent.
 - The hub's slicer can't receive: its own folder is the catalog. Its Receive switch is off and locked, and picking a machine as the hub's slicer turns its Receive off.
-- **Receive from the hub**, on **Catalog → Settings → Sources**, has a card for every machine with the slicer (and This server's slicer). The hub's slicer has one too, for user presets only: its System presets line says *The hub's slicer*, with no switch. Per slicer, its **System presets** line has the Receive switch, saved with the machine page's **Catalog** right, and the `system/` state: off, not received yet, waiting for the slicer to close, received (with the date and the presets' version), or the error. **Folder and backup** shows the last backup; an offline or too old machine says so at the top of its card.
+- **Receive from the hub**, on **Catalog → Settings → Sources**, has a card for every machine with the slicer (and This server's slicer). The hub's slicer has one too, for user presets only: its System presets line says *The hub's slicer*, with no switch. Per slicer, its **System presets** line has the Receive switch, saved with the machine's **Catalog** right, and the `system/` state: off, not received yet, waiting for the slicer to close, received (with the date and the presets' version), or the error. **Folder and backup** shows the last backup; an offline or too old machine says so at the top of its card.
 - A connector older than this answers `device_outdated` when you turn Receive on while it is online, and the switch stays off.
 
 **This server's slicer** receives too: a slicer installed on the computer the server runs on (a folder on this computer, not a managed one) that isn't the hub's slicer. Its switch is `catalogReceive` on its integration (`PATCH /api/integrations/:id`; `not_local` for any other kind, `hub_slicer` on the hub's slicer, and picking it as the hub's slicer turns it off). It follows the same rules: the same major.minor, only while the slicer is closed, a backup to `catalog-backups/<integration>.zip` in the server's data folder first, the preset files laid over its folder. The server looks on each tick and as soon as a new copy comes in; its state is kept on the integration (`catalogInstall`).

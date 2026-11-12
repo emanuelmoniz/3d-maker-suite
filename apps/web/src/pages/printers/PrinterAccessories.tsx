@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName, useAccessories } from "../../lib/accessories.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { InstallDialog, RemoveDialog } from "./InstallDialogs.tsx";
 import { StateBadge } from "./StateBadge.tsx";
@@ -34,11 +35,7 @@ export function PrinterAccessories({ printerId }: { printerId: string }) {
           {installed.map((a) => (
             <li key={a.id} className="flex items-center gap-3 rounded-md border border-border p-3">
               <div className="min-w-0 flex-1">
-                <Link
-                  to="/printers/accessories/$id"
-                  params={{ id: a.id }}
-                  className="font-medium hover:underline"
-                >
+                <Link to="/printers/accessories/$id" params={{ id: a.id }} className={textLink}>
                   {accessoryName(t, a)}
                 </Link>
                 <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted">

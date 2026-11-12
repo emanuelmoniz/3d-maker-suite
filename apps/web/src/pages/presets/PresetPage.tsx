@@ -14,6 +14,7 @@ import { useCanSettings } from "../../components/SettingsLink.tsx";
 import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { filamentLabel } from "../../lib/filament.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -147,7 +148,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
                 <Link
                   to="/catalog/settings/library"
                   hash={encodeURIComponent(`${preset[1]}:${kind}:${preset[2]}`)}
-                  className="mt-1 block font-medium text-accent hover:underline"
+                  className={`mt-1 block ${textLink}`}
                 >
                   {t("catalog:preset.openPreset")}
                 </Link>

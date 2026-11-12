@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountAllowSchema, id, isoDate, syncPolicySchema } from "./entities.ts";
+import { id, isoDate, syncPolicySchema } from "./entities.ts";
 import {
   CAPABILITIES,
   type Capability,
@@ -80,8 +80,6 @@ export const integrationPatchSchema = z
     catalogReceive: z.boolean(),
     /** A local slicer receives the hub's user presets, as a machine does. */
     presetReceive: z.boolean(),
-    /** A cloud account's Allow switches: off sets those types' policies to `off`, data stays. */
-    allow: accountAllowSchema,
     /** Only the listed types change, and only the fields sent. */
     policies: z.array(
       syncPolicySchema

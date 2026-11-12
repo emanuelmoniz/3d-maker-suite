@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { safeNext, useLogin, useSetup } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 
 // Keys written out in full so `pnpm i18n:check` can see them.
 const LOGIN_ERRORS: Record<string, string> = {
@@ -184,7 +185,7 @@ export function SetupPage() {
           </p>
         )}
         {code === "setup_done" && (
-          <Link to="/login" className="font-medium text-accent hover:underline">
+          <Link to="/login" className={textLink}>
             {t("users:setup.toLogin")}
           </Link>
         )}

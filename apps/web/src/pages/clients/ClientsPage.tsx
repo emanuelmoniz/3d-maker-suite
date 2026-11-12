@@ -8,6 +8,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useClients } from "../../lib/clients.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 
 export function ClientsPage() {
@@ -70,11 +71,7 @@ export function ClientsPage() {
                 id: "name",
                 header: t("clients:list.columns.name"),
                 cell: (c) => (
-                  <Link
-                    to="/clients/$id"
-                    params={{ id: c.id }}
-                    className="font-medium hover:underline"
-                  >
+                  <Link to="/clients/$id" params={{ id: c.id }} className={textLink}>
                     {c.name}
                   </Link>
                 ),

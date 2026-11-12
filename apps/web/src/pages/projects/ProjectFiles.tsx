@@ -25,6 +25,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useIsAdmin } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatSize } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
@@ -163,7 +164,7 @@ function VersionsDialog({
                 <td className="py-1 pr-3">{formatSize(v.size)}</td>
                 <td className="py-1">
                   <a
-                    className="font-medium text-accent hover:underline"
+                    className={textLink}
                     href={fileVersionUrl(projectId, file ?? "", v.version)}
                     download
                   >
@@ -731,7 +732,7 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
             <a
               href={projectFileUrl(project.id, f.path)}
               download={f.path.slice(f.path.lastIndexOf("/") + 1)}
-              className="min-w-0 wrap-anywhere text-accent hover:underline"
+              className={`min-w-0 wrap-anywhere ${textLink}`}
             >
               {f.path}
             </a>

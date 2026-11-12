@@ -1,10 +1,5 @@
-import {
-  ACCOUNT_ALLOW_TYPES,
-  type AccountAllowType,
-  type Integration,
-  isAction,
-} from "@3d-maker-suite/core";
-import { Link, type LinkProps, useNavigate } from "@tanstack/react-router";
+import { type Integration, isAction } from "@3d-maker-suite/core";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +7,6 @@ import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { Section } from "../../components/Section.tsx";
-import { type SettingsModule, useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
@@ -26,55 +20,7 @@ import {
 } from "../../lib/integrations.ts";
 import { ERRORS } from "./integrationLabels.ts";
 import { ActionSwitches } from "./PolicyRow.tsx";
-
-// Each Allow switch, the settings page that configures it (ADR-0021), and its texts. Written out
-// so `pnpm i18n:check` sees the keys.
-const ALLOW: Record<
-  AccountAllowType,
-  {
-    module: SettingsModule;
-    label: string;
-    link: string;
-    stop: string;
-    stopBody: string;
-  }
-> = {
-  printers: {
-    module: "printers",
-    label: "integrations:account.allow.printers",
-    link: "integrations:account.settings.printers",
-    stop: "integrations:account.stop.printers",
-    stopBody: "integrations:account.stop.printersBody",
-  },
-  prints: {
-    module: "prints",
-    label: "integrations:account.allow.prints",
-    link: "integrations:account.settings.prints",
-    stop: "integrations:account.stop.prints",
-    stopBody: "integrations:account.stop.printsBody",
-  },
-  spools: {
-    module: "filament",
-    label: "integrations:account.allow.spools",
-    link: "integrations:account.settings.filament",
-    stop: "integrations:account.stop.spools",
-    stopBody: "integrations:account.stop.spoolsBody",
-  },
-  userPresets: {
-    module: "catalog",
-    label: "integrations:account.allow.userPresets",
-    link: "integrations:account.settings.presets",
-    stop: "integrations:account.stop.userPresets",
-    stopBody: "integrations:account.stop.userPresetsBody",
-  },
-};
-// The capability that says an adapter can feed the type at all.
-const FEEDS: Record<AccountAllowType, Integration["policies"][number]["type"]> = {
-  printers: "printers",
-  prints: "prints",
-  spools: "spools",
-  userPresets: "userFilamentPresets",
-};
+import { SyncSources } from "./Sources.tsx";
 
 /** One card per API (ADR-0021): a block per account, "Add another account" on the right. */
 export function AccountsCard({ adapterId, rows }: { adapterId: string; rows: Integration[] }) {
@@ -103,6 +49,8 @@ export function AccountsCard({ adapterId, rows }: { adapterId: string; rows: Int
           <AccountBlock key={i.id} integration={i} />
         ))}
       </ul>
+      {/* For the whole card: every account's types are on the same Sources tabs (ADR-0021). */}
+      <SyncSources types={rows.flatMap((i) => i.policies.map((p) => p.type))} />
     </Section>
   );
 }
@@ -146,7 +94,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
   const patch = usePatchIntegration(i.id);
   const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
-  const [stopping, setStopping] = useState<AccountAllowType>();
   const [deleting, setDeleting] = useState(false);
   const heading = useId();
 
@@ -156,9 +103,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
     account?.email ||
     t("integrations:account.untitled", { adapter: adapterName(i.adapterId) });
   const region = (i.config as { region?: unknown } | undefined)?.region;
-  const types = ACCOUNT_ALLOW_TYPES.filter((type) =>
-    i.policies.some((p) => p.type === FEEDS[type]),
-  );
   const signedOut =
     !i.hasSecrets || i.lastError === "auth_expired" || i.lastError === "auth_required";
   const login = admin && i.enabled && adapter?.login;
@@ -179,8 +123,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
     ) : (
       t("integrations:card.never")
     );
-
-  const allow = (type: AccountAllowType, on: boolean) => patch.mutate({ allow: { [type]: on } });
 
   return (
     <li
@@ -223,15 +165,14 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
                   {t("integrations:card.test")}
                 </Button>
               )}
+              <Switch
+                label={t("integrations:card.enabled")}
+                aria-label={t("integrations:account.enabledOf", { name: title })}
+                checked={i.enabled}
+                disabled={patch.isPending}
+                onChange={(e) => patch.mutate({ enabled: e.target.checked })}
+              />
               <Menu label={t("integrations:card.menu", { name: title })}>
-                <Button
-                  variant="ghost"
-                  className="justify-start"
-                  disabled={patch.isPending}
-                  onClick={() => patch.mutate({ enabled: !i.enabled })}
-                >
-                  {i.enabled ? t("integrations:account.turnOff") : t("integrations:account.turnOn")}
-                </Button>
                 <Button
                   variant="ghost"
                   className="justify-start text-bad"
@@ -286,27 +227,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
           </p>
         )}
 
-        {admin && i.enabled && account && types.length > 0 && (
-          <fieldset className="mt-3 grid gap-x-4 sm:max-w-lg sm:grid-cols-[auto_minmax(0,1fr)]">
-            <legend className="sr-only">
-              {t("integrations:account.allowLegend", { name: title })}
-            </legend>
-            <span aria-hidden className="pt-2 font-medium sm:pt-1.5">
-              {t("integrations:account.allowTitle")}
-            </span>
-            <ul className="grid">
-              {types.map((type) => (
-                <AllowRow
-                  key={type}
-                  type={type}
-                  on={account.allow[type]}
-                  disabled={patch.isPending}
-                  onChange={(on) => (on ? allow(type, true) : setStopping(type))}
-                />
-              ))}
-            </ul>
-          </fieldset>
-        )}
         {admin && i.enabled && i.policies.some((p) => isAction(p.type)) && (
           <div className="mt-3 grid gap-3">
             <ActionSwitches integration={i} />
@@ -314,17 +234,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
         )}
       </div>
 
-      <ConfirmDialog
-        open={!!stopping}
-        title={stopping ? t(ALLOW[stopping].stop) : ""}
-        description={stopping ? t(ALLOW[stopping].stopBody) : ""}
-        confirmLabel={t("integrations:account.stopConfirm")}
-        onCancel={() => setStopping(undefined)}
-        onConfirm={() => {
-          if (stopping) allow(stopping, false);
-          setStopping(undefined);
-        }}
-      />
       <ConfirmDialog
         open={deleting}
         title={t("integrations:deleteDialog.title", { name: title })}
@@ -337,41 +246,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
           remove.mutate();
         }}
       />
-    </li>
-  );
-}
-
-/** One Allow switch, with the link to where its type is configured; none while it's off. */
-function AllowRow({
-  type,
-  on,
-  disabled,
-  onChange,
-}: {
-  type: AccountAllowType;
-  on: boolean;
-  disabled: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const { module, label, link } = ALLOW[type];
-  const canOpen = useSettingsAccess(module).sources;
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4">
-      <Switch
-        label={t(label)}
-        checked={on}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      {on && canOpen && (
-        <Link
-          to={`/${module}/settings/sources` as LinkProps["to"]}
-          className="text-sm font-medium text-accent hover:underline"
-        >
-          {t(link)}
-        </Link>
-      )}
     </li>
   );
 }

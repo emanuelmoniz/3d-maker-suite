@@ -23,6 +23,7 @@ import {
   usePrinterModels,
   useProcessPresets,
 } from "../../lib/catalog.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { CatalogTransfer } from "../catalog/CatalogTransfer.tsx";
@@ -117,7 +118,7 @@ export function useScrolledTo(id: string, loaded: boolean) {
 /** Name cell: a link to the edit form, or plain text for roles that can't edit. */
 function EditLink({ to, id, children }: { to: string; id: string; children: ReactNode }) {
   return useCan("catalog", "manage") ? (
-    <Link to={to} params={{ id }} className="gap-2 font-medium hover:underline">
+    <Link to={to} params={{ id }} className={`gap-2 ${textLink}`}>
       {children}
     </Link>
   ) : (
@@ -209,7 +210,7 @@ export function Catalog() {
             header: t("printers:catalog.brands.url"),
             cell: (b) =>
               b.url ? (
-                <a href={b.url} target="_blank" rel="noreferrer" className="hover:underline">
+                <a href={b.url} target="_blank" rel="noreferrer" className={textLink}>
                   {new URL(b.url).host}
                 </a>
               ) : (

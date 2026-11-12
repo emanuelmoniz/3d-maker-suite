@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { api } from "../../lib/api.ts";
 import { useCan, useIsAdmin } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatMegabytes } from "../../lib/format.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 
@@ -121,11 +122,7 @@ export function BackupSection() {
                   {b.versions ? ` · ${t("settings:backup.withVersions")}` : ""}
                 </div>
               </div>
-              <a
-                className="font-medium text-accent hover:underline"
-                href={`/api/backups/${b.name}`}
-                download
-              >
+              <a className={textLink} href={`/api/backups/${b.name}`} download>
                 {t("settings:backup.download")}
               </a>
               {admin && (

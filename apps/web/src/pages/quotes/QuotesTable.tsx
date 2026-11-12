@@ -6,6 +6,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { useClients } from "../../lib/clients.ts";
 import { quoteName, useMoney, useQuotes } from "../../lib/cost.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
@@ -53,7 +54,7 @@ export function QuotesTable({
           id: "name",
           header: t("costs:saved.columns.name"),
           cell: (q) => (
-            <Link to="/quotes/$id" params={{ id: q.id }} className="font-medium hover:underline">
+            <Link to="/quotes/$id" params={{ id: q.id }} className={textLink}>
               {quoteName(t, q)}
             </Link>
           ),
@@ -69,7 +70,7 @@ export function QuotesTable({
                 cell: (q: Quote) => {
                   const c = clients.find((x) => x.id === q.clientId);
                   return c ? (
-                    <Link to="/clients/$id" params={{ id: c.id }} className="hover:underline">
+                    <Link to="/clients/$id" params={{ id: c.id }} className={textLink}>
                       {c.name}
                     </Link>
                   ) : (

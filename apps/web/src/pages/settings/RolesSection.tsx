@@ -9,6 +9,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useMyRole } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useRoleActions, useRoles } from "../../lib/users.ts";
 
 const ROLE_ERRORS: Record<string, string> = {
@@ -62,11 +63,7 @@ export function RolesSection() {
               header: t("users:roles.columns.name"),
               cell: (r) => (
                 <span className="inline-flex items-center gap-2">
-                  <Link
-                    to="/settings/roles/$id"
-                    params={{ id: r.id }}
-                    className="font-medium hover:underline"
-                  >
+                  <Link to="/settings/roles/$id" params={{ id: r.id }} className={textLink}>
                     {r.name}
                   </Link>
                   {r.builtIn && (

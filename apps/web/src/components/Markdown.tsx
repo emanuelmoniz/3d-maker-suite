@@ -1,5 +1,6 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { textLink } from "../lib/cx.ts";
 
 /** Turns a relative link or image path into a URL the app serves; null when it can't. */
 export type MarkdownResolve = (src: string, kind: "image" | "link") => string | null;
@@ -21,18 +22,10 @@ function components(resolve?: MarkdownResolve): Components {
     ol: ({ node: _, ...p }) => <ol className="list-decimal pl-6" {...p} />,
     hr: () => <hr className="border-border" />,
     a: ({ node: _, href = "", ...p }) => {
-      if (href.startsWith("#")) return <a className="text-accent underline" href={href} {...p} />;
+      if (href.startsWith("#")) return <a className={textLink} href={href} {...p} />;
       const url = EXTERNAL.test(href) ? href : (resolve?.(href, "link") ?? null);
       if (!url) return <span {...p} />;
-      return (
-        <a
-          className="text-accent underline"
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          {...p}
-        />
-      );
+      return <a className={textLink} href={url} target="_blank" rel="noopener noreferrer" {...p} />;
     },
     img: ({ node: _, src, alt }) => {
       const s = typeof src === "string" ? src : "";

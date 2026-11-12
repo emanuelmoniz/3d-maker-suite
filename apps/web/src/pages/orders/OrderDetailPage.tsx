@@ -14,6 +14,7 @@ import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
 import { useClient } from "../../lib/clients.ts";
 import { quoteName, useMoney, useQuote } from "../../lib/cost.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { orderName, useOrder, useOrderStatusLabel, useSaveOrder } from "../../lib/orders.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -181,7 +182,7 @@ export function OrderDetailPage() {
           </Info>
           <Info label={t("orders:form.client")}>
             {client ? (
-              <Link to="/clients/$id" params={{ id: client.id }} className="hover:underline">
+              <Link to="/clients/$id" params={{ id: client.id }} className={textLink}>
                 {client.name}
               </Link>
             ) : (
@@ -190,7 +191,7 @@ export function OrderDetailPage() {
           </Info>
           <Info label={t("orders:form.quote")}>
             {quote ? (
-              <Link to="/quotes/$id" params={{ id: quote.id }} className="hover:underline">
+              <Link to="/quotes/$id" params={{ id: quote.id }} className={textLink}>
                 {quoteName(t, quote)}
               </Link>
             ) : (

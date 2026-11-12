@@ -7,6 +7,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField } from "../../components/FormField.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { formatSize } from "../../lib/format.ts";
 import {
   useAdapterName,
@@ -19,7 +20,7 @@ import { useZipSources } from "../../lib/slicerCatalog.ts";
 import { DEVICE_INSTALL_ERRORS, INSTALL_ERRORS, INSTALL_PHASES } from "./integrationLabels.ts";
 
 const VC_REDIST = "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist";
-const link = "text-accent hover:underline";
+
 const version = (tag: string) => tag.replace(/^v/i, "");
 
 /**
@@ -86,7 +87,7 @@ export function ManagedSlicer({
           {job.error === "vcredist_missing" && (
             <>
               {" "}
-              <a className={link} href={VC_REDIST} target="_blank" rel="noreferrer">
+              <a className={textLink} href={VC_REDIST} target="_blank" rel="noreferrer">
                 {t("integrations:managed.vcRedist")}
               </a>
             </>
@@ -223,14 +224,14 @@ function InstallDialog({
       </label>
       <p className="text-muted">
         {t("integrations:managed.licence", { name: program })}{" "}
-        <a className={link} href={managed.licenceUrl} target="_blank" rel="noreferrer">
+        <a className={textLink} href={managed.licenceUrl} target="_blank" rel="noreferrer">
           {t("integrations:managed.licenceLink")}
         </a>
         {picked && (
           <>
             {" · "}
             <a
-              className={link}
+              className={textLink}
               href={`https://github.com/${managed.repo}/tree/${picked.tag}`}
               target="_blank"
               rel="noreferrer"
@@ -274,7 +275,7 @@ export function PresetsFromZip({ libraryId, noFolder }: { libraryId: string; noF
         <li>{t("integrations:managed.zipSteps.zip")}</li>
         <li>
           <Link
-            className={link}
+            className={textLink}
             to={
               `/import/slicer-zip?${new URLSearchParams({ slicer: libraryId })}` as LinkProps["to"]
             }

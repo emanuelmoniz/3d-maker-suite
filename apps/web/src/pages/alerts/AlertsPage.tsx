@@ -27,6 +27,7 @@ import {
   useAlerts,
 } from "../../lib/alerts.ts";
 import { useCan } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import { useAdapterName, useMayTask } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
@@ -63,7 +64,6 @@ const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
   removed: "alerts:log.left.removed",
 };
 
-const link = "font-medium hover:underline";
 export const buttonLink =
   "inline-flex h-9 items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
@@ -190,33 +190,33 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   }[a.kind]();
   if (inList)
     return (
-      <Link to="/alerts/$id" params={{ id: a.id }} className={link}>
+      <Link to="/alerts/$id" params={{ id: a.id }} className={textLink}>
         {text}
       </Link>
     );
   switch (a.kind) {
     case "spool_low":
       return (
-        <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={link}>
+        <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={textLink}>
           {text}
         </Link>
       );
     case "spool_no_price":
     case "spool_no_open_date":
       return (
-        <Link to="/filament/spools/$id/edit" params={{ id: a.entityId }} className={link}>
+        <Link to="/filament/spools/$id/edit" params={{ id: a.entityId }} className={textLink}>
           {text}
         </Link>
       );
     case "warranty_ending":
       return (
-        <Link to="/printers/$id" params={{ id: a.entityId }} className={link}>
+        <Link to="/printers/$id" params={{ id: a.entityId }} className={textLink}>
           {text}
         </Link>
       );
     case "maintenance_due":
       return (
-        <Link to="/maintenance" className={link}>
+        <Link to="/maintenance" className={textLink}>
           {text}
         </Link>
       );
@@ -224,7 +224,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "sync_error":
       if (!mayOpen(a)) return <span className="font-medium">{text}</span>;
       return (
-        <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={link}>
+        <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={textLink}>
           {text}
         </Link>
       );
@@ -235,21 +235,21 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
           to="/projects/$id/edit"
           params={{ id: String(c.projectId) }}
           hash="slicing"
-          className={link}
+          className={textLink}
         >
           {text}
         </Link>
       );
     case "update_available":
       return (
-        <Link to="/settings" hash="updates" className={link}>
+        <Link to="/settings" hash="updates" className={textLink}>
           {text}
         </Link>
       );
     case "slicer_update":
       if (!integrationsManage) return <span className="font-medium">{text}</span>;
       return (
-        <Link to="/integrations" hash={integrationHash(a)} className={link}>
+        <Link to="/integrations" hash={integrationHash(a)} className={textLink}>
           {text}
         </Link>
       );
@@ -257,7 +257,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "hub_mass_delete":
       if (!hubManage) return <span className="font-medium">{text}</span>;
       return (
-        <Link to="/hub" className={link}>
+        <Link to="/hub" className={textLink}>
           {text}
         </Link>
       );
@@ -265,7 +265,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "preset_skipped":
     case "preset_held":
       return (
-        <Link to="/catalog/settings/library" className={link}>
+        <Link to="/catalog/settings/library" className={textLink}>
           {text}
         </Link>
       );
@@ -273,7 +273,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       // A file in no project has no page to open.
       if (!c.projectId) return <span className="font-medium">{text}</span>;
       return (
-        <Link to="/projects/$id" params={{ id: String(c.projectId) }} className={link}>
+        <Link to="/projects/$id" params={{ id: String(c.projectId) }} className={textLink}>
           {text}
         </Link>
       );

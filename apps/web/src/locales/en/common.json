@@ -1,6 +1,7 @@
 {
   "appName": "3D Maker Suite",
   "help": "Help",
+  "syncSources": "Sync sources configurations",
   "weightUnknown": "Not set",
   "units": {
     "kwh": "{{value}} kWh"

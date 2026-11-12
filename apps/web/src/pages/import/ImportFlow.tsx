@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { usePreview, useTemplate } from "../../lib/import.ts";
 import { FormatField } from "./ExportSection.tsx";
 import { ENTITIES, templateBody } from "./entities.ts";
@@ -75,7 +76,7 @@ export function ImportFlow({ entity, picker }: { entity: ImportEntity; picker?: 
       {done && (
         <p role="status" className="font-medium text-ok">
           {t("import:done.summary", { created: done.created, updated: done.updated })}{" "}
-          <Link to={ENTITIES[entity].to} className="underline">
+          <Link to={ENTITIES[entity].to} className={textLink}>
             {t(ENTITIES[entity].view)}
           </Link>
         </p>

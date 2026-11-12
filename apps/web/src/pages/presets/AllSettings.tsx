@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { api } from "../../lib/api.ts";
-import { cx } from "../../lib/cx.ts";
+import { cx, textLink } from "../../lib/cx.ts";
 import { sourceLabel } from "../catalog/sources.tsx";
 
 // Static keys so `pnpm i18n:check` sees them.
@@ -39,7 +39,7 @@ function Value({ text }: { text: string }) {
           type="button"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
-          className="mt-0.5 text-sm font-medium text-accent hover:underline"
+          className={`mt-0.5 text-sm ${textLink}`}
         >
           {open ? t("catalog:settings.fold") : t("catalog:settings.unfold")}
         </button>
@@ -105,7 +105,7 @@ export function AllSettings({ path, name }: { path: string; name: string }) {
             t={t}
             i18nKey="catalog:settings.noSource"
             values={{ slicer }}
-            components={{ integrations: <Link to="/integrations" className="underline" /> }}
+            components={{ integrations: <Link to="/integrations" className={textLink} /> }}
           />
         ) : (
           t(UNREADABLE[data.reason === "hand_made" ? "hand_made" : "not_found"], { slicer })
@@ -146,7 +146,7 @@ export function AllSettings({ path, name }: { path: string; name: string }) {
                     id: data.waiting.integrationId,
                     type: data.waiting.type,
                   }}
-                  className="font-medium underline"
+                  className={textLink}
                 />
               ),
             }}

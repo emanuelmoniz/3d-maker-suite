@@ -8,7 +8,7 @@ import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
 import { useCan, useMe, useMyRole, useSignOut } from "../lib/auth.ts";
 import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
-import { cx } from "../lib/cx.ts";
+import { cx, textLink } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
 import { useHasTasks } from "../lib/integrations.ts";
 import { usePreferences } from "../lib/preferences.ts";
@@ -103,7 +103,7 @@ function UpdateBanner() {
       <span className="min-w-0 flex-1 font-medium">
         {t("common:updateBanner.available", { version: a.context.version })}
       </span>
-      <Link to="/settings" hash="updates" className="font-medium text-accent hover:underline">
+      <Link to="/settings" hash="updates" className={textLink}>
         {t("common:updateBanner.see")}
       </Link>
       <button
@@ -165,7 +165,7 @@ function ServerBanner() {
           (s.timedOut ? (
             <>
               {t("common:serverBanner.timeout")}{" "}
-              <a href={s.url} className="underline">
+              <a href={s.url} className={textLink}>
                 {s.url}
               </a>
             </>
@@ -286,7 +286,7 @@ function Sidebar() {
 function Footer() {
   const { t } = useTranslation();
   const version = useVersion();
-  const link = "font-medium text-accent hover:underline";
+
   return (
     <footer className="mt-10 border-t border-border pt-4 text-sm text-muted">
       <Trans
@@ -299,12 +299,12 @@ function Footer() {
         }}
         components={{
           site: (
-            <a href={SITE_URL} target="_blank" rel="noreferrer" className={link}>
+            <a href={SITE_URL} target="_blank" rel="noreferrer" className={textLink}>
               {t("common:footer.site")}
             </a>
           ),
           github: (
-            <a href={REPO_URL} target="_blank" rel="noreferrer" className={link}>
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className={textLink}>
               {t("common:footer.github")}
             </a>
           ),

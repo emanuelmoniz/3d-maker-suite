@@ -24,7 +24,7 @@ import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
-import { cx } from "../../lib/cx.ts";
+import { cx, textLink } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import {
@@ -158,11 +158,7 @@ export function ProjectsTable({
           cell: (p) => (
             <span className="flex items-center gap-2">
               <Thumb p={p} className="size-8 shrink-0 rounded" />
-              <Link
-                to="/projects/$id"
-                params={{ id: p.id }}
-                className="shrink-0 font-medium hover:underline"
-              >
+              <Link to="/projects/$id" params={{ id: p.id }} className={`shrink-0 ${textLink}`}>
                 {projectName(t, p)}
               </Link>
               {p.archivedAt && <ArchivedBadge />}

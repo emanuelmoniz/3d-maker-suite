@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
+import { textLink } from "../lib/cx.ts";
 import { printerName, usePrinters } from "../lib/printers.ts";
 import { StateBadge } from "../pages/printers/StateBadge.tsx";
 import { defineWidget } from "./registry.ts";
@@ -19,7 +20,7 @@ defineWidget({
       <WidgetCard
         title={t("dashboard:widgets.printerStates")}
         more={
-          <Link to="/printers" className="text-accent hover:underline">
+          <Link to="/printers" className={textLink}>
             {t("dashboard:viewAll")}
           </Link>
         }
@@ -28,11 +29,7 @@ defineWidget({
           <ul className="divide-y divide-border">
             {printers.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-2 py-2">
-                <Link
-                  to="/printers/$id"
-                  params={{ id: p.id }}
-                  className="font-medium hover:underline"
-                >
+                <Link to="/printers/$id" params={{ id: p.id }} className={textLink}>
                   {printerName(t, p)}
                 </Link>
                 <StateBadge state={p.state} />

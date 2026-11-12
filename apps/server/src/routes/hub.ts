@@ -307,7 +307,7 @@ export const hubRoutes =
       },
     );
 
-    // A machine page's switches for one slicer library (ADR-0022), each part with its section.
+    // A machine's switches for one slicer library (ADR-0022), set on Catalog settings → Sources.
     app.patch(
       "/devices/:id/slicers/:library",
       {
@@ -319,29 +319,24 @@ export const hubRoutes =
       },
       async (req, reply) => {
         const { library } = req.params;
-        const { slicer, system, user } = req.body;
+        const { system, user } = req.body;
         const row = machineGuard(db, req.user, req.params.id);
         if (!adapters.some((a) => (a.desktop || a.library) && presetLibrary(a) === library))
           throw new HttpError(404, "not_found", "No such slicer");
-        if (slicer !== undefined) machineGuard(db, req.user, row.id, "slicers");
         if (system || user) machineGuard(db, req.user, row.id, "catalog");
-        // A picked hub's slicer stays offered until another is picked in Integrations (a default
-        // one moves on), and its own folder is the catalog: it receives none.
-        const hub = hubSlicerOn(row.id, library);
-        if ((slicer === false && hub?.picked) || (system?.receive && hub))
+        // The hub's slicer's own folder is the catalog: it receives none.
+        if (system?.receive && hubSlicerOn(row.id, library))
           throw new HttpError(409, "hub_slicer", "It is this slicer's hub's slicer");
-        if (slicer === undefined && !system && !user) return reply.status(204).send(null);
+        if (!system && !user) return reply.status(204).send(null);
         const old = row.presetLibraries[library] ?? emptyPresetLibrary();
         // A connector that can't write the catalog says so first, and nothing is saved.
         if (system?.receive && !old.system.receive) await catalogs.confirmInstall(row.id);
         await setPresetLibrary(db, channel, row, library, {
           ...old,
-          slicer: slicer ?? old.slicer,
           system: { ...old.system, ...system },
           user: { ...old.user, ...user },
         });
-        // Use as slicer off can move the hub's slicer (its default), so the catalog source too.
-        if (system || slicer !== undefined) void catalogs.tell().catch(() => {});
+        if (system) void catalogs.tell().catch(() => {});
         return reply.status(204).send(null);
       },
     );

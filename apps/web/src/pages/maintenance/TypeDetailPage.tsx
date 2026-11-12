@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { useAppliesTo, useMaintenanceType } from "../../lib/maintenance.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
@@ -59,7 +60,7 @@ export function TypeDetailPage() {
           <Info label={t("maintenance:types.appliesTo")}>{appliesTo(type)}</Info>
           {type.docUrl && (
             <Info label={t("maintenance:types.docUrl")}>
-              <a href={type.docUrl} target="_blank" rel="noreferrer" className="hover:underline">
+              <a href={type.docUrl} target="_blank" rel="noreferrer" className={textLink}>
                 {new URL(type.docUrl).host}
               </a>
             </Info>

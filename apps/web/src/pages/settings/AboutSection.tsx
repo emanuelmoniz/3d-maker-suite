@@ -6,6 +6,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { textLink } from "../../lib/cx.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useCheckUpdates, useRunUpdate, useUpdates } from "../../lib/updates.ts";
@@ -123,12 +124,7 @@ export function AboutSection() {
         {latest ? (
           <p className="font-medium text-ok">
             {t("settings:updates.available", { version: latest.tag.slice(1) })}{" "}
-            <a
-              className="text-accent hover:underline"
-              href={latest.url}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a className={textLink} href={latest.url} target="_blank" rel="noreferrer">
               {t("settings:updates.notes")}
             </a>
           </p>

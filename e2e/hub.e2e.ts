@@ -71,10 +71,10 @@ test("hub: change a connector's user with a code from the hub", async ({ page, a
 
   // The same token, no new pairing; both hub pages show it.
   await page.goto("/hub");
-  const rows = page.getByRole("list", { name: "Devices" }).getByRole("listitem");
-  await expect(rows).toHaveCount(2);
-  await expect(rows.filter({ hasText: "Desk PC" })).toContainText("User: Ben Bench");
-  await expect(rows.filter({ hasText: "Other PC" })).toContainText("User: Ana Admin");
+  const rows = page.getByRole("region", { name: "Devices" }).getByRole("row");
+  await expect(rows.filter({ hasText: " PC" })).toHaveCount(2);
+  await expect(rows.filter({ hasText: "Desk PC" })).toContainText("Ben Bench");
+  await expect(rows.filter({ hasText: "Other PC" })).toContainText("Ana Admin");
 
   const back = await newCode("Ana Admin", "Ben Bench");
   expect((await change(desk.token, back, "move")).status).toBe(200);
@@ -127,14 +127,22 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   expect(events.status).toBe(200);
 
   await page.reload();
-  const row = page.getByRole("list", { name: "Devices" }).getByRole("listitem");
+  const table = page.getByRole("region", { name: "Devices" });
+  const row = table.getByRole("row").filter({ has: page.getByRole("link") });
   await expect(row).toContainText("Desk PC");
   await expect(row).toContainText("Online");
-  await expect(row).toContainText("User: Ana Admin");
-  await expect(row).toContainText("win32 · connector 5.0.0");
+  await expect(row).toContainText("Ana Admin");
+  // Its base OS, from what the connector reports (`win32`).
+  await expect(row).toContainText("Windows");
+  await expect(row).toContainText("5.0.0");
+  for (const name of ["Status", "User", "Base OS", "Connector version"])
+    await expect(table.getByRole("columnheader", { name })).toBeVisible();
 
-  // The card only links to the machine page (ADR-0021), where its actions are.
-  await expect(row.getByRole("button")).toHaveCount(0);
+  // Ticked, it gets Restart and Revoke; one at a time, its actions are on the machine page.
+  await row.getByRole("checkbox", { name: "Select Desk PC" }).check();
+  await expect(page.getByRole("button", { name: "Restart", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Revoke", exact: true })).toBeVisible();
+  await row.getByRole("checkbox", { name: "Select Desk PC" }).uncheck();
   await row.getByRole("link", { name: "Desk PC" }).click();
   await expect(page.getByRole("heading", { name: "Desk PC" })).toBeVisible();
   await expect(page.getByText("Ana Admin · win32 · connector 5.0.0")).toBeVisible();
@@ -200,25 +208,33 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(actions.getByRole("button", { name: "Restart connector" })).toBeDisabled();
   await page.getByRole("link", { name: "Back" }).click();
   await expect(row).toContainText("Laptop");
-  await expect(row).toContainText("User: Ana Renamed");
+  await expect(row).toContainText("Ana Renamed");
 
   await row.getByRole("link", { name: "Laptop" }).click();
   const deviceId = page.url().split("/").pop();
+  // No slicer on it yet: only the way to install one.
+  const slicers = page.getByRole("region", { name: "Slicers" });
+  await expect(
+    slicers.getByRole("link", { name: "Install a slicer on this machine in Integrations" }),
+  ).toBeVisible();
+  await expect(slicers.getByRole("region", { name: "Sync sources configurations" })).toHaveCount(0);
   // Its slicer is installed from the slicer type's card in Integrations (ADR-0022): none found on
-  // it, so the hub installs one. Not offered yet, it can't be the hub's slicer.
+  // it, so the hub installs one.
   await page.goto("/integrations");
   const card = page.getByRole("region", { name: "Bambu Studio" });
   await card.getByLabel("Add a machine…").click();
   await page.getByRole("option", { name: "Laptop" }).click();
   await expect(card.getByRole("heading", { name: "Laptop", level: 4 })).toBeVisible();
-  await expect(card.getByText("Not offered: its user turns on Use as slicer")).toBeVisible();
-  await expect(card.getByLabel("Change the hub's slicer…")).toHaveCount(0);
-  // Offering it is the machine's, on its page.
+  // On the machine page it is listed, with no switches: its presets are set up on Catalog
+  // settings → Sources (ADR-0023).
   await page.goto(`/hub/devices/${deviceId}`);
-  const slicers = page.getByRole("region", { name: "Slicers" });
+  await expect(slicers.getByText("Bambu Studio", { exact: true })).toBeVisible();
+  await expect(slicers.getByRole("switch")).toHaveCount(0);
   await expect(
-    slicers.getByRole("switch", { name: /Use Bambu Studio on this machine/ }),
-  ).toBeVisible();
+    slicers
+      .getByRole("region", { name: "Sync sources configurations" })
+      .getByRole("link", { name: "Catalog" }),
+  ).toHaveAttribute("href", `/catalog/settings/sources#machine-${deviceId}`);
   // Once per machine, from the API too.
   const again = await page.request.post("/api/integrations", {
     data: { adapterId: "bambu-studio-worker", config: { deviceId, source: "managed" } },
@@ -234,7 +250,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   expect((await asDevice()).status).toBe(401);
 });
 
-test("hub: a machine's own user edits only the sections their switches allow", async ({
+test("hub: a machine's own user sees its slicers and edits only what their switches allow", async ({
   page,
   app,
 }) => {
@@ -283,15 +299,15 @@ test("hub: a machine's own user edits only the sections their switches allow", a
   });
   await page.goto(`/hub/devices/${bens.deviceId}`);
   await expect(page.getByRole("heading", { name: "Ben PC" })).toBeVisible();
-  // System and User presets are theirs to change (ADR-0023); Projects and the actions are not.
-  const share = page.getByRole("switch", { name: "Share OrcaSlicer user presets with the hub" });
-  await expect(share).not.toBeChecked();
-  await share.click({ force: true });
-  await expect(share).toBeChecked();
+  // Its slicer is listed with no switches: System and User presets are theirs to change on Catalog
+  // settings → Sources (ADR-0023). Projects and the actions are not.
+  const slicers = page.getByRole("region", { name: "Slicers" });
+  await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
+  await expect(slicers.getByRole("switch")).toHaveCount(0);
   await expect(
-    page.getByRole("switch", {
-      name: "Receive the OrcaSlicer system presets, brands and printer models from the hub",
-    }),
+    slicers
+      .getByRole("region", { name: "Sync sources configurations" })
+      .getByRole("link", { name: "Catalog" }),
   ).toBeVisible();
   await expect(page.getByRole("switch", { name: "Receive from the hub" })).toHaveCount(0);
   await expect(page.getByText("Receive from the hub: on")).toBeVisible();

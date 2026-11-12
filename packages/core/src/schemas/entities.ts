@@ -1,7 +1,5 @@
 import { z } from "zod";
 import {
-  ACCOUNT_ALLOW_TYPES,
-  type AccountAllowType,
   ALERT_KINDS,
   ALERT_MODULES,
   ALERT_SEVERITIES,
@@ -76,14 +74,12 @@ export const syncPolicySchema = z.object({
   editorReview: z.boolean(),
 });
 
-/** An account's Allow switches (ADR-0021); a missing type is allowed. */
-export const accountAllowSchema = z.partialRecord(z.enum(ACCOUNT_ALLOW_TYPES), z.boolean());
 /**
  * What the server keeps in a cloud integration's `config` next to the adapter's own fields: the
- * Allow switches and the profile it last read (`IntegrationInstance.profile`). Never set by a client.
+ * profile it last read (`IntegrationInstance.profile`). Never set by a client. An `allow` key from
+ * before the Allow switches went (ADR-0021) is ignored.
  */
 export const accountConfigSchema = z.object({
-  allow: accountAllowSchema.optional(),
   email: z.string().optional(),
   name: z.string().optional(),
   avatarUrl: z.string().optional(),
@@ -91,8 +87,6 @@ export const accountConfigSchema = z.object({
 export type AccountConfig = z.infer<typeof accountConfigSchema>;
 export const accountConfigOf = (config: unknown): AccountConfig =>
   accountConfigSchema.safeParse(config).data ?? {};
-export const allows = (config: unknown, type: AccountAllowType) =>
-  accountConfigOf(config).allow?.[type] !== false;
 
 /** A cloud integration's account, for its card and the Sources tabs. */
 export const accountSchema = z.object({
@@ -100,7 +94,6 @@ export const accountSchema = z.object({
   name: z.string().nullable(),
   /** A photo is cached: `GET /api/integrations/:id/avatar`. */
   avatar: z.boolean(),
-  allow: z.record(z.enum(ACCOUNT_ALLOW_TYPES), z.boolean()),
 });
 
 /**

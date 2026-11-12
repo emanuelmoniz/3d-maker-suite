@@ -9,6 +9,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName, useInstall, useRemoveInstall } from "../../lib/accessories.ts";
 import type { ApiError } from "../../lib/api.ts";
+import { textLink } from "../../lib/cx.ts";
 import { dateInputToIso } from "../../lib/format.ts";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -133,7 +134,7 @@ export function InstallDialog({
       )}
       {onPrinter && (
         <Write can="printers" level="manage">
-          <Link to="/printers/accessories/new" className="text-accent hover:underline">
+          <Link to="/printers/accessories/new" className={textLink}>
             {t("printers:accessories.add")}
           </Link>
         </Write>

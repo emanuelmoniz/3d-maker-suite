@@ -6,7 +6,7 @@ Slicing gives a project's plates their print time and grams, so costs and quotes
 
 Each slicer type (Bambu Studio, OrcaSlicer) has one card on the Integrations page, with every install of it: this server's and each machine's. A slicer is installed once per machine. **Add integration** adds it to this server: the copy installed on this computer if the app finds it, else one it downloads. A machine's install is added on the card (see [Slice on a worker](#slice-on-a-worker)).
 
-**The hub's slicer.** Per slicer type, one install slices for the hub and is the source of its catalog and system presets ([ADR-0022](adr/0022-one-slicer-per-type.md)). The card shows it on its own panel, under **The hub's slicer**; **Change the hub's slicer…** there picks another. The choices are this server's installs and every machine whose user turned on **Use as slicer** on its [machine page](hub.md#machine-page); a machine that doesn't offer it says so under **Installs** and isn't listed. Picking an install with another version asks first: the catalog changes, every machine that receives it gets the new one, and plates sliced with the old version are sliced again. The other installs stay installed and updatable, but don't slice.
+**The hub's slicer.** Per slicer type, one install slices for the hub and is the source of its catalog and system presets ([ADR-0022](adr/0022-one-slicer-per-type.md)). The card shows it on its own panel, under **The hub's slicer**; **Change the hub's slicer…** there picks another. The choices are this server's installs and every machine's install; one switched off says so under **Installs** and isn't listed. Picking an install with another version asks first: the catalog changes, every machine that receives it gets the new one, and plates sliced with the old version are sliced again. The other installs stay installed and updatable, but don't slice.
 
 | Where it runs | What it uses | Set up |
 |---|---|---|
@@ -50,11 +50,10 @@ OrcaSlicer 2.5.0 is the minimum: 2.4 can't slice Bambu files. Until 2.5 is stabl
 
 Use this when the server can't run a slicer (an arm64 hub, a small VPS) or a workstation is simply faster. Needs the [hub](hub.md) and the connector on the device, at the hub's version.
 
-1. On the device's [machine page](hub.md#machine-page), its user turns on **Use as slicer** for the slicer: the machine offers it to the hub.
-2. **Settings → Integrations**, on the slicer's card: a machine that offers it without an install shows **Set up**; any other paired machine is in **Add a machine…**. This needs Integrations manage. The install uses the slicer the connector found there, else the hub installs its managed release.
-3. Open the machine's row under **Installs** to pick the program it runs: **Use this program** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device. **Delete** in its `⋯` menu removes it: a slicer the hub installed there is removed, one installed by hand stays.
-4. Pick it in **Change the hub's slicer…** on the card. Until the hub has the slicer's system presets (sent by the hub's slicer, or a zip), its row says so.
-5. Import your presets from a zip as usual (**Catalog → Settings → Sources**). Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
+1. **Settings → Integrations**, on the slicer's card: a machine that has the slicer without an install shows **Set up**; any other paired machine is in **Add a machine…**. This needs Integrations manage. The install uses the slicer the connector found there, else the hub installs its managed release.
+2. Open the machine's row under **Installs** to pick the program it runs: **Use this program** for a slicer found on the device, or **Install** to have the hub install its managed release there (same download and checks as on the server). **Manual path** is for a slicer the connector didn't find (an AppImage, a portable copy); the program is checked by starting it with `--help` on the device. **Delete** in its `⋯` menu removes it: a slicer the hub installed there is removed, one installed by hand stays.
+3. Pick it in **Change the hub's slicer…** on the card. Until the hub has the slicer's system presets (sent by the hub's slicer, or a zip), its row says so.
+4. Import your presets from a zip as usual (**Catalog → Settings → Sources**). Presets stay on the hub; each slice sends the device the flattened presets and the 3MF, and the result comes back. The worker needs no preset folder.
 
 A slice that runs on a worker takes at most 10 minutes, as on the server.
 

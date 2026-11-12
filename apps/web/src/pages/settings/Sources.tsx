@@ -1,11 +1,13 @@
+import { isCatalogType } from "@3d-maker-suite/core";
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
 import { Section } from "../../components/Section.tsx";
+import { type SettingsModule, useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
-import { cx } from "../../lib/cx.ts";
+import { cx, textLink } from "../../lib/cx.ts";
 
 /**
  * A Sources tab's section (ADR-0021): the sources that feed the hub, or the machines it sends to.
@@ -26,6 +28,54 @@ export function SourcesSection({
     >
       <ul className="grid gap-3">{children}</ul>
     </Section>
+  );
+}
+
+// The Sources tabs a source's data types are set up on, in menu order.
+const SOURCE_MODULES = ["printers", "prints", "filament", "catalog"] as const;
+const moduleOf = (type: string): SettingsModule | undefined =>
+  type === "spools"
+    ? "filament"
+    : type === "printers" || type === "prints"
+      ? type
+      : isCatalogType(type)
+        ? "catalog"
+        : undefined;
+
+/**
+ * Sync sources configurations: a button per Sources tab that `types` feed, which the viewer may
+ * open. A source's lines are set up there (ADR-0021), not on its card.
+ */
+export function SyncSources({ types, hash }: { types: readonly string[]; hash?: string }) {
+  const { t } = useTranslation();
+  const heading = useId();
+  const may: Record<(typeof SOURCE_MODULES)[number], boolean> = {
+    printers: useSettingsAccess("printers").sources,
+    prints: useSettingsAccess("prints").sources,
+    filament: useSettingsAccess("filament").sources,
+    catalog: useSettingsAccess("catalog").sources,
+  };
+  const wanted = new Set(types.map(moduleOf));
+  const modules = SOURCE_MODULES.filter((m) => wanted.has(m) && may[m]);
+  if (!modules.length) return null;
+  return (
+    <section aria-labelledby={heading} className="mt-4 grid gap-2 border-t border-border pt-4">
+      <h3 id={heading} className="font-semibold">
+        {t("common:syncSources")}
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {modules.map((m) => (
+          <Link
+            key={m}
+            to={`/${m}/settings/sources` as LinkProps["to"]}
+            hash={hash}
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
+          >
+            {t(`nav:items.${m}.label`)}
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -126,7 +176,7 @@ export function SourceBlock({
             to={link.to}
             params={link.params as never}
             hash={link.hash}
-            className="text-sm font-medium text-accent hover:underline"
+            className={`text-sm ${textLink}`}
           >
             {link.label}
           </Link>

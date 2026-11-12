@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useProjectFolder, useProjectFolderHasFiles } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
 
@@ -95,7 +96,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
     : [];
   const trashedTo = folder.isSuccess ? folder.data.trashedTo : undefined;
   const mode = pending?.path ? "change" : "unlink";
-  const link = "font-medium text-accent hover:underline";
+
   const ask = (next: { path?: string }) => {
     setHow("keep");
     setPending(next);
@@ -170,7 +171,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
             <Trans
               t={t}
               i18nKey="projects:folder.noRoots"
-              components={{ settings: <Link to="/projects/settings" className={link} /> }}
+              components={{ settings: <Link to="/projects/settings" className={textLink} /> }}
             />
           </p>
         ))}
@@ -194,7 +195,7 @@ export function FolderActions({ project }: { project: ProjectDetail }) {
             t={t}
             i18nKey="projects:folder.trashed"
             values={{ path: fromRoot(trashedTo, roots) }}
-            components={{ settings: <Link to="/projects/settings" className={link} /> }}
+            components={{ settings: <Link to="/projects/settings" className={textLink} /> }}
           />
         </p>
       )}

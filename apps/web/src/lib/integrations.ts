@@ -82,12 +82,9 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number];
 export const onSources = (i: Pick<Integration, "kind">, type: string) =>
   i.kind === "cloud" && (ACCOUNT_TYPES as readonly string[]).includes(type);
 
-/** An account's line for `type` is on that type's Sources tab while its Allow switch is on. */
+/** An enabled account that has `type` has its line on that type's Sources tab. */
 export const feeds = (i: Integration, type: AccountType) =>
-  i.kind === "cloud" &&
-  i.enabled &&
-  i.account?.allow[type] !== false &&
-  i.policies.some((p) => p.type === type);
+  i.kind === "cloud" && i.enabled && i.policies.some((p) => p.type === type);
 
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>
