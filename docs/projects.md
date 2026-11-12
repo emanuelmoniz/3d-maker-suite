@@ -92,6 +92,8 @@ To move many projects (a new disk, NAS or machine), add the new folder as a proj
 - If the old folder is still there, scans skip it, so it doesn't come back as a new project.
 - A hub file's version history stays with the old root, and is deleted when you remove that root.
 
+**Unlink folders** on the same bar unlinks the selected projects' folders and keeps them as they are: nothing on disk changes, each project keeps what it knows, and scans leave the folders alone ([below](#unlinking-or-switching-a-folder)). A missing folder is just forgotten. Link a folder again on its project's edit page.
+
 ## Unlinking or switching a folder
 
 Edit → Project folder → **Unlink folder** (or **Switch to another folder…**) asks what happens to the current folder:

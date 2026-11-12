@@ -283,6 +283,13 @@
       "error": "Couldn't change the project folder. You may not be allowed to edit that folder.",
       "moved_one": "{{count}} project changed.",
       "moved_other": "{{count}} projects changed.",
+      "unlink_one": "Unlink {{count}} folder",
+      "unlink_other": "Unlink {{count}} folders",
+      "unlinkTitle_one": "Unlink the folder of {{count}} project?",
+      "unlinkTitle_other": "Unlink the folders of {{count}} projects?",
+      "unlinkBody": "Nothing on disk changes, and each project keeps everything it knows. Scans leave the folders alone, so they don't come back as new projects. Link a folder again on its project's edit page. A folder that is missing is just forgotten.",
+      "unlinked_one": "{{count}} project unlinked.",
+      "unlinked_other": "{{count}} projects unlinked.",
       "skipped_one": "{{count}} skipped:",
       "skipped_other": "{{count}} skipped:",
       "skip": "{{project}}: {{reason}}",
@@ -297,7 +304,8 @@
         "move_unavailable": "Files on a device can't be moved from here. Move them yourself, then change the project folder with Move files off.",
         "folder_exists": "A file with the same name is already in the new folder, so nothing moved.",
         "invalid_folder": "The new folder is inside the current one, so nothing moved.",
-        "move_failed": "Moving the files failed. Some may already be in the new folder, so check both."
+        "move_failed": "Moving the files failed. Some may already be in the new folder, so check both.",
+        "failed": "It couldn't be changed. Try again."
       }
     },
     "autoSliceHint": "Auto slice: when a sliced 3MF in one of the folder's projects changes, its plates are sliced again with their saved setup. Each project can change this in its print setup.",

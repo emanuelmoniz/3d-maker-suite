@@ -186,6 +186,16 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   expect(existsSync(join(from, "Two", "part.stl"))).toBe(true);
   expect(existsSync(join(from, "One"))).toBe(false);
 
+  // Unlink folders: the project leaves the table, its folder stays on disk.
+  await dialog.getByRole("checkbox", { name: "Select 002-Two" }).check();
+  await dialog.getByRole("button", { name: "Unlink 1 folder" }).click();
+  const ask = dialog.getByRole("dialog");
+  await expect(ask).toContainText("Unlink the folder of 1 project?");
+  await ask.getByRole("button", { name: "Unlink folder" }).click();
+  await expect(dialog.getByRole("status").filter({ hasText: "1 project unlinked." })).toBeVisible();
+  await expect(row("002-Two")).toHaveCount(0);
+  expect(existsSync(join(from, "Two", "part.stl"))).toBe(true);
+
   // Phone: the table scrolls inside the dialog, not the page.
   await page.setViewportSize({ width: 390, height: 800 });
   await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();

@@ -1,9 +1,11 @@
 import type { ProjectFolderRow, ProjectRelinkResult } from "@3d-maker-suite/core";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AddDialog } from "../../components/AddDialog.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import {
   type Column,
   DataTable,
@@ -15,6 +17,7 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
+import { ApiError, api } from "../../lib/api.ts";
 import { cx } from "../../lib/cx.ts";
 import { projectName, useProjectFolders, useRelinkProjects } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
@@ -30,21 +33,24 @@ const SKIPS = {
   folder_exists: "settings:projects.relink.skips.folder_exists",
   invalid_folder: "settings:projects.relink.skips.invalid_folder",
   move_failed: "settings:projects.relink.skips.move_failed",
+  failed: "settings:projects.relink.skips.failed",
 } as const;
 
-/** What the last change did: how many moved, and each skipped project with its reason. */
-function RelinkSummary({
-  result,
-  rows,
-}: {
-  result: ProjectRelinkResult;
-  rows: ProjectFolderRow[];
-}) {
+type Skipped = {
+  id: string;
+  code: string;
+  usedBy?: ProjectRelinkResult["skipped"][number]["usedBy"];
+};
+/** What Change folder or Unlink did; `skipped` stay selected. */
+type Outcome = { done: string; skipped: Skipped[] };
+
+/** What the last change did: how many were done, and each skipped project with its reason. */
+function RelinkSummary({ result, rows }: { result: Outcome; rows: ProjectFolderRow[] }) {
   const { t } = useTranslation();
   return (
     <>
       <p>
-        {t("settings:projects.relink.moved", { count: result.moved.length })}{" "}
+        {result.done}{" "}
         {result.skipped.length > 0 &&
           t("settings:projects.relink.skipped", { count: result.skipped.length })}
       </p>
@@ -60,7 +66,7 @@ function RelinkSummary({
                     ? t("settings:projects.relink.skips.used_by", {
                         project: projectName(t, s.usedBy),
                       })
-                    : t(SKIPS[s.code]),
+                    : t(SKIPS[s.code as keyof typeof SKIPS] ?? SKIPS.failed),
                 })}
               </li>
             );
@@ -77,14 +83,46 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
   const rows = useProjectFolders().data ?? [];
   const roots = useRoots();
   const relink = useRelinkProjects();
+  const qc = useQueryClient();
   const [query, setQuery] = useState<ListQuery>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rootId, setRootId] = useState("");
   const [move, setMove] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  // Unlink and keep: nothing on disk changes, and scans leave the folders alone (`release`).
+  const unlink = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const skipped: Skipped[] = [];
+      // ponytail: one request per project, in turn; a bulk endpoint if hundreds at once get slow.
+      for (const id of ids)
+        await api("DELETE", `/api/projects/${id}/folder?files=keep`).catch((e) =>
+          skipped.push({ id, code: e instanceof ApiError ? (e.code ?? "") : "" }),
+        );
+      return { count: ids.length - skipped.length, skipped };
+    },
+    onSuccess: (r) => {
+      setSelected(new Set(r.skipped.map((s) => s.id)));
+      setUnlinking(false);
+      void qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+  const outcome: Outcome | undefined = relink.data
+    ? {
+        done: t("settings:projects.relink.moved", { count: relink.data.moved.length }),
+        skipped: relink.data.skipped,
+      }
+    : unlink.data && {
+        done: t("settings:projects.relink.unlinked", { count: unlink.data.count }),
+        skipped: unlink.data.skipped,
+      };
+  const dismiss = () => {
+    relink.reset();
+    unlink.reset();
+  };
   const endSelection = () => {
     setSelected(new Set());
-    relink.reset();
+    dismiss();
   };
   const rootLabel = (id: string | null) => {
     const r = roots.find((x) => x.id === id);
@@ -185,22 +223,29 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
     <div className="grid gap-4">
       <p className="text-muted">{t("settings:projects.relink.hint")}</p>
       {/* Sticks together, so both stay in sight on a long table. */}
-      <div
-        className={cx("sticky top-2 z-10 grid gap-2", !relink.data && !selected.size && "hidden")}
-      >
-        <SelectionResult open={!!relink.data} onDismiss={() => relink.reset()}>
-          {relink.data && <RelinkSummary result={relink.data} rows={rows} />}
+      <div className={cx("sticky top-2 z-10 grid gap-2", !outcome && !selected.size && "hidden")}>
+        <SelectionResult open={!!outcome} onDismiss={dismiss}>
+          {outcome && <RelinkSummary result={outcome} rows={rows} />}
         </SelectionResult>
         <SelectionBar count={selected.size} onClear={endSelection}>
           <Button
             onClick={() => {
-              relink.reset();
+              dismiss();
               setRootId("");
               setMove(false);
               setEditing(true);
             }}
           >
             {t("settings:projects.relink.action")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              dismiss();
+              setUnlinking(true);
+            }}
+          >
+            {t("settings:projects.relink.unlink", { count: selected.size })}
           </Button>
         </SelectionBar>
       </div>
@@ -268,6 +313,22 @@ function RelinkForm({ onClose }: { onClose: () => void }) {
           </p>
         )}
       </FormDialog>
+      <ConfirmDialog
+        open={unlinking}
+        title={t("settings:projects.relink.unlinkTitle", { count: selected.size })}
+        description={t("settings:projects.relink.unlinkBody")}
+        confirmLabel={unlink.isPending ? t("common:bulk.working") : t("projects:folder.unlink")}
+        onCancel={() => setUnlinking(false)}
+        onConfirm={() => {
+          if (!unlink.isPending) unlink.mutate([...selected]);
+        }}
+      >
+        {unlink.isError && (
+          <p role="alert" className="text-bad">
+            {t("projects:folder.error")}
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

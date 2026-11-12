@@ -464,6 +464,20 @@ describe("project folder: create, link, unlink, missing", () => {
     expect(plates()).toHaveLength(1);
   });
 
+  it("unlink and keep a missing folder: nothing to keep, the project just forgets it", async () => {
+    await sampleTree();
+    await setRoots();
+    await scan();
+    const benchy = await byName("Benchy");
+    await rm(join(root(), "Benchy"), { recursive: true });
+    const res = await unlink(benchy.id, "keep");
+    expect(res.json()).toMatchObject({
+      folderPath: null,
+      unlinkedFolder: null,
+      meta: { files: [] },
+    });
+  });
+
   it("switching folders lets go of the current one as asked; another folder starts clean", async () => {
     await sampleTree();
     await setRoots();

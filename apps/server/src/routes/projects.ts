@@ -307,7 +307,8 @@ export const projectsRoutes =
     /**
      * Lets go of a project's folder. "keep": the folder and everything the project knows stay as
      * they are, and the folder is remembered so scans skip it (linking it again picks it all
-     * up). "trash": the folder moves to its root's trash and the project forgets its files.
+     * up). "trash": the folder moves to its root's trash and the project forgets its files. A
+     * missing folder has nothing to keep or trash: either way the project just forgets it.
      * Returns where a trashed folder went.
      */
     async function release(p: ProjectDetail, how: ProjectFolderRelease) {
@@ -317,7 +318,7 @@ export const projectsRoutes =
           .set({ rootId: null, folder: null, ...kept })
           .where(eq(projects.id, p.id))
           .run();
-      if (how === "keep")
+      if (how === "keep" && p.folderState !== "missing")
         return void unlink({ unlinkedRootId: p.rootId, unlinkedFolder: p.folder });
       let trashedTo: string | undefined;
       if (p.folderState === "ok") {
