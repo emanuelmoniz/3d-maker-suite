@@ -191,8 +191,12 @@ function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>, all = false) 
 export const useCreateIntegration = () =>
   useInvalidating((v: IntegrationInput) => api<Integration>("POST", "/api/integrations", v), true);
 
+// Switching one off or on changes the hub's slicer's choices (catalog sources) too: all of it.
 export const usePatchIntegration = (id: string) =>
-  useInvalidating((v: IntegrationPatch) => api<Integration>("PATCH", `/api/integrations/${id}`, v));
+  useInvalidating(
+    (v: IntegrationPatch) => api<Integration>("PATCH", `/api/integrations/${id}`, v),
+    true,
+  );
 
 export const useDeleteIntegration = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);

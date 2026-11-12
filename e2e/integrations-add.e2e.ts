@@ -24,9 +24,9 @@ for (const width of [375, 1440])
     await expect(card.getByRole("heading", { name: where, level: 4 })).toBeVisible();
     const hub = card.getByRole("region", { name: "The hub's slicer" });
     await expect(hub.getByText(where, { exact: true })).toBeVisible();
-    await expect(hub.getByText("Slices this slicer type for the hub.")).toBeVisible();
+    await expect(hub.getByText("Slicer machine used by the server.")).toBeVisible();
     // Nothing else to pick: no Change.
-    await expect(hub.getByLabel("Change the hub's slicer…")).toHaveCount(0);
+    await expect(hub.getByRole("button", { name: "Change slicer machine" })).toHaveCount(0);
     await expect(
       found
         ? card.getByRole("textbox", { name: "Config folder" })

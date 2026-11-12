@@ -185,9 +185,9 @@ const deviceOf = (i: Integration) =>
   i.kind === "worker" ? workerConfigSchema.safeParse(i.config).data?.deviceId : undefined;
 
 /**
- * The hub's slicer (ADR-0022), on a panel of its own with Change: this server's installs and every
- * machine's that offers the slicer (Use as slicer). Then the installs, each with its setup; a
- * machine that offers it without one gets Set up, any other machine is in Add a machine.
+ * The hub's slicer (ADR-0022), on a panel of its own, and Change slicer machine below it: a dialog
+ * that picks among the enabled installs and says what the change does. Then the installs, each with
+ * its setup; a machine that has the slicer without one gets Set up, any other is in Add a machine.
  */
 function HubSlicer({
   library,
@@ -207,18 +207,15 @@ function HubSlicer({
   const devices = useDevices().data ?? [];
   const pick = usePickHubSlicer(library);
   const create = useCreateIntegration();
-  const [asking, setAsking] = useState<Integration | null>(null);
+  const [changing, setChanging] = useState(false);
+  const [choice, setChoice] = useState("");
   const current = rows.find((i) => i.id === lib?.cardsOf);
+  // A switched-off install is never an option (the server agrees).
   const pickable = (i: Integration) =>
+    i.enabled &&
     !!lib?.options.some((o) =>
       "integrationId" in o ? o.integrationId === i.id : o.deviceId === deviceOf(i),
     );
-  // Another version changes the catalog, and every receiver gets the new one: asked first.
-  const choose = (i: Integration) => {
-    pick.reset();
-    if (current && (!i.slicerVersion || i.slicerVersion !== current.slicerVersion)) setAsking(i);
-    else pick.mutate(i.id);
-  };
   const withRow = new Set(rows.flatMap((i) => deviceOf(i) ?? []));
   const setUp = (deviceId: string) => {
     if (!worker) return;
@@ -235,6 +232,7 @@ function HubSlicer({
   const error = pick.error ?? create.error;
   const code = error instanceof ApiError && error.code ? PICK_ERRORS[error.code] : undefined;
   const others = rows.filter((i) => i.id !== current?.id && pickable(i));
+  const chosen = others.find((i) => i.id === choice) ?? others[0];
   const optionLabel = (i: Integration) =>
     i.slicerVersion
       ? t("integrations:hub.option", { where: locationLabel(i), version: i.slicerVersion })
@@ -248,41 +246,24 @@ function HubSlicer({
         </h3>
         {current && CurrentIcon ? (
           // The one bold thing on the card: which install slices for the hub.
-          <div className="grid gap-3 rounded-lg border border-accent/40 bg-accent/10 p-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(14rem,18rem)] sm:items-center">
-            <div className="flex min-w-0 items-start gap-3 sm:contents">
-              <span
-                aria-hidden
-                className={cx(NODE, "mt-0 shrink-0 border-accent bg-accent text-accent-fg")}
-              >
-                <CurrentIcon className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-semibold wrap-anywhere">
-                  {locationLabel(current)}
-                  {current.slicerVersion && (
-                    <span className="ml-2 font-normal text-muted">
-                      {t("integrations:hub.version", { version: current.slicerVersion })}
-                    </span>
-                  )}
-                </p>
-                <p className="text-muted">{t("integrations:hub.isHub")}</p>
-              </div>
+          <div className="flex min-w-0 items-start gap-3 rounded-lg border border-accent/40 bg-accent/10 p-3">
+            <span
+              aria-hidden
+              className={cx(NODE, "mt-0 shrink-0 border-accent bg-accent text-accent-fg")}
+            >
+              <CurrentIcon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-semibold wrap-anywhere">
+                {locationLabel(current)}
+                {current.slicerVersion && (
+                  <span className="ml-2 font-normal text-muted">
+                    {t("integrations:hub.version", { version: current.slicerVersion })}
+                  </span>
+                )}
+              </p>
+              <p className="text-muted">{t("integrations:hub.isHub")}</p>
             </div>
-            {others.length > 0 && (
-              <Combobox
-                aria-label={t("integrations:hub.change")}
-                value=""
-                disabled={pick.isPending}
-                options={[
-                  { value: "", label: t("integrations:hub.change") },
-                  ...others.map((i) => ({ value: i.id, label: optionLabel(i) })),
-                ]}
-                onChange={(v) => {
-                  const next = others.find((i) => i.id === v);
-                  if (next) choose(next);
-                }}
-              />
-            )}
           </div>
         ) : (
           <p className="text-muted">
@@ -290,6 +271,20 @@ function HubSlicer({
               rows.length || offered.length ? "integrations:hub.noneYet" : "integrations:hub.none",
             )}
           </p>
+        )}
+        {others.length > 0 && (
+          <div>
+            <Button
+              disabled={pick.isPending}
+              onClick={() => {
+                pick.reset();
+                setChoice("");
+                setChanging(true);
+              }}
+            >
+              {t("integrations:hub.changeMachine")}
+            </Button>
+          </div>
         )}
         <p className="max-w-prose text-sm text-muted">{t("integrations:hub.hint")}</p>
       </section>
@@ -346,27 +341,38 @@ function HubSlicer({
             {t(code ?? "integrations:card.actionError")}
           </p>
         )}
+        {/* Another install changes the catalog, and every receiver gets the new one: it says so. */}
         <ConfirmDialog
-          open={!!asking}
-          title={t("integrations:hub.pickTitle", {
-            name: adapterName(library),
-            where: asking ? locationLabel(asking) : "",
-          })}
+          open={changing && !!chosen}
+          title={t("integrations:hub.changeTitle", { name: adapterName(library) })}
           description={
-            current?.slicerVersion && asking?.slicerVersion
-              ? t("integrations:hub.pickBody", {
-                  from: current.slicerVersion,
-                  to: asking.slicerVersion,
-                })
-              : t("integrations:hub.pickBodyUnknown")
+            chosen?.slicerVersion && current?.slicerVersion === chosen.slicerVersion
+              ? t("integrations:hub.pickBodySame")
+              : current?.slicerVersion && chosen?.slicerVersion
+                ? t("integrations:hub.pickBody", {
+                    from: current.slicerVersion,
+                    to: chosen.slicerVersion,
+                  })
+                : t("integrations:hub.pickBodyUnknown")
           }
           confirmLabel={t("integrations:hub.pick")}
-          onCancel={() => setAsking(null)}
+          onCancel={() => setChanging(false)}
           onConfirm={() => {
-            if (asking) pick.mutate(asking.id);
-            setAsking(null);
+            if (chosen) pick.mutate(chosen.id);
+            setChanging(false);
           }}
-        />
+        >
+          <FormField label={t("integrations:hub.machine")}>
+            {(p) => (
+              <Combobox
+                {...p}
+                value={chosen?.id ?? ""}
+                options={others.map((i) => ({ value: i.id, label: optionLabel(i) }))}
+                onChange={setChoice}
+              />
+            )}
+          </FormField>
+        </ConfirmDialog>
       </section>
     </>
   );
@@ -408,6 +414,10 @@ export function IntegrationCard({
 
   // The status line: one sentence for where the integration stands.
   const state = !i.enabled ? "disabled" : sync.isPending ? "syncing" : i.status;
+  // A machine's install with its program set that isn't the hub's slicer: it gets the system presets
+  // (and slices) only once it is picked, so nothing is missing yet.
+  const standby =
+    state === "unavailable" && i.kind === "worker" && !!i.slicerPath && !!hub && !hub.checked;
   const status =
     state === "disabled" ? (
       t("integrations:card.disabledHint")
@@ -419,9 +429,11 @@ export function IntegrationCard({
       ) : i.kind === "worker" ? (
         // Its program is picked, or the hub has no system presets for it yet: one sentence each.
         t(
-          i.slicerPath
-            ? "integrations:worker.noPresetsHint"
-            : "integrations:worker.unavailableHint",
+          standby
+            ? "integrations:worker.standbyHint"
+            : i.slicerPath
+              ? "integrations:worker.noPresetsHint"
+              : "integrations:worker.unavailableHint",
         )
       ) : (
         t("integrations:card.unavailableHint")
@@ -506,7 +518,10 @@ export function IntegrationCard({
           role={state === "error" ? "alert" : undefined}
           className={cx("flex items-start gap-2", state === "error" ? "text-bad" : "text-muted")}
         >
-          <span aria-hidden className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[state])} />
+          <span
+            aria-hidden
+            className={cx("mt-1.5 size-2 shrink-0 rounded-full", DOT[standby ? "new" : state])}
+          />
           <span>{status}</span>
         </p>
         {hub?.notOffered && <p className="text-muted">{t("integrations:hub.notOffered")}</p>}

@@ -323,10 +323,13 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   await page.reload();
   await expect(row).toContainText("Removed on Desk PC");
 
+  // A short title; the alert itself says what was kept.
   await page.goto("/alerts");
+  await page.getByRole("link", { name: "Slicer preset Farm PLA changed", exact: true }).click();
   await expect(
-    page.getByText(/Slicer preset Farm PLA changed on the hub and on Desk PC/),
+    page.getByText(/^It changed on the hub and on Desk PC\. Their version/),
   ).toBeVisible();
+  await page.goto("/alerts");
 
   // Today's connector (ADR-0019): its user's presets, more at once than the limit, wait for a person.
   await page.request.patch("/api/preferences", { data: { hubDeleteGuard: 1 } });
@@ -352,7 +355,7 @@ test("share my presets: the switch, a device's preset, a conflict copy, a deskto
   ]);
   await page.reload();
   await expect(
-    page.getByText("Desk PC removed 2 slicer presets at once; they stay until someone deletes"),
+    page.getByRole("link", { name: "Desk PC removed 2 slicer presets at once", exact: true }),
   ).toBeVisible();
   await page.goto("/catalog/presets");
   const held = page.getByRole("region", { name: "Deletes waiting for you" });

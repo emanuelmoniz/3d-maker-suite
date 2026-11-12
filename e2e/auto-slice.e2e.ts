@@ -93,7 +93,7 @@ test("a changed file slices again; a new slot raises an alert that opens the pri
   copyFileSync(fixture("unsliced"), file);
   await page.goto("/alerts");
   const alert = page.getByRole("link", {
-    name: "benchy.3mf in Benchy changed its plates or filament slots: check the print setup",
+    name: "benchy.3mf changed its plates or filament slots",
   });
   await expect(async () => {
     await page.reload();

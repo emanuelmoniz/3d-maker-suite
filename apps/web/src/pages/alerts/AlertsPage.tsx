@@ -114,7 +114,45 @@ export function SyncTargetLink({ a }: { a: Alert }) {
   );
 }
 
-/** The alert's sentence. In the list it opens the alert; in the alert's own view, what it is about. */
+/**
+ * The rest of an alert, under its short title in its own view (the why, the versions, what was kept);
+ * null when the title says it all.
+ */
+export function AlertMore({ a }: { a: Alert }) {
+  const { t } = useTranslation();
+  const c = a.context;
+  const more: Partial<Record<Alert["kind"], () => string>> = {
+    sync_error: () =>
+      t("alerts:more.sync_error", {
+        reason: t(ERRORS[c.code as IntegrationErrorCode] ?? ERRORS.unknown),
+      }),
+    slice_setup_changed: () => t("alerts:more.slice_setup_changed", { name: c.name }),
+    slice_failed: () => t("alerts:more.slice_failed", { name: c.name }),
+    connector_outdated: () =>
+      t(c.reason ? "alerts:more.connector_update_failed" : "alerts:more.connector_outdated", {
+        version: c.version,
+        hubVersion: c.hubVersion,
+      }),
+    hub_conflict: () => t("alerts:more.hub_conflict", { device: c.device, copy: c.copy }),
+    preset_conflict: () => t("alerts:more.preset_conflict", { device: c.device, copy: c.copy }),
+    preset_skipped: () =>
+      t(
+        c.reason === "missing_parent"
+          ? "alerts:more.preset_skipped_parent"
+          : "alerts:more.preset_skipped_json",
+      ),
+    hub_mass_delete: () =>
+      t("alerts:more.hub_mass_delete", { count: Number(c.count), roots: c.roots }),
+    preset_held: () =>
+      t(c.reason === "shared" ? "alerts:more.preset_held_shared" : "alerts:more.preset_held_mass", {
+        count: Number(c.count),
+      }),
+  };
+  const text = more[a.kind]?.();
+  return text ? <p>{text}</p> : null;
+}
+
+/** The alert's short title. In the list it opens the alert; in its own view, what it is about. */
 export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
@@ -148,15 +186,9 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         type,
       }),
     sync_error: () =>
-      t("alerts:kinds.sync_error", {
-        name: adapterName(String(c.adapterId)),
-        type,
-        reason: t(ERRORS[c.code as IntegrationErrorCode] ?? ERRORS.unknown),
-      }),
-    slice_setup_changed: () =>
-      t("alerts:kinds.slice_setup_changed", { name: c.name, file: c.file }),
-    slice_failed: () =>
-      t("alerts:kinds.slice_failed", { name: c.name, file: c.file, plate: c.plate }),
+      t("alerts:kinds.sync_error", { name: adapterName(String(c.adapterId)), type }),
+    slice_setup_changed: () => t("alerts:kinds.slice_setup_changed", { file: c.file }),
+    slice_failed: () => t("alerts:kinds.slice_failed", { file: c.file, plate: c.plate }),
     update_available: () => t("alerts:kinds.update_available", { version: c.version }),
     slicer_update: () =>
       t("alerts:kinds.slicer_update", {
@@ -166,15 +198,11 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     connector_outdated: () =>
       t(c.reason ? "alerts:kinds.connector_update_failed" : "alerts:kinds.connector_outdated", {
         name: c.name,
-        version: c.version,
-        hubVersion: c.hubVersion,
       }),
-    hub_conflict: () =>
-      t("alerts:kinds.hub_conflict", { file: c.file, device: c.device, copy: c.copy }),
+    hub_conflict: () => t("alerts:kinds.hub_conflict", { file: c.file }),
     hub_mass_delete: () =>
-      t("alerts:kinds.hub_mass_delete", { name: c.name, count: Number(c.count), roots: c.roots }),
-    preset_conflict: () =>
-      t("alerts:kinds.preset_conflict", { name: c.name, device: c.device, copy: c.copy }),
+      t("alerts:kinds.hub_mass_delete", { name: c.name, count: Number(c.count) }),
+    preset_conflict: () => t("alerts:kinds.preset_conflict", { name: c.name }),
     preset_skipped: () =>
       t(
         c.reason === "missing_parent"
@@ -182,11 +210,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
           : "alerts:kinds.preset_skipped_json",
         { name: c.name },
       ),
-    preset_held: () =>
-      t(
-        c.reason === "shared" ? "alerts:kinds.preset_held_shared" : "alerts:kinds.preset_held_mass",
-        { name: c.name, count: Number(c.count) },
-      ),
+    preset_held: () => t("alerts:kinds.preset_held", { name: c.name, count: Number(c.count) }),
   }[a.kind]();
   if (inList)
     return (

@@ -15,6 +15,7 @@ import { LogDialog } from "../maintenance/MaintenancePage.tsx";
 import { CAPS } from "../settings/integrationLabels.ts";
 import {
   AlertButtons,
+  AlertMore,
   buttonLink,
   integrationHash,
   LogList,
@@ -106,7 +107,10 @@ export function AlertDetailPage() {
       <section className="grid max-w-2xl gap-4 rounded-lg border border-border bg-surface p-4">
         <div className="flex items-start gap-2">
           <s.icon className={`mt-0.5 size-4 shrink-0 ${s.color}`} aria-hidden />
-          <Title a={a} />
+          <div className="grid gap-1">
+            <Title a={a} />
+            <AlertMore a={a} />
+          </div>
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           {rows.map(([k, v]) => (

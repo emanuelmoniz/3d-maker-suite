@@ -1,6 +1,6 @@
 # Alerts
 
-The alerts page lists what needs attention. Configuration of the thresholds and the mail/ntfy servers is in [configuration.md](configuration.md#alerts); this page covers who gets what.
+The alerts page lists what needs attention, each with a short title ("Printers from Bambu Cloud could not sync", "Slicer preset Step 10 changed"). Opening one shows the rest: why a sync failed, what was kept in a conflict, the versions, its sync log. Configuration of the thresholds and the mail/ntfy servers is in [configuration.md](configuration.md#alerts); this page covers who gets what.
 
 ## Who gets which alert
 

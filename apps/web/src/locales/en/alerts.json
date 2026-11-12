@@ -103,23 +103,21 @@
     "sync_pending_one": "{{type}} from {{name}}: {{count}} waits for your review",
     "sync_pending_other": "{{type}} from {{name}}: {{count}} wait for your review",
     "sync_success": "{{type}} from {{name}} synced",
-    "sync_error": "{{type}} from {{name}} could not sync: {{reason}}",
-    "slice_setup_changed": "{{file}} in {{name}} changed its plates or filament slots: check the print setup",
-    "slice_failed": "Plate {{plate}} of {{file}} in {{name}} could not be sliced again",
+    "sync_error": "{{type}} from {{name}} could not sync",
+    "slice_setup_changed": "{{file}} changed its plates or filament slots",
+    "slice_failed": "Plate {{plate}} of {{file}} could not be sliced again",
     "update_available": "Version {{version}} is available",
     "slicer_update": "{{name}}: version {{version}} is available",
-    "connector_outdated": "Connector on {{name}} is on version {{version}}, the hub on {{hubVersion}}",
-    "hub_conflict": "{{file}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
-    "connector_update_failed": "Connector on {{name}} could not update to {{hubVersion}}",
-    "hub_mass_delete_one": "{{name}} deleted {{count}} file in {{roots}} at once; the sync waits until someone confirms or restores it on that device",
-    "hub_mass_delete_other": "{{name}} deleted {{count}} files in {{roots}} at once; the sync waits until someone confirms or restores them on that device",
-    "preset_conflict": "Slicer preset {{name}} changed on the hub and on {{device}}; their version was kept as {{copy}}",
-    "preset_skipped_json": "Slicer preset {{name}} isn't valid JSON and was not stored",
-    "preset_skipped_parent": "Slicer preset {{name}} was not installed: the slicer lacks the preset it inherits from",
-    "preset_held_mass_one": "{{name}} removed {{count}} slicer preset at once; it stays until someone deletes or keeps it in Catalog settings → Preset library",
-    "preset_held_mass_other": "{{name}} removed {{count}} slicer presets at once; they stay until someone deletes or keeps them in Catalog settings → Preset library",
-    "preset_held_shared_one": "{{name}} removed {{count}} slicer preset on an account another user's device shares; it stays until someone deletes or keeps it in Catalog settings → Preset library",
-    "preset_held_shared_other": "{{name}} removed {{count}} slicer presets on an account another user's device shares; they stay until someone deletes or keeps them in Catalog settings → Preset library"
+    "connector_outdated": "Connector on {{name}} is outdated",
+    "hub_conflict": "{{file}} changed",
+    "connector_update_failed": "Connector on {{name}} could not update",
+    "preset_conflict": "Slicer preset {{name}} changed",
+    "preset_skipped_json": "Slicer preset {{name}} was not stored",
+    "preset_skipped_parent": "Slicer preset {{name}} was not installed",
+    "hub_mass_delete_one": "{{name}} deleted {{count}} file at once",
+    "hub_mass_delete_other": "{{name}} deleted {{count}} files at once",
+    "preset_held_one": "{{name}} removed {{count}} slicer preset at once",
+    "preset_held_other": "{{name}} removed {{count}} slicer presets at once"
   },
   "severity": {
     "error": "Error",
@@ -174,5 +172,22 @@
       "to": "To address"
     }
   },
-  "system": "System"
+  "system": "System",
+  "more": {
+    "sync_error": "{{reason}}",
+    "slice_setup_changed": "In {{name}}. Check its print setup.",
+    "slice_failed": "In {{name}}.",
+    "connector_outdated": "It is on version {{version}}, the hub on {{hubVersion}}.",
+    "connector_update_failed": "It could not update to version {{hubVersion}}.",
+    "hub_conflict": "It changed on the hub and on {{device}}. Their version was kept as {{copy}}.",
+    "preset_conflict": "It changed on the hub and on {{device}}. Their version was kept as {{copy}}.",
+    "preset_skipped_json": "It isn't valid JSON.",
+    "preset_skipped_parent": "The slicer lacks the preset it inherits from.",
+    "hub_mass_delete_one": "In {{roots}}. The sync waits until someone confirms or restores it on that device.",
+    "hub_mass_delete_other": "In {{roots}}. The sync waits until someone confirms or restores them on that device.",
+    "preset_held_mass_one": "It stays until someone deletes or keeps it in Catalog settings → Preset library.",
+    "preset_held_mass_other": "They stay until someone deletes or keeps them in Catalog settings → Preset library.",
+    "preset_held_shared_one": "It was on an account another user's device shares. It stays until someone deletes or keeps it in Catalog settings → Preset library.",
+    "preset_held_shared_other": "They were on an account another user's device shares. They stay until someone deletes or keeps them in Catalog settings → Preset library."
+  }
 }

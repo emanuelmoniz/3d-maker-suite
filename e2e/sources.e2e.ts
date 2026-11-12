@@ -76,7 +76,7 @@ for (const width of [375, 1440])
         })
       ).json();
     await worker("WS-1");
-    const w2 = await worker("WS-2");
+    await worker("WS-2");
     await page.goto("/catalog/settings/sources");
     await openSources(page);
     const share1 = block(page, "Share to the hub", "WS-1");
@@ -87,14 +87,21 @@ for (const width of [375, 1440])
     // the catalog.
     await expect(share2).toBeVisible();
     await expect(hubSlicer(share2)).toHaveCount(0);
-    expect(
-      (
-        await page.request.put("/api/integrations/slicers/bambu-studio", {
-          data: { integrationId: w2.id },
-        })
-      ).status(),
-    ).toBe(204);
-    await page.reload();
+    // Picked in Integrations: Change slicer machine, below the hub's slicer's panel, asks first.
+    await page.goto("/integrations");
+    const card = page.getByRole("region", { name: "Bambu Studio" });
+    await card.getByRole("button", { name: "Change slicer machine" }).click();
+    const dialog = page
+      .getByRole("dialog")
+      .filter({ hasText: "Change the Bambu Studio slicer machine" });
+    await dialog.getByLabel("Slicer machine").click();
+    await page.getByRole("option", { name: /^WS-2/ }).click();
+    const picked = page.waitForResponse((r) =>
+      r.url().endsWith("/api/integrations/slicers/bambu-studio"),
+    );
+    await dialog.getByRole("button", { name: "Make it the hub's slicer" }).click();
+    expect((await picked).status()).toBe(204);
+    await page.goto("/catalog/settings/sources");
     await openSources(page);
     await expect(hubSlicer(share2)).toBeVisible();
     await expect(hubSlicer(share1)).toHaveCount(0);
