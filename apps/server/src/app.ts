@@ -9,7 +9,7 @@ import type {} from "@fastify/static";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { Cron } from "croner";
-import Fastify, { type FastifyError, type FastifyServerOptions } from "fastify";
+import Fastify, { type FastifyError, type FastifyServerOptions, LogController } from "fastify";
 import {
   hasZodFastifySchemaValidationErrors,
   isResponseSerializationError,
@@ -165,7 +165,7 @@ export async function buildApp(
     trustProxy: opts.trustProxy ?? false,
     rewriteUrl: (req) => legacyPresetUrl(req.url ?? "/"),
     // Replaced by the one line per API call below.
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
     childLoggerFactory: (log, bindings, o, raw) =>
       log.child({ ...bindings, module: moduleOf(raw.url ?? "") }, o),
   });

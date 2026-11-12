@@ -255,7 +255,7 @@ importers:
         specifier: ^4.4.0
         version: 4.4.0
       fastify:
-        specifier: ^5.0.0
+        specifier: ^5.12.5
         version: 5.12.5
       fastify-type-provider-zod:
         specifier: ^7.0.0
