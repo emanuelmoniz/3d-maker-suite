@@ -13,12 +13,8 @@ import { useProjectFolders } from "../../lib/projects.ts";
 import { rootErrorKey, useChangeRoot, useRoots } from "../../lib/roots.ts";
 import { ChangeProjectsRoot } from "./ChangeProjectsRoot.tsx";
 
-const EDIT_BY = {
-  roles: "settings:folder.editBy.roles",
-  admins: "settings:folder.editBy.admins",
-  users: "settings:folder.editBy.users",
-  none: "settings:folder.editBy.none",
-} as const;
+/** The last segment of a path, with either separator. */
+const baseName = (path: string) => path.split(/[/]/).filter(Boolean).pop() ?? path;
 
 /**
  * The project folders as a table. Adding and editing happen on a folder's own page; with the hub
@@ -36,27 +32,29 @@ export function ProjectRoots() {
   const columns: Column<Root>[] = [
     {
       id: "path",
-      className: "min-w-56 whitespace-normal!",
       header: t("settings:projects.col.folder"),
-      sortValue: (r) => r.path,
+      className: "min-w-40 whitespace-normal!",
+      sortValue: (r) => baseName(r.path),
       cell: (r) => (
         <span className="flex flex-wrap items-center gap-x-2">
           <Link
             to="/projects/settings/folders/$id"
             params={{ id: r.id }}
             className={`wrap-anywhere ${textLink}`}
+            title={r.path}
             aria-label={t("settings:folder.edit", { path: r.path })}
           >
-            {r.path}
+            {baseName(r.path)}
           </Link>
-          {r.deviceName && (
-            <span className="text-muted">
-              {t("settings:projects.rootOn", { device: r.deviceName })}
-            </span>
-          )}
           <RootStateBadge state={r.state} />
         </span>
       ),
+    },
+    {
+      id: "machine",
+      header: t("settings:projects.col.machine"),
+      sortValue: (r) => r.deviceName ?? "",
+      cell: (r) => r.deviceName ?? t("settings:projects.locationHub"),
     },
     {
       id: "projects",
@@ -66,26 +64,10 @@ export function ProjectRoots() {
       cell: (r) => formatNumber(counts.get(r.id) ?? 0),
     },
     {
-      id: "layout",
-      className: "min-w-40 whitespace-normal!",
-      header: t("settings:projects.col.layout"),
-      sortValue: (r) => r.projectDepth,
-      cell: (r) =>
-        r.projectDepth === 1
-          ? t("settings:folder.layoutFlat")
-          : t("settings:folder.layoutGroups", { count: r.projectDepth - 1 }),
-    },
-    {
       id: "autoSlice",
       header: t("settings:projects.autoSlice"),
       sortValue: (r) => Number(r.autoSlice),
       cell: (r) => t(r.autoSlice ? "settings:projects.on" : "settings:projects.off"),
-    },
-    {
-      id: "editBy",
-      header: t("settings:projects.col.editBy"),
-      sortValue: (r) => r.editBy,
-      cell: (r) => t(EDIT_BY[r.editBy]),
     },
     {
       id: "remove",

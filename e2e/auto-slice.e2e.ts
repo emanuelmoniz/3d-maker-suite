@@ -1,12 +1,12 @@
 import { copyFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 import { addRoots, roots, savedRoots } from "./helpers.ts";
 
 type Slicing = { plates: { state: string; result: { slicedAt: string } | null; job: unknown }[] };
 const fixture = (name: string) => join(import.meta.dirname, `../packages/3mf/fixtures/${name}.3mf`);
 
-test("project folders table: layout, auto slice and project count, and removing one", async ({
+test("project folders table: machine, auto slice and project count, and removing one", async ({
   page,
   app,
 }) => {
@@ -19,11 +19,10 @@ test("project folders table: layout, auto slice and project count, and removing 
   const saved = async () => await savedRoots(app.api);
 
   await page.goto("/projects/settings");
-  const row = (dir: string) => page.getByRole("row").filter({ hasText: dir });
-  await expect(row(a)).toContainText("Projects inside a group folder");
+  const row = (dir: string) => page.getByRole("row").filter({ hasText: basename(dir) });
+  await expect(row(a)).toContainText("This server");
   await expect(row(a)).toContainText("On");
-  await expect(row(a).getByRole("cell").nth(1)).toHaveText("1");
-  await expect(row(b)).toContainText("Every subfolder is a project");
+  await expect(row(a).getByRole("cell").nth(2)).toHaveText("1");
   await expect(row(b)).toContainText("Off");
 
   // Remove asks first.

@@ -209,7 +209,6 @@
     "deviceOffline": "The device is offline. Start its connector, then try again.",
     "deviceTimeout": "The device didn't answer. Check that its connector is running, then try again.",
     "locationHub": "This server",
-    "rootOn": "On {{device}}",
     "autoSlice": "Auto slice",
     "editByDevice": "The device's own user can always edit.",
     "maxFiles": "Files per project",
@@ -278,8 +277,7 @@
     "col": {
       "folder": "Folder",
       "projects": "Projects",
-      "layout": "Layout",
-      "editBy": "Who can edit"
+      "machine": "Machine"
     },
     "on": "On",
     "off": "Off",
