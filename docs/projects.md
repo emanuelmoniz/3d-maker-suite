@@ -1,6 +1,6 @@
 # Projects and folders
 
-A project is a folder of files on disk: models (`.3mf`, `.stl`, `.step`, `.stp`), pictures, notes (`.md`, `.txt`, `.pdf`) and `.url` shortcuts. You tell the app which **project folders** (roots) to watch in Settings → Projects, and it finds the projects inside them. With the hub on, **Browse…** asks for the source first: **This server**, or a paired machine, where you pick inside the folders it shares (Projects settings → Sources, see [hub.md](hub.md#shared-folders-on-a-device)). Nothing is moved or renamed for you, and what you edit in the app (name, description, tags, cover) is never overwritten by a scan.
+A project is a folder of files on disk: models (`.3mf`, `.stl`, `.step`, `.stp`), pictures, notes (`.md`, `.txt`, `.pdf`) and `.url` shortcuts. You tell the app which **project folders** to watch in Settings → Projects (a table: add one with **Add folder**, click a folder to edit it), and it finds the projects inside them. With the hub on, **Browse…** asks for the source first: **This server**, or a paired machine, where you pick inside the folders it shares (Projects settings → Sources, see [hub.md](hub.md#shared-folders-on-a-device)). Nothing is moved or renamed for you, and what you edit in the app (name, description, tags, cover) is never overwritten by a scan.
 
 ## Recommended structure
 
@@ -82,9 +82,9 @@ Files removed in the app are moved, not erased, into `.3d-maker-suite-trash` in 
 
 The app does not rename folders. Renaming a project's **files** (in the app or on disk) is safe: the next scan picks them up. Renaming a project's **folder** on disk and keeping its number prefix (`012_vase` → `012_tall-vase`) is safe too: the scan moves the project to the new folder. A folder renamed without its number, moved out of the roots or deleted shows a banner on the project page: recreate the folder, link the one where the files are now, or unlink it. Edit → Project folder does the same, and gives a project without a folder one.
 
-## Moving projects to another root
+## Moving projects to another project folder
 
-To move many projects (a new disk, NAS or machine), add the new folder as a root. For a whole new machine, start with [Moving to a new machine](backups.md#moving-to-a-new-machine). Then use Settings → Projects → **Bulk change projects root**: filter and select the projects, click **Change root…** on the bar above the table, pick the new root and confirm. Projects it had to skip stay selected, with the reason shown. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
+To move many projects (a new disk, NAS or machine), add the new folder as a project folder. For a whole new machine, start with [Moving to a new machine](backups.md#moving-to-a-new-machine). Then use Settings → Projects → **Change project folder…**: filter and select the projects, click **Change folder…** on the bar above the table, pick the new project folder and confirm. Projects it had to skip stay selected, with the reason shown. Each project keeps its relative folder (`/volume1/projects/a/012_vase` → `/mnt/nas/projects/a/012_vase`), its files, plates and slices.
 
 - **Move files** off (the default) is for files you already moved: only the app's link changes, nothing on disk. A project whose folder isn't at the new root yet shows as missing until the folder is there.
 - **Move files** on moves each project's files from the old folder to the new one. It works when both roots are on this server; a project on a device is skipped, so move those files yourself. If a file with the same name is already in the new folder, nothing of that project moves. Folders above the project folder (`a` above) stay behind, empty. Connectors syncing these roots see the files as removed from the old root and new in the new one.

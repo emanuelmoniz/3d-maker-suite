@@ -64,9 +64,9 @@ The local page and the device's card in Hub management show the user a connector
 
 The connector keeps its identity, roots and settings, and acts with the new user's rights from then on. Projects in hub roots aren't affected. The change is written to the log.
 
-## Device roots
+## Device project folders
 
-A project root can live on a paired device instead of the server.
+A project folder can live on a paired device instead of the server.
 
 1. Share the folder first, in **Projects settings → Sources** ([below](#shared-folders-on-a-device)).
 2. In **Projects settings**, under Project folders, choose **Browse…**. Pick the source, **This server** or an online machine with a shared folder, then the folder: on a machine, only its active shared folders and what is inside them. A machine browse goes through the connector; the picker says why it failed (offline, no answer, or a connector that is too old).
@@ -84,9 +84,9 @@ The scan carries the plate previews of each 3MF, so a project page doesn't downl
 
 **Settings → Projects → Device folder size limit** (default 32 MB, up to 128 MB) caps what one folder's scan sends: descriptions first, then the cover, plate previews and gallery picks. What doesn't fit is left out, so plate previews go first. Changing it sends the folders again.
 
-## Hub roots: sync with devices
+## Server project folders: sync with devices
 
-A root on **This server** is a hub root. Each device keeps a copy of it in its sync folder (`<home>/3D Maker Suite/<root>`) and the two stay in step both ways: save in your slicer as usual and the hub gets the change; a change made on the hub or another device arrives on its own. Files download to a hidden temporary file, are hash-checked and then renamed into place, so a half-copied file never shows. Files the root marks download-only are read-only on the device. The device's local page shows the sync state and how many changes wait.
+A project folder on **This server** is a server folder. Each device keeps a copy of it in its sync folder (`<home>/3D Maker Suite/<root>`) and the two stay in step both ways: save in your slicer as usual and the hub gets the change; a change made on the hub or another device arrives on its own. Files download to a hidden temporary file, are hash-checked and then renamed into place, so a half-copied file never shows. Files the root marks download-only are read-only on the device. The device's local page shows the sync state and how many changes wait.
 
 A restarted connector downloads nothing it already has.
 
@@ -230,7 +230,7 @@ Three project rights come from the user's role, and can be changed per user ([us
 - **Edit everyone's projects.** Without it, they can view and download them, not change them.
 - **Edit files on other workstations.**
 
-Editing any project file needs Projects write. Each root also has **Who can edit**: **Editors and admins** (anyone with Projects write), admins only, picked users, or nobody (view only). A device's own user can always edit.
+Editing any project file needs Projects write. Each project folder also has **Who can edit**: **Editors and admins** (anyone with Projects write), admins only, picked users, or nobody (view only). A device's own user can always edit.
 
 ## Install the connector
 

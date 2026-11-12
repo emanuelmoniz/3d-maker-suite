@@ -6,41 +6,35 @@ import { addRoots, roots, savedRoots } from "./helpers.ts";
 type Slicing = { plates: { state: string; result: { slicedAt: string } | null; job: unknown }[] };
 const fixture = (name: string) => join(import.meta.dirname, `../packages/3mf/fixtures/${name}.3mf`);
 
-test("project folders: depths and auto slice per folder, and removing one", async ({
+test("project folders table: layout, auto slice and project count, and removing one", async ({
   page,
   app,
 }) => {
   const a = join(app.dataDir, "models");
   const b = join(app.dataDir, "archive");
-  mkdirSync(a);
+  mkdirSync(join(a, "Benchy"), { recursive: true });
   mkdirSync(b);
-  await addRoots(app.api, a, b);
+  await addRoots(app.api, { path: a, projectDepth: 2 }, { path: b, autoSlice: false });
+  await app.api("POST", "/api/projects", { name: "Benchy", folderPath: join(a, "Benchy") });
   const saved = async () => await savedRoots(app.api);
 
   await page.goto("/projects/settings");
-  const auto = page.getByRole("checkbox", { name: `Auto slice projects in ${b}` });
-  await expect(page.getByRole("checkbox", { name: `Auto slice projects in ${a}` })).toBeChecked();
-  await expect(auto).toBeChecked();
-  // Controlled by the saved value: it unticks once the save is back.
-  await auto.click();
-  await expect(auto).not.toBeChecked();
-  await page.getByRole("combobox", { name: `Project depth for ${a}` }).selectOption("2");
-  await expect.poll(saved).toEqual([
-    { ...roots(a)[0], projectDepth: 2 },
-    { ...roots(b)[0], autoSlice: false },
-  ]);
+  const row = (dir: string) => page.getByRole("row").filter({ hasText: dir });
+  await expect(row(a)).toContainText("Projects inside a group folder");
+  await expect(row(a)).toContainText("On");
+  await expect(row(a).getByRole("cell").nth(1)).toHaveText("1");
+  await expect(row(b)).toContainText("Every subfolder is a project");
+  await expect(row(b)).toContainText("Off");
 
+  // Remove asks first.
   await page.getByRole("button", { name: `Remove ${b}` }).click();
-  await expect(auto).toHaveCount(0);
+  const confirm = page.getByRole("dialog");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(row(b)).toHaveCount(1);
+  await page.getByRole("button", { name: `Remove ${b}` }).click();
+  await confirm.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(row(b)).toHaveCount(0);
   await expect.poll(saved).toEqual([{ ...roots(a)[0], projectDepth: 2 }]);
-
-  // Depths are set when adding; the row then shows them.
-  await page.getByRole("textbox", { name: "Folder path" }).fill(b);
-  await page.getByRole("combobox", { name: "Files depth", exact: true }).selectOption("1");
-  await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(auto).toBeChecked();
-  await expect(page.getByRole("combobox", { name: `Files depth for ${b}` })).toHaveValue("1");
-  expect((await saved())[1]).toEqual({ ...roots(b)[0], filesDepth: 1 });
 });
 
 test("a changed file slices again; a new slot raises an alert that opens the print setup", async ({

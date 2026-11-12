@@ -356,7 +356,7 @@
     "moveTitle": "Move {{name}}",
     "moveHint": "Pick the folder to move it into.",
     "deleteTitle": "Delete {{name}}?",
-    "deleteHint": "It moves to the trash folder of the project root. Empty it in Settings > Projects.",
+    "deleteHint": "It moves to the trash folder in its project folder. Empty it in Settings > Projects.",
     "replaceTitle": "Replace existing file?",
     "replaceHint": "{{name}} already exists. Uploading replaces it.",
     "replaceAction": "Replace",

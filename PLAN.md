@@ -2726,7 +2726,7 @@ Plan Step 14 of the 5.5.0 plan in PLAN.md.
 Plan Step 15 of the 5.5.0 plan in PLAN.md. Use frontend-design for the page.
 ```
 
-### [ ] Step 16 - Project folders table and wording
+### [x] Step 16 - Project folders table and wording
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Replace the row list and add form in `ProjectRoots.tsx` with a `DataTable`: Folder (link to edit, device, state), Projects (count from `useProjectFolders` in `lib/projects.ts`, grouped by `rootId`), Layout in plain words, Auto slice, Who can edit, Remove.

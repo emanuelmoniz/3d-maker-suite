@@ -16,7 +16,6 @@ import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
-import { ChangeProjectsRoot } from "./ChangeProjectsRoot.tsx";
 import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
 import { ProjectRoots } from "./ProjectRoots.tsx";
 
@@ -174,7 +173,6 @@ export function ProjectsConfigPage() {
         <>
           <Section title={t("settings:projects.roots")} wide help="docs/projects.md">
             <ProjectRoots />
-            <ChangeProjectsRoot />
           </Section>
           <Section title={t("settings:projects.scanning")}>
             <FormField

@@ -137,13 +137,13 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   renameSync(join(from, "One"), join(to, "One"));
 
   await page.goto("/projects/settings");
-  await page.getByRole("button", { name: "Bulk change projects root" }).click();
-  const dialog = page.getByRole("dialog", { name: "Bulk change projects root" });
+  await page.getByRole("button", { name: "Change project folder…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Change project folder", exact: true });
   const row = (name: string) => dialog.getByRole("row").filter({ hasText: name });
   await expect(row("001-One")).toContainText("Missing");
 
   // Only the old root's projects, selected from the keyboard.
-  const head = dialog.getByRole("columnheader").filter({ hasText: "Root" });
+  const head = dialog.getByRole("columnheader").filter({ hasText: "Project folder" });
   await head.getByRole("button", { name: /^Filter by/ }).click();
   await head.getByLabel(from).check();
   await head.getByRole("button", { name: "Apply" }).click();
@@ -154,14 +154,14 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   await expect(all).toBeChecked();
   await expect(dialog.getByText("2 selected")).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Change root…" }).click();
-  const form = page.getByRole("dialog", { name: "Change root of 2 projects" });
+  await dialog.getByRole("button", { name: "Change folder…" }).click();
+  const form = page.getByRole("dialog", { name: "Change folder of 2 projects" });
   // Nothing to change it to yet: the browser asks for a root.
-  await form.getByRole("button", { name: "Change root", exact: true }).click();
+  await form.getByRole("button", { name: "Change folder", exact: true }).click();
   await expect(form).toBeVisible();
-  await pick(form.getByRole("combobox", { name: "New root" }), to);
+  await pick(form.getByRole("combobox", { name: "New project folder" }), to);
   await expect(form.getByText(`to ${to}?`)).toBeVisible();
-  await form.getByRole("button", { name: "Change root", exact: true }).click();
+  await form.getByRole("button", { name: "Change folder", exact: true }).click();
   await expect(form).toBeHidden();
 
   const summary = dialog.getByRole("status").filter({ hasText: "skipped" });
@@ -194,10 +194,7 @@ test("change projects' root: moves the selection, reports a conflict, touches no
   await expect(dialog).toHaveCount(0);
 });
 
-test("bulk change projects root: Move files takes the files to the new root", async ({
-  page,
-  app,
-}) => {
+test("change project folder: Move files takes the files to the new root", async ({ page, app }) => {
   const from = join(app.dataDir, "old");
   const to = join(app.dataDir, "new");
   mkdirSync(join(from, "sub", "Part"), { recursive: true });
@@ -207,15 +204,15 @@ test("bulk change projects root: Move files takes the files to the new root", as
   await app.api("POST", "/api/projects", { name: "Part", folderPath: join(from, "sub", "Part") });
 
   await page.goto("/projects/settings");
-  await page.getByRole("button", { name: "Bulk change projects root" }).click();
-  const dialog = page.getByRole("dialog", { name: "Bulk change projects root" });
+  await page.getByRole("button", { name: "Change project folder…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Change project folder", exact: true });
   await dialog.getByRole("checkbox", { name: "Select 001-Part" }).check();
-  await dialog.getByRole("button", { name: "Change root…" }).click();
-  const form = page.getByRole("dialog", { name: "Change root of 1 project" });
-  await pick(form.getByRole("combobox", { name: "New root" }), to);
+  await dialog.getByRole("button", { name: "Change folder…" }).click();
+  const form = page.getByRole("dialog", { name: "Change folder of 1 project" });
+  await pick(form.getByRole("combobox", { name: "New project folder" }), to);
   await form.getByRole("checkbox", { name: "Move files" }).check();
   await expect(form.getByText("and move its files there?")).toBeVisible();
-  await form.getByRole("button", { name: "Change root", exact: true }).click();
+  await form.getByRole("button", { name: "Change folder", exact: true }).click();
 
   await expect(dialog.getByRole("status").filter({ hasText: "changed" })).toContainText(
     "1 project changed.",
