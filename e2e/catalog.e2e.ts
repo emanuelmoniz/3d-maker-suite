@@ -26,7 +26,15 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
     nozzleDiameterMm: 0.4,
   });
   // The library is the hub's: without it, its address falls back to Catalog settings.
-  await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
+  // The hub needs user accounts, so an admin comes first (else the patch is a 409).
+  await page.goto("/");
+  await post(page, "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  const hub = await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
+  expect(hub.ok(), `hub on ${hub.status()}`).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/printers/settings#process-presets");
   await expect(page).toHaveURL(/\/catalog\/printers#process-presets$/);
