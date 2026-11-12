@@ -2,6 +2,34 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.5.0-alpha.2] - 2026-11-12
+
+Pre-release, second of 5.5.0. Lists everything since 5.5.0-alpha.1. Back up before updating. Migrations 0112 to 0118 add the Receive and Share projects switches, the machine's Use as slicer and catalog switches and the hub's slicer per slicer type, make a slicer's catalog and system preset lines Automatic, merge `presets` into the `catalog` permission (everyone keeps the higher of the two), and add the server's catalog and preset receive columns.
+
+### Added
+- **One hub's slicer per slicer type**: **Server's slicer** on a slicer's card lists this server's installs and every machine's install; pick one with **Make it the hub's slicer** (another version asks first) or move it with **Change slicer machine**. A machine as the hub's slicer slices without a zip, and its jobs wait while it is offline ([docs/hub.md](docs/hub.md#catalog-source))
+- **Machine page on the hub** with `machine.*` switches; the connector opens it, and its own local page is slim: the machine, user and hub, sync folder, held deletes, Restart, Stop and Unpair
+- **Sources tab holds every source's and receiver's lines**: source cards start closed and remember the ones you open; **Share to server** and **Receive from server** for the server's slicer, and Receive lines say only their state, with details in their ⋯
+- **Receive and Share projects** switches per machine
+- **This server receives the hub's catalog and user presets**, and a machine receives System and User presets, each alone or both
+
+### Changed
+- **One Catalog module**: `presets` merged into `catalog` (rights, tabs, pages). A preset's page lives under /catalog; the Printers and Filament tabs hold the preset tables
+- A slicer's catalog and system presets follow its files on their own (Automatic); a slicer update imports without a click
+- A slicer install's **Enabled** only decides whether it can be the hub's slicer; installs show no status line; the slicer machine is changed from a dialog
+- Alerts have a short title, with the rest inside the alert
+- Integrations: one link style, Sources buttons, a devices table; no Allow or slicer switches on the cards
+
+### Fixed
+- The hub's slicer receives user presets too; Share to the hub lists one table per machine slicer and shares only the hub's slicer
+- A zip's presets go by their kind
+- Every Sources table lines up its columns
+- The server's installed slicer is named "This server"
+
+### Tested
+- Automatic: unit and integration tests (1217), Playwright e2e (218), lint and the translation check pass, and migrations 0112 to 0118 apply to a copy of an existing database without losing rows.
+- Not tested by hand: upgrading a real 5.4.0 database with data; the two-machine scenarios (Use as slicer, changing the hub's slicer, an offline machine, preset Receive and Share, Restart and Stop from the hub, a user with one machine switch); the catalog update after upgrading; Sources cards remembering which are open; two Bambu Cloud accounts with their own photo and Sources.
+
 ## [5.5.0-alpha.1] - 2026-11-11
 
 Pre-release, first of 5.5.0. Lists everything since 5.4.0. Back up before updating. Migration 0110 renames the profile tables to presets and 0111 adds the `presets` permission, copying each role's and user's `catalog` level.

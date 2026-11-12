@@ -2677,7 +2677,7 @@ Plan Step 11i of the 5.5.0 plan in PLAN.md.
 Plan Step 12 of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Real test, docs, push & v5.5.0-alpha.2
+### [x] Step 13 - Real test, docs, push & v5.5.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.4.0 database to the alpha: presets keep their rows and slices; policies, device switches and shared folders keep their values.
