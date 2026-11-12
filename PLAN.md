@@ -2757,7 +2757,7 @@ Plan Step 17 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.
 
 ## Phase 36 - Release
 
-### [ ] Step 18 - Real test, docs, push & v5.5.0-alpha.3
+### [x] Step 18 - Real test, docs, push & v5.5.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Upgrade a copy of a real 5.5.0-alpha.2 database: project folders, picks and shared folders keep their projects and files.

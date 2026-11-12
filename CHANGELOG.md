@@ -2,6 +2,28 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.5.0-alpha.3] - 2026-11-12
+
+Pre-release, third of 5.5.0. Lists everything since 5.5.0-alpha.2. Back up before updating. Migration 0119 adds the machines' shared folders, 0120 replaces each machine's sync mode and selected projects with picks, and 0121 gives a pick a level for the machine's user.
+
+### Added
+- **Shared folders on the hub**: a machine's shared folders are set on **Projects settings → Sources → Share to server**, one card per machine, one line per folder (switch to pause it, ⋯ Remove, the project folders inside) and **Add folder**, which browses the machine's whole disk. The connector keeps the list once, then the hub's list wins ([docs/hub.md](docs/hub.md))
+- **Picks**: a machine receives only its picks, each a project folder or a folder inside one, at **Read** or **Edit**, with a switch to pause it. They are set on **Projects settings → Sources → Receive from server**; **Open on a machine** adds a pick for the project. Read syncs the files read-only on the machine, and the user's own rights still cap every pick ([docs/hub.md](docs/hub.md))
+- **Project folder page**: a folder's own page to add and edit it, with the source, the layout in plain words, the files levels, auto slice and who can edit, and an example tree that shows what is found
+
+### Changed
+- **Projects settings lists the project folders in a table** with the folder name, the machine, the project count and Remove, which now asks first
+- "Root" is now **project folder**, and a project's own path is its **subfolder**
+- **New machines receive** replaces the default sync mode: every hub project folder, or nothing until you pick. The machine's sync mode select and its selected projects are gone; an existing `all` machine gets a pick per hub project folder, and `selected` one pick per selected project
+- A new project folder on a machine must be inside one of its active shared folders
+
+### Fixed
+- The folder column shows the base name on Windows paths
+
+### Tested
+- Automatic: unit and integration tests (1227), Playwright e2e (221), lint, the translation check and the version check pass. Migrations 0119 to 0121 apply to a copy of a real alpha.2 database with no row lost (139 projects, 617 prints, 36 spools; foreign keys clean). The server's tests cover picks at Read and Edit, a user who can't see a project, a subfolder pick, a paused pick and folder, and the connector's tests its entry page for a paired, an unpaired and an unreachable hub.
+- Not tested by hand: the real VPS with two workstations (sharing a folder from one and adding it as a project folder, picking `root1` and `root2/project2` for the other with a user at Read and one at Edit); the connector's real icon or launcher on a paired and an unpaired machine, and with the hub stopped; upgrading a copy that has machines in `all` mode with real data (the copy had one machine in `selected` mode and no selected projects, so it got no picks; `all` is covered by the migration's own test).
+
 ## [5.5.0-alpha.2] - 2026-11-12
 
 Pre-release, second of 5.5.0. Lists everything since 5.5.0-alpha.1. Back up before updating. Migrations 0112 to 0118 add the Receive and Share projects switches, the machine's Use as slicer and catalog switches and the hub's slicer per slicer type, make a slicer's catalog and system preset lines Automatic, merge `presets` into the `catalog` permission (everyone keeps the higher of the two), and add the server's catalog and preset receive columns.
