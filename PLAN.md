@@ -2771,7 +2771,7 @@ Plan Step 17 of the 5.5.0 plan in PLAN.md. Back up the DB before editing schema.
 Do Step 18 of the 5.5.0 plan in PLAN.md. Guide me through each scenario and fix what we find. Then push dev, push the tag and confirm the pre-release.
 ```
 
-### [ ] Step 19 - Docs, push & v5.5.0 release
+### [x] Step 19 - Docs, push & v5.5.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Check the docs against what shipped, `pnpm screenshots` (Catalog, Integrations, Hub and settings pages changed; the Presets page is gone; update `scripts/screenshots.shot.ts`), CHANGELOG (everything since 5.4.0), version `5.5.0`, `pnpm version:check`.

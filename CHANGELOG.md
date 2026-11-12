@@ -2,6 +2,16 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.5.0] - 2026-11-12
+
+Stable release of 5.5.0. Lists what changed since 5.5.0-alpha.4; the earlier pre-releases' entries above cover the rest. Back up before updating. Migrations 0119 to 0121 (alpha.3) and 0112 to 0118 (alpha.2) apply as described there. No new migration.
+
+### Changed
+- The server's Fastify is 5.12.5 or newer, and its request logging uses `LogController`, which removes a deprecation warning in tests and CI. No change for users
+
+### Tested
+- Automatic: unit and integration tests (1228), Playwright e2e (221), lint, the translation check and the version check pass. No new feature since alpha.4, so the pages and screenshots are as in alpha.4
+
 ## [5.5.0-alpha.4] - 2026-11-12
 
 Pre-release, fourth of 5.5.0. Lists everything since 5.5.0-alpha.3. No migration.
