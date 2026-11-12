@@ -469,17 +469,13 @@ function Projects({ device: d }: { device: Device }) {
                 {t("hub:machine.pickCount", { count: d.picks.length })}
               </span>
             )}
+            {d.receiveProjects && d.sync && <SyncLine sync={d.sync} />}
           </div>
           {/* Its picks are set on the Sources tab; its card opens from the hash. */}
           <Link to="/projects/settings/sources" hash={`receive-${d.id}`} className={textLink}>
             {t("hub:machine.projectsSettings")}
           </Link>
         </div>
-        {d.receiveProjects && d.sync && (
-          <div className="sm:max-w-md">
-            <SyncLine sync={d.sync} />
-          </div>
-        )}
       </div>
       <div className="grid gap-1">
         <div className={line}>
@@ -497,15 +493,20 @@ function Projects({ device: d }: { device: Device }) {
                 {t("hub:machine.folderCount", { count: d.sharedFolders?.length ?? 0 })}
               </span>
             )}
+            {/* ponytail: shared folders have no sync report of their own; online with its list
+                reported reads as up to date. A real state needs the connector to report its scans. */}
+            {d.shareProjects && d.online && d.sharedFolders && (
+              <span className="text-muted">{t("hub:machine.upToDate")}</span>
+            )}
           </div>
           {/* Its card on the Sources tab opens from the hash. */}
           <Link to="/projects/settings/sources" hash={`machine-${d.id}`} className={textLink}>
             {t("hub:machine.projectsSettings")}
           </Link>
         </div>
-        <p className="text-muted">{t("hub:machine.foldersHint")}</p>
       </div>
       <Alert error={projects.error} />
+      <SyncSources types={["projects"]} hash={`machine-${d.id}`} />
       <ConfirmDialog
         open={confirm}
         title={t("hub:machine.stopReceivingTitle", { name: d.name })}
@@ -647,6 +648,7 @@ export function MachinePage() {
       {device && (
         <div className="grid gap-4">
           {!device.online && <p className="text-muted">{t("hub:machine.offline")}</p>}
+          <Actions device={device} />
           <LocalPage device={device} />
           <Identity key={device.name} device={device} manage={manage} />
           <Software device={device} manage={manage} />
@@ -656,7 +658,6 @@ export function MachinePage() {
           />
           <Slicers device={device} />
           <Projects device={device} />
-          <Actions device={device} />
         </div>
       )}
     </>

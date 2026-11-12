@@ -31,11 +31,11 @@ The hub stores only a hash of the device token. On a device's page you can **Ren
 
 Each device in **Hub management** opens its machine page. It has every setting of that machine:
 
+- **Actions**, at the top: **Restart connector**, **Stop connector** and **Revoke**.
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the local page port and start at login, read live from the connector.
 - **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)); and the default slicer (the one **Open** uses, or **Ask each time**). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
-- **Projects**: **Receive from server** (with its number of picks, below) and **Share to server** (its shared folders, below).
-- **Actions**: **Restart connector**, **Stop connector** and **Revoke**.
+- **Projects**: **Receive from server** (with its number of picks and its sync state, such as *Up to date · 120 files*, below) and **Share to server** (its number of shared folders, and *Up to date* while it is online, below). **Sync sources configurations** opens Projects settings → Sources, where both are set up.
 
 Opened in a browser on that machine, the page also links to the connector's [local page](#install-the-connector).
 

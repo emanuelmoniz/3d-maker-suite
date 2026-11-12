@@ -32,11 +32,11 @@ export function SourcesSection({
 }
 
 // The Sources tabs a source's data types are set up on, in menu order.
-const SOURCE_MODULES = ["printers", "prints", "filament", "catalog"] as const;
+const SOURCE_MODULES = ["printers", "prints", "projects", "filament", "catalog"] as const;
 const moduleOf = (type: string): SettingsModule | undefined =>
   type === "spools"
     ? "filament"
-    : type === "printers" || type === "prints"
+    : type === "printers" || type === "prints" || type === "projects"
       ? type
       : isCatalogType(type)
         ? "catalog"
@@ -52,6 +52,7 @@ export function SyncSources({ types, hash }: { types: readonly string[]; hash?: 
   const may: Record<(typeof SOURCE_MODULES)[number], boolean> = {
     printers: useSettingsAccess("printers").sources,
     prints: useSettingsAccess("prints").sources,
+    projects: useSettingsAccess("projects").sources,
     filament: useSettingsAccess("filament").sources,
     catalog: useSettingsAccess("catalog").sources,
   };
