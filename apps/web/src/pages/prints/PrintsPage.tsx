@@ -17,7 +17,6 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { textLink } from "../../lib/cx.ts";
@@ -26,7 +25,7 @@ import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { printName, useFilamentReview, usePrints } from "../../lib/prints.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
-import { useTags, useTagsOf } from "../../lib/tags.ts";
+import { useTagColumn } from "../../lib/tags.ts";
 import { Duration } from "./Duration.tsx";
 
 const OUTCOMES = {
@@ -56,8 +55,7 @@ export function PrintsTable({
 }) {
   const { t } = useTranslation();
   const money = useMoney();
-  const tagsOf = useTagsOf("print");
-  const tags = useTags().data ?? [];
+  const tagColumn = useTagColumn<PrintDetail>("print");
   const printers = usePrinters({ archived: "all" }).data?.items ?? [];
   const projects = useProjects().data?.items ?? [];
   const grams = (p: { usages: { grams: number }[] }) => p.usages.reduce((n, u) => n + u.grams, 0);
@@ -153,13 +151,7 @@ export function PrintsTable({
           filter: "outcome",
           filterOptions: PRINT_OUTCOMES.map((o) => ({ value: o, label: t(OUTCOMES[o]) })),
         },
-        {
-          id: "tags",
-          header: t("tags:column"),
-          cell: (p) => <TagList tags={tagsOf(p.id)} />,
-          filter: "tagId",
-          filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
-        },
+        ...tagColumn,
         {
           id: "duration",
           header: t("prints:list.columns.duration"),

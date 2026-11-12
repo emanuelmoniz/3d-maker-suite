@@ -12,7 +12,6 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
@@ -21,7 +20,7 @@ import { formatDuration, formatNumber } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
-import { useTags, useTagsOf } from "../../lib/tags.ts";
+import { useTagColumn } from "../../lib/tags.ts";
 import { addClass } from "./Catalog.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
 
@@ -32,8 +31,7 @@ export function PrintersPage() {
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useListPage<PrinterRow>(["printers", "list"], "/api/printers", query);
   const hasArchived = useHasArchived(["printers", "list"], "/api/printers");
-  const tagsOf = useTagsOf("printer");
-  const tags = useTags().data ?? [];
+  const tagColumn = useTagColumn<PrinterRow>("printer");
   const models = useModelInfo();
 
   const add = (
@@ -111,13 +109,7 @@ export function PrintersPage() {
                 filter: "state",
                 filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
               },
-              {
-                id: "tags",
-                header: t("tags:column"),
-                cell: (p) => <TagList tags={tagsOf(p.id)} />,
-                filter: "tagId",
-                filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
-              },
+              ...tagColumn,
               {
                 id: "prints",
                 header: t("printers:detail.stats.prints"),
@@ -184,8 +176,7 @@ function AccessoriesTable() {
   const hasArchived = useHasArchived(["accessories", "list"], "/api/accessories");
   const printers = usePrinters({ archived: "all" }).data?.items ?? [];
   const printerOf = new Map(printers.map((p) => [p.id, p]));
-  const tagsOf = useTagsOf("accessory");
-  const tags = useTags().data ?? [];
+  const tagColumn = useTagColumn<Accessory>("accessory");
 
   return (
     <section className="mt-8">
@@ -240,13 +231,7 @@ function AccessoriesTable() {
                 filter: "state",
                 filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
               },
-              {
-                id: "tags",
-                header: t("tags:column"),
-                cell: (a) => <TagList tags={tagsOf(a.id)} />,
-                filter: "tagId",
-                filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
-              },
+              ...tagColumn,
               {
                 id: "printer",
                 header: t("printers:accessories.columns.printer"),

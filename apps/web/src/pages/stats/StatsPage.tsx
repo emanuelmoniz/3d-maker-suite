@@ -16,7 +16,7 @@ import { formatDuration, formatEnergy, formatNumber, formatWeight } from "../../
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { projectName, useProjects } from "../../lib/projects.ts";
 import { type StatsFilters, statsQs, useStats } from "../../lib/stats.ts";
-import { useTags } from "../../lib/tags.ts";
+import { useTags, useTagsEnabled } from "../../lib/tags.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const PRESETS = {
@@ -110,7 +110,9 @@ export function StatsPage() {
   const [filamentQuery, setFilamentQuery] = useState<ListQuery>({ pageSize: "10" });
   const [metric, setMetric] = useState<keyof typeof METRICS>("prints");
   const set = (patch: Partial<StatsFilters>) => setF((cur) => ({ ...cur, ...patch }));
-  const { data, isError } = useStats(f);
+  const tagsOn = useTagsEnabled();
+  // A tag picked before tags were switched off must not keep filtering.
+  const { data, isError } = useStats(tagsOn ? f : { ...f, tagId: "" });
 
   const printers = usePrinters({ archived: false }).data?.items ?? [];
   const spools = useSpools().data?.items ?? [];

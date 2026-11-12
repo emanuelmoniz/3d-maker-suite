@@ -22,7 +22,6 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
-import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { cx, textLink } from "../../lib/cx.ts";
 import { formatDate } from "../../lib/format.ts";
@@ -33,7 +32,7 @@ import {
   useProjectMaterials,
   useScan,
 } from "../../lib/projects.ts";
-import { useCollections, useTags, useTagsOf } from "../../lib/tags.ts";
+import { useCollections, useTagColumn } from "../../lib/tags.ts";
 
 type View = "grid" | "list";
 const VIEW_KEY = "projects.view";
@@ -134,8 +133,7 @@ export function ProjectsTable({
 }) {
   const { t } = useTranslation();
   const materials = useProjectMaterials().data ?? [];
-  const tags = useTags().data ?? [];
-  const tagsOf = useTagsOf("project");
+  const tagColumn = useTagColumn<ProjectListItem>("project");
   return (
     <DataTable
       label={t("projects:list.table")}
@@ -229,13 +227,7 @@ export function ProjectsTable({
           sort: "lastPrintAt",
           filter: "lastPrintAt",
         },
-        {
-          id: "tags",
-          header: t("tags:column"),
-          cell: (p) => <TagList tags={tagsOf(p.id)} />,
-          filter: "tagId",
-          filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
-        },
+        ...tagColumn,
         {
           id: "files",
           header: t("projects:list.columns.files"),

@@ -8,7 +8,6 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
-import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCatalogWithArchived } from "../../lib/catalog.ts";
 import { textLink } from "../../lib/cx.ts";
@@ -16,7 +15,7 @@ import { spoolName } from "../../lib/filament.ts";
 import { formatCurrency, formatWeight } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { useTags, useTagsOf } from "../../lib/tags.ts";
+import { useTagColumn } from "../../lib/tags.ts";
 
 export const STATUS = {
   new: "filament:spools.statuses.new",
@@ -60,8 +59,7 @@ export function FilamentPage() {
   );
   // Archived ones too: a spool keeps the material it has.
   const materials = useCatalogWithArchived("filament-materials").data;
-  const tagsOf = useTagsOf("spool");
-  const tags = useTags().data ?? [];
+  const tagColumn = useTagColumn<Spool>("spool");
   const spoolPrice = (s: Spool) => {
     const perKg = spoolPricePerKg(
       s,
@@ -152,13 +150,7 @@ export function FilamentPage() {
                     filter: "status",
                     filterOptions: SPOOL_STATUSES.map((v) => ({ value: v, label: t(STATUS[v]) })),
                   },
-                  {
-                    id: "tags",
-                    header: t("tags:column"),
-                    cell: (s) => <TagList tags={tagsOf(s.id)} />,
-                    filter: "tagId",
-                    filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
-                  },
+                  ...tagColumn,
                   {
                     id: "price",
                     header: t("filament:spools.priceColumn"),

@@ -1,4 +1,5 @@
 import type { Tag } from "@3d-maker-suite/core";
+import { useTagsEnabled } from "../lib/tags.ts";
 
 export function TagChip({ tag }: { tag: Tag }) {
   return (
@@ -13,10 +14,13 @@ export function TagChip({ tag }: { tag: Tag }) {
   );
 }
 
-export const TagList = ({ tags }: { tags: Tag[] }) => (
-  <span className="flex flex-wrap gap-1">
-    {tags.map((t) => (
-      <TagChip key={t.id} tag={t} />
-    ))}
-  </span>
-);
+export function TagList({ tags }: { tags: Tag[] }) {
+  if (!useTagsEnabled()) return null;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {tags.map((t) => (
+        <TagChip key={t.id} tag={t} />
+      ))}
+    </span>
+  );
+}

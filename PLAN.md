@@ -2838,7 +2838,7 @@ Do Step 1 of the 5.6.0 plan in PLAN.md.
 Do Step 2 of the 5.6.0 plan in PLAN.md. Use frontend-design for the overlay.
 ```
 
-### [ ] Step 3 - Tags setting
+### [x] Step 3 - Tags setting
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Add `tagsEnabled` to `schemas/preferences.ts`, default `true`, following `hubEnabled`. Add it to the keys in `lib/auth.ts`, in the same permission group as the General section's other preferences, and update the defaults in `app.test.ts`.

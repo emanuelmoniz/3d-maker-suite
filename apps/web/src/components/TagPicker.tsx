@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCreateTag, useTags } from "../lib/tags.ts";
+import { useCreateTag, useTags, useTagsEnabled } from "../lib/tags.ts";
 import { Button } from "./Button.tsx";
 import { inputClass } from "./FormField.tsx";
 
@@ -21,6 +21,7 @@ export function TagPicker({
   const create = useCreateTag();
   const [name, setName] = useState("");
   const [color, setColor] = useState("#3b82f6");
+  const on = useTagsEnabled();
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
 
@@ -44,6 +45,7 @@ export function TagPicker({
     );
   };
 
+  if (!on) return null;
   return (
     <fieldset className="grid gap-2">
       <legend className="mb-1.5 font-medium">{t("tags:picker.label")}</legend>

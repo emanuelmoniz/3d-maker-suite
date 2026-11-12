@@ -6,6 +6,7 @@ import { Combobox } from "../components/Combobox.tsx";
 import { FormField } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { Section } from "../components/Section.tsx";
+import { Switch } from "../components/Switch.tsx";
 import { api } from "../lib/api.ts";
 import { useCan, useMe } from "../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
@@ -138,6 +139,20 @@ export function SettingsPage() {
               />
             )}
           </FormField>
+          {can.server && (
+            <div>
+              <Switch
+                label={t("settings:general.tags")}
+                aria-describedby="tags-enabled-hint"
+                checked={v.tagsEnabled}
+                disabled={save.isPending}
+                onChange={(e) => commit({ tagsEnabled: e.target.checked })}
+              />
+              <p id="tags-enabled-hint" className="text-muted">
+                {t("settings:general.tagsHint")}
+              </p>
+            </div>
+          )}
           <StartAtLogin />
           <div className="grid gap-1.5">
             <span className="font-medium">{t("settings:dataDir.label")}</span>

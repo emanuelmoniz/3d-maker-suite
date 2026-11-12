@@ -8,6 +8,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { TagPicker } from "../../components/TagPicker.tsx";
 import { useIsAdmin, useMe } from "../../lib/auth.ts";
 import { isConflict } from "../../lib/catalog.ts";
 import { uploadProjectFile } from "../../lib/projectFiles.ts";
@@ -18,6 +19,7 @@ import {
   useProject,
 } from "../../lib/projects.ts";
 import { useRoots } from "../../lib/roots.ts";
+import { useTagEditor } from "../../lib/tags.ts";
 import { useUsers } from "../../lib/users.ts";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
@@ -55,6 +57,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
   const patch = usePatchProject(project?.id ?? "");
   const save = project ? patch : create;
   const setup = useSlicingDraft(project?.id ?? "");
+  const tags = useTagEditor("project", project?.id);
   const [setupFailed, setSetupFailed] = useState(false);
   // Deep link from the project page: the form mounts after its data loads, too late for the browser's jump.
   useEffect(() => {
@@ -158,20 +161,30 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
       } catch {
         return setSetupFailed(true);
       }
-      patch.mutate(changed, done);
+      // mutateAsync: the save refetches the row and remounts this form, which drops mutate callbacks.
+      patch
+        .mutateAsync(changed)
+        .then(async () => {
+          await tags.persist(project.id);
+          done.onSuccess();
+        })
+        .catch(() => {}); // errors show via save.error
     } else {
       // Blank means "let the scan decide": only what was typed is sent, so it is not "edited".
       const typed = Object.fromEntries(Object.entries(fields).filter(([, v]) => v));
       const folderPath = text(f, "folderPath") || undefined;
-      create.mutate(
-        {
+      create
+        .mutateAsync({
           ...typed,
           name: fields.name,
           folderPath,
           ...(!folderPath && createIn ? { createFolder: true, rootId: createIn } : {}),
-        },
-        created,
-      );
+        })
+        .then(async (p) => {
+          await tags.persist(p.id);
+          created.onSuccess(p);
+        })
+        .catch(() => {});
     }
   };
 
@@ -269,6 +282,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
             )}
           </FormField>
         )}
+        <TagPicker value={tags.value} onChange={tags.onChange} />
       </Section>
       {project && (
         <Section title={t("projects:folder.title")} edit>

@@ -76,6 +76,8 @@ const shape = {
   /** An order's statuses, in order; a new order starts at the first. */
   orderStatuses: z.array(z.string().min(1)).min(1),
   dashboardLayout: z.array(dashboardWidgetSchema),
+  /** Off only hides tags in the UI: data, API, backups and exports stay. */
+  tagsEnabled: z.boolean(),
   /** Hub features (ADR-0014): devices, device roots and sync. Needs user accounts. */
   hubEnabled: z.boolean(),
   /** A device that deletes more files than this from one hub root at once pauses and asks. */
@@ -153,6 +155,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
     "Power loss",
     "Other",
   ],
+  tagsEnabled: true,
   hubEnabled: false,
   hubDeleteGuard: 20,
   hubLocks: "off",

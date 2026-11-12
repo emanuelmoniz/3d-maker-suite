@@ -12,7 +12,7 @@ import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrints } from "../../lib/prints.ts";
-import { useTagsOf } from "../../lib/tags.ts";
+import { useTagsEnabled, useTagsOf } from "../../lib/tags.ts";
 import { PrintsTable } from "../prints/PrintsPage.tsx";
 import { ProjectsTable } from "../projects/ProjectsPage.tsx";
 import { AdjustDialog } from "./AdjustDialog.tsx";
@@ -86,6 +86,7 @@ export function SpoolDetailPage() {
   const { data: spool, isError } = useSpool(id);
   const currency = usePreferences().data?.values.currency;
   const tagsOf = useTagsOf("spool");
+  const tagsOn = useTagsEnabled();
   const [adjusting, setAdjusting] = useState(false);
 
   if (isError)
@@ -159,9 +160,11 @@ export function SpoolDetailPage() {
               ? t("filament:detail.imported", { source: t(`filament:library.sources.${library}`) })
               : t("filament:detail.manual")}
           </Info>
-          <Info label={t("tags:column")}>
-            <TagList tags={tagsOf(spool.id)} />
-          </Info>
+          {tagsOn && (
+            <Info label={t("tags:column")}>
+              <TagList tags={tagsOf(spool.id)} />
+            </Info>
+          )}
         </dl>
       </section>
       <SpoolUse spoolId={id} />

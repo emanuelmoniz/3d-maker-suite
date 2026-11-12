@@ -14,7 +14,7 @@ import { formatDateTime, formatNumber, formatWeight } from "../../lib/format.ts"
 import { orderName, useOrder } from "../../lib/orders.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
 import { printName, usePrint } from "../../lib/prints.ts";
-import { useTagsOf } from "../../lib/tags.ts";
+import { useTagsEnabled, useTagsOf } from "../../lib/tags.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
 import { Duration } from "./Duration.tsx";
 
@@ -87,6 +87,7 @@ export function PrintDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: print, isError } = usePrint(id);
   const tagsOf = useTagsOf("print");
+  const tagsOn = useTagsEnabled();
 
   if (isError)
     return (
@@ -168,9 +169,11 @@ export function PrintDetailPage() {
                 none
               )}
             </Info>
-            <Info label={t("tags:column")}>
-              <TagList tags={tagsOf(print.id)} />
-            </Info>
+            {tagsOn && (
+              <Info label={t("tags:column")}>
+                <TagList tags={tagsOf(print.id)} />
+              </Info>
+            )}
             <Info label={t("prints:form.notes")}>
               <span className="whitespace-pre-wrap">{print.notes ?? none}</span>
             </Info>

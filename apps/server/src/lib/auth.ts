@@ -241,7 +241,7 @@ const KEYS: Record<string, Need> = Object.fromEntries([
     "hubDefaultSyncMode",
     "deviceFolderMaxMb",
   ),
-  ...keys(on("settings.server"), "updateChannel"),
+  ...keys(on("settings.server"), "updateChannel", "tagsEnabled"),
   ...keys(on("settings.backup"), "backupAuto", "backupKeep"),
   ...keys(
     on("settings.logs"),

@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { ListQuery } from "../components/DataTable.tsx";
 import { api } from "./api.ts";
+import { useTagsEnabled } from "./tags.ts";
 
 /** One page of a list endpoint. `key` is the invalidation prefix, e.g. ["printers", "list"]. */
 export const useListPage = <T>(
@@ -49,10 +50,13 @@ export function useUrlListQuery(prefix = ""): [ListQuery, (q: ListQuery) => void
   const navigate = useNavigate();
   // No prefix: the page's main table, which leaves the prefixed tables' params alone.
   const mine = (k: string) => (prefix ? k.startsWith(prefix) : !k.includes("."));
+  const tagsOn = useTagsEnabled();
   const query = Object.fromEntries(
     Object.entries(search)
       .filter(([k]) => mine(k))
-      .map(([k, v]) => [k.slice(prefix.length), v]),
+      .map(([k, v]) => [k.slice(prefix.length), v])
+      // A saved tag filter does nothing while tags are off, or lists stay filtered with no reason.
+      .filter(([k]) => tagsOn || k !== "tagId"),
   );
   const setQuery = (q: ListQuery) =>
     navigate({

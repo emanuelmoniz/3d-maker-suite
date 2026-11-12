@@ -170,7 +170,9 @@
     "dateFormat": "Date format",
     "timeFormat": "Time format",
     "time24h": "24-hour (14:30)",
-    "time12h": "12-hour (2:30 PM)"
+    "time12h": "12-hour (2:30 PM)",
+    "tags": "Tags",
+    "tagsHint": "Off hides tags everywhere. Your tags are kept, and turning this back on restores them."
   },
   "branding": {
     "title": "Branding",

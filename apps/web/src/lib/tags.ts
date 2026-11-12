@@ -1,10 +1,21 @@
 import type { Collection, Tag, TaggableType, Tagging, TagInput } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { createElement, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { Column } from "../components/DataTable.tsx";
+import { TagList } from "../components/TagList.tsx";
 import { api } from "./api.ts";
+import { usePreferences } from "./preferences.ts";
+
+/** The install-wide tags switch. Off only hides tags: no requests, no columns, no pickers. */
+export const useTagsEnabled = () => usePreferences().data?.values.tagsEnabled ?? true;
 
 export const useTags = () =>
-  useQuery({ queryKey: ["tags", "list"], queryFn: () => api<Tag[]>("GET", "/api/tags") });
+  useQuery({
+    queryKey: ["tags", "list"],
+    queryFn: () => api<Tag[]>("GET", "/api/tags"),
+    enabled: useTagsEnabled(),
+  });
 
 export const useCollections = () =>
   useQuery({
@@ -16,6 +27,7 @@ export const useTaggings = (type: TaggableType) =>
   useQuery({
     queryKey: ["tags", "taggings", type],
     queryFn: () => api<Tagging[]>("GET", `/api/tags/taggings?entityType=${type}`),
+    enabled: useTagsEnabled(),
   });
 
 /** `tagsOf(entityId)` -> its tags, for list columns. */
@@ -27,6 +39,23 @@ export function useTagsOf(type: TaggableType) {
       .filter((g) => g.entityId === entityId)
       .map((g) => tags.find((t) => t.id === g.tagId))
       .filter((t): t is Tag => !!t);
+}
+
+/** The list column (and its filter) for a taggable type: zero columns when tags are off. */
+export function useTagColumn<T extends { id: string }>(type: TaggableType): Column<T>[] {
+  const t = useTranslation().t;
+  const tagsOf = useTagsOf(type);
+  const tags = useTags().data ?? [];
+  if (!useTagsEnabled()) return [];
+  return [
+    {
+      id: "tags",
+      header: t("tags:column"),
+      cell: (row) => createElement(TagList, { tags: tagsOf(row.id) }),
+      filter: "tagId",
+      filterOptions: tags.map((x) => ({ value: x.id, label: x.name })),
+    },
+  ];
 }
 
 /** Current tag ids of one row (edit forms). `undefined` until loaded. */
