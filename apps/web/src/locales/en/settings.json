@@ -36,6 +36,9 @@
     "reviewCount_other": "Review and import ({{count}})",
     "reviewPeriod": "Review and import a period…",
     "logTitle": "Sync log: {{type}} from {{source}}",
+    "receiveMenu": "More for {{type}} in {{slicer}} on {{machine}}",
+    "received": "What is received",
+    "receivedTitle": "{{type}} in {{slicer}} on {{machine}}",
     "empty": {
       "printers": "No sources",
       "printersBody": "Printers here are added by hand. To sync them from an account, allow printers on it in Integrations.",
@@ -67,8 +70,12 @@
       "failed": "Couldn't write: {{error}}",
       "waiting": "Waiting for the slicer to close",
       "writing": "Being written",
-      "received": "Received {{when}}, presets {{fingerprint}}",
-      "upToDate": "Up to date, presets {{fingerprint}}"
+      "received": "Received {{when}}",
+      "upToDate": "Up to date",
+      "versions": "Presets versions per vendor",
+      "vendor": "Vendor",
+      "hubCopy": "The hub's copy",
+      "here": "In this slicer"
     },
     "presets": {
       "shareOn": "Share {{type}} from {{slicer}} on {{machine}}",
@@ -80,7 +87,6 @@
       "held_other": "{{count}} held deletes wait for you",
       "noReport": "Waiting for the machine's first report",
       "upToDate": "Up to date",
-      "where": "Folder and backup",
       "zip": "No connector? Upload a zip",
       "outdated": "That machine's connector is too old for this. Update it from Hub management, then try again.",
       "waiting_one": "{{count}} waiting for the slicer to close",

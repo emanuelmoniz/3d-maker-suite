@@ -194,6 +194,8 @@ export type StateLine = {
   on?: { checked: boolean; label: string; disabled: boolean; set: (on: boolean) => void };
   state: ReactNode;
   tone?: "warn";
+  /** Its `⋯`: what it did, as the Share lines' (a receiver's details). */
+  menu?: ReactNode;
 };
 
 /** A block's state lines in one table, Item | On | State, in line with the schedule lines. */
@@ -233,6 +235,18 @@ export function StateLines({ label, rows }: { label: string; rows: StateLine[] }
             </span>
           ),
         },
+        ...(rows.some((r) => r.menu)
+          ? [
+              {
+                id: "actions",
+                header: t("settings:sources.columns.actions"),
+                headerCell: (
+                  <span className="sr-only">{t("settings:sources.columns.actions")}</span>
+                ),
+                cell: (r: StateLine) => <span className="flex justify-end">{r.menu}</span>,
+              },
+            ]
+          : []),
       ]}
     />
   );

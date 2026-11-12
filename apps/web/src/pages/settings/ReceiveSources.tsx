@@ -5,9 +5,15 @@ import {
   mayEditMachine,
   type PresetDevice,
 } from "@3d-maker-suite/core";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AddDialog } from "../../components/AddDialog.tsx";
+import { Button } from "../../components/Button.tsx";
+import { DataTable } from "../../components/DataTable.tsx";
+import { Menu } from "../../components/Menu.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
+import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useDeviceActions } from "../../lib/hub.ts";
 import { useAdapterName, usePatchIntegration } from "../../lib/integrations.ts";
@@ -170,11 +176,8 @@ export function useSystemLine({ lib, machine: m, integration: i }: ReceiveSlicer
     if (s.fingerprint !== s.hub) return { state: t("settings:sources.catalog.writing") };
     return {
       state: s.backup
-        ? t("settings:sources.catalog.received", {
-            when: formatDate(s.backup.at),
-            fingerprint: s.fingerprint,
-          })
-        : t("settings:sources.catalog.upToDate", { fingerprint: s.fingerprint }),
+        ? t("settings:sources.catalog.received", { when: formatDate(s.backup.at) })
+        : t("settings:sources.catalog.upToDate"),
     };
   };
   const row: StateLine = {
@@ -197,18 +200,12 @@ export function useSystemLine({ lib, machine: m, integration: i }: ReceiveSlicer
       : undefined,
     ...state(),
   };
-  const backup =
-    !hub && receive && s
-      ? s.backup
-        ? t("hub:presets.backup", { when: formatDateTime(s.backup.at), path: s.backup.path })
-        : t("hub:presets.noBackup")
-      : null;
-  return { row, backup, error: m ? device.error : patch.error };
+  return { row, status: !hub && receive ? s : null, error: m ? device.error : patch.error };
 }
 
 /**
  * One slicer of a receiver, in one table (ADR-0023): its System presets line, then its User presets
- * line (every kind) with what waits; then one Folder and backup for both.
+ * line (every kind) with what waits; each line's `⋯` tells what it received and its backup.
  */
 function ReceiveLines({
   slicer,
@@ -261,11 +258,30 @@ function ReceiveLines({
     const key = s.waiting ? "settings:sources.presets.waiting" : "settings:sources.presets.queued";
     return { state: t(key, { count: s.queued }), tone: "warn" };
   };
+  const where = receiver || t("settings:sources.server");
+  if (system.status)
+    system.row.menu = (
+      <ReceiveMenu type={t("settings:sources.catalog.item")} slicer={name} receiver={where}>
+        <SystemDetails status={system.status} />
+      </ReceiveMenu>
+    );
   const user: StateLine[] = !u
     ? []
     : [
         {
           key: "user",
+          menu: s && (
+            <ReceiveMenu type={t("settings:sources.presets.user")} slicer={name} receiver={where}>
+              <dl className="grid gap-1 text-sm">
+                <dd className="wrap-anywhere">
+                  {t("hub:presets.installFolder", { folder: s.folder })}
+                </dd>
+                <dd className="wrap-anywhere text-muted">
+                  <BackupText backup={s.backup} />
+                </dd>
+              </dl>
+            </ReceiveMenu>
+          ),
           item: t("settings:sources.presets.user"),
           // As on the machine page: no switch without the right, its state says Off or what waits.
           on: u.may
@@ -291,10 +307,7 @@ function ReceiveLines({
         <p className="text-muted">{t("settings:sources.presets.notReported", { slicer: name })}</p>
       )}
       <StateLines
-        label={t("settings:sources.presets.linesOf", {
-          slicer: name,
-          machine: receiver || t("settings:sources.server"),
-        })}
+        label={t("settings:sources.presets.linesOf", { slicer: name, machine: where })}
         rows={[system.row, ...user]}
       />
       <SwitchError error={system.error ?? u?.error ?? null} />
@@ -328,37 +341,102 @@ function ReceiveLines({
           )}
         </div>
       )}
-      {(system.backup || s) && (
-        <details className="text-sm text-muted">
-          <summary className="w-fit cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-accent">
-            {t("settings:sources.presets.where")}
-          </summary>
-          <dl className="mt-1 grid gap-1">
-            {system.backup && (
-              <div>
-                <dt className="font-medium text-fg">{t("settings:sources.catalog.item")}</dt>
-                <dd className="wrap-anywhere">{system.backup}</dd>
-              </div>
-            )}
-            {s && (
-              <div>
-                <dt className="font-medium text-fg">{t("settings:sources.presets.user")}</dt>
-                <dd className="wrap-anywhere">
-                  {t("hub:presets.installFolder", { folder: s.folder })}
-                </dd>
-                <dd className="wrap-anywhere">
-                  {s.backup
-                    ? t("hub:presets.backup", {
-                        when: formatDateTime(s.backup.at),
-                        path: s.backup.path,
-                      })
-                    : t("hub:presets.noBackup")}
-                </dd>
-              </div>
-            )}
-          </dl>
-        </details>
-      )}
     </SlicerGroup>
+  );
+}
+
+function BackupText({ backup }: { backup: { path: string; at: string } | null }) {
+  const { t } = useTranslation();
+  return backup
+    ? t("hub:presets.backup", { when: formatDateTime(backup.at), path: backup.path })
+    : t("hub:presets.noBackup");
+}
+
+/** A receive line's `⋯`, as a Share line's: What is received opens its details. */
+function ReceiveMenu({
+  type,
+  slicer,
+  receiver,
+  children,
+}: {
+  type: string;
+  slicer: string;
+  receiver: string;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const of = { type, slicer, machine: receiver };
+  return (
+    <>
+      <Menu label={t("settings:sources.receiveMenu", of)}>
+        <Button variant="ghost" className="justify-start" onClick={() => setOpen(true)}>
+          {t("settings:sources.received")}
+        </Button>
+      </Menu>
+      <AddDialog
+        open={open}
+        wide
+        title={t("settings:sources.receivedTitle", of)}
+        onClose={() => setOpen(false)}
+      >
+        {children}
+      </AddDialog>
+    </>
+  );
+}
+
+/** `Vendor=version;…` (a catalog fingerprint) → vendor → version. */
+const versions = (fingerprint: string | null) =>
+  new Map(
+    (fingerprint ?? "")
+      .split(";")
+      .filter(Boolean)
+      .map((v) => {
+        const at = v.indexOf("=");
+        return at < 0 ? [v, ""] : [v.slice(0, at), v.slice(at + 1)];
+      }),
+  );
+
+/** The hub's copy and this slicer's `system/`, per vendor, then the last backup. */
+function SystemDetails({ status: s }: { status: CatalogInstallSlicer }) {
+  const { t } = useTranslation();
+  const hub = versions(s.hub);
+  const here = versions(s.fingerprint);
+  const rows = [...new Set([...hub.keys(), ...here.keys()])]
+    .sort((a, b) => a.localeCompare(b))
+    .map((vendor) => ({ vendor, hub: hub.get(vendor), here: here.get(vendor) }));
+  return (
+    <div className="grid gap-3">
+      {rows.length > 0 && (
+        <DataTable
+          label={t("settings:sources.catalog.versions")}
+          rows={rows}
+          rowKey={(r) => r.vendor}
+          columns={[
+            {
+              id: "vendor",
+              header: t("settings:sources.catalog.vendor"),
+              cell: (r) => <span className="font-medium">{r.vendor}</span>,
+            },
+            {
+              id: "hub",
+              header: t("settings:sources.catalog.hubCopy"),
+              cell: (r) => r.hub ?? "—",
+            },
+            {
+              id: "here",
+              header: t("settings:sources.catalog.here"),
+              cell: (r) => (
+                <span className={cx(r.here !== r.hub && "text-warn")}>{r.here ?? "—"}</span>
+              ),
+            },
+          ]}
+        />
+      )}
+      <p className="wrap-anywhere text-sm text-muted">
+        <BackupText backup={s.backup} />
+      </p>
+    </div>
   );
 }

@@ -209,11 +209,15 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
     "Farm PLA",
   );
   await expect(machine.getByText("An edit from the hub stays on this PC")).toBeVisible();
-  await machine.getByText("Folder and backup").click();
+  // Its `⋯`: where it writes and the last backup.
+  await machine.getByLabel("More for User presets in OrcaSlicer on Desk PC").click();
+  await page.getByRole("button", { name: "What is received" }).click();
+  const details = page.getByRole("dialog", { name: "User presets in OrcaSlicer on Desk PC" });
   await expect(
-    machine.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
+    details.getByText("Writes to C:/Users/me/AppData/Roaming/OrcaSlicer/user/abc"),
   ).toBeVisible();
-  await expect(machine.getByText("No backup yet.")).toBeVisible();
+  await expect(details.getByText("No backup yet.")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // Viewer: sees the presets and Sources, without the switches or delete.
   await signInAs("vic@example.com");
