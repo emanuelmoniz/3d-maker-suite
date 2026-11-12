@@ -5,7 +5,6 @@ import {
   type PairingCode,
 } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -447,13 +446,8 @@ function Projects({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const may = useMay(d);
   const edit = may.edit("projects");
-  const { projects, syncMode, unselect } = useDeviceActions();
+  const { projects } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
-  const link = (
-    <Link to="/projects/settings" className={textLink}>
-      {t("hub:machine.projectsSettings")}
-    </Link>
-  );
   const line = "flex flex-wrap items-center justify-between gap-x-6 gap-y-1";
   return (
     <Section title={t("hub:machine.projects")} wide>
@@ -472,59 +466,18 @@ function Projects({ device: d }: { device: Device }) {
             />
             {d.receiveProjects && (
               <span className="text-muted">
-                {d.syncMode === "all"
-                  ? t("hub:machine.allProjects")
-                  : t("hub:machine.projectCount", { count: d.projects.length })}
+                {t("hub:machine.pickCount", { count: d.picks.length })}
               </span>
             )}
           </div>
-          {link}
+          {/* Its picks are set on the Sources tab; its card opens from the hash. */}
+          <Link to="/projects/settings/sources" hash={`receive-${d.id}`} className={textLink}>
+            {t("hub:machine.projectsSettings")}
+          </Link>
         </div>
-        {d.receiveProjects && (
-          <div className="grid gap-2 sm:max-w-md">
-            {d.sync && <SyncLine sync={d.sync} />}
-            {edit ? (
-              <div className="grid gap-1">
-                <span className="text-muted">{t("hub:devices.syncMode")}</span>
-                <Combobox
-                  aria-label={t("hub:devices.syncModeOf", { name: d.name })}
-                  value={d.syncMode}
-                  disabled={syncMode.isPending}
-                  onChange={(v) =>
-                    (v === "all" || v === "selected") && syncMode.mutate({ id: d.id, syncMode: v })
-                  }
-                  options={[
-                    { value: "all", label: t("hub:devices.syncModes.all") },
-                    { value: "selected", label: t("hub:devices.syncModes.selected") },
-                  ]}
-                />
-              </div>
-            ) : null}
-            {d.syncMode === "selected" &&
-              (d.projects.length ? (
-                <ul aria-label={t("hub:devices.projects")} className="flex flex-wrap gap-2">
-                  {d.projects.map((p) => (
-                    <li
-                      key={p.id}
-                      className="flex min-h-9 items-center gap-1 rounded-md border border-border px-2"
-                    >
-                      <span className="wrap-anywhere">{p.name}</span>
-                      {edit && (
-                        <Button
-                          variant="ghost"
-                          disabled={unselect.isPending}
-                          aria-label={t("hub:devices.unselect", { name: p.name })}
-                          onClick={() => unselect.mutate({ id: d.id, projectId: p.id })}
-                        >
-                          <X className="size-4" aria-hidden />
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted">{t("hub:devices.noProjects")}</p>
-              ))}
+        {d.receiveProjects && d.sync && (
+          <div className="sm:max-w-md">
+            <SyncLine sync={d.sync} />
           </div>
         )}
       </div>
@@ -552,7 +505,7 @@ function Projects({ device: d }: { device: Device }) {
         </div>
         <p className="text-muted">{t("hub:machine.foldersHint")}</p>
       </div>
-      <Alert error={projects.error ?? syncMode.error ?? unselect.error} />
+      <Alert error={projects.error} />
       <ConfirmDialog
         open={confirm}
         title={t("hub:machine.stopReceivingTitle", { name: d.name })}

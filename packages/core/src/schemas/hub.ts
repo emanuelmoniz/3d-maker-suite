@@ -31,9 +31,12 @@ export const deviceSyncStateSchema = z.object({
   error: z.string().max(200).nullable(),
 });
 
-/** Everything in the hub roots, or only the projects picked for it (Open on my workstation adds one). */
+/** New machines receive (`hubDefaultSyncMode`): a pick per hub root, or nothing until picked. */
 export const DEVICE_SYNC_MODES = ["all", "selected"] as const;
 export const deviceSyncModeSchema = z.enum(DEVICE_SYNC_MODES);
+/** A pick's level for one user or role (ADR-0021); the user's own rights still cap it. */
+export const PICK_LEVELS = ["read", "edit"] as const;
+export const pickLevelSchema = z.enum(PICK_LEVELS);
 /** Check-out locks (ADR-0014): `strict` also makes an offline device's hub-root files read-only. */
 export const HUB_LOCK_MODES = ["off", "on", "strict"] as const;
 export const hubLockModeSchema = z.enum(HUB_LOCK_MODES);
@@ -111,6 +114,58 @@ const devicePath = z.string().trim().min(1).max(4096);
 export const sharedFolderSchema = z.object({ path: devicePath, paused: z.boolean() });
 export type SharedFolder = z.infer<typeof sharedFolderSchema>;
 
+/** A folder inside a hub root, `/`-separated; `""` = the whole root. */
+const pickPath = z
+  .string()
+  .max(4096)
+  .refine(
+    (p) => p === "" || p.split("/").every((s) => s && s !== "." && s !== ".." && !s.includes("\\")),
+    { message: "A folder inside the root, with / between names" },
+  );
+/** One user or role on a pick's list: exactly one of the two. */
+export const pickAccessInputSchema = z
+  .object({ userId: id.optional(), roleId: id.optional(), level: pickLevelSchema })
+  .refine((a) => !a.userId !== !a.roleId, { message: "A user or a role" });
+const pickAccessList = z
+  .array(pickAccessInputSchema)
+  .min(1)
+  .max(200)
+  .refine((l) => new Set(l.map((a) => a.userId ?? `role:${a.roleId}`)).size === l.length, {
+    message: "Each user and role once",
+  });
+/** A machine receives this folder of the hub (ADR-0021), for the users and roles on its list. */
+export const pickSchema = z.object({
+  id,
+  rootId: id,
+  rootName: z.string(),
+  path: z.string(),
+  paused: z.boolean(),
+  access: z.array(
+    z.object({
+      userId: id.nullable(),
+      roleId: id.nullable(),
+      name: z.string(),
+      level: pickLevelSchema,
+    }),
+  ),
+});
+/** `POST /api/hub/devices/:id/picks`. */
+export const pickCreateSchema = z.strictObject({
+  rootId: id,
+  path: pickPath,
+  access: pickAccessList,
+});
+/** `PATCH /api/hub/devices/:id/picks/:pickId`: pause it, or replace its list. */
+export const pickUpdateSchema = z.strictObject({
+  paused: z.boolean().optional(),
+  access: pickAccessList.optional(),
+});
+export type Pick = z.infer<typeof pickSchema>;
+export type PickLevel = z.infer<typeof pickLevelSchema>;
+export type PickAccessInput = z.infer<typeof pickAccessInputSchema>;
+export type PickCreate = z.infer<typeof pickCreateSchema>;
+export type PickUpdate = z.infer<typeof pickUpdateSchema>;
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -130,9 +185,8 @@ export const deviceSchema = z.object({
   updateFailed: connectorUpdateFailureSchema.nullable(),
   /** What it reported last about its sync, and when (the hub's clock). */
   sync: deviceSyncStateSchema.extend({ reportedAt: isoDate }).nullable(),
-  syncMode: deviceSyncModeSchema,
-  /** The projects it syncs in `selected` mode. */
-  projects: z.array(z.object({ id, name: z.string() })),
+  /** The hub folders it receives (ADR-0021). */
+  picks: z.array(pickSchema),
   /** The slicers its connector found; none = it can't open files. */
   slicers: z.array(deviceSlicerSchema),
   /** A worker integration slices on it (ADR-0014): set by adding and removing those. */
@@ -157,7 +211,6 @@ const name = z.string().trim().min(1).max(100);
 export const deviceUpdateSchema = z
   .object({
     name,
-    syncMode: deviceSyncModeSchema,
     receiveProjects: z.boolean(),
     shareProjects: z.boolean(),
   })
@@ -192,7 +245,7 @@ export const openDeviceSchema = z.object({
   port: z.number().int().nullable(),
   /** No slicer: Open isn't offered there, Open folder still is. */
   slicers: z.array(deviceSlicerSchema.pick({ id: true, default: true })),
-  /** It syncs this project (everything, or selected), so Open folder can open its copy. */
+  /** A pick of it covers this project, so Open folder can open its copy. */
   synced: z.boolean(),
 });
 /**
@@ -593,11 +646,15 @@ export const hubUploadResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("conflict"), version: z.number().int(), path: z.string() }),
 ]);
 
-/** `GET /api/hub/device/sync/roots`: the hub roots to sync, the mass delete guard's threshold. */
+/**
+ * `GET /api/hub/device/sync/roots`: the hub roots, the mass delete guard's threshold. `picked`: a
+ * pick of the machine covers some of it, so its folder is made (the feed holds only picked files).
+ */
 export const hubSyncRootsSchema = z.object({
-  roots: z.array(z.object({ id, name: z.string() })),
+  roots: z.array(z.object({ id, name: z.string(), picked: z.boolean().optional() })),
   deleteGuard: z.number().int(),
-  mode: deviceSyncModeSchema,
+  /** Read by connectors older than 5.5.0 only. */
+  mode: deviceSyncModeSchema.optional(),
   locks: hubLockModeSchema,
 });
 

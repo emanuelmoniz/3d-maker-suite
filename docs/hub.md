@@ -34,7 +34,7 @@ Each device in **Hub management** opens its machine page. It has every setting o
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the local page port and start at login, read live from the connector.
 - **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)); and the default slicer (the one **Open** uses, or **Ask each time**). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
-- **Projects**: **Receive from server** (with what it syncs, below) and **Share to server** (its shared folders, below).
+- **Projects**: **Receive from server** (with its number of picks, below) and **Share to server** (its shared folders, below).
 - **Actions**: **Restart connector**, **Stop connector** and **Revoke**.
 
 Opened in a browser on that machine, the page also links to the connector's [local page](#install-the-connector).
@@ -92,17 +92,28 @@ A restarted connector downloads nothing it already has.
 
 ### Which projects a device syncs
 
-A device syncs hub projects while **Receive from server** is on, on its [machine page](#machine-page). Turning it off removes its copies of hub projects from the device; nothing is deleted on the hub. The machine page sets what it syncs: **Everything**, or **Selected projects**. With selected projects, a project joins the device through **Open**, and Hub management lists the selection with a button to stop syncing one. Stopping removes the local copy only; the hub keeps the project and nothing counts as a delete.
+A device syncs hub projects while **Receive from server** is on, on its [machine page](#machine-page), and only its **picks** ([ADR-0021](adr/0021-sources-and-data-types.md)). Turning Receive off removes its copies of hub projects from the device; nothing is deleted on the hub. The machine page shows how many picks it has and links to them.
+
+Picks are set in **Projects settings → Sources → Receive from server**: a card per machine with Receive on, one line per pick.
+
+- A pick is a project folder on this server (the whole folder) or a folder inside it, a project or a parent of several. The device mirrors it under its sync folder: `Models/…` for a whole folder, `Clients/Acme/…` for a folder inside one.
+- Each pick has a list of people and roles, each at **Read** or **Edit**. The device syncs a pick only when its user is on the list, directly or through their role. Read syncs the files read-only; Edit lets the device's saves go back to the hub. The user's own rights still cap it: projects they can't see stay off the device, and files they may only download stay read-only.
+- **Add pick** asks for the project folder, optionally a folder inside it, and the list (the machine's user at Edit to start). **Edit** changes the list. A line's switch pauses the pick; **⋯ → Remove** removes it. Either way its files leave the device, except files changed there that the hub doesn't have yet. Nothing on the hub is deleted.
+- **Open** on a project the device doesn't sync adds a pick for the project's folder, its user at Edit.
+- It takes `hub.manage` or Projects at Manage, on a machine you can see. Each change is in the log.
+- **Hub management → Settings → New machines receive**: **Every project folder** (a pick per project folder on this server, the machine's user at Edit) or **Nothing until picked** (the default).
+- Upgrading to 5.5.0 keeps what each device synced: *Everything* became a pick per project folder, *Selected projects* a pick per selected project, each with the device's user at Edit.
+- Changing a device's user doesn't change the lists: add the new user, or their role, to the picks it should keep.
 
 ### Open
 
 The project page and the model file rows have one **Open** button. It opens the file in a slicer on the computer you are sitting at:
 
 - **On the server's computer** (by `localhost`, its network address, or a name for it): the slicer from Settings > Integrations. It edits the hub folder in place, so it takes no lock. Another computer can never open the server's slicer.
-- **On a computer with the connector:** the page asks the connector on this computer which device it is, and that device opens the file, even when you have other devices paired. The hub selects the project for that device, the connector downloads it if it isn't there yet and opens the file. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
+- **On a computer with the connector:** the page asks the connector on this computer which device it is, and that device opens the file, even when you have other devices paired. The hub adds a pick for the project if the device doesn't sync it yet, the connector downloads it if it isn't there yet and opens the file. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
 - **When the page can't ask** (no connector here, Safari, or you declined the browser's local network prompt): your online devices with a slicer. One opens without asking; with several, Open asks which.
 
-**Open folder** works the same way. On the server's computer it opens the project folder there. On a computer with the connector it opens the project's copy in the sync folder, if that device syncs the project. If not, the page says so: open one of its models with **Open** (that adds the project to the device), or set the device to sync everything on its machine page. Elsewhere the button is hidden.
+**Open folder** works the same way. On the server's computer it opens the project folder there. On a computer with the connector it opens the project's copy in the sync folder, if that device syncs the project. If not, the page says so: open one of its models with **Open** (that adds a pick for the project), or add a pick in Projects settings → Sources. Elsewhere the button is hidden.
 
 The page only finds the connector when the connector was paired with the same address you use in the browser (for example both `http://3dms.lan:4300`). With another address it falls back to the list.
 

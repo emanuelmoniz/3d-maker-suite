@@ -2740,7 +2740,7 @@ Plan Step 15 of the 5.5.0 plan in PLAN.md. Use frontend-design for the page.
 Do Step 16 of the 5.5.0 plan in PLAN.md.
 ```
 
-### [ ] Step 17 - Projects to machines  **[plan mode]**
+### [x] Step 17 - Projects to machines  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Projects settings → Sources, Receive from the hub (Step 6's layout, as cards): a block per machine with Receive from the hub on, one line per **pick** (switch to pause it, Who, Edit, `⋯` Remove) and **Add pick**. A pick is a project folder or a subfolder of one (`root1`, `root2/project2`), with a users and roles list at Read or Edit. Tables `device_picks` (with `paused`) and `device_pick_access`.

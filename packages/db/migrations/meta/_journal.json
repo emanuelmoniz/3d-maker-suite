@@ -841,6 +841,13 @@
       "when": 1794484481666,
       "tag": "0119_device_shared_folders",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "6",
+      "when": 1794497099176,
+      "tag": "0120_device_picks",
+      "breakpoints": true
     }
   ]
 }

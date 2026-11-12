@@ -116,7 +116,10 @@ test("path picker: project roots are filled by browsing, keyboard included", asy
 }) => {
   const root = makeTree("pick", ["alpha", "beta"]);
   await addRoots(app.api, root);
-  await page.goto("/projects/settings");
+  // The Add folder page: Browse opens at the typed path.
+  await page.goto("/projects/settings/folders/new");
+  const path = page.getByRole("textbox", { name: "Folder path" });
+  await path.fill(root);
   await page.getByRole("button", { name: /^Browse for/ }).click();
   await expect(dialog(page).getByRole("button", { name: "alpha" })).toBeVisible();
   // Focus moves into the list, so Enter on the first entry opens it.
@@ -124,13 +127,16 @@ test("path picker: project roots are filled by browsing, keyboard included", asy
   await expect(dialog(page).getByRole("navigation", { name: "Location" })).toContainText("alpha");
   await dialog(page).getByRole("button", { name: "Select this folder" }).click();
   await expect(dialog(page)).toHaveCount(0);
-  await expect
-    .poll(async () => await savedRoots(app.api))
-    .toEqual(roots(root, join(root, "alpha")));
+  await expect(path).toHaveValue(join(root, "alpha"));
   // Escape closes without choosing.
   await page.getByRole("button", { name: /^Browse for/ }).click();
   await page.keyboard.press("Escape");
   await expect(dialog(page)).toHaveCount(0);
+  await expect(path).toHaveValue(join(root, "alpha"));
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect
+    .poll(async () => await savedRoots(app.api))
+    .toEqual(roots(root, join(root, "alpha")));
 });
 
 test("path picker: the slicer program and config folder come from the picker", async ({
@@ -422,7 +428,7 @@ test.describe("v1.2 pages fit every viewport", () => {
       expect(bad).toEqual([]);
 
       // The picker modal fits too.
-      await page.goto("/projects/settings");
+      await page.goto("/projects/settings/folders/new");
       await page
         .getByRole("button", { name: /^Browse for/ })
         .first()

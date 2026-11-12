@@ -2187,3 +2187,53 @@ describe("migration 0117", () => {
     });
   });
 });
+
+describe("migration 0120", () => {
+  it("turns sync modes into picks for the device's user at edit; devices and their events stay", () => {
+    const now = migrateAcross(119, (sqlite) =>
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values
+          ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x'),
+          ('v', 'v@x.io', 'v', 'x', '${BUILT_IN_ROLE_IDS.editor}', 'x', 'x');
+        insert into devices (id, name, user_id, token_hash, sync_mode, created_at, updated_at) values
+          ('all', 'A', 'u', 't1', 'all', 'x', 'x'),
+          ('sel', 'S', 'v', 't2', 'selected', 'x', 'x'),
+          ('none', 'N', 'v', 't3', 'selected', 'x', 'x');
+        insert into roots (id, name, location, path, position, created_at, updated_at) values
+          ('h1', 'h1', 'hub', '/h1', 0, 'x', 'x'),
+          ('h2', 'h2', 'hub', '/h2', 1, 'x', 'x'),
+          ('d', 'd', 'all', 'D:/m', 2, 'x', 'x');
+        insert into projects (id, name, root_id, folder, created_at, updated_at) values
+          ('p1', 'p1', 'h2', 'clients/acme', 'x', 'x'),
+          ('p2', 'p2', 'd', 'x', 'x', 'x');
+        insert into device_projects (device_id, project_id) values ('sel', 'p1'), ('sel', 'p2');
+        insert into hub_events (device_id, type, data, created_at) values ('all', 'roots.changed', '{}', 'x');
+      `),
+    );
+    const picks = now
+      .select({
+        device: s.devicePicks.deviceId,
+        root: s.devicePicks.rootId,
+        path: s.devicePicks.path,
+        paused: s.devicePicks.paused,
+        user: s.devicePickAccess.userId,
+        role: s.devicePickAccess.roleId,
+        level: s.devicePickAccess.level,
+      })
+      .from(s.devicePicks)
+      .innerJoin(s.devicePickAccess, eq(s.devicePickAccess.pickId, s.devicePicks.id))
+      .all()
+      .sort((a, b) => `${a.device}${a.root}`.localeCompare(`${b.device}${b.root}`));
+    const pick = (device: string, root: string, path: string, user: string) =>
+      ({ device, root, path, paused: false, user, role: null, level: "edit" }) as const;
+    expect(picks).toEqual([
+      pick("all", "h1", "", "u"),
+      pick("all", "h2", "", "u"),
+      // A device root's project isn't the hub's: no pick.
+      pick("sel", "h2", "clients/acme", "v"),
+    ]);
+    const ids = now.select({ id: s.devices.id }).from(s.devices).all();
+    expect(ids.map((d) => d.id).sort()).toEqual(["all", "none", "sel"]);
+    expect(now.select({ n: count() }).from(s.hubEvents).get()?.n).toBe(1);
+  });
+});

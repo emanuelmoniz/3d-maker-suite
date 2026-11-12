@@ -69,7 +69,8 @@ describe("hub root sync", () => {
     const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
     const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
       app.inject({ method, url, payload, headers: { cookie } });
-    // These devices sync every project; selected projects are tested in hub.test.ts.
+    // These devices receive every hub project folder (a whole-root pick each); picks are tested in
+    // the server's hubSync.test.ts.
     await send("PATCH", "/api/preferences", { hubEnabled: true, hubDefaultSyncMode: "all" });
     const dir = temp("sync-hub-root-");
     const root = (await send("POST", "/api/roots", { path: dir })).json();
@@ -143,7 +144,7 @@ describe("hub root sync", () => {
     };
   };
 
-  it("with selected projects, Open downloads the project and opens the slicer; the save syncs back", async () => {
+  it("without a pick, Open picks the project, downloads it and opens the slicer; the save syncs back", async () => {
     const h = await hub();
     await h.put("p/m.stl", "model");
     await h.put("q/n.stl", "other");
@@ -169,13 +170,16 @@ describe("hub root sync", () => {
     });
     await until(() => read(join(a.folder, "q/n.stl")) === "other");
 
-    // Selected projects only: the local copies go, and nothing goes on the hub.
-    await h.send("PATCH", `/api/hub/devices/${a.id}`, { syncMode: "selected" });
+    // Its whole-root pick removed: the local copies go, and nothing goes on the hub.
+    const [whole] = (await h.send("GET", "/api/hub/devices")).json()[0].picks;
+    await h.send("DELETE", `/api/hub/devices/${a.id}/picks/${whole.id}`);
     await until(
       () => !existsSync(join(a.folder, "p/m.stl")) && !existsSync(join(a.folder, "q/n.stl")),
     );
     expect(read(join(h.dir, "p/m.stl"))).toBe("model");
     expect(h.open("hub_mass_delete")).toEqual([]);
+    // A hub root none of its picks covers gets no folder.
+    const other = (await h.send("POST", "/api/roots", { path: temp("sync-hub-other-") })).json();
 
     const p = (await h.send("GET", "/api/projects"))
       .json()
@@ -194,6 +198,7 @@ describe("hub root sync", () => {
     expect(started).toEqual([join(a.folder, "p", "m.stl")]);
     expect(read(join(a.folder, "p/m.stl"))).toBe("model");
     expect(existsSync(join(a.folder, "q/n.stl"))).toBe(false);
+    expect(existsSync(join(a.folder, "..", other.name))).toBe(false);
 
     // Open folder opens the synced copy; a project the device doesn't sync has none.
     const folder = (id: string) =>

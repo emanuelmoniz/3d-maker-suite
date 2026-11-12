@@ -122,7 +122,6 @@ describe("changing a device's user", () => {
       id: d.deviceId,
       name: before?.name,
       tokenHash: before?.tokenHash,
-      syncMode: before?.syncMode,
       userId: d.admin.id,
     });
     expect((await d.bearer(d.token)).json().user.id).toBe(d.admin.id);
@@ -248,7 +247,7 @@ describe("hub devices", () => {
   });
 
   it("pairs with a one-time code, renames, and revoking ends access at once", async () => {
-    const { viewer, send, bearer, pair } = await setup();
+    const { db, viewer, send, bearer, pair } = await setup();
     await send("PATCH", "/api/preferences", { hubEnabled: true });
 
     const made = await send("POST", "/api/hub/pairing-codes", { userId: viewer.id });
@@ -274,7 +273,7 @@ describe("hub devices", () => {
       userName: "viewer",
       os: "win32",
       connectorVersion: "5.0.0",
-      syncMode: "selected", // the default for new devices
+      picks: [], // new machines receive nothing until picked, by default
       // Online = its event stream is open; a plain request doesn't make it so.
       online: false,
       port: null,
@@ -289,13 +288,24 @@ describe("hub devices", () => {
     expect((await send("DELETE", `/api/hub/devices/${deviceId}`)).statusCode).toBe(204);
     expect((await bearer(token)).statusCode).toBe(401);
 
-    // With the default off, a new device syncs everything.
+    // New machines receive every hub project folder: a whole-root pick each, its user at Edit.
+    const [root] = db
+      .insert(schema.roots)
+      .values({ name: "Models", location: "hub", path: "/models", position: 0 })
+      .returning()
+      .all();
     await send("PATCH", "/api/preferences", { hubDefaultSyncMode: "all" });
     await pair((await send("POST", "/api/hub/pairing-codes", { userId: viewer.id })).json().code);
-    const modes = (await send("GET", "/api/hub/devices"))
-      .json()
-      .map((d: { syncMode: string }) => d.syncMode);
-    expect(modes).toContain("all");
+    expect((await send("GET", "/api/hub/devices")).json()[0].picks).toEqual([
+      {
+        id: expect.any(String),
+        rootId: root?.id,
+        rootName: "Models",
+        path: "",
+        paused: false,
+        access: [{ userId: viewer.id, roleId: null, name: "viewer", level: "edit" }],
+      },
+    ]);
     await send("PATCH", "/api/preferences", { hubDefaultSyncMode: "selected" });
 
     // Turning the hub off stops every device too, with hub_off rather than 401 (not a revoke).
@@ -917,7 +927,7 @@ describe("hub events", () => {
   });
 
   it("Stop, the default slicer and Share reach the connector; an older one is outdated", async () => {
-    const { app, db, send, open, token, deviceId, bearer } = await live();
+    const { app, db, send, open, token, deviceId } = await live();
     const url = `/api/hub/devices/${deviceId}`;
     const s = await open();
     await s.until(": open");
@@ -970,9 +980,8 @@ describe("hub events", () => {
     expect((await share).statusCode).toBe(204);
     expect(shared()).toBe(false);
 
-    // Receive off: it syncs as selected with nothing selected.
+    // Receive off: its picks stay, the feed is empty (hubSync.test.ts).
     expect((await send("PATCH", url, { receiveProjects: false })).statusCode).toBe(204);
-    expect((await bearer(token, "/api/hub/device/sync/roots")).json().mode).toBe("selected");
     await s.cancel();
   });
 

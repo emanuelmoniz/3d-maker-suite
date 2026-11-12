@@ -36,15 +36,6 @@
       "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Confirm or restore them on the device's local page.",
       "error": "Something didn't sync: {{error}}"
     },
-    "syncMode": "Syncs",
-    "syncModeOf": "What {{name}} syncs",
-    "syncModes": {
-      "all": "Everything",
-      "selected": "Selected projects"
-    },
-    "projects": "Selected projects",
-    "unselect": "Stop syncing {{name}} on this device",
-    "noProjects": "No projects selected yet. Open on a project page adds one.",
     "columns": {
       "status": "Status",
       "user": "User",
@@ -119,8 +110,12 @@
     "lockIdle": "Release a checked-out file after this many minutes without a save",
     "lockIdleHint": "Closing the slicer (Windows and Linux) and Done editing release a file at once. This catches the rest.",
     "versions": "Keep earlier versions of files",
-    "defaultSyncMode": "Default sync for new devices",
-    "defaultSyncModeHint": "What a newly paired device syncs to start with. You can change it per device on its edit page.",
+    "defaultSyncMode": "New machines receive",
+    "defaultSyncModeHint": "What a newly paired machine receives from the server to start with. Its picks are changed in Projects settings → Sources.",
+    "newMachines": {
+      "all": "Every project folder",
+      "selected": "Nothing until picked"
+    },
     "versionsHint": "When a device's save replaces a hub file, the old content is kept. Changes made directly on the hub's own disk are not kept. Backups include the versions, so they grow.",
     "versionsKeep": "Versions to keep per file",
     "versionsKeepHint": "Lowering this deletes the older versions now.",
@@ -216,12 +211,11 @@
     "projects": "Projects",
     "receiveProjects": "Receive from server",
     "shareProjects": "Share to server",
-    "allProjects": "All hub projects",
-    "projectCount_one": "{{count}} project",
-    "projectCount_other": "{{count}} projects",
+    "pickCount_one": "{{count}} pick",
+    "pickCount_other": "{{count}} picks",
     "folderCount_one": "{{count}} folder",
     "folderCount_other": "{{count}} folders",
-    "foldersHint": "Its shared folders are picked in Projects settings → Sources.",
+    "foldersHint": "What it receives and the folders it shares are set in Projects settings → Sources.",
     "projectsSettings": "Projects settings",
     "stopReceivingTitle": "Stop receiving projects on {{name}}?",
     "stopReceivingBody": "Its copies of hub projects are removed from the machine. Nothing is deleted on the hub.",

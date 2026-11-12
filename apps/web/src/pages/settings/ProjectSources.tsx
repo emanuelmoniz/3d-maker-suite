@@ -1,25 +1,37 @@
-import { type Device, devicePathIn, mayEditMachine, type Root } from "@3d-maker-suite/core";
+import {
+  type Device,
+  devicePathIn,
+  mayEditMachine,
+  type Pick,
+  type PickLevel,
+  ROOT_HUB,
+  type Root,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { Server } from "lucide-react";
+import { Server, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { Combobox, type ComboOption } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
+import { FormDialog } from "../../components/FormDialog.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { ApiError } from "../../lib/api.ts";
-import { useMe, useRights } from "../../lib/auth.ts";
+import { useCan, useMe, useRights } from "../../lib/auth.ts";
 import { useDeviceActions, useDevices } from "../../lib/hub.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useRoots } from "../../lib/roots.ts";
+import { useRoles, useUsers } from "../../lib/users.ts";
 import { MachineBlock } from "./CatalogSources.tsx";
 import { DeviceState } from "./ReceiveSources.tsx";
 import { SourcesSection, type StateLine, StateLines } from "./Sources.tsx";
 
 /**
  * Projects settings → Sources (ADR-0021): each machine with Share to the server on, one line per
- * shared folder (its switch pauses it) and Add folder, which browses the machine's whole disk.
+ * shared folder (its switch pauses it) and Add folder, which browses the machine's whole disk; each
+ * machine with Receive from the server on, one line per pick and Add pick.
  */
 export function ProjectSources() {
   const { t } = useTranslation();
@@ -28,7 +40,8 @@ export function ProjectSources() {
   const roots = useRoots();
   if (hubOn && !devices.data) return null;
   const sharing = (devices.data ?? []).filter((d) => d.shareProjects);
-  if (!hubOn || !sharing.length)
+  const receiving = (devices.data ?? []).filter((d) => d.receiveProjects);
+  if (!hubOn || (!sharing.length && !receiving.length))
     return (
       <EmptyState
         icon={Server}
@@ -47,12 +60,316 @@ export function ProjectSources() {
     );
   return (
     <div className="grid gap-10">
-      <SourcesSection direction="share">
-        {sharing.map((d) => (
-          <MachineFolders key={d.id} device={d} roots={roots} />
-        ))}
-      </SourcesSection>
+      {sharing.length > 0 && (
+        <SourcesSection direction="share">
+          {sharing.map((d) => (
+            <MachineFolders key={d.id} device={d} roots={roots} />
+          ))}
+        </SourcesSection>
+      )}
+      {receiving.length > 0 && (
+        <SourcesSection direction="receive">
+          {receiving.map((d) => (
+            <MachinePicks key={d.id} device={d} roots={roots} />
+          ))}
+        </SourcesSection>
+      )}
     </div>
+  );
+}
+
+const LEVELS = {
+  read: "settings:sources.picks.levels.read",
+  edit: "settings:sources.picks.levels.edit",
+} as const;
+
+/** "Models (whole folder)" or "Clients / Acme". */
+function usePickName() {
+  const { t } = useTranslation();
+  return (p: Pick) =>
+    p.path
+      ? t("settings:sources.picks.inFolder", {
+          root: p.rootName,
+          path: p.path.replaceAll("/", " / "),
+        })
+      : t("settings:sources.picks.wholeFolder", { root: p.rootName });
+}
+
+/** One machine's card in Receive from the server: its picks, who each is for, Add pick. */
+function MachinePicks({ device: d, roots }: { device: Device; roots: Root[] }) {
+  const { t } = useTranslation();
+  const name = usePickName();
+  // hub.manage or projects manage (ADR-0021); the server checks the same.
+  const edit = useCan("hub.manage") || useCan("projects", "manage");
+  const { picks } = useDeviceActions();
+  const [editing, setEditing] = useState<Pick | "new" | null>(null);
+  const [removing, setRemoving] = useState<Pick | null>(null);
+  const level = (l: PickLevel) => t(LEVELS[l]);
+  const rows: StateLine[] = d.picks.map((p) => ({
+    key: p.id,
+    item: name(p),
+    on: {
+      checked: !p.paused,
+      label: t("settings:sources.picks.on", { pick: name(p), machine: d.name }),
+      disabled: !edit || picks.isPending,
+      set: (on) => picks.mutate({ id: d.id, method: "PATCH", pickId: p.id, paused: !on }),
+    },
+    state: p.access
+      .map((a) => t("settings:sources.picks.whoLevel", { name: a.name, level: level(a.level) }))
+      .join(" · "),
+    menu: edit && (
+      <span className="flex items-center justify-end gap-1">
+        <Button
+          aria-label={t("settings:sources.picks.editOf", { pick: name(p) })}
+          onClick={() => setEditing(p)}
+        >
+          {t("settings:sources.edit")}
+        </Button>
+        <Menu label={t("settings:sources.picks.menu", { pick: name(p) })}>
+          <Button variant="ghost" className="justify-start" onClick={() => setRemoving(p)}>
+            {t("settings:sources.picks.remove")}
+          </Button>
+        </Menu>
+      </span>
+    ),
+  }));
+  return (
+    <MachineBlock id={d.id} name={d.name} subtitle={d.userName} receive>
+      <DeviceState device={d} />
+      {rows.length > 0 ? (
+        <StateLines
+          label={t("settings:sources.picks.lines", { machine: d.name })}
+          stateHeader={t("settings:sources.picks.who")}
+          rows={rows}
+        />
+      ) : (
+        <p className="text-muted">{t("settings:sources.picks.none")}</p>
+      )}
+      {edit && (
+        <div>
+          <Button onClick={() => setEditing("new")}>{t("settings:sources.picks.add")}</Button>
+        </div>
+      )}
+      {picks.isError && !editing && (
+        <p role="alert" className="text-bad">
+          {t("settings:saveError")}
+        </p>
+      )}
+      {editing && (
+        <PickDialog
+          device={d}
+          pick={editing === "new" ? null : editing}
+          roots={roots}
+          onClose={() => {
+            picks.reset();
+            setEditing(null);
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={removing !== null}
+        destructive
+        title={t("settings:sources.picks.removeConfirmTitle", {
+          pick: removing && name(removing),
+          machine: d.name,
+        })}
+        description={t("settings:sources.picks.removeConfirm", { machine: d.name })}
+        confirmLabel={t("settings:sources.picks.remove")}
+        onCancel={() => setRemoving(null)}
+        onConfirm={() =>
+          removing &&
+          picks.mutate(
+            { id: d.id, method: "DELETE", pickId: removing.id },
+            { onSettled: () => setRemoving(null) },
+          )
+        }
+      />
+    </MachineBlock>
+  );
+}
+
+/** A person or a role on a pick's list, as the picker's value: `user:<id>` or `role:<id>`. */
+type Who = { key: string; level: PickLevel };
+
+/** The path inside a root, `/`-separated; "" = the root itself. */
+const insideRoot = (root: string, path: string) => {
+  const base = root.replace(/[\\/]+$/, "");
+  return path.length <= base.length ? "" : path.slice(base.length + 1).replace(/\\/g, "/");
+};
+
+/**
+ * Add pick (a hub root, optionally a folder inside it) or Edit (who it's for). The list starts
+ * with the machine's user at Edit: a pick syncs only when they're on it.
+ */
+function PickDialog({
+  device: d,
+  pick,
+  roots,
+  onClose,
+}: {
+  device: Device;
+  pick: Pick | null;
+  roots: Root[];
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const name = usePickName();
+  const { picks } = useDeviceActions();
+  // Whoever may manage picks may not list users; the list's own entries are always named.
+  const users = useUsers(true).data ?? [];
+  const roles = useRoles(true).data ?? [];
+  const hubRoots = roots.filter((r) => r.location === ROOT_HUB);
+  const [rootId, setRootId] = useState(pick?.rootId ?? hubRoots[0]?.id ?? "");
+  const [path, setPath] = useState(pick?.path ?? "");
+  const [who, setWho] = useState<Who[]>(
+    pick
+      ? pick.access.map((a) => ({
+          key: a.userId ? `user:${a.userId}` : `role:${a.roleId}`,
+          level: a.level,
+        }))
+      : [{ key: `user:${d.userId}`, level: "edit" }],
+  );
+  const root = hubRoots.find((r) => r.id === rootId);
+  const named = new Map<string, string>([
+    [`user:${d.userId}`, d.userName],
+    ...(pick?.access ?? []).map(
+      (a) => [a.userId ? `user:${a.userId}` : `role:${a.roleId}`, a.name] as [string, string],
+    ),
+  ]);
+  const options: ComboOption[] = [
+    ...users.map((u) => ({
+      value: `user:${u.id}`,
+      label: u.displayName,
+      group: t("settings:sources.picks.people"),
+    })),
+    ...roles.map((r) => ({
+      value: `role:${r.id}`,
+      label: r.name,
+      group: t("settings:sources.picks.roles"),
+    })),
+  ];
+  for (const [value, label] of named)
+    if (!options.some((o) => o.value === value)) options.push({ value, label });
+  const levels = (["read", "edit"] as const).map((l) => ({
+    value: l,
+    label: t(LEVELS[l]),
+  }));
+  const set = (i: number, patch: Partial<Who>) =>
+    setWho(who.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+  const code = picks.error instanceof ApiError ? picks.error.code : undefined;
+  return (
+    <FormDialog
+      open
+      title={
+        pick
+          ? t("settings:sources.picks.editTitle", { pick: name(pick), machine: d.name })
+          : t("settings:sources.picks.addTitle", { machine: d.name })
+      }
+      busy={picks.isPending}
+      error={
+        picks.isError
+          ? t(code === "pick_exists" ? "settings:sources.picks.exists" : "settings:saveError")
+          : undefined
+      }
+      onCancel={onClose}
+      onSubmit={() => {
+        const access = who
+          .filter((w) => w.key)
+          .map((w) => {
+            const [kind, id] = w.key.split(":");
+            return kind === "role"
+              ? { roleId: id, level: w.level }
+              : { userId: id, level: w.level };
+          });
+        picks.mutate(
+          pick
+            ? { id: d.id, method: "PATCH", pickId: pick.id, access }
+            : { id: d.id, method: "POST", rootId, path, access },
+          { onSuccess: onClose },
+        );
+      }}
+    >
+      {!pick && (
+        <>
+          <label className="grid gap-1">
+            <span>{t("settings:sources.picks.root")}</span>
+            <Combobox
+              value={rootId}
+              required
+              onChange={(v) => {
+                setRootId(v);
+                setPath("");
+              }}
+              options={hubRoots.map((r) => ({ value: r.id, label: r.name }))}
+            />
+          </label>
+          <div className="grid gap-1">
+            <span>{t("settings:sources.picks.folder")}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="wrap-anywhere">{path || t("settings:sources.picks.wholeRoot")}</span>
+              {root && (
+                <PathPicker
+                  label={t("settings:sources.picks.folderIn", { root: root.name })}
+                  mode="folder"
+                  within={[root.path]}
+                  pickRoots
+                  onPick={(p) => setPath(insideRoot(root.path, p))}
+                >
+                  {t("settings:sources.picks.chooseFolder")}
+                </PathPicker>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      <fieldset className="grid gap-2">
+        <legend className="mb-1">{t("settings:sources.picks.who")}</legend>
+        <p className="text-muted">
+          {t("settings:sources.picks.hint", { machine: d.name, user: d.userName })}
+        </p>
+        <ul className="grid gap-2">
+          {who.map((w, i) => (
+            <li key={`${w.key}-${i}`} className="flex flex-wrap items-center gap-2">
+              <Combobox
+                className="min-w-48 flex-1"
+                aria-label={t("settings:sources.picks.person", { n: i + 1 })}
+                placeholder={t("settings:sources.picks.choose")}
+                value={w.key}
+                onChange={(v) => set(i, { key: v })}
+                options={options.map((o) => ({
+                  ...o,
+                  disabled: o.value !== w.key && who.some((x) => x.key === o.value),
+                }))}
+              />
+              <Combobox
+                className="w-28"
+                aria-label={t("settings:sources.picks.levelOf", {
+                  name: named.get(w.key) ?? options.find((o) => o.value === w.key)?.label ?? "",
+                })}
+                value={w.level}
+                onChange={(v) => (v === "read" || v === "edit") && set(i, { level: v })}
+                options={levels}
+              />
+              <Button
+                variant="ghost"
+                disabled={who.length === 1}
+                aria-label={t("settings:sources.picks.removeWho", {
+                  name: named.get(w.key) ?? options.find((o) => o.value === w.key)?.label ?? "",
+                })}
+                onClick={() => setWho(who.filter((_, j) => j !== i))}
+              >
+                <X className="size-4" aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <div>
+          <Button onClick={() => setWho([...who, { key: "", level: "read" }])}>
+            {t("settings:sources.picks.addWho")}
+          </Button>
+        </div>
+      </fieldset>
+    </FormDialog>
   );
 }
 

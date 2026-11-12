@@ -68,7 +68,9 @@ test("shared folders: picked on the server, then a project folder from them (375
 
   await page.goto("/projects/settings/sources");
   await openSources(page);
+  // Its Receive from server card has the same heading.
   const card = page
+    .getByRole("region", { name: "Share to server" })
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: /WS-1/, level: 3 }) });
   await expect(card).toContainText("Ana Admin");
@@ -89,15 +91,16 @@ test("shared folders: picked on the server, then a project folder from them (375
 
   // A project folder from it: the source first, then a folder inside its shared folders.
   await page.goto("/projects/settings");
-  await page.getByRole("button", { name: "Browse for Project folders" }).click();
-  const roots = page.getByRole("dialog", { name: "Project folders" });
-  await expect(roots.getByRole("button", { name: "This server" })).toBeVisible();
-  await roots.getByRole("button", { name: "WS-1" }).click();
+  await page.getByRole("link", { name: "Add folder" }).click();
+  await page.getByRole("radio", { name: "WS-1" }).check();
+  await page.getByRole("button", { name: "Browse for Folder path" }).click();
+  const roots = page.getByRole("dialog", { name: "Folder path" });
   await roots.getByRole("button", { name: "Models" }).click();
   await roots.getByRole("button", { name: "Acme" }).click();
   await roots.getByRole("button", { name: "Select this folder" }).click();
-  await expect(page.getByText("D:\\Models\\Acme")).toBeVisible();
-  await expect(page.getByText("On WS-1")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Folder path" })).toHaveValue("D:\\Models\\Acme");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("heading", { name: "Acme", level: 1 })).toBeVisible();
 
   // Paused, then removed, from its line.
   await page.goto("/projects/settings/sources");

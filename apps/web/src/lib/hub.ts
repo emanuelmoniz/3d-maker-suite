@@ -4,9 +4,10 @@ import type {
   ConnectorSettingsResult,
   Device,
   DeviceLibraryUpdate,
-  DeviceSyncMode,
   HubVersionsUsage,
   PairingCode,
+  Pick,
+  PickAccessInput,
   SharedFolder,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -79,11 +80,7 @@ export function useDeviceActions() {
         api("PATCH", `/api/hub/devices/${id}`, { name }),
       onSuccess: refresh,
     }),
-    syncMode: useMutation({
-      mutationFn: ({ id, syncMode }: { id: string; syncMode: DeviceSyncMode }) =>
-        api("PATCH", `/api/hub/devices/${id}`, { syncMode }),
-      onSuccess: refresh,
-    }),
+
     /** Receive from the hub and Share to the hub (ADR-0021). */
     projects: useMutation({
       mutationFn: ({
@@ -110,6 +107,29 @@ export function useDeviceActions() {
       }) => api<SharedFolder[]>(method, `/api/hub/devices/${id}/folders`, body),
       onSuccess: refresh,
     }),
+    /** A machine's picks (ADR-0021): add (POST), pause or change who (PATCH), remove. */
+    picks: useMutation({
+      mutationFn: ({
+        id,
+        pickId,
+        method,
+        ...body
+      }: {
+        id: string;
+        pickId?: string;
+        method: "POST" | "PATCH" | "DELETE";
+        rootId?: string;
+        path?: string;
+        paused?: boolean;
+        access?: PickAccessInput[];
+      }) =>
+        api<Pick[]>(
+          method,
+          `/api/hub/devices/${id}/picks${pickId ? `/${pickId}` : ""}`,
+          method === "DELETE" ? undefined : body,
+        ),
+      onSuccess: refresh,
+    }),
     /** A slicer's switches on the machine page: Use as slicer, Catalog, Presets. */
     library: useMutation({
       mutationFn: ({
@@ -126,11 +146,7 @@ export function useDeviceActions() {
           qc.invalidateQueries({ queryKey: ["catalog-sources"] }),
         ]),
     }),
-    unselect: useMutation({
-      mutationFn: ({ id, projectId }: { id: string; projectId: string }) =>
-        api("DELETE", `/api/hub/devices/${id}/projects/${projectId}`),
-      onSuccess: refresh,
-    }),
+
     update: useMutation({
       mutationFn: (id: string) => api("POST", `/api/hub/devices/${id}/update`),
       onSuccess: refresh,

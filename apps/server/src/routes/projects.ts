@@ -60,6 +60,7 @@ import { readPreferences } from "../lib/preferences.ts";
 import type { HubFiles } from "../projects/hubFiles.ts";
 import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { projectPath, segments } from "../projects/paths.ts";
+import { ensurePick, pickLevels } from "../projects/picks.ts";
 import {
   absPath,
   listRoots,
@@ -78,7 +79,6 @@ import { fsError } from "./fs.ts";
 const {
   projects,
   collectionProjects,
-  deviceProjects,
   deviceRootFolders,
   devices,
   integrations,
@@ -1022,27 +1022,15 @@ export const projectsRoutes =
     );
 
     /**
-     * The user's online devices, with their slicers and whether they sync the project; none but
-     * for a hub root's project (only those sync).
+     * The user's online devices, with their slicers and whether a pick of theirs covers the
+     * project; none but for a hub root's project (only those sync).
      */
     const openDevices = (req: FastifyRequest, p: Project) => {
       const root = listRoots(db).find((r) => r.id === p.rootId);
-      if (!req.user || root?.location !== ROOT_HUB || !p.folder) return [];
-      const selected = new Set(
-        db
-          .select({ id: deviceProjects.deviceId })
-          .from(deviceProjects)
-          .where(eq(deviceProjects.projectId, p.id))
-          .all()
-          .map((r) => r.id),
-      );
+      if (!req.user || !root || root.location !== ROOT_HUB || !p.folder) return [];
+      const folder = p.folder;
       return db
-        .select({
-          id: devices.id,
-          name: devices.name,
-          slicers: devices.slicers,
-          syncMode: devices.syncMode,
-        })
+        .select({ id: devices.id, name: devices.name, slicers: devices.slicers })
         .from(devices)
         .where(eq(devices.userId, req.user.id))
         .orderBy(asc(devices.name))
@@ -1053,7 +1041,7 @@ export const projectsRoutes =
           name: d.name,
           port: hub.port(d.id),
           slicers: d.slicers.map((s) => ({ id: s.id, default: s.default })),
-          synced: d.syncMode === "all" || selected.has(d.id),
+          synced: !!pickLevels(db, d.id).level(root.id, folder),
         }));
     };
     app.get(
@@ -1169,12 +1157,13 @@ export const projectsRoutes =
             throw new HttpError(409, "device_no_slicer", "No such slicer on the device");
           if (!listed || !p.rootId || !p.folder)
             throw new HttpError(403, "not_allowed", "File is not part of this project");
-          // Selected from now on, so a device that syncs only selected projects gets it.
-          db.insert(deviceProjects)
-            .values({ deviceId: device.id, projectId: p.id })
-            .onConflictDoNothing()
-            .run();
           const rootId = p.rootId;
+          // Not synced there yet: a pick for its folder, the user at Edit (ADR-0021). The connector
+          // syncs again first (its events run in order), so the file is there to open.
+          if (!device.synced && req.user) {
+            ensurePick(db, device.id, rootId, p.folder, [{ userId: req.user.id, level: "edit" }]);
+            hub.publish(device.id, { type: "roots.changed" });
+          }
           const path = `${p.folder}/${file}`;
           const root = hubRootOf(p);
           // Checked out to the device before it opens; a failed open lets go again.

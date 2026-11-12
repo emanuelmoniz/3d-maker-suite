@@ -19,13 +19,18 @@ import {
   HUB_HEARTBEAT_MS,
   type HubEvent,
   type HubVersionsUsage,
+  hasLevel,
   hubVersionsUsageSchema,
   type IntegrationAdapter,
   pairingCodeCreateSchema,
   pairingCodeSchema,
   pairResultSchema,
   pairSchema,
+  pickCreateSchema,
+  pickSchema,
+  pickUpdateSchema,
   presetSwitches,
+  ROOT_HUB,
   type SharedFolder,
   sharedFolderPathSchema,
   sharedFolderSchema,
@@ -45,10 +50,11 @@ import type { HubChannel } from "../lib/hubChannel.ts";
 import { deviceError, setPresetLibrary } from "../lib/machine.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { isEnabled, tokenHash } from "../lib/session.ts";
+import { ensurePick, picksOf, setPickAccess } from "../projects/picks.ts";
 import { VERSION } from "../updates/updates.ts";
 
 const {
-  deviceProjects,
+  devicePicks,
   devices,
   hubEvents,
   integrations,
@@ -146,7 +152,6 @@ export const hubRoutes =
           connectorVersion: devices.connectorVersion,
           updateFailed: devices.updateFailed,
           sync: devices.syncState,
-          syncMode: devices.syncMode,
           slicers: devices.slicers,
           sliceWorker: devices.sliceWorker,
           presets: devices.presetLibraries,
@@ -181,13 +186,7 @@ export const hubRoutes =
             port: channel.port(d.id),
             outdated,
             updateFailed: outdated ? d.updateFailed : null,
-            projects: db
-              .select({ id: projects.id, name: projects.name })
-              .from(deviceProjects)
-              .innerJoin(projects, eq(projects.id, deviceProjects.projectId))
-              .where(eq(deviceProjects.deviceId, d.id))
-              .orderBy(asc(projects.name))
-              .all(),
+            picks: picksOf(db, d.id),
           };
         }),
     );
@@ -269,7 +268,7 @@ export const hubRoutes =
         },
       );
 
-    // A new sync mode or Receive makes the connector sync again from scratch (`roots.changed`).
+    // Receive on or off makes the connector sync again from scratch (`roots.changed`).
     // Share goes to it first while it's online (ENOTSUP: too old, nothing saved); offline, it
     // reads it when it connects (`X-Share-Projects`).
     app.patch(
@@ -282,10 +281,10 @@ export const hubRoutes =
         },
       },
       async (req, reply) => {
-        const { name, syncMode, receiveProjects, shareProjects } = req.body;
+        const { name, receiveProjects, shareProjects } = req.body;
         const row = machineGuard(db, req.user, req.params.id);
         if (name !== undefined) machineGuard(db, req.user, row.id, "manage");
-        if (syncMode !== undefined || receiveProjects !== undefined || shareProjects !== undefined)
+        if (receiveProjects !== undefined || shareProjects !== undefined)
           machineGuard(db, req.user, row.id, "projects");
         if (
           shareProjects !== undefined &&
@@ -302,10 +301,7 @@ export const hubRoutes =
           db.update(devices).set(req.body).where(eq(devices.id, row.id)).run();
         if (name !== undefined && name !== row.name)
           channel.publish(row.id, { type: "device.renamed", name });
-        if (
-          (syncMode !== undefined && syncMode !== row.syncMode) ||
-          (receiveProjects !== undefined && receiveProjects !== row.receiveProjects)
-        )
+        if (receiveProjects !== undefined && receiveProjects !== row.receiveProjects)
           channel.publish(row.id, { type: "roots.changed" });
         return reply.status(204).send(null);
       },
@@ -426,25 +422,91 @@ export const hubRoutes =
       },
     );
 
-    // The project's local copy goes; that's not a delete on the hub.
-    app.delete(
-      "/devices/:id/projects/:projectId",
-      {
-        schema: {
-          params: params.extend({ projectId: z.uuid() }),
-          response: { 204: z.null(), ...errors },
-        },
+    /**
+     * A machine's picks (ADR-0021), from Projects settings → Sources: hub.manage or projects manage,
+     * on a machine the caller can see. Each change makes the connector sync again from scratch
+     * (`roots.changed`): files a pick no longer covers leave the machine, never the hub. The answer
+     * is the machine's picks.
+     */
+    const picksSchema = {
+      response: { 200: z.array(pickSchema), ...errors, 400: apiErrorSchema },
+    };
+    const pickParams = params.extend({ pickId: z.uuid() });
+    const pickGuard = (req: FastifyRequest, deviceId: string) => {
+      const row = machineGuard(db, req.user, deviceId);
+      const rights = req.user?.rights;
+      if (
+        rights &&
+        !rights.admin &&
+        !rights.permissions["hub.manage"] &&
+        !hasLevel(rights.permissions, "projects", "manage")
+      )
+        throw new HttpError(403, "forbidden", "Not allowed for your role");
+      return row;
+    };
+    const pickOf = (deviceId: string, pickId: string) => {
+      const pick = db
+        .select()
+        .from(devicePicks)
+        .where(and(eq(devicePicks.id, pickId), eq(devicePicks.deviceId, deviceId)))
+        .get();
+      if (!pick) throw new HttpError(404, "not_found", "Not a pick of this machine");
+      return pick;
+    };
+    const savedPick = (req: FastifyRequest, deviceId: string, message: string, path: string) => {
+      channel.publish(deviceId, { type: "roots.changed" });
+      req.log.info({ deviceId, path }, message);
+      return picksOf(db, deviceId);
+    };
+
+    app.post(
+      "/devices/:id/picks",
+      { schema: { ...picksSchema, params, body: pickCreateSchema } },
+      async (req) => {
+        const row = pickGuard(req, req.params.id);
+        const { rootId, path, access } = req.body;
+        const root = db.select().from(roots).where(eq(roots.id, rootId)).get();
+        if (root?.location !== ROOT_HUB)
+          throw new HttpError(404, "not_found", "Not a project folder on the hub");
+        const taken = db
+          .select({ id: devicePicks.id })
+          .from(devicePicks)
+          .where(
+            and(
+              eq(devicePicks.deviceId, row.id),
+              eq(devicePicks.rootId, rootId),
+              eq(devicePicks.path, path),
+            ),
+          )
+          .get();
+        if (taken) throw new HttpError(409, "pick_exists", "This machine has this pick already");
+        ensurePick(db, row.id, rootId, path, access);
+        return savedPick(req, row.id, "pick added", `${root.name}/${path}`);
       },
-      async (req, reply) => {
-        const { id, projectId } = req.params;
-        machineGuard(db, req.user, id, "projects");
-        const gone = db
-          .delete(deviceProjects)
-          .where(and(eq(deviceProjects.deviceId, id), eq(deviceProjects.projectId, projectId)))
-          .run().changes;
-        if (!gone) throw new HttpError(404, "not_found", "Project not selected on this device");
-        channel.publish(id, { type: "roots.changed" });
-        return reply.status(204).send(null);
+    );
+    app.patch(
+      "/devices/:id/picks/:pickId",
+      { schema: { ...picksSchema, params: pickParams, body: pickUpdateSchema } },
+      async (req) => {
+        const row = pickGuard(req, req.params.id);
+        const pick = pickOf(row.id, req.params.pickId);
+        const { paused, access } = req.body;
+        if (access) setPickAccess(db, pick.id, access);
+        if (paused !== undefined)
+          db.update(devicePicks).set({ paused }).where(eq(devicePicks.id, pick.id)).run();
+        const message =
+          paused === undefined ? "pick changed" : paused ? "pick paused" : "pick resumed";
+        return savedPick(req, row.id, message, pick.path);
+      },
+    );
+    app.delete(
+      "/devices/:id/picks/:pickId",
+      { schema: { ...picksSchema, params: pickParams } },
+      async (req) => {
+        const row = pickGuard(req, req.params.id);
+        const pick = pickOf(row.id, req.params.pickId);
+        db.delete(devicePicks).where(eq(devicePicks.id, pick.id)).run();
+        return savedPick(req, row.id, "pick removed", pick.path);
       },
     );
 
@@ -762,7 +824,7 @@ export const hubRoutes =
         const { code, ...device } = req.body;
         const token = randomBytes(32).toString("base64url");
         const id = codeHash(code);
-        const syncMode = readPreferences(db).hubDefaultSyncMode;
+        const receive = readPreferences(db).hubDefaultSyncMode;
         const row = db.transaction((tx) => {
           const found = tx.select().from(pairingCodes).where(eq(pairingCodes.id, id)).get();
           // A code to change a device's user never pairs a new one, and isn't used up trying.
@@ -772,8 +834,8 @@ export const hubRoutes =
           if (Date.parse(found.expiresAt) <= Date.now() || !user || user.disabled) return null;
           return tx
             .insert(devices)
-            .values({ ...device, syncMode, userId: user.id, tokenHash: tokenHash(token) })
-            .returning({ id: devices.id })
+            .values({ ...device, userId: user.id, tokenHash: tokenHash(token) })
+            .returning({ id: devices.id, userId: devices.userId })
             .get();
         });
         if (!row) {
@@ -781,6 +843,14 @@ export const hubRoutes =
           throw new HttpError(401, "invalid_code", "The pairing code is wrong, used or expired");
         }
         limiter.clear(key);
+        // New machines receive every hub project folder, or nothing until picked (ADR-0021).
+        if (receive === "all")
+          for (const r of db
+            .select({ id: roots.id })
+            .from(roots)
+            .where(eq(roots.location, ROOT_HUB))
+            .all())
+            ensurePick(db, row.id, r.id, "", [{ userId: row.userId, level: "edit" }]);
         req.log.info({ deviceId: row.id }, "device paired");
         return reply.status(201).send({ token, deviceId: row.id });
       },

@@ -185,7 +185,8 @@ const RULES: [RegExp, string, Need][] = [
   [/^\/api\/hub\/devices\/[^/]+\/(settings|folders)$/, "*", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/(restart|stop)$/, "POST", SESSION],
   [/^\/api\/hub\/devices\/[^/]+$/, "PATCH", SESSION],
-  [/^\/api\/hub\/devices\/[^/]+\/projects\/[^/]+$/, "DELETE", SESSION],
+  // Picks (ADR-0021): hub.manage or projects manage, checked by the route.
+  [/^\/api\/hub\/devices\/[^/]+\/picks(\/[^/]+)?$/, "*", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/slicers\/[^/]+$/, "PATCH", SESSION],
   [p("hub"), "*", on("hub.manage")],
   // ADR-0017, ADR-0021: the machines' preset lines and their held deletes are catalog write; the

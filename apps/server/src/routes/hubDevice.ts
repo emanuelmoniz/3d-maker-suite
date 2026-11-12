@@ -57,9 +57,10 @@ import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import type { DeviceFiles } from "../projects/deviceFiles.ts";
 import type { HubFiles } from "../projects/hubFiles.ts";
+import { pickLevels } from "../projects/picks.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 
-const { deviceProjects, devices, projects, roots, slicerPresets } = schema;
+const { devices, projects, roots, slicerPresets } = schema;
 const rootParams = z.object({ rootId: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -266,15 +267,14 @@ export const hubDeviceRoutes =
       },
     );
 
-    // Every hub root; the change feed leaves out the files the user may not see. Receive off
-    // (ADR-0021) syncs as `selected` with nothing selected.
-    const syncOf = (deviceId: string) => {
-      const d = db
-        .select({ mode: devices.syncMode, receive: devices.receiveProjects })
-        .from(devices)
-        .where(eq(devices.id, deviceId))
-        .get();
-      return { mode: d?.receive === false ? ("selected" as const) : (d?.mode ?? "all"), d };
+    // The device's picks (ADR-0021) decide what it gets: a file no pick covers is as unknown as one
+    // the user may not see (404), and only an Edit pick takes changes. 403 keeps the connector's
+    // copy on the machine (download-only), also for a new file outside its picks.
+    const picked = (deviceId: string, rootId: string, path: string, edit: boolean) => {
+      const level = pickLevels(db, deviceId).level(rootId, path);
+      if (edit && level !== "edit")
+        throw new HttpError(403, "forbidden", "This file is download-only on this machine");
+      if (!level) throw new HttpError(404, "not_found", "File not found");
     };
 
     // What to look for, from the adapters that open files in a slicer; then what it found.
@@ -607,7 +607,8 @@ export const hubDeviceRoutes =
       },
     );
 
-    // A connector older than 5.5.0 has this switch on its page; the connector syncs again from scratch, as after Hub management's.
+    // A connector older than 5.5.0 has this switch on its page. Picks replaced the modes
+    // (ADR-0021): Projects settings → Sources sets what it receives, so this changes nothing.
     app.put(
       "/sync/mode",
       {
@@ -617,9 +618,7 @@ export const hubDeviceRoutes =
         },
       },
       async (req, reply) => {
-        const id = deviceOf(req);
-        db.update(devices).set({ syncMode: req.body.mode }).where(eq(devices.id, id)).run();
-        channel.publish(id, { type: "roots.changed" });
+        deviceOf(req);
         return reply.status(204).send(null);
       },
     );
@@ -628,14 +627,17 @@ export const hubDeviceRoutes =
       "/sync/roots",
       { schema: { response: { 200: hubSyncRootsSchema, ...errors } } },
       async (req) => {
+        const picks = pickLevels(db, deviceOf(req));
         return {
-          mode: syncOf(deviceOf(req)).mode,
+          // What connectors older than 5.5.0 read: the hub filters the feed either way.
+          mode: "selected" as const,
           roots: db
             .select({ id: roots.id, name: roots.name })
             .from(roots)
             .where(eq(roots.location, ROOT_HUB))
             .orderBy(asc(roots.position))
-            .all(),
+            .all()
+            .map((r) => ({ ...r, picked: picks.roots.has(r.id) })),
           deleteGuard: readPreferences(db).hubDeleteGuard,
           locks: readPreferences(db).hubLocks,
         };
@@ -665,21 +667,7 @@ export const hubDeviceRoutes =
       },
       async (req) => {
         const id = deviceOf(req);
-        const { mode, d } = syncOf(id);
-        const only =
-          mode !== "selected"
-            ? undefined
-            : d?.receive === false
-              ? new Set<string>()
-              : new Set(
-                  db
-                    .select({ id: deviceProjects.projectId })
-                    .from(deviceProjects)
-                    .where(eq(deviceProjects.deviceId, id))
-                    .all()
-                    .map((r) => r.id),
-                );
-        return sync.changes(req.user, id, req.query.since, req.query.limit, only);
+        return sync.changes(req.user, id, req.query.since, req.query.limit, pickLevels(db, id));
       },
     );
 
@@ -688,7 +676,7 @@ export const hubDeviceRoutes =
       "/sync/roots/:rootId/file",
       { schema: { params: rootParams, querystring: hubFileQuerySchema } },
       async (req, reply) => {
-        deviceOf(req);
+        picked(deviceOf(req), req.params.rootId, req.query.path, false);
         const f = await sync.download(req.user, hubRoot(req.params.rootId), req.query.path);
         return reply
           .header("x-file-sha256", f.sha256)
@@ -709,17 +697,20 @@ export const hubDeviceRoutes =
           response: { 200: hubUploadResultSchema, ...errors },
         },
       },
-      async (req) =>
-        sync.upload(
+      async (req) => {
+        const id = deviceOf(req);
+        picked(id, req.params.rootId, req.query.path, true);
+        return sync.upload(
           req.user,
-          deviceOf(req),
+          id,
           hubRoot(req.params.rootId),
           req.query.path,
           req.query.base ?? 0,
           req.headers["x-file-sha256"],
           // An empty file has no body to parse.
           (req.body as Readable | undefined) ?? Readable.from([]),
-        ),
+        );
+      },
     );
 
     // Into the root's trash; 409 `file_changed` when the hub's copy isn't `base` any more.
@@ -735,6 +726,7 @@ export const hubDeviceRoutes =
       async (req, reply) => {
         const id = deviceOf(req);
         const root = hubRoot(req.params.rootId);
+        picked(id, root.id, req.query.path, true);
         await sync.trash(req.user, id, root, req.query.path, req.query.base ?? 0);
         return reply.status(204).send(null);
       },

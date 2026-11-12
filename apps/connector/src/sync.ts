@@ -13,7 +13,6 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
-  type DeviceSyncMode,
   type DeviceSyncState,
   type HubChanges,
   type HubEvent,
@@ -153,7 +152,7 @@ export function createHubSync({
   };
 
   let live = new Map<string, Live>();
-  let mode: DeviceSyncMode = "all";
+
   let guard = Number.POSITIVE_INFINITY;
   let cursor = 0;
   let run = 0;
@@ -632,7 +631,6 @@ export function createHubSync({
       const synced = hubSyncRootsSchema.parse(await res.json());
       const { roots } = synced;
       guard = synced.deleteGuard;
-      mode = synced.mode;
       saved.locks = synced.locks;
       await mkdir(syncDir, { recursive: true });
       const next = new Map<string, Live>();
@@ -641,9 +639,10 @@ export function createHubSync({
         saved.roots[r.id] ??= folderName(r.name, Object.values(saved.roots));
         changed = true;
         const abs = join(syncDir, saved.roots[r.id] ?? "");
-        // A folder that went missing with files in it waits for confirm or restore.
+        // A folder that went missing with files in it waits for confirm or restore. A root none
+        // of its picks covers gets no folder (ADR-0021); one it had keeps what changed here.
         const known = Object.keys(saved.files).some((k) => rootOf(k) === r.id);
-        if (!known) await mkdir(abs, { recursive: true });
+        if (!known && r.picked !== false) await mkdir(abs, { recursive: true });
         next.set(r.id, {
           id: r.id,
           name: r.name,
@@ -670,8 +669,7 @@ export function createHubSync({
       else if (event.type === "roots.changed") void start();
     },
     state,
-    /** `all` the hub roots, or the selected projects (the hub filters the feed); as of the connect. */
-    mode: () => mode,
+
     /**
      * The local path of a hub root's file, for Open: a file not synced yet (a project just selected)
      * pulls everything it now may see first. Null when it isn't here even then.

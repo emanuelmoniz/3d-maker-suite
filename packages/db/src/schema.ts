@@ -10,7 +10,6 @@ import {
   type CatalogInstallStatus,
   COMMENT_STATUSES,
   type ConnectorUpdateFailure,
-  DEVICE_SYNC_MODES,
   type DevicePresetLibrary,
   type DeviceSlicer,
   type DeviceSyncState,
@@ -22,6 +21,7 @@ import {
   NEW_SPOOL_FIELD,
   ORIGINS,
   type Permissions,
+  PICK_LEVELS,
   PRESET_HOLD_REASONS,
   PRINT_OUTCOMES,
   type PROJECT_EDITABLE_FIELDS,
@@ -1220,8 +1220,7 @@ export const devices = sqliteTable(
     updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
     /** What the connector reported last about its sync of the hub roots (`PUT .../sync/state`). */
     syncState: text({ mode: "json" }).$type<DeviceSyncState & { reportedAt: string }>(),
-    /** `all` the hub roots, or only its `device_projects`. */
-    syncMode: text({ enum: DEVICE_SYNC_MODES }).notNull().default("all"),
+
     /** The slicers its connector found (`PUT .../slicers`). */
     slicers: text({ mode: "json" }).$type<DeviceSlicer[]>().notNull().default([]),
     /** Worker integrations may slice on it (ADR-0014). */
@@ -1254,25 +1253,51 @@ export const devices = sqliteTable(
     lastSeenAt: text(),
     ...timestamps,
   },
-  (t) => [
-    uniqueIndex("devices_token_uq").on(t.tokenHash),
-    index("devices_user_idx").on(t.userId),
-    check("devices_sync_mode_ck", oneOf(t.syncMode, DEVICE_SYNC_MODES)),
-  ],
+  (t) => [uniqueIndex("devices_token_uq").on(t.tokenHash), index("devices_user_idx").on(t.userId)],
 );
 
-/** The projects a device syncs in `selected` mode. */
-export const deviceProjects = sqliteTable(
-  "device_projects",
+/**
+ * The hub folders a machine receives (ADR-0021): a hub root (`path` "") or a folder inside one.
+ * Paused: kept, but synced as if removed.
+ */
+export const devicePicks = sqliteTable(
+  "device_picks",
   {
+    id: id(),
     deviceId: text()
       .notNull()
       .references(() => devices.id, { onDelete: "cascade" }),
-    projectId: text()
+    rootId: text()
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => roots.id, { onDelete: "cascade" }),
+    /** Relative to the root, `/`-separated; "" = the whole root. */
+    path: text().notNull().default(""),
+    paused: integer({ mode: "boolean" }).notNull().default(false),
+    ...timestamps,
   },
-  (t) => [primaryKey({ columns: [t.deviceId, t.projectId] })],
+  (t) => [uniqueIndex("device_picks_uq").on(t.deviceId, t.rootId, t.path)],
+);
+
+/** Who a pick syncs for: a user or a role, each at a level; the user's own rights still cap it. */
+export const devicePickAccess = sqliteTable(
+  "device_pick_access",
+  {
+    id: id(),
+    pickId: text()
+      .notNull()
+      .references(() => devicePicks.id, { onDelete: "cascade" }),
+    userId: text().references(() => users.id, { onDelete: "cascade" }),
+    roleId: text().references(() => roles.id, { onDelete: "cascade" }),
+    level: text({ enum: PICK_LEVELS }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("device_pick_access_user_uq").on(t.pickId, t.userId),
+    uniqueIndex("device_pick_access_role_uq").on(t.pickId, t.roleId),
+    index("device_pick_access_user_idx").on(t.userId),
+    index("device_pick_access_role_idx").on(t.roleId),
+    check("device_pick_access_one_ck", sql`(${t.userId} IS NULL) <> (${t.roleId} IS NULL)`),
+    check("device_pick_access_level_ck", oneOf(t.level, PICK_LEVELS)),
+  ],
 );
 
 /** One-time pairing codes an admin makes for a user. `id` is the code's sha256; used = deleted. */

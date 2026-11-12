@@ -519,8 +519,8 @@ export function HubConfigPage() {
                       (x === "all" || x === "selected") && commit({ hubDefaultSyncMode: x })
                     }
                     options={[
-                      { value: "selected", label: t("hub:devices.syncModes.selected") },
-                      { value: "all", label: t("hub:devices.syncModes.all") },
+                      { value: "selected", label: t("hub:settings.newMachines.selected") },
+                      { value: "all", label: t("hub:settings.newMachines.all") },
                     ]}
                   />
                 )}

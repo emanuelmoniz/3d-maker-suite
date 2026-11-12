@@ -215,7 +215,7 @@
       "device_timeout": "The device didn't open the file in time. Check its local page.",
       "device_no_slicer": "No slicer was found on the device.",
       "not_local": "This opens only on the server's computer. Open the app there, or install the connector on this computer.",
-      "device_not_synced": "This project isn't synced to your device, so it has no folder there. To get it, open one of its models with Open (that adds the project to the device), or set the device to sync everything on its machine page in Hub management. Then try again.",
+      "device_not_synced": "This project isn't synced to your device, so it has no folder there. To get it, open one of its models with Open (that adds a pick for the project on the device), or add a pick in Projects settings → Sources. Then try again.",
       "device_folder_missing": "The project folder isn't on your device yet. Wait for the sync to finish (the connector's local page shows it), then try again."
     },
     "slicerPick": "Slicer",

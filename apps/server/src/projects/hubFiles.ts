@@ -20,6 +20,7 @@ import { HttpError } from "../errors.ts";
 import { mayEditRoot, projectAccess, type Rights, rootRule } from "../lib/auth.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { fsError } from "../routes/fs.ts";
+import type { PickLevels } from "./picks.ts";
 import { hubRoots, type Root, rootFs } from "./rootFs.ts";
 
 const { devices, hubFileVersions, hubFiles, projects, users } = schema;
@@ -330,15 +331,15 @@ export function createHubFiles(
     },
 
     /**
-     * The hub roots' files changed after `since` that `user` sees (see `hubChangesSchema`); with
-     * `only`, just the files of those projects.
+     * The hub roots' files changed after `since` that `user` sees (see `hubChangesSchema`), only
+     * those the device's picks cover; a Read pick makes them read-only (ADR-0021).
      */
     changes(
       user: Rights | undefined,
       deviceId: string,
       since: number,
       limit: number,
-      only?: Set<string>,
+      picks: PickLevels,
     ): HubChanges {
       const rows = db
         .select()
@@ -350,12 +351,11 @@ export function createHubFiles(
       const rules = new Map(hubRoots(db).map((r) => [r.id, accessIn(user, r)]));
       const files: HubChanges["files"] = [];
       for (const { rootId, path, size, sha256, version, deleted, lockDeviceId } of rows) {
-        const rule = rules.get(rootId);
-        if (only && !only.has(rule?.projectOf(path)?.id ?? "")) continue;
-        const may = rule?.access(path) ?? "none";
-        if (may === "none") continue;
+        const picked = picks.level(rootId, path);
+        const may = picked && (rules.get(rootId)?.access(path) ?? "none");
+        if (!may || may === "none") continue;
         const lock = !lockDeviceId ? null : lockDeviceId === deviceId ? "mine" : "other";
-        const access = lock === "other" ? "read" : may;
+        const access = lock === "other" || picked === "read" ? "read" : may;
         files.push({ rootId, path, size, sha256, version, deleted, access, lock });
       }
       return { cursor: rows.at(-1)?.seq ?? since, more: rows.length === limit, files };

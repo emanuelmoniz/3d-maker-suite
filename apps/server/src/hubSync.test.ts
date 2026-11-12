@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BUILT_IN_ROLE_IDS, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
+import { BUILT_IN_ROLE_IDS, type Pick, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { buildApp } from "./app.ts";
@@ -56,7 +56,7 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
   const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
   const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
-  // These devices sync every project; selected projects are tested in hub.test.ts.
+  // These devices receive every hub project folder: a whole-root pick each, made at pairing.
   await send("PATCH", "/api/preferences", { hubEnabled: true, hubDefaultSyncMode: "all" });
   const dir = temp("hub-sync-root-");
   const root = (await send("POST", "/api/roots", { path: dir })).json();
@@ -113,7 +113,15 @@ const setup = async (opts: Parameters<typeof buildApp>[3] = {}) => {
     await send("POST", "/api/projects/scan");
     await idle();
   };
+  /** The desk's picks, as Projects settings → Sources lists them; and its id. */
+  const deskId = () => db.select().from(schema.devices).get()?.id ?? "";
+  const picks = async (): Promise<Pick[]> =>
+    (await send("GET", "/api/hub/devices")).json()[0].picks;
+  const pickUrl = (pickId = "") => `/api/hub/devices/${deskId()}/picks${pickId && `/${pickId}`}`;
   return {
+    deskId,
+    picks,
+    pickUrl,
     db,
     app,
     send,
@@ -281,7 +289,105 @@ describe("hub file sync", () => {
     expect((await s.del("theirs/b.stl", 1)).statusCode).toBe(403);
   });
 
-  it("syncs only selected projects; Open selects one and asks the device", async () => {
+  it("syncs only its picks, for the users and roles on their lists, within their rights", async () => {
+    const s = await setup();
+    for (const [folder, owner] of [
+      ["a/p1", s.editor.id],
+      ["a/p2", s.editor.id],
+      ["b", s.admin.id],
+    ] as const) {
+      mkdirSync(join(s.dir, folder), { recursive: true });
+      writeFileSync(join(s.dir, folder, "m.stl"), folder);
+      s.project(folder, owner);
+    }
+    await s.scan();
+    const paths = async () =>
+      (await s.changes()).files
+        .map((f: { path: string; access: string }) => [f.path, f.access])
+        .sort((a: string[], b: string[]) => String(a[0]).localeCompare(String(b[0])));
+    // Paired with "every hub project folder": the whole root, the editor at Edit; "b" is the
+    // admin's, which the editor can't see.
+    const [whole] = await s.picks();
+    expect(whole).toMatchObject({
+      rootId: s.root.id,
+      path: "",
+      paused: false,
+      access: [{ userId: s.editor.id, roleId: null, name: "editor", level: "edit" }],
+    });
+    expect(await paths()).toEqual([
+      ["a/p1/m.stl", "edit"],
+      ["a/p2/m.stl", "edit"],
+    ]);
+
+    // Projects manage or hub.manage only; the editor has projects write.
+    const asEditor = await s.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: s.editor.email, password: PW },
+    });
+    const cookie = String(asEditor.headers["set-cookie"]).split(";")[0] ?? "";
+    expect(
+      (await s.app.inject({ method: "DELETE", url: s.pickUrl(whole?.id), headers: { cookie } }))
+        .statusCode,
+    ).toBe(403);
+    expect((await s.send("DELETE", s.pickUrl(whole?.id))).json()).toEqual([]);
+    expect(await paths()).toEqual([]);
+
+    // A subfolder pick, for someone else: the machine's user isn't on its list.
+    const add = (path: string, access: object[]) =>
+      s.send("POST", s.pickUrl(), { rootId: s.root.id, path, access });
+    const [p1] = (await add("a/p1", [{ userId: s.admin.id, level: "edit" }])).json();
+    expect(await paths()).toEqual([]);
+    expect((await add("a/p1", [{ userId: s.admin.id, level: "edit" }])).statusCode).toBe(409);
+    expect((await add("../x", [{ userId: s.admin.id, level: "edit" }])).statusCode).toBe(400);
+    expect((await add("a", [{ userId: crypto.randomUUID(), level: "edit" }])).statusCode).toBe(400);
+    expect((await s.picks()).map((p) => p.path)).toEqual(["a/p1"]); // nothing half-added
+
+    // Through the user's role, at Read: download-only on the machine though the user may edit.
+    const set = (id: string, body: object) => s.send("PATCH", s.pickUrl(id), body);
+    await set(p1.id, { access: [{ roleId: BUILT_IN_ROLE_IDS.editor, level: "read" }] });
+    expect(await paths()).toEqual([["a/p1/m.stl", "read"]]);
+    expect((await s.put("a/p1/m.stl", "x", 1)).statusCode).toBe(403);
+    expect((await s.put("a/p1/new.stl", "x", 0)).statusCode).toBe(403);
+    expect((await s.get("a/p2/m.stl")).statusCode).toBe(404);
+
+    // The user at Edit; a Read pick around it doesn't lower it, and brings its sibling read-only.
+    await set(p1.id, {
+      access: [
+        { userId: s.editor.id, level: "edit" },
+        { roleId: BUILT_IN_ROLE_IDS.editor, level: "read" },
+      ],
+    });
+    expect((await s.put("a/p1/m.stl", "x", 1)).json()).toMatchObject({ status: "updated" });
+    const [a] = (await add("a", [{ userId: s.editor.id, level: "read" }])).json();
+    expect(await paths()).toEqual([
+      ["a/p1/m.stl", "edit"],
+      ["a/p2/m.stl", "read"],
+    ]);
+
+    // Paused: as if removed, and kept.
+    await set(a.id, { paused: true });
+    expect(await paths()).toEqual([["a/p1/m.stl", "edit"]]);
+    expect((await s.picks()).map((p) => [p.path, p.paused])).toEqual([
+      ["a", true],
+      ["a/p1", false],
+    ]);
+
+    // A pick never gives more than the user's rights: "b" stays hidden.
+    await add("b", [{ userId: s.editor.id, level: "edit" }]);
+    expect(await paths()).toEqual([["a/p1/m.stl", "edit"]]);
+
+    // Receive off: nothing at all.
+    await s.send("PATCH", `/api/hub/devices/${s.deskId()}`, { receiveProjects: false });
+    expect(await paths()).toEqual([]);
+    const roots = await s.app.inject({
+      url: "/api/hub/device/sync/roots",
+      headers: { authorization: s.authorization },
+    });
+    expect(roots.json().roots).toEqual([{ id: s.root.id, name: s.root.name, picked: false }]);
+  });
+
+  it("Open on a machine adds a pick for the project and asks the device", async () => {
     const s = await setup();
     for (const f of ["mine", "other"]) {
       mkdirSync(join(s.dir, f));
@@ -296,9 +402,8 @@ describe("hub file sync", () => {
       .all()
       .find((p) => p.folder === "mine");
     if (!device || !mine) throw new Error("setup");
-    expect(
-      (await s.send("PATCH", `/api/hub/devices/${device.id}`, { syncMode: "selected" })).statusCode,
-    ).toBe(204);
+    const [whole] = await s.picks();
+    await s.send("DELETE", s.pickUrl(whole?.id));
     expect((await s.changes()).files).toEqual([]);
 
     // Online, with a slicer: the device's user gets Open on it.
@@ -382,8 +487,13 @@ describe("hub file sync", () => {
     });
     const event = JSON.parse(/data: (\{"type":"open".*)/.exec(await until('"open"'))?.[1] ?? "");
     expect(event).toMatchObject({ rootId: s.root.id, path: "mine/m.stl", slicer: "bambu-studio" });
-    // Selected now: the device pulls it before it opens the slicer.
-    expect((await s.changes()).files).toMatchObject([{ path: "mine/m.stl" }]);
+    // Picked now, the user at Edit; the device syncs again first, then opens.
+    expect(text.indexOf('"roots.changed"')).toBeGreaterThan(-1);
+    expect(text.indexOf('"roots.changed"')).toBeLessThan(text.indexOf('"type":"open"'));
+    expect((await s.changes()).files).toMatchObject([{ path: "mine/m.stl", access: "edit" }]);
+    expect((await s.picks()).map((p) => [p.path, p.access.map((x) => x.userId)])).toEqual([
+      ["mine", [s.editor.id]],
+    ]);
     await s.app.inject({
       method: "POST",
       url: `/api/hub/device/replies/${event.requestId}`,
@@ -406,9 +516,10 @@ describe("hub file sync", () => {
     });
     expect((await opened).json()).toEqual({ ok: true });
 
-    // Hub management takes it off the device: the connector syncs again, its copy goes.
-    const off = await s.send("DELETE", `/api/hub/devices/${device.id}/projects/${mine.id}`);
-    expect(off.statusCode).toBe(204);
+    // Projects settings → Sources removes the pick: the connector syncs again, its copy goes.
+    const [pick] = await s.picks();
+    const off = await s.send("DELETE", s.pickUrl(pick?.id));
+    expect(off.statusCode).toBe(200);
     await until('"roots.changed"');
     expect((await s.changes()).files).toEqual([]);
     await reader.cancel();
