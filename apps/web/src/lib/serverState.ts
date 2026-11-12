@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-/** What the shell banner says about the server after Stop or Restart; null = nothing. */
+/** What the shell overlay says while the server is away; null = no overlay. */
 export type ServerState =
   | { kind: "stopped" }
-  | { kind: "restarting"; url: string; timedOut: boolean };
+  | { kind: "restarting"; url: string; timedOut: boolean }
+  | { kind: "updating"; phase: "preparing" | "installing" | "slow" };
 
 const KEY = ["server-state"];
 
@@ -17,5 +18,5 @@ export const useServerState = () =>
 
 export function useSetServerState() {
   const qc = useQueryClient();
-  return (s: ServerState) => qc.setQueryData(KEY, s);
+  return (s: ServerState | null) => qc.setQueryData(KEY, s);
 }

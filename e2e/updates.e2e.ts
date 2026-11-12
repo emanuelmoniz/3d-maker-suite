@@ -72,6 +72,61 @@ test("updates: version in the footer and About; Docker gets the command, git and
   await expect(about.getByRole("alert")).toContainText("Download its installer");
 });
 
+test("updates: an overlay blocks the page; a failed update closes it and About says why", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  let failed = false;
+  await page.route("**/api/updates", (r) =>
+    r.fulfill({
+      json: {
+        version,
+        install: "bundle",
+        latest: { tag: "v99.0.0", url: "https://example.com/notes" },
+        checkedAt: new Date().toISOString(),
+        checkFailed: false,
+        history: failed
+          ? [
+              {
+                action: "update",
+                at: new Date().toISOString(),
+                fromVersion: version,
+                toVersion: "99.0.0",
+                fromSha: version,
+                backup: "update-1.zip",
+                ok: false,
+                failedStep: "build",
+                canRollBack: false,
+              },
+            ]
+          : [],
+      },
+    }),
+  );
+  let server: "up" | "down" = "up";
+  await page.route("**/api/health", (r) =>
+    server === "down" ? r.abort() : r.fulfill({ json: { status: "ok", version, startedAt: "A" } }),
+  );
+  await page.route("**/api/updates/apply", (r) => r.fulfill({ status: 202, json: { ok: true } }));
+  await page.goto("/settings");
+  const about = page.locator("#updates");
+  await about.getByRole("button", { name: "Update to 99.0.0" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Update to 99.0.0" }).click();
+
+  const overlay = page.getByRole("dialog", { name: /^Installing/ });
+  await expect(overlay).toBeVisible();
+  server = "down";
+  await page.keyboard.press("Escape");
+  await expect(overlay).toBeVisible();
+  await page.waitForEvent("requestfailed", (r) => r.url().endsWith("/api/health"));
+
+  // The same version comes back: it went back, the overlay closes and About explains.
+  failed = true;
+  server = "up";
+  await expect(overlay).toHaveCount(0);
+  await expect(about.getByRole("alert")).toContainText("Updating to 99.0.0 failed while");
+});
+
 test("updates: the banner reads on any page and leads to Settings", async ({ page }) => {
   // The shell renders before a page loads its own translations: start where Settings isn't loaded.
   await page.route("**/api/alerts", (r) =>

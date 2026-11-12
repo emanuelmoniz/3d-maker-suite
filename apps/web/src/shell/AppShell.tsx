@@ -1,8 +1,19 @@
 import { REPO_URL, SITE_URL } from "@3d-maker-suite/core";
 import { Link, Outlet } from "@tanstack/react-router";
-import { CircleUser, Ellipsis, Power, Printer, ShieldAlert, Sparkles, X } from "lucide-react";
+import {
+  CircleUser,
+  Download,
+  Ellipsis,
+  LoaderCircle,
+  Power,
+  Printer,
+  ShieldAlert,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { Button } from "../components/Button.tsx";
 import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
@@ -12,7 +23,7 @@ import { cx, textLink } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
 import { useHasTasks } from "../lib/integrations.ts";
 import { usePreferences } from "../lib/preferences.ts";
-import { useServerState } from "../lib/serverState.ts";
+import { useServerState, useSetServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
 import {
   ALL_ITEMS,
@@ -147,33 +158,85 @@ function ForbiddenBanner() {
   );
 }
 
-/** After Stop or Restart: the server is gone, so say so where the header buttons can stay put. */
-function ServerBanner() {
+// i18n keys are written out in full so `pnpm i18n:check` can see them.
+const PHASES = {
+  preparing: "common:serverOverlay.preparing",
+  installing: "common:serverOverlay.installing",
+  slow: "common:serverOverlay.slow",
+} as const;
+
+/**
+ * Stop, restart or update: the server is away, so the page is frosted over until it's back (the
+ * waiting code reloads it). A modal <dialog> like the others, but Escape doesn't close it.
+ * Staying mounted underneath keeps About's own messages for when the overlay closes.
+ */
+function ServerOverlay() {
   const { t } = useTranslation();
   const s = useServerState();
-  if (!s) return null;
-  const failed = s.kind === "restarting" && s.timedOut;
+  const set = useSetServerState();
+  const ref = useRef<HTMLDialogElement>(null);
+  const current = useRef(s);
+  current.current = s;
+  useEffect(() => {
+    const d = ref.current;
+    if (s && !d?.open) d?.showModal();
+    if (!s && d?.open) d.close();
+  }, [s]);
+  const failed = s?.kind === "restarting" && s.timedOut;
+  const slow = s?.kind === "updating" && s.phase === "slow";
+  const waiting = !!s && s.kind !== "stopped" && !failed && !slow;
+  const Icon = s?.kind === "updating" ? Download : Power;
   return (
-    <div
-      role={failed ? "alert" : "status"}
-      className="mb-5 flex items-center gap-x-4 rounded-lg border border-border bg-surface-2 px-4 py-2.5"
+    <dialog
+      ref={ref}
+      aria-labelledby="server-overlay-text"
+      onCancel={(e) => e.preventDefault()}
+      // Chrome closes on a repeated Escape without a cancel event: open it again.
+      onClose={() => current.current && ref.current?.showModal()}
+      className="m-0 h-dvh max-h-none w-full max-w-none place-items-center bg-bg/85 p-4 text-fg backdrop-blur-md backdrop:bg-transparent open:grid"
     >
-      <Power className={cx("size-4 shrink-0", failed ? "text-bad" : "text-muted")} aria-hidden />
-      <span className="min-w-0 flex-1 font-medium wrap-anywhere">
-        {s.kind === "stopped" && t("common:serverBanner.stopped")}
-        {s.kind === "restarting" &&
-          (s.timedOut ? (
-            <>
-              {t("common:serverBanner.timeout")}{" "}
-              <a href={s.url} className={textLink}>
-                {s.url}
-              </a>
-            </>
-          ) : (
-            t("common:serverBanner.restarting")
-          ))}
-      </span>
-    </div>
+      {s && (
+        <div className="grid max-w-sm justify-items-center gap-5 text-center">
+          <div className="relative grid size-20 place-items-center">
+            {waiting && (
+              <LoaderCircle
+                aria-hidden
+                strokeWidth={1}
+                className="busy-spinner absolute inset-0 size-20 text-accent"
+              />
+            )}
+            <span
+              className={cx(
+                "grid size-14 place-items-center rounded-full border bg-surface",
+                failed
+                  ? "border-bad/50 text-bad"
+                  : waiting
+                    ? "border-accent/40 text-accent"
+                    : "border-border text-muted",
+              )}
+            >
+              <Icon className="size-6" aria-hidden />
+            </span>
+          </div>
+          <p
+            id="server-overlay-text"
+            role={failed ? "alert" : "status"}
+            className="text-base font-medium text-balance"
+          >
+            {s.kind === "stopped" && t("common:serverOverlay.stopped")}
+            {s.kind === "restarting" &&
+              t(s.timedOut ? "common:serverOverlay.timeout" : "common:serverOverlay.restarting")}
+            {s.kind === "updating" && t(PHASES[s.phase])}
+          </p>
+          {failed && (
+            <a href={s.url} className={cx(textLink, "wrap-anywhere")}>
+              {s.url}
+            </a>
+          )}
+          {slow && <Button onClick={() => set(null)}>{t("common:actions.close")}</Button>}
+        </div>
+      )}
+    </dialog>
   );
 }
 
@@ -395,7 +458,6 @@ export function AppShell() {
         <div className="mx-auto w-full max-w-6xl flex-1">
           <Brand mobile />
           <ForbiddenBanner />
-          <ServerBanner />
           <UpdateBanner />
           <Outlet />
         </div>
@@ -404,6 +466,7 @@ export function AppShell() {
         </div>
       </main>
       <BottomNav />
+      <ServerOverlay />
     </div>
   );
 }

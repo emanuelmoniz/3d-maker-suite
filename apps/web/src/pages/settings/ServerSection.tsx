@@ -10,6 +10,7 @@ import { api } from "../../lib/api.ts";
 import { useCan, useMe } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useSetServerState } from "../../lib/serverState.ts";
+import { health } from "../../lib/updates.ts";
 
 const KEY = ["server-config"];
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -52,8 +53,9 @@ export function ServerActions() {
         location.port !== String(fresh.effective.port)
           ? `${location.origin}/`
           : `${location.protocol}//${bound ? location.hostname : host}:${port}/`;
+      const before = (await health())?.startedAt;
       await api("POST", "/api/server-config/restart");
-      return url;
+      return { url, before };
     },
   });
   const stop = useMutation({ mutationFn: () => api("POST", "/api/server-config/stop") });
@@ -62,18 +64,29 @@ export function ServerActions() {
   if (!data) return null;
   const restartInPlace = () => {
     restart.mutate(undefined, {
-      onSuccess: async (url) => {
+      onSuccess: async ({ url, before }) => {
         setState({ kind: "restarting", url, timedOut: false });
+        const here = url === `${location.origin}/`;
+        // Back = a new process answers. Here its start time says so; the old process (still
+        // closing) or a dev-proxy error doesn't count. Another address can't be read (no-cors),
+        // so it has to be seen down first.
+        const probe = here
+          ? () => health().then((h) => (h ? h.startedAt : null))
+          : () =>
+              fetch(`${url}api/health`, { mode: "no-cors", cache: "no-store" }).then(
+                () => "",
+                () => null,
+              );
+        let down = false;
         for (let i = 0; i < 60; i++) {
           await new Promise((r) => setTimeout(r, 500));
-          const up = await fetch(`${url}api/health`, { mode: "no-cors" }).then(
-            () => true,
-            () => false,
-          );
-          if (!up) continue;
-          if (url === `${location.origin}/`) location.reload();
-          else location.assign(url);
-          return;
+          const started = await probe();
+          if (started === null) down = true;
+          else if (down || (started && started !== before)) {
+            if (here) location.reload();
+            else location.assign(url);
+            return;
+          }
         }
         setState({ kind: "restarting", url, timedOut: true });
       },

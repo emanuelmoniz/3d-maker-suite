@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "./api.ts";
 import { useCan } from "./auth.ts";
+import { useSetServerState } from "./serverState.ts";
 
 const KEY = ["updates"];
 
@@ -26,9 +27,10 @@ export function useCheckUpdates() {
   });
 }
 
-const health = () =>
-  fetch("/api/health").then(
-    (r) => (r.ok ? (r.json() as Promise<{ version: string }>) : null),
+/** The health route on this origin; null while the server is away (a proxy error counts as away). */
+export const health = () =>
+  fetch("/api/health", { cache: "no-store" }).then(
+    (r) => (r.ok ? (r.json() as Promise<{ version: string; startedAt: string }>) : null),
     () => null,
   );
 
@@ -44,7 +46,15 @@ export const useVersion = () =>
  */
 export function useRunUpdate() {
   const qc = useQueryClient();
-  const [phase, setPhase] = useState<"idle" | "preparing" | "installing" | "back" | "slow">("idle");
+  const setServer = useSetServerState();
+  const [phase, setPhaseOnly] = useState<"idle" | "preparing" | "installing" | "back" | "slow">(
+    "idle",
+  );
+  // The shell overlay blocks the page while the server is away; idle and back close it.
+  const setPhase = (p: typeof phase) => {
+    setPhaseOnly(p);
+    setServer(p === "idle" || p === "back" ? null : { kind: "updating", phase: p });
+  };
   const run = useMutation({
     mutationFn: async (v: { tag: string } | { backup: string }) => {
       setPhase("preparing");

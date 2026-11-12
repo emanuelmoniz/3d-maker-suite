@@ -487,11 +487,6 @@
     "update": "Update to {{version}}",
     "manualGit": "This install can’t update itself. In the app’s folder, stop the app and run:",
     "manualDocker": "Docker installs update by pulling the new image. Next to your docker-compose.yml, run:",
-    "phases": {
-      "preparing": "Making a backup and downloading the update…",
-      "installing": "Installing. The app restarts and is back in about a minute; this page reloads by itself.",
-      "slow": "This is taking long. Check the terminal where the app runs, or logs/ in the app’s install folder."
-    },
     "wentBack": "Updating to {{version}} failed while {{step}}. You are still on {{current}}; the Logs and the terminal say more.",
     "failed": "failed while {{step}}",
     "steps": {

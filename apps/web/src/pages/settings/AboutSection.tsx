@@ -30,11 +30,6 @@ const STEPS = {
 } as const;
 /** Installs that update themselves through the launcher. */
 const SELF = ["git", "bundle"];
-const PHASES = {
-  preparing: "settings:updates.phases.preparing",
-  installing: "settings:updates.phases.installing",
-  slow: "settings:updates.phases.slow",
-} as const;
 
 type Entry = UpdatesResponse["history"][number];
 const code = "block overflow-x-auto whitespace-pre rounded-md bg-surface-2 p-3 font-mono text-sm";
@@ -152,9 +147,10 @@ export function AboutSection() {
 
       {latest && !SELF.includes(install) && <Manual install={install} tag={latest.tag} />}
 
-      {run.phase in PHASES && (
+      {/* The overlay shows the other phases; slow stays here once it is closed. */}
+      {run.phase === "slow" && (
         <p role="status" className="font-medium">
-          {t(PHASES[run.phase as keyof typeof PHASES])}
+          {t("common:serverOverlay.slow")}
         </p>
       )}
       {run.phase === "back" && last && !last.ok && (

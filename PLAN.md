@@ -2824,7 +2824,7 @@ Design:
 Do Step 1 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Full-screen overlay for restart and update
+### [x] Step 2 - Full-screen overlay for restart and update
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Replace `ServerBanner` (`AppShell.tsx`) with an overlay that blocks the page, built on the same base as the existing dialogs. Esc doesn't close it.

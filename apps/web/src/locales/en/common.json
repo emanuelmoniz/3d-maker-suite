@@ -219,10 +219,13 @@
     "see": "See update",
     "dismiss": "Dismiss"
   },
-  "serverBanner": {
+  "serverOverlay": {
     "stopped": "The server has stopped. You can close this tab.",
     "restarting": "The server is restarting. This page reloads by itself when it is back.",
-    "timeout": "The server did not answer in time. Try opening it here:"
+    "timeout": "The server did not answer in time. Try opening it here:",
+    "preparing": "Making a backup and downloading the update…",
+    "installing": "Installing. The app restarts and is back in about a minute; this page reloads by itself.",
+    "slow": "This is taking long. Check the terminal where the app runs, or logs/ in the app’s install folder."
   },
   "forbidden": "Your role doesn't allow that. Ask an admin if you need it.",
   "userMenu": {
