@@ -65,6 +65,7 @@ import {
   slicerConfigDir,
   slicerFileType,
   switchedOn,
+  working,
 } from "./capabilities.ts";
 import { catalogCards, catalogSource } from "./catalogSource.ts";
 import { deleteCloudCopy, fetchCloudPresets, placeCloudPresets } from "./cloudPresets.ts";
@@ -216,8 +217,15 @@ export function createSyncer(
   const rowOf = (id: string) => {
     const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
     if (!row) throw new HttpError(404, "not_found", "Integration not found");
-    // Disabled = switched off entirely: no sync, no test, no capabilities.
-    if (!row.enabled) throw new HttpError(409, "integration_disabled", "Integration is disabled");
+    // A disabled account is switched off entirely: no sync, no test, no capabilities. A slicer
+    // install's switch only takes it out of the hub's slicer's choices.
+    if (
+      !working(
+        row,
+        adapters.find((a) => a.id === row.adapterId),
+      )
+    )
+      throw new HttpError(409, "integration_disabled", "Integration is disabled");
     return row;
   };
 
@@ -490,12 +498,21 @@ export function createSyncer(
   }
 
   /**
-   * Scheduled job: in every enabled integration, each set-up type in `auto` mode whose frequency
+   * Scheduled job: in every working integration (an account while enabled), each set-up type in `auto` mode whose frequency
    * has passed since its last successful run, one after another (see NEEDS_USER / BACK_OFF). What a
    * slicer's files feed has no schedule: see `checkCatalogs` and `checkUserPresets`.
    */
   async function runAll() {
-    const rows = db.select().from(integrations).where(eq(integrations.enabled, true)).all();
+    const rows = db
+      .select()
+      .from(integrations)
+      .all()
+      .filter((r) =>
+        working(
+          r,
+          adapters.find((a) => a.id === r.adapterId),
+        ),
+      );
     for (const row of rows) {
       const { id, lastError } = row;
       if (lastError && NEEDS_USER.has(lastError)) continue;

@@ -109,9 +109,16 @@ export const workerDevice = (db: Db, row: Row) => {
     : undefined;
 };
 
-/** Supported by the adapter, not switched off, and what it needs is set up; any install's slice. */
+/**
+ * Whether a row syncs and works: an account only while it is enabled; a slicer install always, as
+ * its Enabled switch only says whether it can be the hub's slicer (`slicerOptions`).
+ */
+export const working = (row: Pick<Row, "enabled">, adapter?: Pick<IntegrationAdapter, "kind">) =>
+  row.enabled || (!!adapter && adapter.kind !== "cloud");
+
+/** Supported by the adapter, working, and what it needs is set up; any install's slice. */
 function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
-  if (!row.enabled || !adapter) return [];
+  if (!adapter || !working(row, adapter)) return [];
   // A cloud source needs its sign-in and a local one its folder; an action needs the program
   // itself, and slicing the source too (its presets).
   const source =

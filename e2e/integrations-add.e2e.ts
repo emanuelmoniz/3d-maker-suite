@@ -27,6 +27,13 @@ for (const width of [375, 1440])
     await expect(hub.getByText("Slicer machine used by the server.")).toBeVisible();
     // Nothing else to pick: no Change.
     await expect(hub.getByRole("button", { name: "Change slicer machine" })).toHaveCount(0);
+    // Switched off, it can't be picked, but it stays set up.
+    // The only install on the card: its switch and its line.
+    const row = card.getByRole("list");
+    await row.getByRole("switch", { name: "Enabled" }).dispatchEvent("click");
+    await expect(row.getByText("Switched off, so it can't be picked.")).toBeVisible();
+    await row.getByRole("switch", { name: "Enabled" }).dispatchEvent("click");
+    await expect(row.getByText("Switched off, so it can't be picked.")).toHaveCount(0);
     await expect(
       found
         ? card.getByRole("textbox", { name: "Config folder" })

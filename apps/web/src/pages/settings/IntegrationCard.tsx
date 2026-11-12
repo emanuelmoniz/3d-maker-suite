@@ -288,7 +288,7 @@ function HubSlicer({
               integration={i}
               hub={{
                 checked: lib?.cardsOf === i.id,
-                notOffered: i.kind === "worker" && !pickable(i),
+                notOffered: !i.enabled,
               }}
             />
           ))}
@@ -473,7 +473,7 @@ export function IntegrationCard({
       {/* Past the rail on wider screens, the full width on a phone. */}
       {open && (
         <div id={bodyId} className="col-span-2 sm:col-span-1 sm:col-start-2">
-          {admin && i.enabled && i.kind === "local" && (
+          {admin && i.kind === "local" && (
             <Part title={t("integrations:slicer.title")}>
               <SlicerFields
                 integration={i}
@@ -483,7 +483,7 @@ export function IntegrationCard({
               <ActionSwitches integration={i} />
             </Part>
           )}
-          {admin && i.enabled && i.kind === "server" && adapter?.managed && (
+          {admin && i.kind === "server" && adapter?.managed && (
             <Part title={t("integrations:slicer.title")}>
               <ManagedSlicer
                 integration={i}
@@ -493,7 +493,7 @@ export function IntegrationCard({
               <ActionSwitches integration={i} />
             </Part>
           )}
-          {admin && i.enabled && i.kind === "worker" && adapter && (
+          {admin && i.kind === "worker" && adapter && (
             <Part title={t("integrations:slicer.title")}>
               <WorkerSlicer integration={i} adapter={adapter} />
             </Part>

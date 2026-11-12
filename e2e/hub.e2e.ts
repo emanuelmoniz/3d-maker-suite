@@ -215,7 +215,9 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   // No slicer on it yet: only the way to install one.
   const slicers = page.getByRole("region", { name: "Slicers" });
   await expect(
-    slicers.getByRole("link", { name: "Install a slicer on this machine in Integrations" }),
+    slicers.getByRole("link", {
+      name: "Install or manage a slicer on this machine in Integrations",
+    }),
   ).toBeVisible();
   await expect(slicers.getByRole("region", { name: "Sync sources configurations" })).toHaveCount(0);
   // Its slicer is installed from the slicer type's card in Integrations (ADR-0022): none found on

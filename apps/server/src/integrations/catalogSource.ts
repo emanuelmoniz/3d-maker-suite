@@ -25,6 +25,7 @@ import {
   slicerConfigDir,
   slicerOptions,
   workerDevice,
+  working,
 } from "./capabilities.ts";
 
 // A library's catalog and system presets come from its hub's slicer (ADR-0022): a server folder, a
@@ -139,7 +140,15 @@ export function librarySources(
     return {
       library,
       routes: all
-        .filter((r) => r.enabled && libraryOf(r) === library)
+        // A switched-off account isn't a route; a slicer install is, on or off.
+        .filter(
+          (r) =>
+            libraryOf(r) === library &&
+            working(
+              r,
+              adapters.find((a) => a.id === r.adapterId),
+            ),
+        )
         .map((r) => ({ integrationId: r.id, presets: counts.get(r.id) ?? 0 })),
       source,
       options: slicerOptions(db, adapters, library).flatMap((o): LibrarySources["options"] => {

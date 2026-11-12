@@ -234,6 +234,6 @@
     "errors": {
       "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first."
     },
-    "installInIntegrations": "Install a slicer on this machine in Integrations"
+    "installInIntegrations": "Install or manage a slicer on this machine in Integrations"
   }
 }

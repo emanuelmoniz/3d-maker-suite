@@ -157,6 +157,13 @@ describe("the hub's slicer is the catalog source (ADR-0022)", () => {
     expect(sources()[0]?.source).toEqual({ integrationId: first, picked: false });
   });
 
+  it("a switched-off install stays on Sources, but can't be the hub's slicer", () => {
+    db.update(integrations).set({ enabled: false }).where(eq(integrations.id, second)).run();
+    const lib = sources()[0];
+    expect(lib?.routes.map((r) => r.integrationId)).toContain(second);
+    expect(lib?.options).toEqual([{ integrationId: first, readable: true }]);
+  });
+
   it("offers every enabled machine install, beside the server's", async () => {
     const [ws1, ws2] = twoDevices();
     const w1 = worker(ws1, 4);
