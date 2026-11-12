@@ -198,6 +198,12 @@ export type StateLine = {
   menu?: ReactNode;
 };
 
+/**
+ * Column widths every Sources table shares, so Item, On and the `⋯` line up from table to table
+ * and State or When takes the rest.
+ */
+export const LINE_COLUMNS = { item: "w-64", on: "w-20", what: "w-64", actions: "w-32" };
+
 /** A block's state lines in one table, Item | On | State, in line with the schedule lines. */
 export function StateLines({ label, rows }: { label: string; rows: StateLine[] }) {
   const { t } = useTranslation();
@@ -210,11 +216,13 @@ export function StateLines({ label, rows }: { label: string; rows: StateLine[] }
         {
           id: "item",
           header: t("settings:sources.columns.item"),
+          className: LINE_COLUMNS.item,
           cell: (r) => <span className="inline-block min-w-44 font-medium">{r.item}</span>,
         },
         {
           id: "on",
           header: t("settings:sources.columns.on"),
+          className: LINE_COLUMNS.on,
           cell: (r) =>
             r.on && (
               <Switch
@@ -235,18 +243,13 @@ export function StateLines({ label, rows }: { label: string; rows: StateLine[] }
             </span>
           ),
         },
-        ...(rows.some((r) => r.menu)
-          ? [
-              {
-                id: "actions",
-                header: t("settings:sources.columns.actions"),
-                headerCell: (
-                  <span className="sr-only">{t("settings:sources.columns.actions")}</span>
-                ),
-                cell: (r: StateLine) => <span className="flex justify-end">{r.menu}</span>,
-              },
-            ]
-          : []),
+        {
+          id: "actions",
+          header: t("settings:sources.columns.actions"),
+          headerCell: <span className="sr-only">{t("settings:sources.columns.actions")}</span>,
+          className: LINE_COLUMNS.actions,
+          cell: (r: StateLine) => <span className="flex justify-end">{r.menu}</span>,
+        },
       ]}
     />
   );

@@ -21,6 +21,8 @@ export type Column<T> = {
   cell: (row: T) => ReactNode;
   /** Right-aligned for numbers. */
   numeric?: boolean;
+  /** On its header and cells, e.g. a width shared by tables that line up. */
+  className?: string;
   /** Client mode: provide to make the column sortable. */
   sortValue?: (row: T) => string | number;
   /**
@@ -329,6 +331,7 @@ export function DataTable<T>({
                     className={cx(
                       "h-9 whitespace-nowrap px-3 font-medium",
                       c.numeric && "text-right",
+                      c.className,
                     )}
                   >
                     <span
@@ -376,6 +379,7 @@ export function DataTable<T>({
                     className={cx(
                       "whitespace-nowrap px-3 [&_a]:inline-flex [&_a]:min-h-6 [&_a]:items-center",
                       c.numeric && "text-right",
+                      c.className,
                     )}
                   >
                     {c === markColumn &&

@@ -39,7 +39,7 @@ import {
   useRunPolicy,
   useSummary,
 } from "./PolicyRow.tsx";
-import { SourceBlock, SourcesSection, type StateLine } from "./Sources.tsx";
+import { LINE_COLUMNS, SourceBlock, SourcesSection, type StateLine } from "./Sources.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
 const EMPTY: Record<AccountType, { title: string; body: string }> = {
@@ -234,6 +234,7 @@ export function PolicyLines({
           {
             id: "item",
             header: t("settings:sources.columns.item"),
+            className: LINE_COLUMNS.item,
             cell: (r) => (
               <span
                 className={cx(COL.item, "inline-flex flex-wrap items-center gap-x-2 font-medium")}
@@ -251,6 +252,7 @@ export function PolicyLines({
           {
             id: "on",
             header: t("settings:sources.columns.on"),
+            className: LINE_COLUMNS.on,
             cell: (r) => {
               const s = send?.(r.type);
               return s ? (
@@ -300,6 +302,7 @@ export function PolicyLines({
                 {
                   id: "what",
                   header: t("settings:sources.columns.what"),
+                  className: LINE_COLUMNS.what,
                   cell: (r: SyncPolicy) => (
                     <span className={COL.what}>{r.mode !== "off" && t(scopeLabel(r.scope))}</span>
                   ),
@@ -321,6 +324,7 @@ export function PolicyLines({
             id: "actions",
             header: t("settings:sources.columns.actions"),
             headerCell: <span className="sr-only">{t("settings:sources.columns.actions")}</span>,
+            className: LINE_COLUMNS.actions,
             cell: (r) => (
               <span className="flex items-center justify-end gap-1">
                 {admin && (
