@@ -288,7 +288,7 @@ describe("hub devices", () => {
     expect((await send("DELETE", `/api/hub/devices/${deviceId}`)).statusCode).toBe(204);
     expect((await bearer(token)).statusCode).toBe(401);
 
-    // New machines receive every hub project folder: a whole-root pick each, its user at Edit.
+    // New machines receive every hub project folder: a whole-root pick each, at Edit.
     const [root] = db
       .insert(schema.roots)
       .values({ name: "Models", location: "hub", path: "/models", position: 0 })
@@ -302,8 +302,8 @@ describe("hub devices", () => {
         rootId: root?.id,
         rootName: "Models",
         path: "",
+        level: "edit",
         paused: false,
-        access: [{ userId: viewer.id, roleId: null, name: "viewer", level: "edit" }],
       },
     ]);
     await send("PATCH", "/api/preferences", { hubDefaultSyncMode: "selected" });

@@ -7,7 +7,7 @@ import type {
   HubVersionsUsage,
   PairingCode,
   Pick,
-  PickAccessInput,
+  PickLevel,
   SharedFolder,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -121,7 +121,7 @@ export function useDeviceActions() {
         rootId?: string;
         path?: string;
         paused?: boolean;
-        access?: PickAccessInput[];
+        level?: PickLevel;
       }) =>
         api<Pick[]>(
           method,

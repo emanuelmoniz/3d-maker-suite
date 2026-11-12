@@ -2188,8 +2188,8 @@ describe("migration 0117", () => {
   });
 });
 
-describe("migration 0120", () => {
-  it("turns sync modes into picks for the device's user at edit; devices and their events stay", () => {
+describe("migrations 0120 and 0121", () => {
+  it("turns sync modes into picks at edit; devices and their events stay", () => {
     const now = migrateAcross(119, (sqlite) =>
       sqlite.exec(`
         insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values
@@ -2210,30 +2210,64 @@ describe("migration 0120", () => {
         insert into hub_events (device_id, type, data, created_at) values ('all', 'roots.changed', '{}', 'x');
       `),
     );
+    // Through 0121: each at Edit for the device's user.
     const picks = now
       .select({
         device: s.devicePicks.deviceId,
         root: s.devicePicks.rootId,
         path: s.devicePicks.path,
+        level: s.devicePicks.level,
         paused: s.devicePicks.paused,
-        user: s.devicePickAccess.userId,
-        role: s.devicePickAccess.roleId,
-        level: s.devicePickAccess.level,
       })
       .from(s.devicePicks)
-      .innerJoin(s.devicePickAccess, eq(s.devicePickAccess.pickId, s.devicePicks.id))
       .all()
       .sort((a, b) => `${a.device}${a.root}`.localeCompare(`${b.device}${b.root}`));
-    const pick = (device: string, root: string, path: string, user: string) =>
-      ({ device, root, path, paused: false, user, role: null, level: "edit" }) as const;
+    const pick = (device: string, root: string, path: string) =>
+      ({ device, root, path, level: "edit", paused: false }) as const;
     expect(picks).toEqual([
-      pick("all", "h1", "", "u"),
-      pick("all", "h2", "", "u"),
+      pick("all", "h1", ""),
+      pick("all", "h2", ""),
       // A device root's project isn't the hub's: no pick.
-      pick("sel", "h2", "clients/acme", "v"),
+      pick("sel", "h2", "clients/acme"),
     ]);
     const ids = now.select({ id: s.devices.id }).from(s.devices).all();
     expect(ids.map((d) => d.id).sort()).toEqual(["all", "none", "sel"]);
     expect(now.select({ n: count() }).from(s.hubEvents).get()?.n).toBe(1);
+  });
+});
+
+describe("migration 0121", () => {
+  it("gives each pick what its list gave the machine's user; a pick without them stays off", () => {
+    const now = migrateAcross(120, (sqlite) =>
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values
+          ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.editor}', 'x', 'x'),
+          ('o', 'o@x.io', 'o', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
+        insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('d', 'D', 'u', 't', 'x', 'x');
+        insert into roots (id, name, location, path, position, created_at, updated_at) values ('r', 'r', 'hub', '/r', 0, 'x', 'x');
+        insert into device_picks (id, device_id, root_id, path, paused, created_at, updated_at) values
+          ('direct', 'd', 'r', 'a', 0, 'x', 'x'),
+          ('role', 'd', 'r', 'b', 0, 'x', 'x'),
+          ('both', 'd', 'r', 'c', 1, 'x', 'x'),
+          ('other', 'd', 'r', 'e', 0, 'x', 'x');
+        insert into device_pick_access (id, pick_id, user_id, role_id, level) values
+          ('1', 'direct', 'u', null, 'edit'),
+          ('2', 'role', null, '${BUILT_IN_ROLE_IDS.editor}', 'read'),
+          ('3', 'both', 'u', null, 'read'),
+          ('4', 'both', null, '${BUILT_IN_ROLE_IDS.editor}', 'edit'),
+          ('5', 'other', 'o', null, 'edit');
+      `),
+    );
+    const picks = now
+      .select({ id: s.devicePicks.id, level: s.devicePicks.level, paused: s.devicePicks.paused })
+      .from(s.devicePicks)
+      .all()
+      .sort((a, b) => a.id.localeCompare(b.id));
+    expect(picks).toEqual([
+      { id: "both", level: "edit", paused: true },
+      { id: "direct", level: "edit", paused: false },
+      { id: "other", level: "read", paused: true },
+      { id: "role", level: "read", paused: false },
+    ]);
   });
 });

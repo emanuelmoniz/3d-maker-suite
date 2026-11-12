@@ -97,13 +97,13 @@ A device syncs hub projects while **Receive from server** is on, on its [machine
 Picks are set in **Projects settings → Sources → Receive from server**: a card per machine with Receive on, one line per pick.
 
 - A pick is a project folder on this server (the whole folder) or a folder inside it, a project or a parent of several. The device mirrors it under its sync folder: `Models/…` for a whole folder, `Clients/Acme/…` for a folder inside one.
-- Each pick has a list of people and roles, each at **Read** or **Edit**. The device syncs a pick only when its user is on the list, directly or through their role. Read syncs the files read-only; Edit lets the device's saves go back to the hub. The user's own rights still cap it: projects they can't see stay off the device, and files they may only download stay read-only.
-- **Add pick** asks for the project folder, optionally a folder inside it, and the list (the machine's user at Edit to start). **Edit** changes the list. A line's switch pauses the pick; **⋯ → Remove** removes it. Either way its files leave the device, except files changed there that the hub doesn't have yet. Nothing on the hub is deleted.
-- **Open** on a project the device doesn't sync adds a pick for the project's folder, its user at Edit.
+- Each pick is at **Read** or **Edit**. Read syncs the files read-only on the device; Edit lets its saves go back to the hub. Where two picks cover a file, Edit wins. The device's user's own rights still cap it: projects they can't see stay off the device, and files they may only download stay read-only.
+- **Add pick** asks for the project folder, optionally a folder inside it, and the level (Edit to start). **Edit** changes the level. A line's switch pauses the pick; **⋯ → Remove** removes it. Either way its files leave the device, except files changed there that the hub doesn't have yet. Nothing on the hub is deleted.
+- **Open** on a project the device doesn't sync adds a pick for the project's folder at Edit.
 - It takes `hub.manage` or Projects at Manage, on a machine you can see. Each change is in the log.
-- **Hub management → Settings → New machines receive**: **Every project folder** (a pick per project folder on this server, the machine's user at Edit) or **Nothing until picked** (the default).
-- Upgrading to 5.5.0 keeps what each device synced: *Everything* became a pick per project folder, *Selected projects* a pick per selected project, each with the device's user at Edit.
-- Changing a device's user doesn't change the lists: add the new user, or their role, to the picks it should keep.
+- **Hub management → Settings → New machines receive**: **Every project folder** (a pick per project folder on this server, at Edit) or **Nothing until picked** (the default).
+- Upgrading to 5.5.0 keeps what each device synced: *Everything* became a pick per project folder, *Selected projects* a pick per selected project, each at Edit.
+- The picks belong to the device. **Change user** keeps them, and the new user's rights apply from the next sync: files that user can't see leave the device, files they may only download turn read-only.
 
 ### Open
 

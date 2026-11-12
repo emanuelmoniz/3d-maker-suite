@@ -1158,10 +1158,10 @@ export const projectsRoutes =
           if (!listed || !p.rootId || !p.folder)
             throw new HttpError(403, "not_allowed", "File is not part of this project");
           const rootId = p.rootId;
-          // Not synced there yet: a pick for its folder, the user at Edit (ADR-0021). The connector
-          // syncs again first (its events run in order), so the file is there to open.
-          if (!device.synced && req.user) {
-            ensurePick(db, device.id, rootId, p.folder, [{ userId: req.user.id, level: "edit" }]);
+          // Not synced there yet: a pick for its folder at Edit (ADR-0021). The connector syncs
+          // again first (its events run in order), so the file is there to open.
+          if (!device.synced) {
+            ensurePick(db, device.id, rootId, p.folder, "edit");
             hub.publish(device.id, { type: "roots.changed" });
           }
           const path = `${p.folder}/${file}`;

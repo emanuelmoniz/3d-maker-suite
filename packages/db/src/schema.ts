@@ -1257,8 +1257,8 @@ export const devices = sqliteTable(
 );
 
 /**
- * The hub folders a machine receives (ADR-0021): a hub root (`path` "") or a folder inside one.
- * Paused: kept, but synced as if removed.
+ * The hub folders a machine receives (ADR-0021): a hub root (`path` "") or a folder inside one, at
+ * a level for the machine's user, whose own rights still cap it. Paused: kept, but synced as if removed.
  */
 export const devicePicks = sqliteTable(
   "device_picks",
@@ -1272,31 +1272,14 @@ export const devicePicks = sqliteTable(
       .references(() => roots.id, { onDelete: "cascade" }),
     /** Relative to the root, `/`-separated; "" = the whole root. */
     path: text().notNull().default(""),
+    /** `read`: download-only on the machine; `edit`: its saves go back to the hub. */
+    level: text({ enum: PICK_LEVELS }).notNull().default("edit"),
     paused: integer({ mode: "boolean" }).notNull().default(false),
     ...timestamps,
   },
-  (t) => [uniqueIndex("device_picks_uq").on(t.deviceId, t.rootId, t.path)],
-);
-
-/** Who a pick syncs for: a user or a role, each at a level; the user's own rights still cap it. */
-export const devicePickAccess = sqliteTable(
-  "device_pick_access",
-  {
-    id: id(),
-    pickId: text()
-      .notNull()
-      .references(() => devicePicks.id, { onDelete: "cascade" }),
-    userId: text().references(() => users.id, { onDelete: "cascade" }),
-    roleId: text().references(() => roles.id, { onDelete: "cascade" }),
-    level: text({ enum: PICK_LEVELS }).notNull(),
-  },
   (t) => [
-    uniqueIndex("device_pick_access_user_uq").on(t.pickId, t.userId),
-    uniqueIndex("device_pick_access_role_uq").on(t.pickId, t.roleId),
-    index("device_pick_access_user_idx").on(t.userId),
-    index("device_pick_access_role_idx").on(t.roleId),
-    check("device_pick_access_one_ck", sql`(${t.userId} IS NULL) <> (${t.roleId} IS NULL)`),
-    check("device_pick_access_level_ck", oneOf(t.level, PICK_LEVELS)),
+    uniqueIndex("device_picks_uq").on(t.deviceId, t.rootId, t.path),
+    check("device_picks_level_ck", oneOf(t.level, PICK_LEVELS)),
   ],
 );
 

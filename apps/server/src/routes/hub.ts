@@ -50,7 +50,7 @@ import type { HubChannel } from "../lib/hubChannel.ts";
 import { deviceError, setPresetLibrary } from "../lib/machine.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { isEnabled, tokenHash } from "../lib/session.ts";
-import { ensurePick, picksOf, setPickAccess } from "../projects/picks.ts";
+import { ensurePick, picksOf } from "../projects/picks.ts";
 import { VERSION } from "../updates/updates.ts";
 
 const {
@@ -464,7 +464,7 @@ export const hubRoutes =
       { schema: { ...picksSchema, params, body: pickCreateSchema } },
       async (req) => {
         const row = pickGuard(req, req.params.id);
-        const { rootId, path, access } = req.body;
+        const { rootId, path, level } = req.body;
         const root = db.select().from(roots).where(eq(roots.id, rootId)).get();
         if (root?.location !== ROOT_HUB)
           throw new HttpError(404, "not_found", "Not a project folder on the hub");
@@ -480,7 +480,7 @@ export const hubRoutes =
           )
           .get();
         if (taken) throw new HttpError(409, "pick_exists", "This machine has this pick already");
-        ensurePick(db, row.id, rootId, path, access);
+        ensurePick(db, row.id, rootId, path, level);
         return savedPick(req, row.id, "pick added", `${root.name}/${path}`);
       },
     );
@@ -490,12 +490,11 @@ export const hubRoutes =
       async (req) => {
         const row = pickGuard(req, req.params.id);
         const pick = pickOf(row.id, req.params.pickId);
-        const { paused, access } = req.body;
-        if (access) setPickAccess(db, pick.id, access);
-        if (paused !== undefined)
-          db.update(devicePicks).set({ paused }).where(eq(devicePicks.id, pick.id)).run();
+        const { paused, level } = req.body;
+        if (paused !== undefined || level)
+          db.update(devicePicks).set({ paused, level }).where(eq(devicePicks.id, pick.id)).run();
         const message =
-          paused === undefined ? "pick changed" : paused ? "pick paused" : "pick resumed";
+          paused === undefined ? `pick at ${level}` : paused ? "pick paused" : "pick resumed";
         return savedPick(req, row.id, message, pick.path);
       },
     );
@@ -850,7 +849,7 @@ export const hubRoutes =
             .from(roots)
             .where(eq(roots.location, ROOT_HUB))
             .all())
-            ensurePick(db, row.id, r.id, "", [{ userId: row.userId, level: "edit" }]);
+            ensurePick(db, row.id, r.id, "", "edit");
         req.log.info({ deviceId: row.id }, "device paired");
         return reply.status(201).send({ token, deviceId: row.id });
       },

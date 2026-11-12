@@ -34,7 +34,7 @@ export const deviceSyncStateSchema = z.object({
 /** New machines receive (`hubDefaultSyncMode`): a pick per hub root, or nothing until picked. */
 export const DEVICE_SYNC_MODES = ["all", "selected"] as const;
 export const deviceSyncModeSchema = z.enum(DEVICE_SYNC_MODES);
-/** A pick's level for one user or role (ADR-0021); the user's own rights still cap it. */
+/** A pick's level for the machine's user (ADR-0021); the user's own rights still cap it. */
 export const PICK_LEVELS = ["read", "edit"] as const;
 export const pickLevelSchema = z.enum(PICK_LEVELS);
 /** Check-out locks (ADR-0014): `strict` also makes an offline device's hub-root files read-only. */
@@ -122,47 +122,31 @@ const pickPath = z
     (p) => p === "" || p.split("/").every((s) => s && s !== "." && s !== ".." && !s.includes("\\")),
     { message: "A folder inside the root, with / between names" },
   );
-/** One user or role on a pick's list: exactly one of the two. */
-export const pickAccessInputSchema = z
-  .object({ userId: id.optional(), roleId: id.optional(), level: pickLevelSchema })
-  .refine((a) => !a.userId !== !a.roleId, { message: "A user or a role" });
-const pickAccessList = z
-  .array(pickAccessInputSchema)
-  .min(1)
-  .max(200)
-  .refine((l) => new Set(l.map((a) => a.userId ?? `role:${a.roleId}`)).size === l.length, {
-    message: "Each user and role once",
-  });
-/** A machine receives this folder of the hub (ADR-0021), for the users and roles on its list. */
+/**
+ * A machine receives this folder of the hub (ADR-0021) at `level`: Read keeps its files read-only
+ * there, Edit sends its saves back. Whoever the machine's user is, their own rights still cap it.
+ */
 export const pickSchema = z.object({
   id,
   rootId: id,
   rootName: z.string(),
   path: z.string(),
+  level: pickLevelSchema,
   paused: z.boolean(),
-  access: z.array(
-    z.object({
-      userId: id.nullable(),
-      roleId: id.nullable(),
-      name: z.string(),
-      level: pickLevelSchema,
-    }),
-  ),
 });
 /** `POST /api/hub/devices/:id/picks`. */
 export const pickCreateSchema = z.strictObject({
   rootId: id,
   path: pickPath,
-  access: pickAccessList,
+  level: pickLevelSchema,
 });
-/** `PATCH /api/hub/devices/:id/picks/:pickId`: pause it, or replace its list. */
+/** `PATCH /api/hub/devices/:id/picks/:pickId`: pause it, or change its level. */
 export const pickUpdateSchema = z.strictObject({
   paused: z.boolean().optional(),
-  access: pickAccessList.optional(),
+  level: pickLevelSchema.optional(),
 });
 export type Pick = z.infer<typeof pickSchema>;
 export type PickLevel = z.infer<typeof pickLevelSchema>;
-export type PickAccessInput = z.infer<typeof pickAccessInputSchema>;
 export type PickCreate = z.infer<typeof pickCreateSchema>;
 export type PickUpdate = z.infer<typeof pickUpdateSchema>;
 

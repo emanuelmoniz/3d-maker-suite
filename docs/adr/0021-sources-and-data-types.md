@@ -1,6 +1,6 @@
 # ADR-0021: Sources and data types
 
-- Status: Accepted (2026-11-10, Plan 5.5.0 Step 1, after the profile spike). Amends ADR-0014 (the connector opens the hub page, shared folders on the hub, picks replace sync mode, whole-disk `fs.list`, new operations), ADR-0016 (`machine.*` switches, a `presets` module), ADR-0017 and ADR-0019 (presets instead of profiles; a machine's Share and Install per preset kind) and ADR-0020 (a Presets module, where the device switches live, the device × slicer table). Amended by ADR-0022: one slicer per slicer type; Catalog Share goes, and a machine's switches are Use as slicer, Catalog and system presets, and User presets. Amended by ADR-0023: the Presets module, the `presets` level, `machine.presets` and the per-kind Receive lines go. Amended 2026-11-12 (below): the Allow switches and the machine page's slicer switches go.
+- Status: Accepted (2026-11-10, Plan 5.5.0 Step 1, after the profile spike). Amends ADR-0014 (the connector opens the hub page, shared folders on the hub, picks replace sync mode, whole-disk `fs.list`, new operations), ADR-0016 (`machine.*` switches, a `presets` module), ADR-0017 and ADR-0019 (presets instead of profiles; a machine's Share and Install per preset kind) and ADR-0020 (a Presets module, where the device switches live, the device × slicer table). Amended by ADR-0022: one slicer per slicer type; Catalog Share goes, and a machine's switches are Use as slicer, Catalog and system presets, and User presets. Amended by ADR-0023: the Presets module, the `presets` level, `machine.presets` and the per-kind Receive lines go. Amended 2026-11-12 (below): the Allow switches and the machine page's slicer switches go; a pick has a level instead of a list of users and roles.
 - Date: 2026-11-10
 
 ## Context
@@ -394,6 +394,15 @@ The profile has no region; the card keeps the region from the integration's conf
 - A slicer type's card in Integrations drops its installs' sync log and status line; like the account card, it has one Sync sources configurations section.
 - A slicer install's **Enabled** switch (this server's or a machine's) only says whether it can be picked as the hub's slicer. Switched off, it keeps syncing and stays on Catalog settings → Sources; an account's Enabled still turns its sync off (`working()` in `capabilities.ts`).
 - Labels (2026-11-12): *The hub's slicer* reads **Server's slicer**, *Share to the hub* **Share to server** and *Receive from the hub* **Receive from server**, on Sources and on the machine page alike. The text above keeps the old names.
+
+## Amendment (2026-11-12, Plan 5.5.0 Step 17): a pick has a level, not a list
+
+- **A pick has one level, Read or Edit, for the machine's user.** The users and roles list goes (`device_pick_access`, migration 0121). A machine acts as exactly one user, so only that user's entry on a list ever counted; the rest did nothing until someone else became the machine's user, and the dialog invited you to add people who would never get the files.
+- **The picks belong to the machine.** When its user changes (Change user), it keeps its picks and the new user's own rights cap them: files that user can't see leave the machine, files they may only download turn read-only. Nothing is listed per person.
+- Read syncs read-only and refuses the machine's saves; Edit sends them back, within the user's rights, as before. Two picks covering a file: Edit wins.
+- Migration 0121 keeps what each machine received: a pick's level is what its list gave the machine's user, directly or through their role (Edit wins); a pick that didn't list them didn't sync, so it is kept paused, at Read.
+- Add pick: project folder, optional folder inside it, level (Edit to start), with the hint "WS-3 works as Ana Silva … if the machine's user changes, the new user's rights apply." The line's state column shows the level. Open on a machine and "New machines receive: every project folder" add picks at Edit.
+- Rejected: **keeping the list for a planned handover.** Change user is rare and done by an admin, who can adjust the picks then; a list that only matters after a handover is easy to get wrong before it. The "Picks with roles" risk above goes with it.
 
 ## Sources (checked 2026-11-10)
 - OpenBambuAPI, [cloud-http.md](https://github.com/Doridian/OpenBambuAPI/blob/main/cloud-http.md): `GET /v1/user-service/my/profile`, `GET /v1/design-user-service/my/preference`.

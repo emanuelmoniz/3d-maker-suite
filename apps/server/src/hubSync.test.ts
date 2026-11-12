@@ -289,7 +289,7 @@ describe("hub file sync", () => {
     expect((await s.del("theirs/b.stl", 1)).statusCode).toBe(403);
   });
 
-  it("syncs only its picks, for the users and roles on their lists, within their rights", async () => {
+  it("syncs only its picks, at their level, within its user's rights", async () => {
     const s = await setup();
     for (const [folder, owner] of [
       ["a/p1", s.editor.id],
@@ -305,14 +305,16 @@ describe("hub file sync", () => {
       (await s.changes()).files
         .map((f: { path: string; access: string }) => [f.path, f.access])
         .sort((a: string[], b: string[]) => String(a[0]).localeCompare(String(b[0])));
-    // Paired with "every hub project folder": the whole root, the editor at Edit; "b" is the
-    // admin's, which the editor can't see.
+    // Paired with "every hub project folder": the whole root at Edit; "b" is the admin's, which
+    // the editor (the machine's user) can't see.
     const [whole] = await s.picks();
-    expect(whole).toMatchObject({
+    expect(whole).toEqual({
+      id: expect.any(String),
       rootId: s.root.id,
+      rootName: s.root.name,
       path: "",
+      level: "edit",
       paused: false,
-      access: [{ userId: s.editor.id, roleId: null, name: "editor", level: "edit" }],
     });
     expect(await paths()).toEqual([
       ["a/p1/m.stl", "edit"],
@@ -333,33 +335,23 @@ describe("hub file sync", () => {
     expect((await s.send("DELETE", s.pickUrl(whole?.id))).json()).toEqual([]);
     expect(await paths()).toEqual([]);
 
-    // A subfolder pick, for someone else: the machine's user isn't on its list.
-    const add = (path: string, access: object[]) =>
-      s.send("POST", s.pickUrl(), { rootId: s.root.id, path, access });
-    const [p1] = (await add("a/p1", [{ userId: s.admin.id, level: "edit" }])).json();
-    expect(await paths()).toEqual([]);
-    expect((await add("a/p1", [{ userId: s.admin.id, level: "edit" }])).statusCode).toBe(409);
-    expect((await add("../x", [{ userId: s.admin.id, level: "edit" }])).statusCode).toBe(400);
-    expect((await add("a", [{ userId: crypto.randomUUID(), level: "edit" }])).statusCode).toBe(400);
-    expect((await s.picks()).map((p) => p.path)).toEqual(["a/p1"]); // nothing half-added
-
-    // Through the user's role, at Read: download-only on the machine though the user may edit.
+    // A subfolder pick at Read: download-only on the machine though its user may edit.
+    const add = (path: string, level: string) =>
+      s.send("POST", s.pickUrl(), { rootId: s.root.id, path, level });
     const set = (id: string, body: object) => s.send("PATCH", s.pickUrl(id), body);
-    await set(p1.id, { access: [{ roleId: BUILT_IN_ROLE_IDS.editor, level: "read" }] });
+    const [p1] = (await add("a/p1", "read")).json();
     expect(await paths()).toEqual([["a/p1/m.stl", "read"]]);
     expect((await s.put("a/p1/m.stl", "x", 1)).statusCode).toBe(403);
     expect((await s.put("a/p1/new.stl", "x", 0)).statusCode).toBe(403);
     expect((await s.get("a/p2/m.stl")).statusCode).toBe(404);
+    expect((await add("a/p1", "edit")).statusCode).toBe(409);
+    expect((await add("../x", "edit")).statusCode).toBe(400);
+    expect((await add("a", "owner")).statusCode).toBe(400);
 
-    // The user at Edit; a Read pick around it doesn't lower it, and brings its sibling read-only.
-    await set(p1.id, {
-      access: [
-        { userId: s.editor.id, level: "edit" },
-        { roleId: BUILT_IN_ROLE_IDS.editor, level: "read" },
-      ],
-    });
+    // At Edit; a Read pick around it doesn't lower it, and brings its sibling read-only.
+    await set(p1.id, { level: "edit" });
     expect((await s.put("a/p1/m.stl", "x", 1)).json()).toMatchObject({ status: "updated" });
-    const [a] = (await add("a", [{ userId: s.editor.id, level: "read" }])).json();
+    const [a] = (await add("a", "read")).json();
     expect(await paths()).toEqual([
       ["a/p1/m.stl", "edit"],
       ["a/p2/m.stl", "read"],
@@ -368,14 +360,20 @@ describe("hub file sync", () => {
     // Paused: as if removed, and kept.
     await set(a.id, { paused: true });
     expect(await paths()).toEqual([["a/p1/m.stl", "edit"]]);
-    expect((await s.picks()).map((p) => [p.path, p.paused])).toEqual([
-      ["a", true],
-      ["a/p1", false],
+    expect((await s.picks()).map((p) => [p.path, p.level, p.paused])).toEqual([
+      ["a", "read", true],
+      ["a/p1", "edit", false],
     ]);
 
-    // A pick never gives more than the user's rights: "b" stays hidden.
-    await add("b", [{ userId: s.editor.id, level: "edit" }]);
+    // A pick never gives more than the machine's user may: "b" stays hidden from the editor.
+    await add("b", "edit");
     expect(await paths()).toEqual([["a/p1/m.stl", "edit"]]);
+    // The picks are the machine's: with another user, the same picks follow that user's rights.
+    s.db.update(schema.devices).set({ userId: s.admin.id }).run();
+    expect(await paths()).toEqual([
+      ["a/p1/m.stl", "edit"],
+      ["b/m.stl", "edit"],
+    ]);
 
     // Receive off: nothing at all.
     await s.send("PATCH", `/api/hub/devices/${s.deskId()}`, { receiveProjects: false });
@@ -487,13 +485,11 @@ describe("hub file sync", () => {
     });
     const event = JSON.parse(/data: (\{"type":"open".*)/.exec(await until('"open"'))?.[1] ?? "");
     expect(event).toMatchObject({ rootId: s.root.id, path: "mine/m.stl", slicer: "bambu-studio" });
-    // Picked now, the user at Edit; the device syncs again first, then opens.
+    // Picked now, at Edit; the device syncs again first, then opens.
     expect(text.indexOf('"roots.changed"')).toBeGreaterThan(-1);
     expect(text.indexOf('"roots.changed"')).toBeLessThan(text.indexOf('"type":"open"'));
     expect((await s.changes()).files).toMatchObject([{ path: "mine/m.stl", access: "edit" }]);
-    expect((await s.picks()).map((p) => [p.path, p.access.map((x) => x.userId)])).toEqual([
-      ["mine", [s.editor.id]],
-    ]);
+    expect((await s.picks()).map((p) => [p.path, p.level])).toEqual([["mine", "edit"]]);
     await s.app.inject({
       method: "POST",
       url: `/api/hub/device/replies/${event.requestId}`,

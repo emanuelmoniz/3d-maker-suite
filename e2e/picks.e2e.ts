@@ -36,16 +36,25 @@ test("picks: add one in Projects settings → Sources, pause it, the machine pag
     .filter({ has: page.getByRole("heading", { name: /WS-1/, level: 3 }) });
   await expect(card).toContainText("No picks yet");
 
-  // Add pick: the whole project folder, for the machine's user at Edit.
+  // Add pick: the whole project folder, at Edit.
   await card.getByRole("button", { name: "Add pick" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a pick for WS-1" });
   await expect(dialog).toContainText("The whole project folder");
-  await expect(dialog).toContainText("WS-1 receives a pick only when Ana Admin is on its list");
+  await expect(dialog).toContainText("WS-1 works as Ana Admin.");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
   const line = card.getByRole("row").filter({ hasText: "Models (whole folder)" });
-  await expect(line).toContainText("Ana Admin: Edit");
+  await expect(line).toContainText("Edit");
   expect(await hasHorizontalScroll(page)).toBe(false);
+
+  // Edit: Read keeps the files read-only on the machine.
+  await line.getByRole("button", { name: "Edit Models (whole folder)" }).click();
+  const edit = page.getByRole("dialog", { name: "Models (whole folder) on WS-1" });
+  await edit.getByRole("combobox", { name: "Access" }).fill("Read");
+  await page.keyboard.press("Enter");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(edit).toBeHidden();
+  await expect(line).toContainText("Read");
 
   // Its switch pauses it; it stays listed.
   const on = line.getByRole("switch", { name: "Receive Models (whole folder) on WS-1" });
@@ -55,10 +64,10 @@ test("picks: add one in Projects settings → Sources, pause it, the machine pag
     (
       (await (await page.request.get("/api/hub/devices")).json()) as {
         id: string;
-        picks: { path: string; paused: boolean }[];
+        picks: { path: string; level: string; paused: boolean }[];
       }[]
     ).find((d) => d.id === deviceId)?.picks;
-  expect((await picks())?.map((p) => [p.path, p.paused])).toEqual([["", true]]);
+  expect((await picks())?.map((p) => [p.path, p.level, p.paused])).toEqual([["", "read", true]]);
 
   // The machine page counts it and links back to its card.
   await page.goto(`/hub/devices/${deviceId}`);
