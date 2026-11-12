@@ -324,7 +324,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
                 aria-label={t("prints:form.removeSpool")}
                 onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
               >
-                <Trash2 className="size-4" aria-hidden />
+                <Trash2 className="size-4 text-bad" aria-hidden />
               </Button>
             </div>
           ))}

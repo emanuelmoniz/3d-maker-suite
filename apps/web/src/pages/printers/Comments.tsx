@@ -81,7 +81,7 @@ export function Comments({ base }: { base: string }) {
               aria-label={t("printers:comments.delete")}
               onClick={() => remove.mutate(c.id)}
             >
-              <Trash2 className="size-4" />
+              <Trash2 className="size-4 text-bad" />
             </Button>
           </div>
         </Write>

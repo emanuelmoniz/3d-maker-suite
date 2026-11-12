@@ -160,6 +160,7 @@ test("users: old Settings links land on Users | Roles", async ({ page, app }) =>
   await page.goto("/settings#roles");
   await expect(page).toHaveURL(/\/users\/roles$/);
   await expect(page.getByRole("table", { name: "Roles" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Editor", exact: true })).toBeVisible();
   await page.goto("/settings#users");
   await expect(page).toHaveURL(/\/users$/);
   await page.goto("/settings/roles/new");

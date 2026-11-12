@@ -182,7 +182,7 @@ function PresetRow({
             className={`${iconButton} text-muted hover:text-bad focus-visible:text-bad`}
             aria-label={t("hub:presets.delete", { name: p.name })}
           >
-            <Trash2 className="size-4" aria-hidden />
+            <Trash2 className="size-4 text-bad" aria-hidden />
           </button>
         )}
       </div>

@@ -238,7 +238,7 @@ function ByHand({
               disabled={f.filaments.length === 1}
               onClick={() => set({ filaments: f.filaments.filter((_, j) => j !== i) })}
             >
-              <Trash2 className="size-4" aria-hidden />
+              <Trash2 className="size-4 text-bad" aria-hidden />
             </Button>
           </li>
         ))}
@@ -447,7 +447,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                     aria-label={t("costs:form.removeFile", { name: u.name })}
                     onClick={() => removeUpload(u)}
                   >
-                    <Trash2 className="size-4" aria-hidden />
+                    <Trash2 className="size-4 text-bad" aria-hidden />
                   </Button>
                 </li>
               ))}

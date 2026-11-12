@@ -78,7 +78,7 @@ export function ProjectRoots() {
           aria-label={t("settings:projects.removeRoot", { path: r.path })}
           onClick={() => setRemoving(r)}
         >
-          <Trash2 className="size-4" aria-hidden />
+          <Trash2 className="size-4 text-bad" aria-hidden />
         </Button>
       ),
     },

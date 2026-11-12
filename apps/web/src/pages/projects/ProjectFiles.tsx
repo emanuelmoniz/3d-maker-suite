@@ -322,7 +322,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
               label={t("projects:files.delete", n)}
               onClick={() => ctx.ask({ kind: "delete", entry })}
             >
-              <Trash2 className="size-4" aria-hidden />
+              <Trash2 className="size-4 text-bad" aria-hidden />
             </IconButton>
           </span>
         </Write>
@@ -615,7 +615,7 @@ export function ProjectFiles({
             disabled={!picked.length}
             onClick={() => open({ kind: "bulkDelete", paths: picked })}
           >
-            <Trash2 className="size-4" aria-hidden />
+            <Trash2 className="size-4 text-bad" aria-hidden />
             {t("projects:files.bulkDelete")}
           </Button>
         </div>

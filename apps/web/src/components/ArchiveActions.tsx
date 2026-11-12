@@ -15,7 +15,7 @@ import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../lib/api.ts";
-import { textLink } from "../lib/cx.ts";
+import { cx, textLink } from "../lib/cx.ts";
 import { Button } from "./Button.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import type { Column } from "./DataTable.tsx";
@@ -209,7 +209,7 @@ export function ArchiveActions({
         title={t(label)}
         onClick={onClick}
       >
-        <Icon className="size-4" aria-hidden />
+        <Icon className={cx("size-4", action === "delete" && "text-bad")} aria-hidden />
       </Button>
     ) : (
       <Button onClick={onClick}>{t(label)}</Button>

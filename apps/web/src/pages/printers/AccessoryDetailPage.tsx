@@ -208,7 +208,7 @@ export function AccessoryDetailPage() {
                       aria-label={t("printers:accessories.history.delete")}
                       onClick={() => setDeleting(i.id)}
                     >
-                      <Trash2 className="size-4" />
+                      <Trash2 className="size-4 text-bad" />
                     </Button>
                   </Write>
                 </li>
