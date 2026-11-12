@@ -540,7 +540,7 @@ function Actions({ device: d }: { device: Device }) {
       <div className="flex flex-wrap gap-2">
         {connection && (
           <>
-            <Button disabled={!d.online || restart.isPending} onClick={() => restart.mutate()}>
+            <Button disabled={!d.online} busy={restart.isPending} onClick={() => restart.mutate()}>
               {t("hub:devices.restart")}
             </Button>
             <Button disabled={!d.online || stop.isPending} onClick={() => setDialog("stop")}>

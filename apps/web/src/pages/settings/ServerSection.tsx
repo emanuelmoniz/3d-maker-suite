@@ -82,7 +82,7 @@ export function ServerActions() {
 
   return (
     <>
-      <Button disabled={restart.isPending || restart.isSuccess} onClick={restartInPlace}>
+      <Button disabled={restart.isSuccess} busy={restart.isPending} onClick={restartInPlace}>
         {t("settings:server.restartButton")}
       </Button>
       <Button

@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import { cx } from "../lib/cx.ts";
 
@@ -11,8 +12,15 @@ const variants = {
 export function Button({
   variant = "secondary",
   className,
+  busy,
+  disabled,
+  children,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof variants }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: keyof typeof variants;
+  /** Disables the button and shows a spinner after about 1 s. Only for actions that can be slow. */
+  busy?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -21,7 +29,12 @@ export function Button({
         variants[variant],
         className,
       )}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
       {...props}
-    />
+    >
+      {busy && <LoaderCircle aria-hidden className="busy-spinner size-4" />}
+      {children}
+    </button>
   );
 }

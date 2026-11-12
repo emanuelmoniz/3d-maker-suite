@@ -236,7 +236,8 @@ function ProjectTrash() {
         </span>
         <Button
           variant="danger"
-          disabled={!trash?.items || empty.isPending}
+          disabled={!trash?.items}
+          busy={empty.isPending}
           onClick={() => setConfirming(true)}
         >
           {t("settings:projects.trashEmpty")}

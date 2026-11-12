@@ -81,7 +81,7 @@ export function BackupSection() {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" disabled={create.isPending} onClick={() => create.mutate()}>
+        <Button variant="primary" busy={create.isPending} onClick={() => create.mutate()}>
           {t("settings:backup.create")}
         </Button>
         <label className="inline-flex h-9 cursor-pointer items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2 focus-within:outline-2">
@@ -141,6 +141,7 @@ export function BackupSection() {
       <ConfirmDialog
         open={restoring !== null}
         destructive
+        busy={restore.isPending}
         title={t("settings:backup.confirmTitle")}
         description={t("settings:backup.confirmBody")}
         confirmLabel={t("settings:backup.restore")}

@@ -428,7 +428,7 @@ function LineMenu({
     <>
       <Menu label={t("settings:sources.menu", { type: name, source: title })}>
         {on && canSync && (
-          <Button variant="ghost" className={item} disabled={sync.isPending} onClick={run}>
+          <Button variant="ghost" className={item} busy={sync.isPending} onClick={run}>
             {t("integrations:policies.syncNow")}
           </Button>
         )}

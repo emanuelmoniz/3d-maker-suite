@@ -9,6 +9,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   destructive,
+  busy,
   onConfirm,
   onCancel,
   children,
@@ -18,6 +19,8 @@ export function ConfirmDialog({
   description: string;
   confirmLabel?: string;
   destructive?: boolean;
+  /** Spinner on the confirm button while the action runs. */
+  busy?: boolean;
   /** Left out when there is nothing to confirm: only a Close button then. */
   onConfirm?: () => void;
   onCancel: () => void;
@@ -51,7 +54,7 @@ export function ConfirmDialog({
           {t(onConfirm ? "common:actions.cancel" : "common:actions.close")}
         </Button>
         {onConfirm && (
-          <Button variant={destructive ? "danger" : "primary"} onClick={onConfirm}>
+          <Button variant={destructive ? "danger" : "primary"} busy={busy} onClick={onConfirm}>
             {confirmLabel ?? t("common:actions.confirm")}
           </Button>
         )}

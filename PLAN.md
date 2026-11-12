@@ -2809,7 +2809,7 @@ Design:
 
 ## Phase 37 - Clear waiting and tags
 
-### [ ] Step 1 - Small loader
+### [x] Step 1 - Small loader
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - No spinner exists today; buttons only go disabled. Add a `busy` prop to `Button.tsx`: it sets `disabled` and `aria-busy` and shows lucide `LoaderCircle` with `animate-spin`. No new dependency.

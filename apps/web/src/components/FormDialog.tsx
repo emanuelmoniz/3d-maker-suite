@@ -42,7 +42,7 @@ export function FormDialog({
         )}
         {/* Always in reach on a form longer than the dialog. */}
         <div className="sticky -bottom-5 -mb-5 flex gap-2 bg-surface pt-1 pb-5">
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button type="submit" variant="primary" busy={busy}>
             {submitLabel ?? t("common:actions.save")}
           </Button>
           <Button onClick={onCancel}>{t("common:actions.cancel")}</Button>

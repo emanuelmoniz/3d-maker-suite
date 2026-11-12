@@ -140,7 +140,7 @@ export function AboutSection() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button disabled={check.isPending || busy} onClick={() => check.mutate()}>
+        <Button disabled={busy} busy={check.isPending} onClick={() => check.mutate()}>
           {t("settings:updates.checkNow")}
         </Button>
         {latest && SELF.includes(install) && (

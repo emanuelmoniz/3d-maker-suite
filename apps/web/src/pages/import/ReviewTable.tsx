@@ -836,7 +836,8 @@ export function ReviewTable({
       <div className="flex items-center gap-3">
         <Button
           variant="primary"
-          disabled={!importing || blocked || apply.isPending}
+          disabled={!importing || blocked}
+          busy={apply.isPending}
           onClick={() => setConfirming(true)}
         >
           {t("import:review.confirm", { count: importing })}

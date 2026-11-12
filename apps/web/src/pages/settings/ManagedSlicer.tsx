@@ -104,14 +104,14 @@ export function ManagedSlicer({
           {update && (
             <Button
               variant="primary"
-              disabled={install.isPending}
+              busy={install.isPending}
               onClick={() => install.mutate(update.tag)}
             >
               {t("integrations:managed.update", { version: version(update.tag) })}
             </Button>
           )}
           {job?.state === "failed" && job.tag && (
-            <Button disabled={install.isPending} onClick={() => install.mutate(job.tag ?? "")}>
+            <Button busy={install.isPending} onClick={() => install.mutate(job.tag ?? "")}>
               {t("integrations:managed.retry")}
             </Button>
           )}
@@ -119,7 +119,7 @@ export function ManagedSlicer({
             {installed ? t("integrations:managed.otherVersion") : t("integrations:managed.install")}
           </Button>
           {installed && (
-            <Button disabled={remove.isPending} onClick={() => setConfirming(true)}>
+            <Button busy={remove.isPending} onClick={() => setConfirming(true)}>
               {t("integrations:managed.remove")}
             </Button>
           )}

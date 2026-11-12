@@ -90,7 +90,7 @@ dialog::backdrop {
   background: rgb(8 12 18 / 0.5);
 }
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *:not(.busy-spinner) {
     /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */
     animation-duration: 0.01ms !important;
     /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */
@@ -102,5 +102,28 @@ dialog::backdrop {
 @layer base {
   .grid > * {
     min-width: 0;
+  }
+}
+
+/* Spinner for slow actions: invisible for the first second so fast ones don't flicker. */
+.busy-spinner {
+  opacity: 0;
+  animation:
+    busy-spin 1s linear infinite,
+    busy-show 0s 1s forwards;
+}
+@keyframes busy-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes busy-show {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .busy-spinner {
+    animation-duration: 3s, 0s;
   }
 }

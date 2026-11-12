@@ -67,7 +67,7 @@ export function ExportSection() {
           </FormField>
           <FormatField value={format} onChange={setFormat} />
           <Button
-            disabled={exportFile.isPending}
+            busy={exportFile.isPending}
             onClick={() =>
               exportFile.mutate({
                 filename: t("import:export.filename", { name, ext: format }),
