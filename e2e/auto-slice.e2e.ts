@@ -20,6 +20,7 @@ test("project folders table: machine, auto slice and project count, and removing
 
   await page.goto("/projects/settings");
   const row = (dir: string) => page.getByRole("row").filter({ hasText: basename(dir) });
+  await expect(row(a).getByRole("cell").first()).toHaveText("models");
   await expect(row(a)).toContainText("This server");
   await expect(row(a)).toContainText("On");
   await expect(row(a).getByRole("cell").nth(2)).toHaveText("1");

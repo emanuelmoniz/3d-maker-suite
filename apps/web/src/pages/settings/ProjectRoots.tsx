@@ -14,7 +14,7 @@ import { rootErrorKey, useChangeRoot, useRoots } from "../../lib/roots.ts";
 import { ChangeProjectsRoot } from "./ChangeProjectsRoot.tsx";
 
 /** The last segment of a path, with either separator. */
-const baseName = (path: string) => path.split(/[/]/).filter(Boolean).pop() ?? path;
+const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 
 /**
  * The project folders as a table. Adding and editing happen on a folder's own page; with the hub
