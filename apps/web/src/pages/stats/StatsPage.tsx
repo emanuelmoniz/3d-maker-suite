@@ -1,4 +1,5 @@
 import { HIDDEN_PROJECT, type Stats, type StatsMetrics } from "@3d-maker-suite/core";
+import { Link } from "@tanstack/react-router";
 import { ChartColumn, Download } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +12,7 @@ import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { useMoney } from "../../lib/cost.ts";
+import { textLink } from "../../lib/cx.ts";
 import { spoolName, useSpools } from "../../lib/filament.ts";
 import { formatDuration, formatEnergy, formatNumber, formatWeight } from "../../lib/format.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
@@ -137,12 +139,21 @@ export function StatsPage() {
     name: string,
     label: (r: R) => string,
     cost: "total" | "material" = "total",
+    to?: "/printers/$id" | "/projects/$id",
   ) => [
     {
       id: "name",
       header: name,
       archivedMark: true,
-      cell: label,
+      // A row with no id (no project) or the hidden project has no page to open.
+      cell: (r: R) =>
+        to && r.key && r.key !== HIDDEN_PROJECT ? (
+          <Link to={to} params={{ id: r.key }} className={textLink}>
+            {label(r)}
+          </Link>
+        ) : (
+          label(r)
+        ),
       sortValue: (r: R) => label(r).toLowerCase(),
       filterValue: label,
     },
@@ -374,7 +385,12 @@ export function StatsPage() {
                 label={t("stats:by.printer")}
                 rows={data.breakdowns.printer}
                 rowKey={(r) => r.key ?? ""}
-                columns={costColumns<Group>(t("stats:by.printer"), (r) => r.label ?? "")}
+                columns={costColumns<Group>(
+                  t("stats:by.printer"),
+                  (r) => r.label ?? "",
+                  "total",
+                  "/printers/$id",
+                )}
               />
               <DataTable
                 label={t("stats:by.outcome")}
@@ -388,8 +404,14 @@ export function StatsPage() {
               rows={data.breakdowns.project}
               rowKey={(r) => r.key ?? ""}
               client={{ query: projectQuery, onQueryChange: setProjectQuery }}
-              columns={costColumns<Group>(t("stats:by.project"), (r) =>
-                r.key === HIDDEN_PROJECT ? t("projects:hidden") : (r.label ?? t("stats:noProject")),
+              columns={costColumns<Group>(
+                t("stats:by.project"),
+                (r) =>
+                  r.key === HIDDEN_PROJECT
+                    ? t("projects:hidden")
+                    : (r.label ?? t("stats:noProject")),
+                "total",
+                "/projects/$id",
               )}
             />
             <DataTable
