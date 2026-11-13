@@ -2981,6 +2981,24 @@ Replaces the earlier Open and copy steps (decided on 2026-11-13). The server is 
 Do Step 11 of the 5.6.0 plan in PLAN.md.
 ```
 
+### [ ] Step 11b - Remove what Open left behind
+**Model:** Sonnet · **Effort:** Medium
+**Scope:** Step 11 removed Open itself. These were found by searching for readers; each has none left except the ones named. Check again before deleting.
+- **`openInSlicer` capability:** gone from `CAPABILITIES` and `ACTIONS` (`enums.ts`), the bambu and orca adapters, `capabilities.ts` (`slicerApp && source`), the "Open projects in the slicer" policy row (`PolicyRow`, `integrationLabels`, `integrations.json`), `IntegrationCard` (`can` = `slice` only) and the tests and e2e that name it. **Keep `slicerPath`:** slicing, `deviceCatalog` and the worker slicer read it. **Careful:** `hubDevice.ts` decides which adapters to discover on a device with `a.capabilities.includes("openInSlicer")`; it must become `a.desktop`, or the catalog Sources lose every slicer.
+- A Drizzle migration deletes the `sync_policies` rows with `type = 'openInSlicer'` (the column has no CHECK on it). Never edit an applied migration.
+- **Default slicer on a machine:** the `DefaultSlicer` block on the machine page, `defaultSlicer` in `connectorSettingsPatchSchema`, `connectorSettingsSchema` and the connector's settings handler, `defaultSlicer` in `state.ts`, the `default` flag in `deviceSlicerSchema` and in the connector's slicer report, the server's `PUT /devices/:id/settings` `defaultSlicer` branch (and its `device_outdated` check), the `hub:machine.defaultSlicer*` and `askEachTime` keys. Its only reader is that block. This is a different thing from `defaultSlicerId` (the server's default for slicing): **keep that.**
+- **`machine.slicers` right:** it only guarded the default slicer. Remove it from the role schema, defaults, `RightsEditor`, `machineGuard`'s section list and `docs/users.md` ("four switches" becomes three). Check how stored rights are read first: a migration only if a removed key makes stored rights fail to parse.
+- **Connector `Found.cmd` and `Found.args`** (the launch command, e.g. `open -a` on macOS) in `packages/host/src/findSlicers.ts`: only Open used them; slicing uses `cli`. Remove them and their test expectations.
+- **`fromThisPc`** in `lib/auth.ts` and its test in `access.test.ts`: no caller left. `isLoopbackIp` stays if something else uses it (check).
+- **Leave for Step 12:** `opened`, `handoffMs`, `alive` and the pid check in the connector's `sync.ts` (lock release on slicer exit). **Stay:** `openFolder` in `packages/host` (the connector's local page uses it), `useConnectorId` and `X-Connector-Port` (the machine page's link to the local page), `slicerPath`, `defaultSlicerId`.
+- Docs: `docs/open-in-slicer.md` (the "Open projects in the slicer" wording, if any is left), `docs/hub.md` (default slicer in the machine page list, the table row and "The port, start at login, default slicer, Restart and Stop need the connector online"), `docs/users.md`, the ADR-0014 note that says these are still in place, `README.md` if it names them.
+
+**Done when:** a search finds no `openInSlicer`, `defaultSlicer` (not `defaultSlicerId`), `machine.slicers`, `fromThisPc` or `Found.cmd` left in code or docs, other than migrations, ADR history and CHANGELOG; the catalog Sources still list every machine's slicers; an upgraded DB with an `openInSlicer` row starts clean; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 11b of the 5.6.0 plan in PLAN.md.
+```
+
 ### [ ] Step 12 - Remove locks, add "Last saved by"
 **Model:** Opus · **Effort:** Medium
 **Scope:**
