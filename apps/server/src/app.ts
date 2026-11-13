@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { hostname, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IntegrationAdapter, LogModule } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -19,7 +19,7 @@ import {
 } from "fastify-type-provider-zod";
 import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
-import type { Config } from "./config.ts";
+import { type Config, linkBase } from "./config.ts";
 import { HttpError } from "./errors.ts";
 import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
@@ -226,7 +226,9 @@ export async function buildApp(
   // Without a data dir (tests) secrets use a throwaway in-memory key.
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   await app.register(healthRoutes);
-  await app.register(authRoutes(db, key, !!opts.access?.password, opts.setupToken), {
+  // Links in notifications, read each time so a changed public address needs no restart.
+  const link = () => (opts.serverConfig ? linkBase(opts.serverConfig) : undefined);
+  await app.register(authRoutes(db, key, !!opts.access?.password, opts.setupToken, link), {
     prefix: "/api/auth",
   });
   await app.register(
@@ -471,16 +473,12 @@ export async function buildApp(
 
   // Runs one at a time, so a condition can't be sent twice by overlapping checks.
   let queue = Promise.resolve();
-  const net = opts.serverConfig;
-  // Links in notifications; a wildcard host is reached by the machine's name.
-  const baseUrl =
-    net && `http://${["0.0.0.0", "::"].includes(net.host) ? hostname() : net.host}:${net.port}`;
   const alertsLog = logFor("alerts");
   const evaluate = () =>
     (queue = queue
-      .then(() => evaluateAlerts(db, key, alertsLog, baseUrl))
+      .then(() => evaluateAlerts(db, key, alertsLog, link()))
       .catch((err) => alertsLog.error({ err }, "alert check failed")));
-  await app.register(alertsRoutes(db, key, evaluate), { prefix: "/api/alerts" });
+  await app.register(alertsRoutes(db, key, evaluate, link), { prefix: "/api/alerts" });
   if (opts.alertsSchedule) {
     // Presets an owner removed while in use go once they're free (ADR-0019), before the alerts.
     const daily = new Cron(opts.alertsSchedule, { protect: true }, () => {

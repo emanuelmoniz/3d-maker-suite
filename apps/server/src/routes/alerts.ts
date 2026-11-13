@@ -74,7 +74,12 @@ function view(userId?: string) {
 }
 
 export const alertsRoutes =
-  (db: Db, key: Buffer, evaluate: () => Promise<void>): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    key: Buffer,
+    evaluate: () => Promise<void>,
+    link: () => string | undefined = () => undefined,
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     const channel = (id: string) => {
       const c = channels.find((x) => x.id === id);
@@ -306,7 +311,11 @@ export const alertsRoutes =
       async (req) => {
         const c = channel(req.params.id);
         try {
-          await sendVia(db, key, c.id, { title: "3D Maker Suite", body: "Test notification" });
+          await sendVia(db, key, c.id, {
+            title: "3D Maker Suite",
+            body: "Test notification",
+            ...(link() && { url: link() }),
+          });
           return { ok: true };
         } catch (e) {
           req.log.warn({ err: e, channel: c.id }, "test notification failed");

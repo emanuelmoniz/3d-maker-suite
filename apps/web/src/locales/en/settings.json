@@ -463,7 +463,22 @@
     "stopButton": "Stop server",
     "stopTitle": "Stop the server?",
     "stopBody": "The app stops and every open tab loses connection. Start it again from the desktop or Start-menu shortcut.",
-    "networkHint": "Changes to the host or port apply only after a restart (or after you stop the server and start it again)."
+    "networkHint": "Changes to the host or port apply only after a restart (or after you stop the server and start it again).",
+    "public": {
+      "title": "Public address",
+      "auto": "Automatic",
+      "autoHint": "Links in alerts use the host and port above, or this computer's first network address.",
+      "internal": "Internal IP",
+      "internalHint": "An address of this computer on your network, for links opened from your home or office.",
+      "external": "Domain or external IP",
+      "externalHint": "The address you reach the app at from outside, such as behind a reverse proxy. Include http:// or https://.",
+      "typed": "Address",
+      "useThis": "Use this address",
+      "invalid": "Enter an address that starts with http:// or https://.",
+      "link": "Alerts link to {{value}}. Applies at once, no restart.",
+      "noLink": "Alerts carry no link. Choose an address above to add one.",
+      "fixed": "Set by the APP_PUBLIC_URL environment variable: {{value}}"
+    }
   },
   "hub": {
     "enabled": "Hub",

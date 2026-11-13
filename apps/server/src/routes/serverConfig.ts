@@ -10,6 +10,9 @@ import {
   type Config,
   DEFAULT_HOST,
   DEFAULT_PORT,
+  detectedIps,
+  linkBase,
+  publicUrlOf,
   readSavedConfig,
   writeSavedConfig,
 } from "../config.ts";
@@ -28,15 +31,24 @@ export const serverConfigRoutes =
         port: config.port,
         hostSource: config.hostSource,
         portSource: config.portSource,
+        publicUrl: publicUrlOf(config),
+        publicUrlSource: config.publicUrlEnv
+          ? ("env" as const)
+          : publicUrlOf(config)
+            ? ("file" as const)
+            : ("default" as const),
       },
       saved: readSavedConfig(config.dataDir),
       defaults: { host: DEFAULT_HOST, port: DEFAULT_PORT },
       passwordSet: !!config.password,
+      detected: config.docker ? [] : detectedIps(),
+      docker: config.docker,
+      link: linkBase(config),
     });
 
     app.get("/", { schema: { response: { 200: serverConfigResponseSchema } } }, async () => view());
 
-    // Only writes the file; the new values apply on restart. The password rule still holds then:
+    // Only writes the file; host and port apply on restart, the public address at once. The password rule still holds then:
     // a non-loopback host without APP_PASSWORD only answers requests addressed to localhost/that host.
     app.patch(
       "/",
@@ -44,7 +56,7 @@ export const serverConfigRoutes =
       async (req) => {
         const next = { ...readSavedConfig(config.dataDir) };
         for (const [key, value] of Object.entries(req.body)) {
-          if (value === null) delete next[key as "host" | "port"];
+          if (value === null) delete next[key as "host" | "port" | "publicUrl"];
           else Object.assign(next, { [key]: value });
         }
         writeSavedConfig(config.dataDir, next);

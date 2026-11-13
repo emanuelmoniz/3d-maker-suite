@@ -2927,7 +2927,7 @@ Do Step 7 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 Do Step 8 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Public address
+### [x] Step 9 - Public address
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Add `publicUrl` (http or https only, no trailing slash) to the saved config next to host and port, and `APP_PUBLIC_URL`, which wins and shows as fixed, as `hostSource` does. No restart needed: read it each time alerts are sent.

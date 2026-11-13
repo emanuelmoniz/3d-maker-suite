@@ -15,6 +15,7 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 | `APP_DATA_DIR` | see [install.md](install.md#where-your-data-is) | Where the database, thumbnails, backups and key file live |
 | `APP_PASSWORD` | unset | HTTP Basic password, used only until the first user account exists, or while **User accounts** is off ([users.md](users.md#turn-accounts-off)). Required when `HOST` is not a loopback address and no account is in use. Any user name works. |
 | `APP_ALLOWED_HOSTS` | unset | Comma-separated public host names a reverse proxy forwards in `Host`, e.g. `3d.example.com,makersuite.example.org`. Bare names or IPs only (no scheme, port, path or wildcard; IPv6 in brackets). Exact matches, case-insensitive. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
+| `APP_PUBLIC_URL` | unset | The address links in alert notifications (email, ntfy) point to, e.g. `https://3d.example.com`. `http://` or `https://` only; a trailing slash is dropped. Wins over the Settings value, which then shows as fixed. See [Public address](#public-address). |
 | `APP_TRUST_PROXY` | unset | Comma-separated IPs or CIDRs of your reverse proxies, e.g. `127.0.0.1` or `172.16.0.0/12` (Docker). The app then takes the client's address from `X-Forwarded-For`, so the lockout after wrong passwords or pairing codes hits only that client. Addresses only: a hop count or `true` would let a client fake its address. Environment only. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `APP_MOCK_INTEGRATION` | unset | Set to `1` to add a fake integration for trying the Integrations page without an account |
 | `APP_INSTALL` | unset | `docker` in the Docker image: Settings shows `docker compose pull` instead of an Update button. `bundle` when the installed app's launcher starts it ([ADR-0011](adr/0011-bundle-installs.md)). |
@@ -66,6 +67,16 @@ location / {
 Caddy and Traefik send `X-Forwarded-For` and `X-Forwarded-Proto` by default.
 
 Creating the first admin from the public name still needs the setup token: only a request addressed to `localhost` from this PC skips it.
+
+## Public address
+
+Alert emails and ntfy messages link back to the app. **Settings → Server → Public address** sets where those links point, and applies at once (no restart):
+
+- **Automatic**: a specific `HOST` gives `http://host:port`; a wildcard `HOST` (`0.0.0.0`) gives this computer's first network address (with several network adapters, pick Internal IP instead); `127.0.0.1` gives `http://127.0.0.1:port`. In Docker, or behind a reverse proxy (`APP_ALLOWED_HOSTS` set), Automatic adds no link.
+- **Internal IP**: one of this computer's network addresses, with the app's port. In Docker you type it, because the detected addresses belong to the container.
+- **Domain or external IP**: an address you type, with `http://` or `https://`. **Use this address** fills it from the page you are on.
+
+**Send test** carries the link too, so you can check it. `APP_PUBLIC_URL` overrides all of this.
 
 ## In-app settings
 

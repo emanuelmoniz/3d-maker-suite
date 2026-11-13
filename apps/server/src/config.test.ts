@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { openDb } from "@3d-maker-suite/db";
 import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
-import { dataDir, loadConfig, writeSavedConfig } from "./config.ts";
+import { dataDir, linkBase, loadConfig, writeSavedConfig } from "./config.ts";
 
 describe("config", () => {
   it("binds to loopback on 4300 by default", () => {
@@ -139,5 +139,53 @@ describe("config", () => {
     const app = await buildApp(openDb(":memory:"), false, d, { serverConfig: config, stop });
     expect((await post(app)).statusCode).toBe(202);
     await vi.waitFor(() => expect(stop).toHaveBeenCalled());
+  });
+
+  describe("link address", () => {
+    const d = () => mkdtempSync(join(tmpdir(), "cfg-"));
+    const link = (
+      env: Record<string, string>,
+      argv: string[] = [],
+      ips = ["192.168.1.5", "10.0.0.2"],
+    ) => linkBase(loadConfig({ APP_DATA_DIR: d(), ...env }, argv), ips);
+
+    it("1: the public address wins, env over saved, without a restart", () => {
+      const dir = d();
+      const config = loadConfig({ APP_DATA_DIR: dir }, ["--host", "0.0.0.0"]);
+      expect(linkBase(config, ["1.1.1.1"])).toBe("http://1.1.1.1:4300");
+      writeSavedConfig(dir, { publicUrl: "https://maker.example.com" });
+      expect(linkBase(config, ["1.1.1.1"])).toBe("https://maker.example.com");
+      const env = loadConfig({ APP_DATA_DIR: dir, APP_PUBLIC_URL: "http://nas.lan:80/" }, []);
+      expect(linkBase(env)).toBe("http://nas.lan:80");
+    });
+    it("2: a specific host", () => {
+      expect(link({ HOST: "10.0.0.9", PORT: "5000" })).toBe("http://10.0.0.9:5000");
+    });
+    it("3: a wildcard host takes the first detected IP; none in Docker", () => {
+      expect(link({ HOST: "0.0.0.0" })).toBe("http://192.168.1.5:4300");
+      expect(link({ HOST: "0.0.0.0" }, [], [])).toBeUndefined();
+      expect(link({ HOST: "0.0.0.0", APP_INSTALL: "docker" })).toBeUndefined();
+    });
+    it("4: loopback is 127.0.0.1, no link behind a reverse proxy", () => {
+      expect(link({})).toBe("http://127.0.0.1:4300");
+      expect(link({ APP_ALLOWED_HOSTS: "maker.example.com" })).toBeUndefined();
+    });
+    it("refuses a non-http(s) address", async () => {
+      expect(() => link({ APP_PUBLIC_URL: "ftp://x" })).toThrow(/APP_PUBLIC_URL/);
+      const dir = d();
+      const app = await buildApp(openDb(":memory:"), false, dir, {
+        serverConfig: loadConfig({ APP_DATA_DIR: dir }, []),
+      });
+      const patch = (publicUrl: string | null) =>
+        app.inject({ method: "PATCH", url: "/api/server-config", payload: { publicUrl } });
+      for (const bad of ["ftp://x", "javascript:alert(1)", "maker.example.com", "http://"])
+        expect((await patch(bad)).statusCode).toBe(400);
+      const ok = (await patch("https://maker.example.com//")).json();
+      expect(ok.saved.publicUrl).toBe("https://maker.example.com");
+      expect(ok).toMatchObject({
+        effective: { publicUrlSource: "file" },
+        link: "https://maker.example.com",
+      });
+    });
   });
 });

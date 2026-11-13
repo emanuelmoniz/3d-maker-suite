@@ -189,12 +189,19 @@ export async function testDelivery(
   key: Buffer,
   user: UserRow,
   log: { warn: (o: object, m: string) => void },
+  url?: string,
 ) {
   const results = [];
   for (const d of destinationsOf(key, user)) {
     if (!readChannel(db, key, d.channel).enabled) continue;
     try {
-      await sendVia(db, key, d.channel, { title: "3D Maker Suite", body: "Test notification" }, d);
+      await sendVia(
+        db,
+        key,
+        d.channel,
+        { title: "3D Maker Suite", body: "Test notification", ...(url && { url }) },
+        d,
+      );
       results.push({ channel: d.channel, ok: true });
     } catch (e) {
       log.warn({ err: e, channel: d.channel }, "test notification failed");

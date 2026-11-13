@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
-import { hostname, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fixture, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { BUILT_IN_ROLE_IDS, type RoleBuiltIn } from "@3d-maker-suite/core";
@@ -26,7 +26,7 @@ const fetchMock = vi.fn(async () => new Response("ok"));
 
 beforeEach(async () => {
   db = openDb(":memory:");
-  app = await buildApp(db, false, "", { serverConfig: { host: "0.0.0.0", port: 4300 } as Config });
+  app = await buildApp(db, false, "", { serverConfig: { host: "10.0.0.5", port: 4300 } as Config });
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockClear();
 });
@@ -167,14 +167,14 @@ describe("alerts", () => {
     await evaluate();
     const told = await list();
     const low = told.find((a: { kind: string }) => a.kind === "spool_low");
-    expect(clicks()).toEqual([`http://${hostname()}:4300/alerts/${low.id}`]);
+    expect(clicks()).toEqual([`http://10.0.0.5:4300/alerts/${low.id}`]);
     db.update(schema.roles)
       .set({ alertKinds: { spool_no_price: "notify" } })
       .where(eq(schema.roles.builtIn, "admin"))
       .run();
     await evaluate();
     const price = told.find((a: { kind: string }) => a.kind === "spool_no_price");
-    expect(clicks()).toContain(`http://${hostname()}:4300/alerts/${price.id}`);
+    expect(clicks()).toContain(`http://10.0.0.5:4300/alerts/${price.id}`);
     expect(clicks()).toHaveLength(2);
   });
 
@@ -424,7 +424,7 @@ describe("alerts", () => {
     ]);
     // The notification opens the alert; a wildcard host is reached by the machine's name.
     const [{ id: alertId }] = await list();
-    expect(clicks()).toEqual([`http://${hostname()}:4300/alerts/${alertId}`]);
+    expect(clicks()).toEqual([`http://10.0.0.5:4300/alerts/${alertId}`]);
     // A new count refreshes the one alert.
     policy({ pending: 3 });
     expect(await open()).toMatchObject([{ context: { count: 3 } }]);

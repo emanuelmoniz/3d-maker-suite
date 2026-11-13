@@ -49,6 +49,8 @@ export const authRoutes =
     /** `APP_PASSWORD` is set; the access guard already checked it on this request. */
     passwordSet: boolean,
     setupToken?: string,
+    /** The app's address for the link in a test notification. */
+    link: () => string | undefined = () => undefined,
   ): FastifyPluginAsyncZod =>
   async (app) => {
     const limiter = loginLimiter();
@@ -199,6 +201,6 @@ export const authRoutes =
     app.post(
       "/me/delivery/test",
       { schema: { response: { 200: deliveryTestSchema, ...errors } } },
-      async (req) => testDelivery(db, key, myRow(req), req.log),
+      async (req) => testDelivery(db, key, myRow(req), req.log, link()),
     );
   };

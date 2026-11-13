@@ -11,6 +11,7 @@ import { useCan, useIsAdmin, useMe } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useSetServerState } from "../../lib/serverState.ts";
 import { health } from "../../lib/updates.ts";
+import { PublicAddress } from "./PublicAddress.tsx";
 
 const KEY = ["server-config"];
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -321,6 +322,7 @@ export function ServerSection() {
         )}
       </FormField>
       <p className="text-muted">{t("settings:server.networkHint")}</p>
+      <PublicAddress data={data} port={next.port} save={save} />
       {!LOOPBACK.includes(nextHost) && !data.passwordSet && (
         <p role="alert" className="text-bad">
           {t("settings:server.passwordNeeded")}
