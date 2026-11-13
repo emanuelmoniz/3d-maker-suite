@@ -9,6 +9,7 @@ import { hostname } from "node:os";
 import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
+import { ICON_SVG } from "./icon.ts";
 import type { Store } from "./state.ts";
 import { RESTART, type Updater } from "./update.ts";
 
@@ -347,12 +348,12 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 ${refresh ? `<meta http-equiv="refresh" content="5; url=${HOME}">` : ""}
-${favicon ? `<link rel="icon" href="/branding/favicon?v=${favicon.data.length}">` : ""}
+${favicon ? `<link rel="icon" href="/branding/favicon?v=${favicon.data.length}">` : `<link rel="icon" href="/icon.svg">`}
 <title>${title}</title>
 <style>${CSS}</style>
 </head>
 <body><main>
-<header>${logo ? `<img class="mark" src="/branding/logo?v=${logo.data.length}" alt="">` : ""}<h1>${title}</h1></header>
+<header><img class="mark" src="${logo ? `/branding/logo?v=${logo.data.length}` : "/icon.svg"}" alt=""><h1>${title}</h1></header>
 ${body}
 </main></body>
 </html>`;
@@ -429,6 +430,7 @@ ${body}
           .writeHead(200, { "content-type": logo.type, "x-content-type-options": "nosniff" })
           .end(logo.data);
       }
+      if (req.method === "GET" && path === "/icon.svg") return send(200, "image/svg+xml", ICON_SVG);
       if (req.method === "GET" && path === "/") {
         const to = await entry();
         return to ? back(to) : send(200, html, render());

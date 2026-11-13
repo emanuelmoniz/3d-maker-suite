@@ -6,7 +6,6 @@ import {
   Ellipsis,
   LoaderCircle,
   Power,
-  Printer,
   ShieldAlert,
   Sparkles,
   X,
@@ -88,9 +87,7 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
       {logo ? (
         <img src={logo} alt={name} className="size-8 shrink-0 rounded-md object-contain" />
       ) : (
-        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent text-accent-fg">
-          <Printer className="size-4.5" aria-hidden />
-        </span>
+        <img src="/icon.svg" alt={name} className="size-8 shrink-0 object-contain" />
       )}
       <span className={cx("truncate", !mobile && "hidden lg:inline")}>{name}</span>
     </div>

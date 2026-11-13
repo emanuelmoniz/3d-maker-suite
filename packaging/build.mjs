@@ -111,6 +111,9 @@ if (platform === "win32") {
 cpSync(join(from, "LICENSE"), join(node, "LICENSE"));
 rmSync(tmp, { recursive: true, force: true });
 for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(here, f), join(stage, f));
+// The logo as each OS wants it (made by make-icons.mjs): setup and shortcuts, the .app, the menu entry.
+const icon = { win32: "icon.ico", darwin: "icon.icns", linux: "icon.png" }[process.platform];
+cpSync(join(here, icon), join(stage, icon));
 // What the launcher runs; the mac .app copies these three next to Node.
 const top = ["launcher.mjs", "loader.html", "product.json"];
 writeFileSync(
@@ -219,6 +222,7 @@ if (platform === "win32") {
     '#!/bin/sh\nR="$(cd "$(dirname "$0")/../Resources" && pwd)"\nexec "$R/node/bin/node" "$R/launcher.mjs"\n',
     { mode: 0o755 },
   );
+  cpSync(join(stage, icon), join(res, icon));
   writeFileSync(join(res, "..", "Info.plist"), infoPlist());
   execFileSync("codesign", ["--force", "--deep", "-s", "-", join(dmgDir, `${p.name}.app`)], {
     stdio: "inherit",
@@ -276,6 +280,7 @@ function infoPlist() {
 <plist version="1.0"><dict>
   <key>CFBundleExecutable</key><string>${p.id}</string>
   <key>CFBundleIdentifier</key><string>io.github.emanuelmoniz.${p.id}</string>
+  <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundleName</key><string>${p.name}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${version.split("-")[0]}</string>

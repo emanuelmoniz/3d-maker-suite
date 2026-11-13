@@ -2888,7 +2888,7 @@ Do Step 4 of the 5.6.0 plan in PLAN.md.
 Do Step 5 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Logo and icons
+### [x] Step 6 - Logo and icons
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Copy the brand files from `C:\Users\emanu\OneDrive\Work\3d_Maker_Suite\brand\` into `docs/brand/`: the colour, black and white icons and the horizontal logos. The colour icon also goes to `apps/web/public/icon.svg`.

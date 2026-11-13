@@ -1,6 +1,8 @@
 {
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "includes": ["**", "!**/dist", "!**/node_modules", "!.claude", "!pnpm-lock.yaml"] },
+  "files": {
+    "includes": ["**", "!**/dist", "!**/node_modules", "!.claude", "!pnpm-lock.yaml", "!**/*.svg"]
+  },
   "formatter": { "indentStyle": "space", "lineWidth": 100 },
   "css": { "parser": { "tailwindDirectives": true } },
   "javascript": { "formatter": { "quoteStyle": "double" } },

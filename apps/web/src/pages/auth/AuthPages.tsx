@@ -1,5 +1,4 @@
 import { Link, useSearch } from "@tanstack/react-router";
-import { Printer } from "lucide-react";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -34,9 +33,7 @@ function AuthCard({
     <main className="grid min-h-dvh place-items-center px-4 py-8">
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-5 sm:p-6">
         <div className="mb-5 flex items-center gap-2.5 font-semibold">
-          <span className="grid size-8 place-items-center rounded-md bg-accent text-accent-fg">
-            <Printer className="size-4.5" aria-hidden />
-          </span>
+          <img src="/icon.svg" alt="" className="size-8 object-contain" />
           {t("common:appName")}
         </div>
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>

@@ -48,6 +48,6 @@ export function useApplyBranding() {
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!link) return;
     link.removeAttribute("type");
-    link.href = favicon ?? "data:,";
+    link.href = favicon ?? "/icon.svg";
   }, [favicon]);
 }

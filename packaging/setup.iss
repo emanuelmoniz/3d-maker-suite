@@ -24,7 +24,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={#Start}
+SetupIconFile={#Src}\icon.ico
+UninstallDisplayIcon={app}\icon.ico
 OutputDir={#OutDir}
 OutputBaseFilename={#OutName}
 ; The default (yes) also reaches the [Run] launcher, contrary to the docs: it then can't follow the
@@ -46,8 +47,8 @@ Name: startatlogin; Description: "{cm:StartAtLogin}"; Flags: unchecked
 Source: "{#Src}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"
-Name: "{autodesktop}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; IconFilename: "{app}\icon.ico"
+Name: "{autodesktop}\{#Name}"; Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
 
 [Registry]
 ; The same Run value Settings -> Start at login writes (packages/host/src/autostart.ts).

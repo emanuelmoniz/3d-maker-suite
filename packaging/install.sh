@@ -11,13 +11,14 @@ share=${XDG_DATA_HOME:-$HOME/.local/share}
 dir=$share/$id/install
 mkdir -p "$dir/versions" "$share/applications"
 rm -rf "$dir/node"
-cp -R "$src/node" "$src/launcher.mjs" "$src/loader.html" "$src/product.json" "$dir/"
+cp -R "$src/node" "$src/launcher.mjs" "$src/loader.html" "$src/product.json" "$src/icon.png" "$dir/"
 cp -R "$src/versions/." "$dir/versions/"
 cat > "$share/applications/$id.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=$name
 Exec="$dir/node/bin/node" "$dir/launcher.mjs"
+Icon=$dir/icon.png
 Terminal=false
 Categories=Utility;
 EOF

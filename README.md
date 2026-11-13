@@ -1,4 +1,4 @@
-# 3D Maker Suite
+<h1 align="center"><img src="docs/brand/logo-color-horizontal.svg" alt="3D Maker Suite" height="96"></h1>
 
 A local-first manager for your 3D printing: printers, accessories, maintenance, filament, projects, prints, costs, quotes and stats. Runs on your own PC. Your data stays in a SQLite file on your disk.
 
