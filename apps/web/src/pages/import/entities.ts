@@ -1,10 +1,8 @@
 import {
   IMPORT_COLUMNS,
-  IMPORT_ENTITIES,
   type ImportColumn,
   type ImportEntity,
   type ImportTemplate,
-  SLICER_CATALOG_ROW_TYPES,
 } from "@3d-maker-suite/core";
 import type { TFunction } from "i18next";
 
@@ -71,10 +69,6 @@ export const ENTITIES: Record<ImportEntity, { label: string; to: string; view: s
     view: "import:done.viewFilamentCatalog",
   },
 };
-
-/** The four catalog types: imported and exported in Catalog, not on Import | Export. */
-export const CATALOG_ENTITIES: readonly ImportEntity[] = SLICER_CATALOG_ROW_TYPES;
-export const SHEET_ENTITIES = IMPORT_ENTITIES.filter((e) => !CATALOG_ENTITIES.includes(e));
 
 const HINTS: Record<ImportColumn["type"], string> = {
   text: "import:hints.text",

@@ -15,7 +15,6 @@ import { loadNamespace } from "./i18n.ts";
 import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
-import { CatalogImportPage } from "./pages/catalog/CatalogImportPage.tsx";
 import { CATALOG_TABS, CatalogPage, tabOf } from "./pages/catalog/CatalogPage.tsx";
 import { ClientDetailPage } from "./pages/clients/ClientDetailPage.tsx";
 import { ClientCreatePage, ClientEditPage } from "./pages/clients/ClientFormPage.tsx";
@@ -340,14 +339,6 @@ const routes: AnyRoute[] = [
       },
     }),
   ),
-  // The catalog tables were in Printers and Filament settings before; old links still land.
-  createRoute({
-    getParentRoute: () => root,
-    path: "/catalog/import/$entity",
-    // filament + printers: the review's pickers for brands, models and materials.
-    loader: () => Promise.all(["import", "catalog", "filament", "printers"].map(loadNamespace)),
-    component: CatalogImportPage,
-  }),
   // The review of what an integration or an uploaded zip (`$source`) offers for one type.
   createRoute({
     getParentRoute: () => root,
@@ -553,7 +544,9 @@ const routes: AnyRoute[] = [
     path: IMPORT_ITEM.to,
     // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its preset.
     loader: () =>
-      Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
+      Promise.all(
+        ["import", "integrations", "catalog", "filament", "tags", "printers"].map(loadNamespace),
+      ),
     component: ImportPage,
   }),
   ...(

@@ -1,11 +1,16 @@
-import { type ImportEntity, SHEET_FORMATS, type SheetFormat } from "@3d-maker-suite/core";
+import {
+  IMPORT_ENTITIES,
+  type ImportEntity,
+  SHEET_FORMATS,
+  type SheetFormat,
+} from "@3d-maker-suite/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { useTemplate } from "../../lib/import.ts";
-import { ENTITIES, SHEET_ENTITIES, templateBody } from "./entities.ts";
+import { ENTITIES, templateBody } from "./entities.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
 const FORMATS: Record<SheetFormat, string> = {
@@ -61,7 +66,7 @@ export function ExportSection() {
                 {...p}
                 value={entity}
                 onChange={(v) => setEntity(v as ImportEntity)}
-                options={SHEET_ENTITIES.map((e) => ({ value: e, label: t(ENTITIES[e].label) }))}
+                options={IMPORT_ENTITIES.map((e) => ({ value: e, label: t(ENTITIES[e].label) }))}
               />
             )}
           </FormField>

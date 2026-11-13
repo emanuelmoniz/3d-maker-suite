@@ -2,13 +2,12 @@
 
 The **Import** page brings data in from spreadsheets. Nothing is saved until you review the rows and confirm. Integrations (Bambu Cloud, Bambu Studio, OrcaSlicer) import through the same review screen when a sync needs your decision.
 
-You can import 16 types, and every one can also be exported in the same format. Twelve are on the Import | Export page:
+You can import 16 types, and every one can also be exported in the same format. All are on the Import | Export page:
 
 - **Your things:** spools, printers, accessories, accessory installs, projects, prints.
 - **Money:** clients, quotes, orders, order projects.
 - **Maintenance:** maintenance types and maintenance (the history).
-
-The other four are the catalog: brands, printer models, filament brands and filament materials. They are imported and exported in **Catalog** (see below), not on this page.
+- **Catalog:** brands, printer models, filament brands and filament materials.
 
 A file names the brands, models and materials a row needs, and they must already exist (import them first, or add them in the catalog); a slicer zip or an integration creates them for you. Printer, process and filament presets aren't in a spreadsheet: they come only from a slicer (see below).
 
@@ -75,7 +74,7 @@ An unknown client, quote or project is an invalid row, and the message says whic
 
 ## Spreadsheet template
 
-1. Open **Import** and choose what to import (or, for the catalog, **Import** on its table in **Catalog**).
+1. Open **Import** and choose what to import.
 2. Pick a **Format** and click **Download template**. The `.xlsx` has one sheet of columns, a **Lists** sheet with the allowed values, and an **Instructions** sheet. The `.csv` is the header row alone; the `.json` is an empty list (`[]`) of objects named by the column keys.
 3. Fill in one row per item. Columns marked `*` are required. Leave a cell empty to keep what the app already has.
 4. Upload the file. Headers are read by their name in the template or by the column key.
@@ -87,7 +86,7 @@ Notes on the columns:
 - **Track usage:** leave empty or enter `yes` to subtract the filament from your spools. Enter `no` to save the print and its filament without changing the spools' weights.
 - **Names:** for brand, material and preset columns, pick an existing name or type a new one. A new brand or material is added with the spool.
 
-To get your data back out, use **Export** on the same page (catalog tables: their own Export), as `.xlsx`, `.csv` or `.json`. An export is the template with your rows in it, plus an `id` column, so it can be edited and imported again: a row with an id updates that item. Money is in your currency's units (not cents), names stand for references, and dates are ISO (`2026-03-04`). For a full copy of everything, take a [backup](backups.md).
+To get your data back out, use **Export** on the same page, as `.xlsx`, `.csv` or `.json`. An export is the template with your rows in it, plus an `id` column, so it can be edited and imported again: a row with an id updates that item. Money is in your currency's units (not cents), names stand for references, and dates are ISO (`2026-03-04`). For a full copy of everything, take a [backup](backups.md).
 
 Data in another app or file? Pick the type, download its template, copy your data into it and upload it. Files you exported earlier can be uploaded as they are.
 

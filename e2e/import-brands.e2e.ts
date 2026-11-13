@@ -4,24 +4,23 @@ import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 import { pick } from "./helpers.ts";
 
-test("export brands as CSV in Catalog, rename one in the review and import it as an update", async ({
+test("export brands as CSV on Import | Export, rename one in the review and import it as an update", async ({
   page,
   app,
 }) => {
   const { id } = await app.api<{ id: string }>("POST", "/api/brands", { name: "Acme" });
-  await page.goto("/catalog/printers");
-  const brands = page.locator("#brands");
-  await brands.getByLabel("Export format for Brands").selectOption("csv");
+  await page.goto("/import");
+  await pick(page.getByRole("combobox", { name: "What to export" }), "Brands");
+  await pick(page.getByRole("combobox", { name: "Format" }).last(), "CSV (.csv)");
   const [exported] = await Promise.all([
     page.waitForEvent("download"),
-    brands.getByRole("button", { name: "Export" }).click(),
+    page.getByRole("button", { name: "Export", exact: true }).click(),
   ]);
   expect(exported.suggestedFilename()).toBe("Brands export.csv");
   const file = join(mkdtempSync(join(tmpdir(), "3dms-csv-")), "brands.csv");
   await exported.saveAs(file);
 
-  await brands.getByRole("link", { name: "Import" }).click();
-  await expect(page).toHaveURL(/\/catalog\/import\/brands$/);
+  await pick(page.getByRole("combobox", { name: "What to import" }), "Brands");
   await page.getByLabel("Upload a file").setInputFiles(file);
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
   await page.getByRole("button", { name: /^Edit Name, row 2/ }).click();
@@ -35,11 +34,4 @@ test("export brands as CSV in Catalog, rename one in the review and import it as
   expect(brand.name).toBe("Acme Labs");
   await page.getByRole("link", { name: "View the printer catalog" }).click();
   await expect(page).toHaveURL(/\/catalog\/printers$/);
-});
-
-test("Import | Export lists no catalog type", async ({ page }) => {
-  await page.goto("/import");
-  await page.getByRole("combobox", { name: "What to import" }).click();
-  await expect(page.getByRole("option", { name: "Spools" })).toBeVisible();
-  await expect(page.getByRole("option", { name: "Brands", exact: true })).toHaveCount(0);
 });

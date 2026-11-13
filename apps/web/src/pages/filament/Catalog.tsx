@@ -10,7 +10,6 @@ import { textLink } from "../../lib/cx.ts";
 import { useFilamentPresets } from "../../lib/filament.ts";
 import { formatCurrency, formatList } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
-import { CatalogTransfer } from "../catalog/CatalogTransfer.tsx";
 import { sourceColumn } from "../catalog/sources.tsx";
 import { editLink, Section, Thumb } from "../printers/Catalog.tsx";
 
@@ -57,7 +56,6 @@ export function FilamentCatalog() {
         title={t("filament:catalog.brands.title")}
         name={(b) => b.name}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
-        extra={<CatalogTransfer entity="filamentBrands" />}
         filters={filamentCatalogFilters}
         columns={[
           {
@@ -96,7 +94,6 @@ export function FilamentCatalog() {
         title={t("filament:catalog.materials.title")}
         name={(m) => m.name}
         add={{ to: "/filament/materials/new", label: t("filament:catalog.materials.add") }}
-        extra={<CatalogTransfer entity="filamentMaterials" />}
         filters={filamentCatalogFilters}
         columns={[
           {

@@ -181,7 +181,7 @@ test("README screenshots", async ({ page, app }) => {
     await page.waitForLoadState("networkidle");
     await expect(page.locator("main")).toBeVisible();
     if (name === "project") await page.waitForTimeout(2000); // the 3D view fits its camera after it loads
-    await page.screenshot({ path: `${IMAGES}/${name}.png`, fullPage: name === "project" });
+    await page.screenshot({ path: `${IMAGES}/${name}.png` });
   }
 
   // Accounts: the admin is created in this browser, so the users list is shown signed in.
@@ -192,11 +192,10 @@ test("README screenshots", async ({ page, app }) => {
   await page.request.post("/api/users", {
     data: { email: "eva@example.com", displayName: "Eva Editor", password, role: "editor" },
   });
-  await page.goto("/settings");
-  await page.getByRole("heading", { name: "Users" }).scrollIntoViewIfNeeded();
+  await page.goto("/users");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/users.png` });
-  await page.getByRole("heading", { name: "Roles", exact: true }).scrollIntoViewIfNeeded();
+  await page.goto("/users/roles");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/roles.png` });
 
@@ -296,7 +295,6 @@ test("hub screenshots", async ({ page, app }) => {
   await page.waitForLoadState("networkidle");
   await page.getByRole("heading", { name: "Files", exact: true }).click();
   await expect(page.getByText("Being edited by Ana Pereira on Desk PC")).toBeVisible();
-  await page.screenshot({ path: `${IMAGES}/project-hub.png`, fullPage: true });
 
   await page.getByRole("button", { name: "Versions of vase.3mf" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();

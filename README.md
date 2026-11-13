@@ -28,8 +28,8 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 
 | | |
 |---|---|
-| ![Printers](docs/images/printers.png) | ![Project detail](docs/images/project.png) |
-| ![Prints](docs/images/prints.png) | ![Filament](docs/images/filament.png) |
+| ![Printers](docs/images/printers.png) | ![Filament](docs/images/filament.png) |
+| ![Prints](docs/images/prints.png) | ![Project detail](docs/images/project.png) |
 | ![Stats](docs/images/stats.png) | ![Quotes](docs/images/quotes.png) |
 
 <details>
@@ -41,16 +41,15 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 | ![Maintenance](docs/images/maintenance.png) | ![Maintenance task](docs/images/maintenance-type.png) |
 | ![Spool](docs/images/spool.png) | ![Filament preset](docs/images/filament-preset.png) |
 | ![Print](docs/images/print.png) | ![Projects](docs/images/projects.png) |
-| ![Quotes](docs/images/quotes.png) | ![Quote](docs/images/quote.png) |
+| ![New quote](docs/images/quote-new.png) | ![Settings](docs/images/settings.png) |
 | ![Orders](docs/images/orders.png) | ![Order](docs/images/order.png) |
 | ![Clients](docs/images/clients.png) | ![Client](docs/images/client.png) |
 | ![Alerts](docs/images/alerts.png) | ![Alert](docs/images/alert.png) |
 | ![Import and export](docs/images/import.png) | ![Integrations](docs/images/integrations.png) |
-| ![Settings](docs/images/settings.png) | ![New quote](docs/images/quote-new.png) |
-| ![Users](docs/images/users.png) | ![Sign in](docs/images/login.png) |
-| ![Hub management](docs/images/hub.png) | ![A file checked out](docs/images/project-hub.png) |
-| ![File versions](docs/images/file-history.png) | ![Slicer presets](docs/images/presets.png) |
-| ![Roles](docs/images/roles.png) | ![My account](docs/images/my-account.png) |
+| ![Users](docs/images/users.png) | ![Roles](docs/images/roles.png) |
+| ![Sign in](docs/images/login.png) | ![My account](docs/images/my-account.png) |
+| ![Hub management](docs/images/hub.png) | ![File versions](docs/images/file-history.png) |
+| ![Slicer presets](docs/images/presets.png) | ![Quote](docs/images/quote.png) |
 
 </details>
 

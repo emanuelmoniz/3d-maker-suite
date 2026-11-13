@@ -26,7 +26,6 @@ import {
 import { textLink } from "../../lib/cx.ts";
 import { formatList } from "../../lib/format.ts";
 import { useListPage, useUrlListQuery } from "../../lib/list.ts";
-import { CatalogTransfer } from "../catalog/CatalogTransfer.tsx";
 import { sourceColumn } from "../catalog/sources.tsx";
 
 export const addClass =
@@ -187,7 +186,6 @@ export function Catalog() {
         title={t("printers:catalog.brands.title")}
         name={(b) => b.name}
         add={{ to: "/printers/brands/new", label: t("printers:catalog.brands.add") }}
-        extra={<CatalogTransfer entity="brands" />}
         filters={brandFilters}
         columns={[
           {
@@ -226,7 +224,6 @@ export function Catalog() {
         title={t("printers:catalog.models.title")}
         name={(m) => info.get(m.id)?.label ?? m.model}
         add={{ to: "/printers/models/new", label: t("printers:catalog.models.add") }}
-        extra={<CatalogTransfer entity="printerModels" />}
         filters={printerModelFilters}
         columns={[
           {

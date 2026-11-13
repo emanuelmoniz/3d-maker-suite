@@ -1,13 +1,12 @@
-import type { ImportEntity } from "@3d-maker-suite/core";
+import { IMPORT_ENTITIES, type ImportEntity } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { mutedLink } from "../../lib/cx.ts";
 import { ExportSection } from "./ExportSection.tsx";
-import { ENTITIES, SHEET_ENTITIES } from "./entities.ts";
+import { ENTITIES } from "./entities.ts";
 import { ImportFlow } from "./ImportFlow.tsx";
 
 export function ImportPage() {
@@ -23,12 +22,7 @@ export function ImportPage() {
             {t("import:import.title")}
           </h2>
           <p className="text-muted">{t("import:import.hint")}</p>
-          <p className="text-muted">
-            <Trans
-              i18nKey="import:catalogMoved"
-              components={{ link: <Link to="/catalog/printers" className={mutedLink} /> }}
-            />
-          </p>
+          <p className="text-muted">{t("import:presetsFromSlicer")}</p>
 
           <ImportFlow
             key={entity}
@@ -40,7 +34,7 @@ export function ImportPage() {
                     {...p}
                     value={entity}
                     onChange={(v) => setEntity(v as ImportEntity)}
-                    options={SHEET_ENTITIES.map((e) => ({
+                    options={IMPORT_ENTITIES.map((e) => ({
                       value: e,
                       label: t(ENTITIES[e].label),
                     }))}
