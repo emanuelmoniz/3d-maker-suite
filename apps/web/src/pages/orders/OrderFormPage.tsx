@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { ApiError } from "../../lib/api.ts";
@@ -82,7 +82,7 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
   }));
   return (
     <>
-      <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <form onSubmit={onSubmit} className={formGrid}>
         <FormField
           label={t("orders:form.number")}
           hint={order ? undefined : t("orders:form.numberHint")}
@@ -200,7 +200,7 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
             />
           )}
         </FormField>
-        <FormField label={t("orders:form.notes")}>
+        <FormField label={t("orders:form.notes")} wide>
           {(p) => (
             <textarea
               {...p}
@@ -210,13 +210,15 @@ function OrderForm({ order, quote }: { order?: OrderDetail; quote?: Quote }) {
             />
           )}
         </FormField>
-        {!projectIds.length && <p className="text-muted">{t("orders:form.needsProject")}</p>}
+        {!projectIds.length && (
+          <p className={`text-muted ${fullRow}`}>{t("orders:form.needsProject")}</p>
+        )}
         {save.isError && code !== "order_number_taken" && code !== "order_project_in_use" && (
-          <p role="alert" className="text-bad">
+          <p role="alert" className={`text-bad ${fullRow}`}>
             {t("orders:form.saveError")}
           </p>
         )}
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${fullRow}`}>
           <Button type="submit" variant="primary" disabled={save.isPending || !projectIds.length}>
             {t("orders:form.save")}
           </Button>

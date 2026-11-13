@@ -30,7 +30,6 @@ export function AccountsCard({ adapterId, rows }: { adapterId: string; rows: Int
   return (
     <Section
       title={adapterName(adapterId)}
-      wide
       action={
         admin && (
           <Link

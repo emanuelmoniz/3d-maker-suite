@@ -12,9 +12,12 @@ import { inputClass } from "./FormField.tsx";
 export function TagPicker({
   value,
   onChange,
+  className,
 }: {
   value: string[];
   onChange: (tagIds: string[]) => void;
+  /** E.g. `fullRow` in a `formGrid`. */
+  className?: string;
 }) {
   const { t } = useTranslation();
   const tags = useTags().data ?? [];
@@ -47,7 +50,7 @@ export function TagPicker({
 
   if (!on) return null;
   return (
-    <fieldset className="grid gap-2">
+    <fieldset className={className ? `grid gap-2 ${className}` : "grid gap-2"}>
       <legend className="mb-1.5 font-medium">{t("tags:picker.label")}</legend>
       {tags.length ? (
         <ul className="flex flex-wrap gap-1.5">

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogPicker, useModelInfo } from "../../lib/catalog.ts";
@@ -86,7 +86,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+    <form onSubmit={onSubmit} className={formGrid}>
       <FormField
         label={t("printers:form.number")}
         hint={printer ? undefined : t("printers:form.numberHint")}
@@ -245,13 +245,13 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           />
         )}
       </FormField>
-      <TagPicker value={tags.value} onChange={tags.onChange} />
+      <TagPicker value={tags.value} onChange={tags.onChange} className={fullRow} />
       {save.isError && (
-        <p role="alert" className="text-bad">
+        <p role="alert" className={`text-bad ${fullRow}`}>
           {t(isConflict(save.error) ? "printers:form.numberTaken" : "printers:form.saveError")}
         </p>
       )}
-      <div className="flex gap-2">
+      <div className={`flex gap-2 ${fullRow}`}>
         <Button type="submit" variant="primary" disabled={save.isPending}>
           {t("printers:form.save")}
         </Button>

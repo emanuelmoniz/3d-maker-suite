@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DateTimeInput } from "../../components/DateTimeInput.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -149,7 +149,7 @@ function PrintForm({ print }: { print?: PrintDetail }) {
   ];
   return (
     <>
-      <form onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+      <form onSubmit={onSubmit} className={formGrid}>
         <FormField
           label={t("prints:form.number")}
           hint={print ? undefined : t("prints:form.numberHint")}
@@ -404,8 +404,8 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             />
           )}
         </FormField>
-        <TagPicker value={tags.value} onChange={tags.onChange} />
-        <FormField label={t("prints:form.notes")}>
+        <TagPicker value={tags.value} onChange={tags.onChange} className={fullRow} />
+        <FormField label={t("prints:form.notes")} wide>
           {(p) => (
             <textarea
               {...p}
@@ -416,11 +416,11 @@ function PrintForm({ print }: { print?: PrintDetail }) {
           )}
         </FormField>
         {save.isError && (
-          <p role="alert" className="text-bad">
+          <p role="alert" className={`text-bad ${fullRow}`}>
             {t(isConflict(save.error) ? "prints:form.numberTaken" : "prints:form.error")}
           </p>
         )}
-        <div className="flex gap-2">
+        <div className={`flex gap-2 ${fullRow}`}>
           <Button type="submit" variant="primary" disabled={save.isPending || !printers.length}>
             {t("prints:form.save")}
           </Button>

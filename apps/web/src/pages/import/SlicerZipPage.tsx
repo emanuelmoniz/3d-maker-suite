@@ -45,7 +45,8 @@ export function SlicerZipPage() {
         description={t("import:zip.description")}
         backTo={{ to: "/catalog/settings/sources" }}
       />
-      <div className="grid max-w-3xl gap-4">
+      {/* Steps | Upload side by side on a desktop; the rest spans the row. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         {source && (
           <>
             <section className="grid gap-3 rounded-lg border border-border bg-surface p-4">
@@ -106,10 +107,12 @@ export function SlicerZipPage() {
             </section>
           </>
         )}
-        {sources.data && !source && <p className="text-muted">{t("import:zip.none")}</p>}
+        {sources.data && !source && (
+          <p className="text-muted lg:col-span-2">{t("import:zip.none")}</p>
+        )}
 
         {id && (
-          <section className="grid gap-2 rounded-lg border border-border bg-surface p-4">
+          <section className="grid gap-2 rounded-lg border border-border bg-surface p-4 lg:col-span-2">
             <h2 className="font-medium">{t("import:zip.review")}</h2>
             <ul className="grid gap-1">
               {SLICER_ZIP_TYPES.map((type) => (

@@ -69,7 +69,7 @@ test("picks: add one in Projects settings → Sources, pause it, the machine pag
     ).find((d) => d.id === deviceId)?.picks;
   expect((await picks())?.map((p) => [p.path, p.level, p.paused])).toEqual([["", "read", true]]);
 
-  // The machine page counts it and links back to its card.
+  // The machine page counts it.
   await page.goto(`/hub/devices/${deviceId}`);
   await expect(page.getByText("1 pick", { exact: true })).toBeVisible();
 

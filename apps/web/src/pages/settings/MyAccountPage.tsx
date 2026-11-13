@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { Section } from "../../components/Section.tsx";
+import { cardGrid, Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useMe, useMyRole, useRights, useUpdateMe } from "../../lib/auth.ts";
 import { useDelivery, useSaveDelivery, useTestDelivery } from "../../lib/users.ts";
@@ -146,11 +146,26 @@ export function MyAccountPage() {
       {!user || !rights ? (
         <p className="text-muted">{t("users:account.noAccounts")}</p>
       ) : (
-        <div className="grid max-w-2xl gap-5">
-          <Section title={t("users:account.profile")}>
-            <AccountSection />
-          </Section>
-          <Section title={t("users:alerts.title")} id="alerts" wide>
+        <div className="grid gap-4">
+          <div className={cardGrid}>
+            <Section title={t("users:account.profile")}>
+              <AccountSection />
+            </Section>
+            <Section title={t("users:delivery.title")} id="delivery">
+              {delivery.data ? (
+                <DeliveryForm
+                  key={JSON.stringify(delivery.data)}
+                  delivery={delivery.data}
+                  email={user.email}
+                />
+              ) : delivery.isError ? (
+                <p role="alert" className="text-bad">
+                  {t("users:account.error")}
+                </p>
+              ) : null}
+            </Section>
+          </div>
+          <Section title={t("users:alerts.title")} id="alerts">
             <p className="mb-3 text-muted">{t("users:alerts.mineHint", { role: role?.name })}</p>
             <AlertKindsEditor
               permissions={rights.permissions}
@@ -171,19 +186,6 @@ export function MyAccountPage() {
                 </span>
               )}
             </div>
-          </Section>
-          <Section title={t("users:delivery.title")} id="delivery">
-            {delivery.data ? (
-              <DeliveryForm
-                key={JSON.stringify(delivery.data)}
-                delivery={delivery.data}
-                email={user.email}
-              />
-            ) : delivery.isError ? (
-              <p role="alert" className="text-bad">
-                {t("users:account.error")}
-              </p>
-            ) : null}
           </Section>
         </div>
       )}

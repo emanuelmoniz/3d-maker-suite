@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Combobox } from "../components/Combobox.tsx";
 import { FormField } from "../components/FormField.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
-import { Section } from "../components/Section.tsx";
+import { cardGrid, Section } from "../components/Section.tsx";
 import { Switch } from "../components/Switch.tsx";
 import { api } from "../lib/api.ts";
 import { useCan } from "../lib/auth.ts";
@@ -93,7 +93,7 @@ export function SettingsPage() {
           {t("settings:saveError")}
         </p>
       )}
-      <div className="grid gap-4">
+      <div className={cardGrid}>
         <Section title={t("settings:sections.general")}>
           <FormField label={t("settings:general.language")}>
             {(p) => (

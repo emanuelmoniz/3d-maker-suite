@@ -6,7 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
-import { Section } from "../../components/Section.tsx";
+import { cardGrid, Section } from "../../components/Section.tsx";
 import { useAlertCoverage } from "../../lib/alerts.ts";
 import { useCan } from "../../lib/auth.ts";
 import { textLink } from "../../lib/cx.ts";
@@ -15,7 +15,7 @@ import { useVersionsUsage } from "../../lib/hub.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
-import { ChannelsSection } from "../alerts/ChannelsSection.tsx";
+import { ChannelCards } from "../alerts/ChannelsSection.tsx";
 import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
 import { ProjectRoots } from "./ProjectRoots.tsx";
 
@@ -45,7 +45,7 @@ export function CostsConfigPage() {
       {(ctx) => {
         const { v, commit, num } = ctx;
         return (
-          <>
+          <div className={cardGrid}>
             <Section title={t("settings:sections.costs")}>
               <FormField
                 label={t("settings:costs.currency")}
@@ -117,7 +117,7 @@ export function CostsConfigPage() {
                 t("settings:costs.accessoryMaintenanceHint"),
               )}
             </Section>
-          </>
+          </div>
         );
       }}
     </ConfigPage>
@@ -131,33 +131,35 @@ export function PrintsConfigPage() {
       {({ v, commit, num }) => {
         const reasons = v.failureReasons.join("\n");
         return (
-          <Section title={t("settings:sections.prints")}>
-            <FormField label={t("settings:prints.pace")} hint={t("settings:prints.paceHint")}>
-              {(p) => num("gramsPerHour", p)}
-            </FormField>
-            <FormField label={t("settings:prints.label")} hint={t("settings:prints.hint")}>
-              {(p) => (
-                <textarea
-                  {...p}
-                  className={`${inputClass} h-24 py-2`}
-                  key={`reasons-${reasons}`}
-                  defaultValue={reasons}
-                  onBlur={(e) => {
-                    const next = [
-                      ...new Set(
-                        e.target.value
-                          .split(/\r?\n/)
-                          .map((l) => l.trim())
-                          .filter(Boolean),
-                      ),
-                    ];
-                    if (next.join("|") !== v.failureReasons.join("|"))
-                      commit({ failureReasons: next });
-                  }}
-                />
-              )}
-            </FormField>
-          </Section>
+          <div className={cardGrid}>
+            <Section title={t("settings:sections.prints")}>
+              <FormField label={t("settings:prints.pace")} hint={t("settings:prints.paceHint")}>
+                {(p) => num("gramsPerHour", p)}
+              </FormField>
+              <FormField label={t("settings:prints.label")} hint={t("settings:prints.hint")}>
+                {(p) => (
+                  <textarea
+                    {...p}
+                    className={`${inputClass} h-24 py-2`}
+                    key={`reasons-${reasons}`}
+                    defaultValue={reasons}
+                    onBlur={(e) => {
+                      const next = [
+                        ...new Set(
+                          e.target.value
+                            .split(/\r?\n/)
+                            .map((l) => l.trim())
+                            .filter(Boolean),
+                        ),
+                      ];
+                      if (next.join("|") !== v.failureReasons.join("|"))
+                        commit({ failureReasons: next });
+                    }}
+                  />
+                )}
+              </FormField>
+            </Section>
+          </div>
         );
       }}
     </ConfigPage>
@@ -171,44 +173,46 @@ export function ProjectsConfigPage() {
     <ConfigPage module="projects">
       {({ num }) => (
         <>
-          <Section title={t("settings:projects.roots")} wide help="docs/projects.md">
+          <Section title={t("settings:projects.roots")} help="docs/projects.md">
             <ProjectRoots />
           </Section>
-          <Section title={t("settings:projects.scanning")}>
-            <FormField
-              label={t("settings:projects.maxFiles")}
-              hint={t("settings:projects.maxFilesHint")}
-            >
-              {(p) => num("projectScanMaxFiles", p)}
-            </FormField>
-            <FormField
-              label={t("settings:projects.viewerMax")}
-              hint={t("settings:projects.viewerMaxHint")}
-            >
-              {(p) => num("viewerMaxMb", p)}
-            </FormField>
-            <FormField
-              label={t("settings:projects.uploadMax")}
-              hint={t("settings:projects.uploadMaxHint")}
-            >
-              {(p) => num("projectUploadMaxMb", p)}
-            </FormField>
-          </Section>
-          {hubOn && (
-            <Section title={t("settings:projects.hubDevices")}>
+          <div className={cardGrid}>
+            <Section title={t("settings:projects.scanning")}>
               <FormField
-                label={t("settings:projects.deviceFolderMax")}
-                hint={t("settings:projects.deviceFolderMaxHint", {
-                  max: DEVICE_FOLDER_MAX_MB_LIMIT,
-                })}
+                label={t("settings:projects.maxFiles")}
+                hint={t("settings:projects.maxFilesHint")}
               >
-                {(p) => num("deviceFolderMaxMb", p)}
+                {(p) => num("projectScanMaxFiles", p)}
+              </FormField>
+              <FormField
+                label={t("settings:projects.viewerMax")}
+                hint={t("settings:projects.viewerMaxHint")}
+              >
+                {(p) => num("viewerMaxMb", p)}
+              </FormField>
+              <FormField
+                label={t("settings:projects.uploadMax")}
+                hint={t("settings:projects.uploadMaxHint")}
+              >
+                {(p) => num("projectUploadMaxMb", p)}
               </FormField>
             </Section>
-          )}
-          <Section title={t("settings:projects.trash")}>
-            <ProjectTrash />
-          </Section>
+            {hubOn && (
+              <Section title={t("settings:projects.hubDevices")}>
+                <FormField
+                  label={t("settings:projects.deviceFolderMax")}
+                  hint={t("settings:projects.deviceFolderMaxHint", {
+                    max: DEVICE_FOLDER_MAX_MB_LIMIT,
+                  })}
+                >
+                  {(p) => num("deviceFolderMaxMb", p)}
+                </FormField>
+              </Section>
+            )}
+            <Section title={t("settings:projects.trash")}>
+              <ProjectTrash />
+            </Section>
+          </div>
         </>
       )}
     </ConfigPage>
@@ -290,7 +294,7 @@ export function AlertsConfigPage() {
   return (
     <ConfigPage module="alerts">
       {({ num }) => (
-        <>
+        <div className={cardGrid}>
           <Section title={t("settings:sections.alerts")}>
             <p className="text-muted">{t("settings:alerts.hint")}</p>
             <Uncovered />
@@ -307,10 +311,8 @@ export function AlertsConfigPage() {
               {(p) => num("maintenanceLeadPrints", p)}
             </FormField>
           </Section>
-          <Section title={t("settings:alerts.channels")}>
-            <ChannelsSection />
-          </Section>
-        </>
+          <ChannelCards />
+        </div>
       )}
     </ConfigPage>
   );
@@ -325,35 +327,37 @@ export function PrintersConfigPage() {
       {({ v, commit }) => {
         return (
           <>
-            <Section title={t("settings:sections.printers")}>
-              <FormField
-                label={t("settings:printers.default")}
-                hint={t("settings:printers.defaultHint")}
-              >
-                {(p) => (
-                  <Combobox
-                    {...p}
-                    value={v.defaultPrinterId ?? ""}
-                    onChange={(x) => commit({ defaultPrinterId: x || null })}
-                    options={[
-                      { value: "", label: t("settings:printers.defaultNone") },
-                      ...printers.map((pr) => ({ value: pr.id, label: pr.name })),
-                    ]}
-                  />
-                )}
-              </FormField>
-              <FormField label={t("settings:printers.label")} hint={t("settings:printers.hint")}>
-                {(p) => (
-                  <LinesInput
-                    {...p}
-                    lines={v.printerStates}
-                    onCommit={(printerStates) => commit({ printerStates })}
-                  />
-                )}
-              </FormField>
-            </Section>
+            <div className={cardGrid}>
+              <Section title={t("settings:sections.printers")}>
+                <FormField
+                  label={t("settings:printers.default")}
+                  hint={t("settings:printers.defaultHint")}
+                >
+                  {(p) => (
+                    <Combobox
+                      {...p}
+                      value={v.defaultPrinterId ?? ""}
+                      onChange={(x) => commit({ defaultPrinterId: x || null })}
+                      options={[
+                        { value: "", label: t("settings:printers.defaultNone") },
+                        ...printers.map((pr) => ({ value: pr.id, label: pr.name })),
+                      ]}
+                    />
+                  )}
+                </FormField>
+                <FormField label={t("settings:printers.label")} hint={t("settings:printers.hint")}>
+                  {(p) => (
+                    <LinesInput
+                      {...p}
+                      lines={v.printerStates}
+                      onCommit={(printerStates) => commit({ printerStates })}
+                    />
+                  )}
+                </FormField>
+              </Section>
+            </div>
             {catalog && (
-              <p className="mt-6 text-muted">
+              <p className="text-muted">
                 <Trans
                   i18nKey="catalog:moved"
                   components={{
@@ -409,17 +413,19 @@ export function OrdersConfigPage() {
   return (
     <ConfigPage module="orders">
       {({ v, commit }) => (
-        <Section title={t("settings:sections.orders")}>
-          <FormField label={t("settings:orders.label")} hint={t("settings:orders.hint")}>
-            {(p) => (
-              <LinesInput
-                {...p}
-                lines={v.orderStatuses}
-                onCommit={(orderStatuses) => commit({ orderStatuses })}
-              />
-            )}
-          </FormField>
-        </Section>
+        <div className={cardGrid}>
+          <Section title={t("settings:sections.orders")}>
+            <FormField label={t("settings:orders.label")} hint={t("settings:orders.hint")}>
+              {(p) => (
+                <LinesInput
+                  {...p}
+                  lines={v.orderStatuses}
+                  onCommit={(orderStatuses) => commit({ orderStatuses })}
+                />
+              )}
+            </FormField>
+          </Section>
+        </div>
       )}
     </ConfigPage>
   );
@@ -447,8 +453,8 @@ export function HubConfigPage() {
           hubDefaultSyncMode: syncMode,
         } = values;
         return (
-          <Section title={t("hub:settings.title")} help="docs/hub.md">
-            <div className="grid gap-4 sm:max-w-md">
+          <div className={cardGrid}>
+            <Section title={t("hub:settings.title")} help="docs/hub.md">
               <FormField
                 label={t("hub:settings.deleteGuard")}
                 hint={t("hub:settings.deleteGuardHint")}
@@ -564,8 +570,8 @@ export function HubConfigPage() {
                   {t("hub:settings.usage", { count: usage.files, size: formatSize(usage.bytes) })}
                 </p>
               )}
-            </div>
-          </Section>
+            </Section>
+          </div>
         );
       }}
     </ConfigPage>
@@ -577,11 +583,13 @@ export function FilamentConfigPage() {
   return (
     <ConfigPage module="filament">
       {({ num }) => (
-        <Section title={t("settings:sections.filament")}>
-          <FormField label={t("settings:alerts.lowSpool")}>
-            {(p) => num("lowSpoolGrams", p)}
-          </FormField>
-        </Section>
+        <div className={cardGrid}>
+          <Section title={t("settings:sections.filament")}>
+            <FormField label={t("settings:alerts.lowSpool")}>
+              {(p) => num("lowSpoolGrams", p)}
+            </FormField>
+          </Section>
+        </div>
       )}
     </ConfigPage>
   );

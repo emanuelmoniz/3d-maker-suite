@@ -8,6 +8,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
+import { cardGrid } from "../../components/Section.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { useIsAdmin, useMe } from "../../lib/auth.ts";
 import { isConflict } from "../../lib/catalog.ts";
@@ -40,7 +41,10 @@ function Section({
   wide?: boolean;
   children: React.ReactNode;
 }) {
-  const fields = <div className={`grid gap-4${wide ? "" : " sm:max-w-md"}`}>{children}</div>;
+  // On the edit page a narrow card is half the row (`cardGrid`), so its fields fill it.
+  const fields = (
+    <div className={`grid gap-4${wide || edit ? "" : " sm:max-w-md"}`}>{children}</div>
+  );
   return edit ? (
     <Collapsible title={title} className="">
       {fields}
@@ -190,121 +194,124 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
-      <Section title={t("projects:form.sectionDetails")} edit={!!project}>
-        <FormField
-          label={t("projects:form.number")}
-          hint={project ? undefined : t("projects:form.numberHint")}
-        >
-          {(p) => (
-            <input
-              {...p}
-              name="number"
-              type="number"
-              min={1}
-              step={1}
-              className={inputClass}
-              defaultValue={project?.number}
-            />
-          )}
-        </FormField>
-        <FormField label={t("projects:form.name")}>
-          {(p) => (
-            <input
-              {...p}
-              name="name"
-              required
-              className={inputClass}
-              defaultValue={project?.name}
-            />
-          )}
-        </FormField>
-        <FormField label={t("projects:form.sourceUrl")} hint={t("projects:form.sourceUrlHint")}>
-          {(p) => (
-            <input
-              {...p}
-              name="sourceUrl"
-              type="url"
-              className={inputClass}
-              defaultValue={project?.sourceUrl ?? ""}
-            />
-          )}
-        </FormField>
-        {pickOwner && (
-          <FormField label={t("projects:detail.ownerPick")}>
+      {/* Details | Folder side by side on a desktop edit page; the add page has no cards. */}
+      <div className={project ? cardGrid : "contents"}>
+        <Section title={t("projects:form.sectionDetails")} edit={!!project}>
+          <FormField
+            label={t("projects:form.number")}
+            hint={project ? undefined : t("projects:form.numberHint")}
+          >
             {(p) => (
-              <Combobox
+              <input
                 {...p}
-                value={ownerId}
-                onChange={setOwnerId}
-                options={[
-                  ...users
-                    .filter((u) => !u.disabled)
-                    .map((u) => ({ value: u.id, label: u.displayName })),
-                  { value: "", label: t("projects:detail.noOwner") },
-                ]}
+                name="number"
+                type="number"
+                min={1}
+                step={1}
+                className={inputClass}
+                defaultValue={project?.number}
               />
             )}
           </FormField>
-        )}
-        {!project && (
-          <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
+          <FormField label={t("projects:form.name")}>
             {(p) => (
-              <div className="flex gap-2">
-                <input
-                  {...p}
-                  name="folderPath"
-                  className={inputClass}
-                  value={folder}
-                  onChange={(e) => setFolder(e.target.value)}
-                />
-                <PathPicker
-                  label={t("projects:form.folder")}
-                  mode="folder"
-                  initial={folder}
-                  onPick={setFolder}
-                />
-              </div>
-            )}
-          </FormField>
-        )}
-        {!project && !folder.trim() && roots.length > 0 && (
-          <FormField label={t("projects:form.createIn")} hint={t("projects:form.createInHint")}>
-            {(p) => (
-              <Combobox
+              <input
                 {...p}
-                value={createIn}
-                onChange={setRootId}
-                options={[
-                  ...roots.map((r) => ({ value: r.id, label: r.path })),
-                  { value: "", label: t("projects:form.createInNone") },
-                ]}
+                name="name"
+                required
+                className={inputClass}
+                defaultValue={project?.name}
               />
             )}
           </FormField>
-        )}
-        <TagPicker value={tags.value} onChange={tags.onChange} />
-      </Section>
-      {project && (
-        <Section title={t("projects:folder.title")} edit>
-          {project.folderPath ? (
-            <FormField
-              label={t("projects:form.folder")}
-              hint={
-                project.folderState === "missing"
-                  ? t("projects:folder.missingTitle")
-                  : t("projects:form.editedHint")
-              }
-            >
+          <FormField label={t("projects:form.sourceUrl")} hint={t("projects:form.sourceUrlHint")}>
+            {(p) => (
+              <input
+                {...p}
+                name="sourceUrl"
+                type="url"
+                className={inputClass}
+                defaultValue={project?.sourceUrl ?? ""}
+              />
+            )}
+          </FormField>
+          {pickOwner && (
+            <FormField label={t("projects:detail.ownerPick")}>
               {(p) => (
-                <input {...p} readOnly className={inputClass} value={project.folderPath ?? ""} />
+                <Combobox
+                  {...p}
+                  value={ownerId}
+                  onChange={setOwnerId}
+                  options={[
+                    ...users
+                      .filter((u) => !u.disabled)
+                      .map((u) => ({ value: u.id, label: u.displayName })),
+                    { value: "", label: t("projects:detail.noOwner") },
+                  ]}
+                />
               )}
             </FormField>
-          ) : (
-            !project.unlinkedFolder && <p className="text-muted">{t("projects:folder.none")}</p>
           )}
-          <FolderActions project={project} />
+          {!project && (
+            <FormField label={t("projects:form.folder")} hint={t("projects:form.folderHint")}>
+              {(p) => (
+                <div className="flex gap-2">
+                  <input
+                    {...p}
+                    name="folderPath"
+                    className={inputClass}
+                    value={folder}
+                    onChange={(e) => setFolder(e.target.value)}
+                  />
+                  <PathPicker
+                    label={t("projects:form.folder")}
+                    mode="folder"
+                    initial={folder}
+                    onPick={setFolder}
+                  />
+                </div>
+              )}
+            </FormField>
+          )}
+          {!project && !folder.trim() && roots.length > 0 && (
+            <FormField label={t("projects:form.createIn")} hint={t("projects:form.createInHint")}>
+              {(p) => (
+                <Combobox
+                  {...p}
+                  value={createIn}
+                  onChange={setRootId}
+                  options={[
+                    ...roots.map((r) => ({ value: r.id, label: r.path })),
+                    { value: "", label: t("projects:form.createInNone") },
+                  ]}
+                />
+              )}
+            </FormField>
+          )}
+          <TagPicker value={tags.value} onChange={tags.onChange} />
         </Section>
-      )}
+        {project && (
+          <Section title={t("projects:folder.title")} edit>
+            {project.folderPath ? (
+              <FormField
+                label={t("projects:form.folder")}
+                hint={
+                  project.folderState === "missing"
+                    ? t("projects:folder.missingTitle")
+                    : t("projects:form.editedHint")
+                }
+              >
+                {(p) => (
+                  <input {...p} readOnly className={inputClass} value={project.folderPath ?? ""} />
+                )}
+              </FormField>
+            ) : (
+              !project.unlinkedFolder && <p className="text-muted">{t("projects:folder.none")}</p>
+            )}
+            <FolderActions project={project} />
+          </Section>
+        )}
+      </div>
       <Section title={t("projects:form.sectionDescription")} edit={!!project} wide>
         <DescriptionEditor project={project} value={description} onChange={setDescription} />
       </Section>

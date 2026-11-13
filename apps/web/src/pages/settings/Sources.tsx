@@ -23,7 +23,6 @@ export function SourcesSection({
   const { t } = useTranslation();
   return (
     <Section
-      wide
       title={direction === "share" ? t("settings:sources.share") : t("settings:sources.receive")}
     >
       <ul className="grid gap-3">{children}</ul>

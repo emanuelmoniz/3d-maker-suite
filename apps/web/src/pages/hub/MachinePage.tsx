@@ -13,7 +13,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
-import { Section } from "../../components/Section.tsx";
+import { cardGrid, Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
@@ -418,7 +418,7 @@ function Slicers({ device: d }: { device: Device }) {
   const may = useMay(d);
   const libraries = [...new Set([...d.slicers.map((s) => s.id), ...Object.keys(d.libraries)])];
   return (
-    <Section title={t("hub:machine.slicers")} wide>
+    <Section title={t("hub:machine.slicers")}>
       {libraries.length > 0 && (
         <>
           <DefaultSlicer device={d} edit={may.edit("slicers")} />
@@ -448,62 +448,47 @@ function Projects({ device: d }: { device: Device }) {
   const edit = may.edit("projects");
   const { projects } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
-  const line = "flex flex-wrap items-center justify-between gap-x-6 gap-y-1";
+  // Its picks and shared folders are set on the Sources tab: the Sync sources button below.
+  const line = "flex flex-wrap items-center gap-x-4 gap-y-1";
   return (
-    <Section title={t("hub:machine.projects")} wide>
-      <div className="grid gap-2">
-        <div className={line}>
-          <div className="flex flex-wrap items-center gap-x-4">
-            <Setting
-              edit={edit}
-              label={t("hub:machine.receiveProjects")}
-              name={t("hub:machine.receiveProjects")}
-              checked={d.receiveProjects}
-              busy={projects.isPending}
-              onChange={(on) =>
-                on ? projects.mutate({ id: d.id, receiveProjects: true }) : setConfirm(true)
-              }
-            />
-            {d.receiveProjects && (
-              <span className="text-muted">
-                {t("hub:machine.pickCount", { count: d.picks.length })}
-              </span>
-            )}
-            {d.receiveProjects && d.sync && <SyncLine sync={d.sync} />}
-          </div>
-          {/* Its picks are set on the Sources tab; its card opens from the hash. */}
-          <Link to="/projects/settings/sources" hash={`receive-${d.id}`} className={textLink}>
-            {t("hub:machine.projectsSettings")}
-          </Link>
-        </div>
+    <Section title={t("hub:machine.projects")}>
+      <div className={line}>
+        <Setting
+          edit={edit}
+          label={t("hub:machine.receiveProjects")}
+          name={t("hub:machine.receiveProjects")}
+          checked={d.receiveProjects}
+          busy={projects.isPending}
+          onChange={(on) =>
+            on ? projects.mutate({ id: d.id, receiveProjects: true }) : setConfirm(true)
+          }
+        />
+        {d.receiveProjects && (
+          <span className="text-muted">
+            {t("hub:machine.pickCount", { count: d.picks.length })}
+          </span>
+        )}
+        {d.receiveProjects && d.sync && <SyncLine sync={d.sync} />}
       </div>
-      <div className="grid gap-1">
-        <div className={line}>
-          <div className="flex flex-wrap items-center gap-x-4">
-            <Setting
-              edit={edit}
-              label={t("hub:machine.shareProjects")}
-              name={t("hub:machine.shareProjects")}
-              checked={d.shareProjects}
-              busy={projects.isPending}
-              onChange={(on) => projects.mutate({ id: d.id, shareProjects: on })}
-            />
-            {d.shareProjects && (
-              <span className="text-muted">
-                {t("hub:machine.folderCount", { count: d.sharedFolders?.length ?? 0 })}
-              </span>
-            )}
-            {/* ponytail: shared folders have no sync report of their own; online with its list
+      <div className={line}>
+        <Setting
+          edit={edit}
+          label={t("hub:machine.shareProjects")}
+          name={t("hub:machine.shareProjects")}
+          checked={d.shareProjects}
+          busy={projects.isPending}
+          onChange={(on) => projects.mutate({ id: d.id, shareProjects: on })}
+        />
+        {d.shareProjects && (
+          <span className="text-muted">
+            {t("hub:machine.folderCount", { count: d.sharedFolders?.length ?? 0 })}
+          </span>
+        )}
+        {/* ponytail: shared folders have no sync report of their own; online with its list
                 reported reads as up to date. A real state needs the connector to report its scans. */}
-            {d.shareProjects && d.online && d.sharedFolders && (
-              <span className="text-muted">{t("hub:machine.upToDate")}</span>
-            )}
-          </div>
-          {/* Its card on the Sources tab opens from the hash. */}
-          <Link to="/projects/settings/sources" hash={`machine-${d.id}`} className={textLink}>
-            {t("hub:machine.projectsSettings")}
-          </Link>
-        </div>
+        {d.shareProjects && d.online && d.sharedFolders && (
+          <span className="text-muted">{t("hub:machine.upToDate")}</span>
+        )}
       </div>
       <Alert error={projects.error} />
       <SyncSources types={["projects"]} hash={`machine-${d.id}`} />
@@ -648,16 +633,18 @@ export function MachinePage() {
       {device && (
         <div className="grid gap-4">
           {!device.online && <p className="text-muted">{t("hub:machine.offline")}</p>}
-          <Actions device={device} />
           <LocalPage device={device} />
-          <Identity key={device.name} device={device} manage={manage} />
-          <Software device={device} manage={manage} />
-          <Connection
-            device={device}
-            edit={!!rights && mayEditMachine(rights, me?.id, device, "connection")}
-          />
-          <Slicers device={device} />
-          <Projects device={device} />
+          <div className={cardGrid}>
+            <Actions device={device} />
+            <Identity key={device.name} device={device} manage={manage} />
+            <Software device={device} manage={manage} />
+            <Connection
+              device={device}
+              edit={!!rights && mayEditMachine(rights, me?.id, device, "connection")}
+            />
+            <Slicers device={device} />
+            <Projects device={device} />
+          </div>
         </div>
       )}
     </>

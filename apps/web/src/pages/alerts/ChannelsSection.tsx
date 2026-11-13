@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Section } from "../../components/Section.tsx";
 import { useChannels, useSaveChannel, useTestChannel } from "../../lib/alerts.ts";
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -15,15 +16,6 @@ const STATUS = {
 } as const;
 const CHANNELS: { id: string; title: string; fields: Field[] }[] = [
   {
-    id: "ntfy",
-    title: "alerts:channels.ntfy.name",
-    fields: [
-      { name: "server", label: "alerts:channels.ntfy.server" },
-      { name: "topic", label: "alerts:channels.ntfy.topic", own: true },
-      { name: "token", label: "alerts:channels.ntfy.token", secret: true, own: true },
-    ],
-  },
-  {
     id: "email",
     title: "alerts:channels.email.name",
     fields: [
@@ -33,6 +25,15 @@ const CHANNELS: { id: string; title: string; fields: Field[] }[] = [
       { name: "password", label: "alerts:channels.email.password", secret: true },
       { name: "from", label: "alerts:channels.email.from" },
       { name: "to", label: "alerts:channels.email.to", own: true },
+    ],
+  },
+  {
+    id: "ntfy",
+    title: "alerts:channels.ntfy.name",
+    fields: [
+      { name: "server", label: "alerts:channels.ntfy.server" },
+      { name: "topic", label: "alerts:channels.ntfy.topic", own: true },
+      { name: "token", label: "alerts:channels.ntfy.token", secret: true, own: true },
     ],
   },
 ];
@@ -63,9 +64,8 @@ function ChannelForm({ def, saved }: { def: (typeof CHANNELS)[number]; saved?: C
       // Re-keyed by what is saved, so the inputs show the stored values after a save.
       key={JSON.stringify(saved)}
       action={submit}
-      className="grid gap-3 border-t border-border pt-4 first:border-0 first:pt-0"
+      className="grid gap-3"
     >
-      <h3 className="font-medium">{t(def.title)}</h3>
       <label className="flex items-center gap-2">
         <input type="checkbox" name="enabled" defaultChecked={saved?.enabled} />
         {t("alerts:channels.enabled")}
@@ -115,13 +115,13 @@ function ChannelForm({ def, saved }: { def: (typeof CHANNELS)[number]; saved?: C
   );
 }
 
-export function ChannelsSection() {
+/** A card per channel, email first. */
+export function ChannelCards() {
+  const { t } = useTranslation();
   const { data } = useChannels();
-  return (
-    <>
-      {CHANNELS.map((def) => (
-        <ChannelForm key={def.id} def={def} saved={data?.find((c) => c.id === def.id)} />
-      ))}
-    </>
-  );
+  return CHANNELS.map((def) => (
+    <Section key={def.id} title={t(def.title)}>
+      <ChannelForm def={def} saved={data?.find((c) => c.id === def.id)} />
+    </Section>
+  ));
 }

@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
 import { useCan } from "../../lib/auth.ts";
+import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useMayTask } from "../../lib/integrations.ts";
 import { useDue } from "../../lib/maintenance.ts";
@@ -104,144 +105,152 @@ export function AlertDetailPage() {
   return (
     <>
       {header}
-      <section className="grid max-w-2xl gap-4 rounded-lg border border-border bg-surface p-4">
-        <div className="flex items-start gap-2">
-          <s.icon className={`mt-0.5 size-4 shrink-0 ${s.color}`} aria-hidden />
-          <div className="grid gap-1">
-            <Title a={a} />
-            <AlertMore a={a} />
-          </div>
-        </div>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-          {rows.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-muted">{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-        {a.kind === "spool_low" && (
-          <p>
-            {t("alerts:view.spoolDetail", {
-              name: a.context.name,
-              grams: formatWeight(Number(a.context.grams)),
-            })}
-          </p>
+      {/* With a detail log, the log sits on the right on a desktop; without, the card stays narrow. */}
+      <section
+        className={cx(
+          "grid gap-4 rounded-lg border border-border bg-surface p-4",
+          a.detail ? "items-start lg:grid-cols-2" : "max-w-2xl",
         )}
+      >
+        <div className="grid min-w-0 gap-4">
+          <div className="flex items-start gap-2">
+            <s.icon className={`mt-0.5 size-4 shrink-0 ${s.color}`} aria-hidden />
+            <div className="grid gap-1">
+              <Title a={a} />
+              <AlertMore a={a} />
+            </div>
+          </div>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            {rows.map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-muted">{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          {a.kind === "spool_low" && (
+            <p>
+              {t("alerts:view.spoolDetail", {
+                name: a.context.name,
+                grams: formatWeight(Number(a.context.grams)),
+              })}
+            </p>
+          )}
+          {open && (
+            <div className="flex flex-wrap gap-2">
+              {a.kind === "spool_low" && (
+                <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={buttonLink}>
+                  {t("alerts:view.viewSpool")}
+                </Link>
+              )}
+              {a.kind === "maintenance_due" && (
+                <Link
+                  to="/maintenance/types/$id"
+                  params={{ id: a.entityId.split(":")[1] ?? "" }}
+                  className={buttonLink}
+                >
+                  {t("alerts:view.viewTask")}
+                </Link>
+              )}
+              {/* The integration ones follow the task's editor flags (ADR-0012). */}
+              {a.kind === "sync_pending" &&
+                may(String(a.context.integrationId), String(a.context.type), "review") && (
+                  <Link
+                    to="/import/$source/$id/$type"
+                    params={{
+                      source: "integration",
+                      id: String(a.context.integrationId),
+                      type: String(a.context.type),
+                    }}
+                    // The rows the sync left for you, not everything the source has.
+                    search={{ waiting: "1" } as never}
+                    className={buttonLink}
+                  >
+                    {t("alerts:review")}
+                  </Link>
+                )}
+              <SyncTargetLink a={a} />
+              {(a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) ? (
+                <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={buttonLink}>
+                  {syncTaskLink(a).sources
+                    ? t("alerts:view.openSources")
+                    : t("alerts:view.openIntegration")}
+                </Link>
+              ) : a.kind === "slicer_update" && integrationsManage ? (
+                <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
+                  {t("alerts:view.openIntegration")}
+                </Link>
+              ) : null}
+              {(a.kind === "connector_outdated" || a.kind === "hub_mass_delete") && hubManage && (
+                <Link to="/hub" className={buttonLink}>
+                  {t("alerts:view.openHub")}
+                </Link>
+              )}
+              {a.kind === "hub_conflict" && a.context.projectId && (
+                <Link
+                  to="/projects/$id"
+                  params={{ id: String(a.context.projectId) }}
+                  className={buttonLink}
+                >
+                  {t("alerts:view.openProject")}
+                </Link>
+              )}
+              {/* The other fixes: whoever has the module's permission. */}
+              <Write can="filament">
+                {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
+                  <Link
+                    to="/filament/spools/$id/edit"
+                    params={{ id: a.entityId }}
+                    className={buttonLink}
+                  >
+                    {t("alerts:view.editSpool")}
+                  </Link>
+                )}
+              </Write>
+              <Write can="maintenance">
+                {item && (
+                  <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
+                )}
+              </Write>
+              <Write can="settings.server">
+                {a.kind === "update_available" && (
+                  <Link to="/settings" hash="updates" className={buttonLink}>
+                    {t("alerts:view.openUpdates")}
+                  </Link>
+                )}
+              </Write>
+              <Write can="projects">
+                {a.kind.startsWith("slice_") && (
+                  <Link
+                    to="/projects/$id/edit"
+                    params={{ id: String(a.context.projectId) }}
+                    hash="slicing"
+                    className={buttonLink}
+                  >
+                    {t("alerts:view.openPrintSetup")}
+                  </Link>
+                )}
+              </Write>
+              <AlertButtons
+                a={a}
+                postpone={a.kind === "maintenance_due"}
+                snoozed={!!a.snoozedUntil && Date.parse(a.snoozedUntil) > Date.now()}
+                onHidden={() => navigate({ to: "/alerts" })}
+              />
+            </div>
+          )}
+          {a.dismissedAt && !a.resolvedAt && (
+            <div>
+              <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
+                {t("alerts:view.undismiss")}
+              </Button>
+            </div>
+          )}
+        </div>
         {a.detail && (
-          <div>
+          <div className="min-w-0">
             <h2 className="font-semibold">{t("alerts:details")}</h2>
             <LogList log={a.detail.log} />
-          </div>
-        )}
-        {open && (
-          <div className="flex flex-wrap gap-2">
-            {a.kind === "spool_low" && (
-              <Link to="/filament/spools/$id" params={{ id: a.entityId }} className={buttonLink}>
-                {t("alerts:view.viewSpool")}
-              </Link>
-            )}
-            {a.kind === "maintenance_due" && (
-              <Link
-                to="/maintenance/types/$id"
-                params={{ id: a.entityId.split(":")[1] ?? "" }}
-                className={buttonLink}
-              >
-                {t("alerts:view.viewTask")}
-              </Link>
-            )}
-            {/* The integration ones follow the task's editor flags (ADR-0012). */}
-            {a.kind === "sync_pending" &&
-              may(String(a.context.integrationId), String(a.context.type), "review") && (
-                <Link
-                  to="/import/$source/$id/$type"
-                  params={{
-                    source: "integration",
-                    id: String(a.context.integrationId),
-                    type: String(a.context.type),
-                  }}
-                  // The rows the sync left for you, not everything the source has.
-                  search={{ waiting: "1" } as never}
-                  className={buttonLink}
-                >
-                  {t("alerts:review")}
-                </Link>
-              )}
-            <SyncTargetLink a={a} />
-            {(a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) ? (
-              <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={buttonLink}>
-                {syncTaskLink(a).sources
-                  ? t("alerts:view.openSources")
-                  : t("alerts:view.openIntegration")}
-              </Link>
-            ) : a.kind === "slicer_update" && integrationsManage ? (
-              <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
-                {t("alerts:view.openIntegration")}
-              </Link>
-            ) : null}
-            {(a.kind === "connector_outdated" || a.kind === "hub_mass_delete") && hubManage && (
-              <Link to="/hub" className={buttonLink}>
-                {t("alerts:view.openHub")}
-              </Link>
-            )}
-            {a.kind === "hub_conflict" && a.context.projectId && (
-              <Link
-                to="/projects/$id"
-                params={{ id: String(a.context.projectId) }}
-                className={buttonLink}
-              >
-                {t("alerts:view.openProject")}
-              </Link>
-            )}
-            {/* The other fixes: whoever has the module's permission. */}
-            <Write can="filament">
-              {(a.kind === "spool_no_price" || a.kind === "spool_no_open_date") && (
-                <Link
-                  to="/filament/spools/$id/edit"
-                  params={{ id: a.entityId }}
-                  className={buttonLink}
-                >
-                  {t("alerts:view.editSpool")}
-                </Link>
-              )}
-            </Write>
-            <Write can="maintenance">
-              {item && (
-                <Button onClick={() => setLogging(true)}>{t("alerts:view.markDone")}</Button>
-              )}
-            </Write>
-            <Write can="settings.server">
-              {a.kind === "update_available" && (
-                <Link to="/settings" hash="updates" className={buttonLink}>
-                  {t("alerts:view.openUpdates")}
-                </Link>
-              )}
-            </Write>
-            <Write can="projects">
-              {a.kind.startsWith("slice_") && (
-                <Link
-                  to="/projects/$id/edit"
-                  params={{ id: String(a.context.projectId) }}
-                  hash="slicing"
-                  className={buttonLink}
-                >
-                  {t("alerts:view.openPrintSetup")}
-                </Link>
-              )}
-            </Write>
-            <AlertButtons
-              a={a}
-              postpone={a.kind === "maintenance_due"}
-              snoozed={!!a.snoozedUntil && Date.parse(a.snoozedUntil) > Date.now()}
-              onHidden={() => navigate({ to: "/alerts" })}
-            />
-          </div>
-        )}
-        {a.dismissedAt && !a.resolvedAt && (
-          <div>
-            <Button onClick={() => act.mutate({ id: a.id, action: "undismiss" })}>
-              {t("alerts:view.undismiss")}
-            </Button>
           </div>
         )}
       </section>

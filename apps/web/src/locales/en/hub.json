@@ -216,7 +216,6 @@
     "folderCount_one": "{{count}} folder",
     "folderCount_other": "{{count}} folders",
     "upToDate": "Up to date",
-    "projectsSettings": "Projects settings",
     "stopReceivingTitle": "Stop receiving projects on {{name}}?",
     "stopReceivingBody": "Its copies of hub projects are removed from the machine. Nothing is deleted on the hub.",
     "stopReceiving": "Stop receiving",

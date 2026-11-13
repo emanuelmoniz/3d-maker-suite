@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
 import { formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 
@@ -56,7 +56,8 @@ export function CostFields({ values, kind }: { values?: Values; kind: Kind }) {
     </select>
   );
   return (
-    <fieldset className="grid gap-4">
+    // A row of its own in a `formGrid`, its fields two by two.
+    <fieldset className={`${formGrid} ${fullRow}`}>
       <legend className="mb-2 font-semibold">{t("printers:costs.title")}</legend>
       <FormField
         label={t("printers:costs.count")}
