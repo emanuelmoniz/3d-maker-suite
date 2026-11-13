@@ -240,12 +240,6 @@ export interface ManagedSlicer {
   profiles(platform: string): string;
 }
 
-/** Opens a local file in a slicer. The server decides which files are allowed before calling. */
-export interface SlicerLauncher {
-  canOpen(filePath: string): boolean;
-  open(filePath: string): Promise<void>;
-}
-
 /** Throw this from an adapter; any other error is reported as "unknown". */
 export class IntegrationError extends Error {
   /** `detail`: the vendor's own text, shown as-is where it helps (e.g. why a slice failed). */

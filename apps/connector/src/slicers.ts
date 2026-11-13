@@ -18,7 +18,6 @@ import {
   findSlicers,
   InstallError,
   installSlicer,
-  launch,
   removeSlicer,
   runSlicer,
   smokeTest,
@@ -36,8 +35,8 @@ const isFile = (p: string) =>
   );
 
 /**
- * The slicers on this device: found when the link comes online and reported to the hub, which
- * offers Open only while there is one. The status page picks the default, or none (ask each time).
+ * The slicers on this device: found when the link comes online and reported to the hub (the
+ * catalog Sources and slice workers use them). The status page picks the default, or none.
  */
 export function createSlicers({
   request,
@@ -45,7 +44,6 @@ export function createSlicers({
   log,
   dataDir,
   find = findSlicers,
-  start = launch,
   smoke = smokeTest,
   install = installSlicer,
   runSlice = runSlicer,
@@ -56,7 +54,6 @@ export function createSlicers({
   /** Slice workers' managed slicers go to `<dataDir>/slicers/<integrationId>`; none = not here. */
   dataDir?: string;
   find?: (known: DesktopSlicer[]) => Promise<Found[]>;
-  start?: (cmd: string, args: string[]) => Promise<number | undefined>;
   smoke?: (cmd: string, args?: string[]) => Promise<string | null>;
   install?: typeof installSlicer;
   runSlice?: typeof runSlicer;
@@ -106,18 +103,10 @@ export function createSlicers({
   const codeOf = (e: unknown) =>
     e instanceof InstallError ? e.code : ((e as NodeJS.ErrnoException).code ?? "EIO");
 
-  /**
-   * The one asked for, else the default, else the only one found. Several and no default: none,
-   * since the hub asks the user which one before it sends `open`.
-   */
-  const pick = (id = store.get().defaultSlicer) =>
-    found.find((f) => f.id === id) ?? (found.length === 1 ? found[0] : undefined);
-
   return {
     list: () => found,
     /** The found slicers as the hub described them: their preset library and config folder. */
     described: () => known.filter((k) => found.some((f) => f.id === k.id)),
-    pick,
     async refresh() {
       try {
         const res = await request("/slicers");
@@ -137,32 +126,6 @@ export function createSlicers({
         log(`slicers: ${e instanceof Error ? e.message : e}`);
       }
     },
-    /**
-     * The hub's `open`: the file synced first (`local` gives its path here), then the slicer
-     * started with it (`opened` gets its pid, to release the lock when it exits). Answered once
-     * it started, or with the error code.
-     */
-    async open(
-      { requestId, rootId, path, slicer: asked }: Extract<HubEvent, { type: "open" }>,
-      local: (rootId: string, path: string) => Promise<string | null>,
-      opened: (rootId: string, path: string, pid: number) => void = () => {},
-    ) {
-      const body = await (async () => {
-        const slicer = pick(asked);
-        if (!slicer) return { ok: false, code: "no_slicer" };
-        const abs = await local(rootId, path);
-        if (!abs) return { ok: false, code: "ENOENT" };
-        const pid = await start(slicer.cmd, [...slicer.args, abs]);
-        if (pid) opened(rootId, path, pid);
-        log(`opened ${path} in ${slicer.id}`);
-        return { ok: true, result: null };
-      })().catch((e: NodeJS.ErrnoException) => {
-        log(`open ${path}: ${e.message}`);
-        return { ok: false, code: e.code ?? "EIO" };
-      });
-      await request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
-    },
-
     /** Slice workers: a found slicer (its id) or a typed path runs with `--help` here. */
     async check({ requestId, slicer, path }: Extract<HubEvent, { type: "slicer.check" }>) {
       const f = slicer ? found.find((s) => s.id === slicer) : undefined;

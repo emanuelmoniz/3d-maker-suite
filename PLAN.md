@@ -2967,7 +2967,7 @@ Do Step 10 of the 5.6.0 plan in PLAN.md.
 
 Replaces the earlier Open and copy steps (decided on 2026-11-13). The server is the only machine that replicates files: its project folders go to the devices that Receive them. A device root is only indexed, and sharing it between workstations is the company's job (an SMB share, a cloud drive or anything else). No locks: conflict copies and versions are the safety net.
 
-### [ ] Step 11 - Remove Open in slicer and Open folder
+### [x] Step 11 - Remove Open in slicer and Open folder
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Web: the Open and Open folder buttons (page header and file rows), their dialogs and the slicer choice for Open. `useConnectorId` and the connector's `/api/whoami` stay: the machine page's link to its local page uses them.

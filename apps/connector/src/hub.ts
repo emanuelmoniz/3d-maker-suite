@@ -15,7 +15,7 @@ import {
   pairResultSchema,
   presetSwitchesSchema,
 } from "@3d-maker-suite/core";
-import { openFolder, systemInfo } from "@3d-maker-suite/host";
+import { systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
 import { createCatalogSend } from "./catalog.ts";
 import { createCatalogInstall } from "./catalogInstall.ts";
@@ -104,13 +104,8 @@ type Options = {
   presetConfigDir?: Parameters<typeof createPresetShare>[0]["configDir"];
   /** The process list and the queue's timing (tests); the real ones by default. */
   presetHooks?: Pick<Parameters<typeof createPresetInstall>[0], "processes" | "pollMs">;
-  /** How slicers are found and started, and folders opened (tests); the real ones by default. */
-  slicers?: Pick<
-    Parameters<typeof createSlicers>[0],
-    "find" | "start" | "smoke" | "install" | "runSlice"
-  > & {
-    openDir?: (dir: string) => Promise<unknown>;
-  };
+  /** How slicers are found and run (tests); the real ones by default. */
+  slicers?: Pick<Parameters<typeof createSlicers>[0], "find" | "smoke" | "install" | "runSlice">;
   /**
    * The machine page: its settings, read and saved; `restart` ends the process for the launcher,
    * `stop` ends it for good (until login or started by hand).
@@ -185,8 +180,7 @@ export function createLink({
       identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
       log,
     });
-  const { openDir = openFolder, ...slicerFns } = slicerHooks ?? {};
-  const slicers = createSlicers({ request, store, log, dataDir: syncAt?.dataDir, ...slicerFns });
+  const slicers = createSlicers({ request, store, log, dataDir: syncAt?.dataDir, ...slicerHooks });
   const presetState =
     syncAt &&
     openPresetState(syncAt.dataDir, () => `${store.get().hubUrl}|${store.get().deviceId}`);
@@ -233,23 +227,6 @@ export function createLink({
       configDir: presetConfigDir,
       ...presetHooks,
     });
-  const local = (rootId: string, path: string) =>
-    sync ? sync.local(rootId, path) : Promise.resolve(null);
-  /** Open folder: the project's synced copy in the file manager, ENOENT when it isn't here. */
-  const openSynced = async ({
-    requestId,
-    rootId,
-    path,
-  }: Extract<HubEvent, { type: "open.folder" }>) => {
-    const abs = await sync?.folder(rootId, path);
-    const body = abs
-      ? await openDir(abs).then(
-          () => ({ ok: true, result: null }),
-          (e: NodeJS.ErrnoException) => ({ ok: false, code: e.code ?? "EIO" }),
-        )
-      : { ok: false, code: "ENOENT" };
-    await request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
-  };
   const reply = (requestId: string, body: unknown) =>
     request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
   /** A request about a code to change this device's user, with the same errors as pairing. */
@@ -333,11 +310,6 @@ export function createLink({
         userName = event.data.name;
         return;
       }
-      if (event.success && event.data.type === "open")
-        return void slicers.open(event.data, local, (rootId, path, pid) =>
-          sync?.opened(rootId, path, pid),
-        );
-      if (event.success && event.data.type === "open.folder") return void openSynced(event.data);
       if (
         event.success &&
         (event.data.type === "connector.settings.get" ||

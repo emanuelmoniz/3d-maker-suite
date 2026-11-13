@@ -202,32 +202,9 @@
     "unknownMaterial": "Unknown",
     "prints": "Prints",
     "files": "Files",
-    "open": "Open",
-    "openTitle": "Open {{name}}",
-    "openPick": "Choose where it opens.",
-    "openFolder": "Open folder",
-    "opened": "Opened.",
-    "openFailed": {
-      "no_slicer": "Set up a slicer in Settings > Integrations first.",
-      "not_allowed": "This file is outside your project folders.",
-      "launch_failed": "Could not start the program.",
-      "device_offline": "The device went offline or no longer has a slicer.",
-      "device_timeout": "The device didn't open the file in time. Check its local page.",
-      "device_no_slicer": "No slicer was found on the device.",
-      "not_local": "This opens only on the server's computer. Open the app there, or install the connector on this computer.",
-      "device_not_synced": "This project isn't synced to your device, so it has no folder there. To get it, open one of its models with Open (that adds a pick for the project on the device), or add a pick in Projects settings → Sources. Then try again.",
-      "device_folder_missing": "The project folder isn't on your device yet. Wait for the sync to finish (the connector's local page shows it), then try again."
-    },
-    "slicerPick": "Slicer",
     "viewAll": "View all",
     "viewAllHint_one": "{{count}} plate",
-    "viewAllHint_other": "All {{count}} plates",
-    "devicePick": "Device",
-    "deviceSlicerPick": "Slicer on {{name}}",
-    "notSyncedOn": "{{name}} (not synced)",
-    "openingOnDevice": "Opening on {{name}}… A project that isn't on the device yet downloads first.",
-    "openedOnDevice": "Opened on {{name}}.",
-    "openedReadOnly": "Opened on {{name}}, read-only: {{user}} is editing it on {{device}}."
+    "viewAllHint_other": "All {{count}} plates"
   },
   "slicing": {
     "title": "Print setup",
@@ -363,7 +340,6 @@
     "exists": "A file or folder with this name already exists.",
     "tooLarge": "The file is over the upload limit (Settings > Projects).",
     "error": "That didn't work. Check the name and try again.",
-    "open": "Open {{name}}",
     "history": "Versions of {{name}}",
     "versions": {
       "title": "Versions of {{name}}",

@@ -8,7 +8,6 @@ import {
   FolderPlus,
   History,
   Lock,
-  MonitorSmartphone,
   Pencil,
   RefreshCw,
   Trash2,
@@ -59,9 +58,6 @@ type Ctx = {
   ask: (a: Ask) => void;
   selected: Set<string>;
   toggle: (path: string) => void;
-  /** Open, for the project's models; none when there is no slicer to open them in. */
-  open?: (path: string) => void;
-  models: Set<string>;
   /** Shows a file's kept versions; none while the hub is off. */
   history?: (path: string) => void;
   /** Checked-out files by path; Done editing (mine) or force-unlock (`admin`). */
@@ -275,14 +271,6 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
         )}
         <Write can="projects" when={ctx.canEdit}>
           <span className="flex shrink-0 gap-1">
-            {ctx.open && ctx.models.has(entry.path) && (
-              <IconButton
-                label={t("projects:files.open", n)}
-                onClick={() => ctx.open?.(entry.path)}
-              >
-                <MonitorSmartphone className="size-4" aria-hidden />
-              </IconButton>
-            )}
             {dir ? (
               <>
                 <IconButton
@@ -363,13 +351,7 @@ function Children({ path, depth, ctx }: { path: string; depth: number; ctx: Ctx 
 }
 
 /** The project folder as a tree: create, rename, move, delete, upload (picker or drop) and replace. */
-export function ProjectFiles({
-  project,
-  onOpen,
-}: {
-  project: ProjectDetail;
-  onOpen?: (path: string) => void;
-}) {
+export function ProjectFiles({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const id = project.id;
   const actions = useProjectFileActions(id);
@@ -632,10 +614,6 @@ export function ProjectFiles({
             ask: open,
             selected,
             toggle,
-            open: onOpen,
-            models: new Set(
-              project.meta.files.filter((f) => f.kind === "model").map((f) => f.path),
-            ),
             history: hubOn ? setHistory : undefined,
             locks: new Map(locks.map((l) => [l.file, l])),
             admin,

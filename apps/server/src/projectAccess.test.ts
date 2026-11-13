@@ -249,7 +249,6 @@ describe("project access over HTTP", () => {
       ["DELETE", "/files?path=a.stl"],
       ["PUT", "/slicing"],
       ["POST", "/slicing/run"],
-      ["POST", "/open"],
     ] as const)
       expect(
         (await asHelper(method, `/api/projects/${theirs.id}${url}`, {})).statusCode,

@@ -670,21 +670,6 @@ export function createHubSync({
     },
     state,
 
-    /**
-     * The local path of a hub root's file, for Open: a file not synced yet (a project just selected)
-     * pulls everything it now may see first. Null when it isn't here even then.
-     */
-    async local(rootId: string, path: string) {
-      let abs: string | null = null;
-      await serial(async () => {
-        const l = live.get(rootId);
-        if (!l || !syncable(path)) return;
-        const key = keyOf(rootId, path);
-        if (!saved.files[key]) await pull(true).catch((e) => log(`sync: ${message(e)}`));
-        if (saved.files[key]) abs = await inRoot(l.base, path).catch(() => null);
-      });
-      return abs;
-    },
     /** A synced file with these bytes, unchanged since (a slice worker reuses it); else null. */
     async copyOf(sha256: string) {
       for (const [key, e] of Object.entries(saved.files)) {
@@ -695,19 +680,6 @@ export function createHubSync({
         if (abs && same(e, await fileStat(abs))) return abs;
       }
       return null;
-    },
-    /** The local folder of a hub root's project, for Open folder; null when it isn't here. */
-    async folder(rootId: string, path: string) {
-      const l = live.get(rootId);
-      if (!l || !syncable(path)) return null;
-      const abs = await inRoot(l.base, path).catch(() => null);
-      return abs &&
-        (await stat(abs).then(
-          (s) => s.isDirectory(),
-          () => false,
-        ))
-        ? abs
-        : null;
     },
     /** Sends a root's held deletes to the hub. */
     confirm: (rootId: string) =>

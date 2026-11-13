@@ -1,16 +1,5 @@
 import { realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { SlicerLauncher } from "@3d-maker-suite/core";
-import { launch } from "@3d-maker-suite/host";
-
-export { openFolder } from "@3d-maker-suite/host";
-
-export const slicerLauncher = (slicerPath: string): SlicerLauncher => ({
-  canOpen: () => slicerPath !== "",
-  open: async (filePath) => {
-    await launch(slicerPath, [filePath]);
-  },
-});
 
 /**
  * The real path of `target` if it is `root` itself or inside one of the `roots`, else null.

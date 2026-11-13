@@ -10,7 +10,6 @@ import {
   hubFileVersionQuerySchema,
   hubFileVersionSchema,
   type IntegrationAdapter,
-  openTargetsSchema,
   type Page,
   type Project,
   type ProjectDetail,
@@ -25,7 +24,6 @@ import {
   projectListItemSchema,
   projectListQuery,
   projectMetaSchema,
-  projectOpenSchema,
   projectPaintSchema,
   projectPatchSchema,
   projectRelinkResultSchema,
@@ -43,24 +41,15 @@ import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { capableRows, presetLibrary } from "../integrations/capabilities.ts";
 import { alertTasks, archivedAtOf, archivedWhere, resolveItemAlerts } from "../lib/archive.ts";
-import {
-  assertRootEditable,
-  fromThisPc,
-  projectAccessOf,
-  rootRule,
-  visibleProjects,
-} from "../lib/auth.ts";
+import { assertRootEditable, projectAccessOf, rootRule, visibleProjects } from "../lib/auth.ts";
 import { projectLabel } from "../lib/catalog.ts";
 import { assertFree, deleteItem } from "../lib/dependents.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
-import { openFolder, slicerLauncher } from "../lib/launcher.ts";
 import { columnFilter, listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
-import { readPreferences } from "../lib/preferences.ts";
 import type { HubFiles } from "../projects/hubFiles.ts";
 import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFolder.ts";
 import { projectPath, segments } from "../projects/paths.ts";
-import { ensurePick, pickLevels } from "../projects/picks.ts";
 import {
   absPath,
   listRoots,
@@ -80,7 +69,6 @@ const {
   projects,
   collectionProjects,
   deviceRootFolders,
-  devices,
   integrations,
   printFilamentUsages,
   prints,
@@ -91,8 +79,6 @@ const {
 const params = z.object({ id: z.uuid() });
 const fileQuery = z.object({ path: z.string().min(1), entry: z.string().optional() });
 const notFound = { 404: apiErrorSchema };
-/** Open on a device waits this long at most: a project that isn't there yet downloads first. */
-const DEVICE_OPEN_MS = 10 * 60_000;
 // "true" / "false", to filter and sort by the `?multicolor=` select values.
 const lastPrintAt = sql`(select max(${prints.startedAt}) from ${prints} where ${prints.projectId} = ${projects.id})`;
 const isMulticolor = sql`case when json_extract(${projects.meta}, '$.multicolor') then 'true' else 'false' end`;
@@ -1022,35 +1008,6 @@ export const projectsRoutes =
       },
     );
 
-    /**
-     * The user's online devices, with their slicers and whether a pick of theirs covers the
-     * project; none but for a hub root's project (only those sync).
-     */
-    const openDevices = (req: FastifyRequest, p: Project) => {
-      const root = listRoots(db).find((r) => r.id === p.rootId);
-      if (!req.user || !root || root.location !== ROOT_HUB || !p.folder) return [];
-      const folder = p.folder;
-      return db
-        .select({ id: devices.id, name: devices.name, slicers: devices.slicers })
-        .from(devices)
-        .where(eq(devices.userId, req.user.id))
-        .orderBy(asc(devices.name))
-        .all()
-        .filter((d) => hub.online(d.id))
-        .map((d) => ({
-          id: d.id,
-          name: d.name,
-          port: hub.port(d.id),
-          slicers: d.slicers.map((s) => ({ id: s.id, default: s.default })),
-          synced: !!pickLevels(db, d.id).level(root.id, folder),
-        }));
-    };
-    app.get(
-      "/:id/devices",
-      { schema: { params, response: { 200: openTargetsSchema, ...notFound } } },
-      async (req) => ({ local: fromThisPc(req), devices: openDevices(req, get(req.params.id)) }),
-    );
-
     /** The project's hub root, when its folder is in one (only hub-root files are checked out). */
     const hubRootOf = (p: Project) =>
       p.folder
@@ -1123,121 +1080,6 @@ export const projectsRoutes =
           (_, userId) => !me || me.rights.admin || me.id === userId,
         );
         return reply.status(204).send(null);
-      },
-    );
-
-    // Launches a local program, so everything is checked here: the project folder must be inside a
-    // configured root, and a file must be one the scanner listed (nothing the client invents). On a
-    // device, the connector checks the path against its sync folder again.
-    app.post(
-      "/:id/open",
-      {
-        schema: {
-          params,
-          body: projectOpenSchema,
-          response: {
-            200: z.object({
-              ok: z.literal(true),
-              /** Another device has the file checked out: it opened read-only. */
-              lockedBy: z.object({ user: z.string(), device: z.string() }).optional(),
-            }),
-            ...errors,
-            504: apiErrorSchema,
-          },
-        },
-      },
-      async (req) => {
-        const p = get(req.params.id);
-        const { target, file, integrationId, slicer } = req.body;
-        const listed = !!file && p.meta.files.some((f) => f.path === file && f.kind === "model");
-        if (target === "device") {
-          const device = openDevices(req, p).find((d) => d.id === req.body.deviceId);
-          if (!device?.slicers.length)
-            throw new HttpError(409, "device_offline", "The device can't open files now");
-          if (slicer && !device.slicers.some((s) => s.id === slicer))
-            throw new HttpError(409, "device_no_slicer", "No such slicer on the device");
-          if (!listed || !p.rootId || !p.folder)
-            throw new HttpError(403, "not_allowed", "File is not part of this project");
-          const rootId = p.rootId;
-          // Not synced there yet: a pick for its folder at Edit (ADR-0021). The connector syncs
-          // again first (its events run in order), so the file is there to open.
-          if (!device.synced) {
-            ensurePick(db, device.id, rootId, p.folder, "edit");
-            hub.publish(device.id, { type: "roots.changed" });
-          }
-          const path = `${p.folder}/${file}`;
-          const root = hubRootOf(p);
-          // Checked out to the device before it opens; a failed open lets go again.
-          const lockedBy = root ? await hubFiles.lock(root, path, device.id) : null;
-          try {
-            await hub.ask(
-              device.id,
-              (requestId) => ({ type: "open", requestId, rootId, path, slicer }),
-              z.null(),
-              {
-                ms: DEVICE_OPEN_MS,
-                error: (e) =>
-                  e.code === "no_slicer"
-                    ? new HttpError(409, "device_no_slicer", "No slicer found on the device")
-                    : new HttpError(500, "launch_failed", "Could not start the program"),
-              },
-            );
-          } catch (e) {
-            if (root && !lockedBy) await hubFiles.unlock(root, path, (d) => d === device.id);
-            throw e;
-          }
-          return { ok: true as const, ...(lockedBy && { lockedBy }) };
-        }
-        // The project's synced copy on the device. Not synced there: the user is told how.
-        if (target === "folder" && req.body.deviceId) {
-          const device = openDevices(req, p).find((d) => d.id === req.body.deviceId);
-          if (!device) throw new HttpError(409, "device_offline", "The device is offline");
-          if (!device.synced || !p.rootId || !p.folder)
-            throw new HttpError(409, "device_not_synced", "The device doesn't sync this project");
-          const rootId = p.rootId;
-          const path = p.folder;
-          await hub.ask(
-            device.id,
-            (requestId) => ({ type: "open.folder", requestId, rootId, path }),
-            z.null(),
-            {
-              error: (e) =>
-                e.code === "ENOENT"
-                  ? new HttpError(
-                      409,
-                      "device_folder_missing",
-                      "The folder isn't on the device yet",
-                    )
-                  : new HttpError(500, "launch_failed", "Could not start the program"),
-            },
-          );
-          return { ok: true as const };
-        }
-        // The server's file manager and slicer open on the server's screen: never for someone at
-        // another computer.
-        if (!fromThisPc(req))
-          throw new HttpError(403, "not_local", "This opens only on the server's machine");
-        const prefs = readPreferences(db);
-        const dir = (await projectDir(db, p))?.dir;
-        if (!dir)
-          throw new HttpError(403, "not_allowed", "Project folder is not in a project root");
-        try {
-          if (target === "folder") return await openFolder(dir).then(() => ({ ok: true as const }));
-          const abs = listed ? await projectFile(db, p, file) : null;
-          if (!abs) throw new HttpError(403, "not_allowed", "File is not part of this project");
-          // The picked slicer, else the default one, else the first.
-          const slicers = capableRows(db, adapters, "openInSlicer");
-          const pick = integrationId ?? prefs.defaultSlicerId;
-          const chosen =
-            slicers.find((s) => s.row.id === pick) ?? (integrationId ? undefined : slicers[0]);
-          const launcher = slicerLauncher(chosen?.row.slicerPath ?? "");
-          if (!launcher.canOpen(abs)) throw new HttpError(409, "no_slicer", "No slicer configured");
-          await launcher.open(abs);
-          return { ok: true as const };
-        } catch (e) {
-          if (e instanceof HttpError) throw e;
-          throw new HttpError(500, "launch_failed", "Could not start the program");
-        }
       },
     );
 

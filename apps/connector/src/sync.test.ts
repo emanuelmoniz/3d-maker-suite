@@ -107,22 +107,14 @@ describe("hub root sync", () => {
   type Hub = Awaited<ReturnType<typeof hub>>;
 
   /** A connector with its own data and sync folder; `dir` again = the same one restarted. */
-  const device = async (
-    h: Hub,
-    name: string,
-    role: "admin" | "viewer" = "admin",
-    dir?: string,
-    slicers?: Parameters<typeof createLink>[0]["slicers"],
-    hooks?: Omit<NonNullable<Parameters<typeof createLink>[0]["sync"]>, "dataDir" | "syncDir">,
-  ) => {
+  const device = async (h: Hub, name: string, role: "admin" | "viewer" = "admin", dir?: string) => {
     const at = dir ?? temp("sync-device-");
     const store = openStore(at);
     const link = createLink({
       store,
       version: "5.0.0-test",
       os: "TestOS x64",
-      sync: { dataDir: at, syncDir: join(at, "sync"), ...hooks },
-      slicers,
+      sync: { dataDir: at, syncDir: join(at, "sync") },
     });
     // Cleanup runs backwards: the link closes, and its last sync work ends, before its folder goes.
     if (!dir) cleanup.push(() => rmSync(at, { recursive: true, force: true }));
@@ -144,30 +136,11 @@ describe("hub root sync", () => {
     };
   };
 
-  it("without a pick, Open picks the project, downloads it and opens the slicer; the save syncs back", async () => {
+  it("a removed pick takes the local copies away and leaves the hub alone", async () => {
     const h = await hub();
     await h.put("p/m.stl", "model");
     await h.put("q/n.stl", "other");
-    const started: string[] = [];
-    const folders: string[] = [];
-    const a = await device(h, "WS-A", "admin", undefined, {
-      find: async () => [
-        {
-          id: "bambu-studio",
-          name: "Bambu Studio",
-          version: "2",
-          path: "bs",
-          cmd: "bs",
-          args: [],
-          cli: { cmd: "bs", args: [] },
-        },
-      ],
-      start: async (_cmd, args) => {
-        started.push(args.at(-1) ?? "");
-        return undefined;
-      },
-      openDir: async (dir) => folders.push(dir),
-    });
+    const a = await device(h, "WS-A");
     await until(() => read(join(a.folder, "q/n.stl")) === "other");
 
     // Its whole-root pick removed: the local copies go, and nothing goes on the hub.
@@ -178,41 +151,6 @@ describe("hub root sync", () => {
     );
     expect(read(join(h.dir, "p/m.stl"))).toBe("model");
     expect(h.open("hub_mass_delete")).toEqual([]);
-    // A hub root none of its picks covers gets no folder.
-    const other = (await h.send("POST", "/api/roots", { path: temp("sync-hub-other-") })).json();
-
-    const p = (await h.send("GET", "/api/projects"))
-      .json()
-      .items.find((x: { folder: string }) => x.folder === "p");
-    await until(async () =>
-      (await h.send("GET", `/api/projects/${p.id}/devices`))
-        .json()
-        .devices.some((d: { slicers: unknown[] }) => d.slicers.length),
-    );
-    const res = await h.send("POST", `/api/projects/${p.id}/open`, {
-      target: "device",
-      deviceId: a.id,
-      file: "m.stl",
-    });
-    expect(res.json()).toEqual({ ok: true });
-    expect(started).toEqual([join(a.folder, "p", "m.stl")]);
-    expect(read(join(a.folder, "p/m.stl"))).toBe("model");
-    expect(existsSync(join(a.folder, "q/n.stl"))).toBe(false);
-    expect(existsSync(join(a.folder, "..", other.name))).toBe(false);
-
-    // Open folder opens the synced copy; a project the device doesn't sync has none.
-    const folder = (id: string) =>
-      h.send("POST", `/api/projects/${id}/open`, { target: "folder", deviceId: a.id });
-    expect((await folder(p.id)).json()).toEqual({ ok: true });
-    expect(folders).toEqual([join(a.folder, "p")]);
-    const q = (await h.send("GET", "/api/projects"))
-      .json()
-      .items.find((x: { folder: string }) => x.folder === "q");
-    expect((await folder(q.id)).json().error.code).toBe("device_not_synced");
-
-    // The slicer saves: the hub gets it.
-    writeFileSync(join(a.folder, "p/m.stl"), "saved");
-    await until(() => read(join(h.dir, "p/m.stl")) === "saved");
   }, 120_000);
 
   it("keeps two devices and the hub in sync through edits, renames, deletes and a conflict", async () => {
@@ -322,80 +260,6 @@ describe("hub root sync", () => {
   }, 120_000);
 
   const writable = (p: string) => (statSync(p).mode & 0o200) !== 0;
-  /** A fake slicer per device: each start is a new pid that runs while it's in `running`. */
-  const slicer = (running: Set<number>, pids: { next: number }, keep: boolean) => ({
-    find: async () => [
-      {
-        id: "bambu-studio",
-        name: "Bambu Studio",
-        version: "2",
-        path: "bs",
-        cmd: "bs",
-        args: [],
-        cli: { cmd: "bs", args: [] },
-      },
-    ],
-    start: async () => {
-      const pid = pids.next++;
-      if (keep) running.add(pid);
-      return pid;
-    },
-  });
-
-  it("locks: Open checks a file out, others get it read-only, closing the slicer or Done editing releases it", async () => {
-    const h = await hub();
-    await h.send("PATCH", "/api/preferences", { hubLocks: "on" });
-    await h.put("p/m.stl", "model");
-    const running = new Set<number>();
-    const pids = { next: 100 };
-    const hooks = { alive: (pid: number) => running.has(pid), handoffMs: 50, pollMs: 50 };
-    // A's slicer stays open; B's exits at once (handed to a slicer already running).
-    const a = await device(h, "WS-A", "admin", undefined, slicer(running, pids, true), hooks);
-    const b = await device(h, "WS-B", "admin", undefined, slicer(running, pids, false), hooks);
-    const atA = join(a.folder, "p/m.stl");
-    const atB = join(b.folder, "p/m.stl");
-    await until(() => read(atA) === "model" && read(atB) === "model");
-    const p = (await h.send("GET", "/api/projects"))
-      .json()
-      .items.find((x: { folder: string }) => x.folder === "p");
-    const open = (deviceId: string) =>
-      h.send("POST", `/api/projects/${p.id}/open`, { target: "device", deviceId, file: "m.stl" });
-    await until(
-      async () =>
-        (await h.send("GET", `/api/projects/${p.id}/devices`))
-          .json()
-          .devices.filter((d: { slicers: unknown[] }) => d.slicers.length).length > 1,
-    );
-
-    expect((await open(a.id)).json()).toEqual({ ok: true });
-    await until(() => !writable(atB) && a.sync().editing().length === 1);
-    expect(writable(atA)).toBe(true);
-    expect(() => writeFileSync(atB, "saved on B")).toThrow();
-    expect((await h.send("GET", `/api/projects/${p.id}/locks`)).json()).toMatchObject([
-      { file: "m.stl", device: "WS-A" },
-    ]);
-    // B opens it read-only; its slicer handed it on, which releases nothing.
-    expect((await open(b.id)).json()).toEqual({
-      ok: true,
-      lockedBy: { user: "admin", device: "WS-A" },
-    });
-    await new Promise((r) => setTimeout(r, 300));
-    expect(writable(atB)).toBe(false);
-
-    // A's slicer closes: the lock goes, B may edit again.
-    running.clear();
-    await until(() => writable(atB) && a.sync().editing().length === 0);
-
-    // A's first save checks it out again; Done editing on the status page releases it.
-    writeFileSync(atA, "saved on A");
-    await until(() => read(atB) === "saved on A" && !writable(atB));
-    const [editing] = a.sync().editing();
-    expect(editing).toMatchObject({ path: "p/m.stl" });
-    await a.sync().done(editing?.key ?? "");
-    await until(() => writable(atB));
-    expect((await h.send("GET", `/api/projects/${p.id}/locks`)).json()).toEqual([]);
-  }, 120_000);
-
   it("strict locks: offline, only the files checked out here stay writable", async () => {
     const h = await hub();
     await h.send("PATCH", "/api/preferences", { hubLocks: "strict" });

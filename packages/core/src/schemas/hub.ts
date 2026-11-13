@@ -222,25 +222,6 @@ export const deviceLibraryUpdateSchema = z.strictObject({
 });
 export type DeviceLibraryUpdate = z.infer<typeof deviceLibraryUpdateSchema>;
 /** One of the user's online devices, for a project's Open and Open folder. */
-export const openDeviceSchema = z.object({
-  id,
-  name: z.string(),
-  /** Its status page's port, for the page's `/api/whoami` probe; null = not reported. */
-  port: z.number().int().nullable(),
-  /** No slicer: Open isn't offered there, Open folder still is. */
-  slicers: z.array(deviceSlicerSchema.pick({ id: true, default: true })),
-  /** A pick of it covers this project, so Open folder can open its copy. */
-  synced: z.boolean(),
-});
-/**
- * Where the project page's Open button can open (`GET /api/projects/:id/devices`). `local`: the
- * request comes from the server's own machine, so its integration slicer is the user's.
- */
-export const openTargetsSchema = z.object({
-  local: z.boolean(),
-  devices: z.array(openDeviceSchema),
-});
-
 /** An admin makes a code for a user (`POST /api/hub/pairing-codes`). */
 export const pairingCodeCreateSchema = z.object({ userId: id });
 /** Shown once; only its sha256 is stored. */
@@ -277,11 +258,9 @@ export type DeviceSyncMode = z.infer<typeof deviceSyncModeSchema>;
 export type HubLockMode = z.infer<typeof hubLockModeSchema>;
 export type DesktopSlicer = z.infer<typeof desktopSlicerSchema>;
 export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
-export type OpenDevice = z.infer<typeof openDeviceSchema>;
 export type SlicerInstallTarget = z.infer<typeof slicerInstallTargetSchema>;
 export type DeviceSlicerCheck = z.infer<typeof deviceSlicerCheckSchema>;
 export type DeviceSlicerInstall = z.infer<typeof deviceSlicerInstallSchema>;
-export type OpenTargets = z.infer<typeof openTargetsSchema>;
 export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
 export type PairInput = z.input<typeof pairSchema>;
@@ -365,24 +344,6 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     rootId: id,
     rel: z.string().max(1024),
     as: z.string().max(1024),
-  }),
-  /**
-   * Open a file of a hub root in the device's slicer, synced first if it isn't there yet; the
-   * answer (null) comes once the slicer started. `slicer`: which one (its id); none = the default.
-   */
-  z.object({
-    type: z.literal("open"),
-    requestId: id,
-    rootId: id,
-    path: z.string().max(1024),
-    slicer: z.string().max(100).optional(),
-  }),
-  /** Open a hub root's project folder (synced here) in the file manager; the answer is null. */
-  z.object({
-    type: z.literal("open.folder"),
-    requestId: id,
-    rootId: id,
-    path: z.string().max(1024),
   }),
   /**
    * Slice workers: does a slicer run here with `--help`? `slicer` a found one (its id), or `path`

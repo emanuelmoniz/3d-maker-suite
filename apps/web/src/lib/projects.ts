@@ -1,7 +1,6 @@
 import type {
   HubFileLock,
   HubFileVersion,
-  OpenTargets,
   Page,
   PlateSetup,
   Project,
@@ -11,7 +10,6 @@ import type {
   ProjectFolderResult,
   ProjectFolderRow,
   ProjectInput,
-  ProjectOpen,
   ProjectPaint,
   ProjectPatch,
   ProjectRelink,
@@ -257,17 +255,6 @@ export function useScan() {
   return { status: status.data, start };
 }
 
-/**
- * Where Open can open this project's files: `local` (the browser is on the server's machine) and
- * the user's online devices with a slicer (a hub root's project only).
- */
-export const useOpenTargets = (id: string) =>
-  useQuery({
-    queryKey: ["projects", id, "devices"],
-    queryFn: () => api<OpenTargets>("GET", `/api/projects/${id}/devices`),
-    refetchInterval: 30_000,
-  });
-
 /** The connector's port when its device didn't report one (packaging/build.mjs). */
 export const CONNECTOR_PORT = 4301;
 
@@ -297,23 +284,6 @@ export function useConnectorId(ports: (number | null)[], enabled: boolean) {
     retry: false,
   });
 }
-
-/**
- * Opens a project folder or one of its models in the OS / the configured slicer (server-side).
- * On a device, `lockedBy`: another device has the file checked out, so it opened read-only.
- */
-export const useOpenProject = (id: string) => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: ProjectOpen) =>
-      api<{ ok: true; lockedBy?: { user: string; device: string } }>(
-        "POST",
-        `/api/projects/${id}/open`,
-        v,
-      ),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["projects", id, "locks"] }),
-  });
-};
 
 /** The project's files a device has checked out (a hub root's project only). */
 export const useProjectLocks = (id: string, enabled: boolean) =>

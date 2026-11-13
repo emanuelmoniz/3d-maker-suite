@@ -34,7 +34,7 @@ Each device in **Hub management** opens its machine page. It has every setting o
 - **Actions**, at the top: **Restart connector**, **Stop connector** and **Revoke**.
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the local page port and start at login, read live from the connector.
-- **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)); and the default slicer (the one **Open** uses, or **Ask each time**). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
+- **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)); and the default slicer (or **Ask each time**). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
 - **Projects**: **Receive from server** (with its number of picks and its sync state, such as *Up to date · 120 files*, below) and **Share to server** (its number of shared folders, and *Up to date* while it is online, below). **Sync sources configurations** opens Projects settings → Sources, where both are set up.
 
 Opened in a browser on that machine, the page also links to the connector's [local page](#install-the-connector).
@@ -72,7 +72,7 @@ A project folder can live on a paired device instead of the server.
 2. In **Projects settings**, under Project folders, choose **Browse…**. Pick the source, **This server** or an online machine with a shared folder, then the folder: on a machine, only its active shared folders and what is inside them. A machine browse goes through the connector; the picker says why it failed (offline, no answer, or a connector that is too old).
 3. The connector watches the folder, waits until a project folder's files stop changing, and sends the hub its scan and the 3MF details. On every connect it checks what changed. The projects use the same page as any other project.
 
-The hub fetches a file only when it needs it: slicing, auto slicing, a download or the 3D view. It asks the connector, checks the file's hash and keeps it in a temporary cache (1 hour, 10 GB at most). Creating a project folder and moving one to the trash run on the device. **Open in slicer** and **Open folder** are hidden on device projects, because they would open on the hub.
+The hub fetches a file only when it needs it: slicing, auto slicing, a download or the 3D view. It asks the connector, checks the file's hash and keeps it in a temporary cache (1 hour, 10 GB at most). Creating a project folder and moving one to the trash run on the device.
 
 ### Offline
 
@@ -99,46 +99,28 @@ Picks are set in **Projects settings → Sources → Receive from server**: a ca
 - A pick is a project folder on this server (the whole folder) or a folder inside it, a project or a parent of several. The device mirrors it under its sync folder: `Models/…` for a whole folder, `Clients/Acme/…` for a folder inside one.
 - Each pick is at **Read** or **Edit**. Read syncs the files read-only on the device; Edit lets its saves go back to the hub. Where two picks cover a file, Edit wins. The device's user's own rights still cap it: projects they can't see stay off the device, and files they may only download stay read-only.
 - **Add pick** asks for the project folder, optionally a folder inside it, and the level (Edit to start). **Edit** changes the level. A line's switch pauses the pick; **⋯ → Remove** removes it. Either way its files leave the device, except files changed there that the hub doesn't have yet. Nothing on the hub is deleted.
-- **Open** on a project the device doesn't sync adds a pick for the project's folder at Edit.
 - It takes `hub.manage` or Projects at Manage, on a machine you can see. Each change is in the log.
 - **Hub management → Settings → New machines receive**: **Every project folder** (a pick per project folder on this server, at Edit) or **Nothing until picked** (the default).
 - Upgrading to 5.5.0 keeps what each device synced: *Everything* became a pick per project folder, *Selected projects* a pick per selected project, each at Edit.
 - The picks belong to the device. **Change user** keeps them, and the new user's rights apply from the next sync: files that user can't see leave the device, files they may only download turn read-only.
-
-### Open
-
-The project page and the model file rows have one **Open** button. It opens the file in a slicer on the computer you are sitting at:
-
-- **On the server's computer** (by `localhost`, its network address, or a name for it): the slicer from Settings > Integrations. It edits the hub folder in place, so it takes no lock. Another computer can never open the server's slicer.
-- **On a computer with the connector:** the page asks the connector on this computer which device it is, and that device opens the file, even when you have other devices paired. The hub adds a pick for the project if the device doesn't sync it yet, the connector downloads it if it isn't there yet and opens the file. When you save, the change syncs back, and auto slicing runs on the hub as for any change.
-- **When the page can't ask** (no connector here, Safari, or you declined the browser's local network prompt): your online devices with a slicer. One opens without asking; with several, Open asks which.
-
-**Open folder** works the same way. On the server's computer it opens the project folder there. On a computer with the connector it opens the project's copy in the sync folder, if that device syncs the project. If not, the page says so: open one of its models with **Open** (that adds a pick for the project), or add a pick in Projects settings → Sources. Elsewhere the button is hidden.
-
-The page only finds the connector when the connector was paired with the same address you use in the browser (for example both `http://3dms.lan:4300`). With another address it falls back to the list.
-
-The connector finds installed slicers itself (Windows: the installed apps list; macOS: `/Applications`; Linux: Flatpak) and reports them to the hub. Its machine page picks the default, or **Ask each time**: then Open asks which slicer when the device has more than one. With no slicer found, Open doesn't offer the device.
-
-Locks are soft: see [Locks](#locks).
 
 ### Locks
 
 **Hub management → Settings → Check-out locks** has three modes (default **Off**):
 
 - **Off**: anyone can edit a hub file on any device at once. Clashing saves become conflict copies.
-- **On**: opening a file on a workstation with **Open**, or the first save of it there, checks it out for that device. Other devices get the file read-only until it is released. Their saves still become conflict copies and their deletes are refused.
+- **On**: the first save of a file on a workstation checks it out for that device. Other devices get the file read-only until it is released. Their saves still become conflict copies and their deletes are refused.
 - **Strict**: as On, and a device that is offline can only read hub files (except the ones it has checked out), because it can't check anything out.
 
 A checked-out file is released when:
 
-- the slicer **Open** launched exits (Windows and Linux only),
 - you choose **Done editing** (the project page or the connector's local page),
 - it has had no save for the idle time (**Release a checked-out file after this many minutes without a save**, default 60),
 - an admin force-unlocks it, or the device is revoked or its user deleted, or locks are switched off.
 
 The project page shows "Being edited by `<user>` on `<device>`" on a checked-out file.
 
-**Limits.** Locks are soft. They guard against two devices editing the same file by accident, not against someone who works around them: opening on the server's computer (which edits the hub folder in place and takes no lock), copying a file out, or editing the hub's disk directly doesn't check them. A device that was offline when a file was checked out learns about it when it reconnects.
+**Limits.** Locks are soft. They guard against two devices editing the same file by accident, not against someone who works around them: editing on the server's computer (which changes the hub folder in place and takes no lock), copying a file out, or editing the hub's disk directly doesn't check them. A device that was offline when a file was checked out learns about it when it reconnects.
 
 ### Versions
 
@@ -288,5 +270,5 @@ The machine page has **Restart connector** and **Stop connector**; both need it 
   | Linux | `~/.local/share/3d-maker-suite-connector/install` | `~/.local/share/3d-maker-suite-connector` |
 
 - **Network.** Outbound HTTPS (or HTTP on a LAN) from the device to the hub, plus GitHub release downloads for updates. The local page listens on `127.0.0.1:4301` only.
-- **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers, open a file in a slicer). It never runs a command the hub sends. The device token is stored encrypted and never logged.
+- **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers). It never runs a command the hub sends. The device token is stored encrypted and never logged.
 - **Signing.** Nothing is code-signed yet; see ADR-0014, "Unsigned builds".

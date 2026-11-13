@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { createSlicers, type Found } from "./slicers.ts";
 import { openStore } from "./state.ts";
 
-describe("which slicer opens", () => {
+describe("slicers reported to the hub", () => {
   const slicer = (id: string): Found => ({
     id,
     name: id,
@@ -19,34 +19,22 @@ describe("which slicer opens", () => {
     cli: { cmd: id, args: [] },
   });
 
-  it("the one asked for, else the default, else the only one; several and none: the hub asks", async () => {
+  it("the hub learns which found slicer is the default", async () => {
     const dir = mkdtempSync(join(tmpdir(), "slicers-"));
     try {
       const store = openStore(dir);
       const puts: unknown[] = [];
-      let found = [slicer("bambu-studio")];
       const slicers = createSlicers({
         store,
         log: () => {},
-        find: async () => found,
+        find: async () => [slicer("bambu-studio"), slicer("orca-slicer")],
         request: async (_path, init) => {
           if (init?.method === "PUT") puts.push(init.body);
           return new Response("[]");
         },
       });
-      await slicers.refresh();
-      expect(slicers.pick()?.id).toBe("bambu-studio");
-
-      found = [slicer("bambu-studio"), slicer("orca-slicer")];
-      await slicers.refresh();
-      expect(slicers.pick()).toBeUndefined();
-      expect(slicers.pick("orca-slicer")?.id).toBe("orca-slicer");
-
       store.set({ defaultSlicer: "orca-slicer" });
       await slicers.refresh();
-      expect(slicers.pick()?.id).toBe("orca-slicer");
-      expect(slicers.pick("bambu-studio")?.id).toBe("bambu-studio");
-      // The hub learns which one is the default.
       expect(puts.at(-1)).toMatchObject([
         { id: "bambu-studio", default: false },
         { id: "orca-slicer", default: true },
