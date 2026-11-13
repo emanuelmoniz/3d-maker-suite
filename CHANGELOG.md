@@ -2,6 +2,26 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [5.6.0-alpha.1] - 2026-11-13
+
+Pre-release, first of 5.6.0. Lists everything since 5.5.0. No migration: the new settings are preferences.
+
+### Added
+- **Busy spinner** on actions that can take over a second (Sync now, check for updates, slicer install and remove, backup, export, import apply, empty trash, restarts). It appears after about 1 s, so fast actions don't flicker, and screen readers get the busy state
+- **Tags setting** (Settings → General): hides tags install-wide and restores them when turned back on; nothing is deleted ([docs/configuration.md](docs/configuration.md#in-app-settings)). Projects can now get tags from their form
+- **User accounts switch** (Settings → General): off works like the no-users mode, for a single user. Users, roles and sessions are kept; turning it back on signs everyone in again. The hub needs accounts, so each switch blocks the other ([docs/users.md](docs/users.md))
+- **Users | Roles page** in the menu, with Users and Roles tabs, in place of those two Settings sections. Old links redirect
+- The logo and icons: the app icon in the favicon, sidebar, sign-in pages and connector page, the installers (Windows, macOS, Linux) and the README header
+- Printer and project names on Stats link to their page
+
+### Changed
+- Restart and update show a full-screen overlay that blocks the page until the server is back, in place of the banner
+- Catalog import and export are on **Import | Export**; the brands type is labelled Printer brands
+- The Stats printer and outcome tables are stacked; the trash icon is red everywhere
+
+### Fixed
+- After a restart, the page reloaded as soon as anything answered, which could be the old process still closing. It now waits for the new one
+
 ## [5.5.0] - 2026-11-12
 
 Stable release of 5.5.0. Lists what changed since 5.5.0-alpha.4; the earlier pre-releases' entries above cover the rest. Back up before updating. Migrations 0119 to 0121 (alpha.3) and 0112 to 0118 (alpha.2) apply as described there. No new migration.

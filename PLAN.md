@@ -2902,7 +2902,7 @@ Do Step 5 of the 5.6.0 plan in PLAN.md.
 Do Step 6 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Docs, push & v5.6.0-alpha.1
+### [x] Step 7 - Docs, push & v5.6.0-alpha.1
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - Docs for the tags setting, the accounts switch and Users | Roles. CHANGELOG, version `5.6.0-alpha.1`, `pnpm version:check`.

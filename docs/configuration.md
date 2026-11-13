@@ -74,6 +74,8 @@ The Settings page covers general options, appearance, costs (currency, energy, l
 - **Path picker** (slicer executable, slicer config folders, project roots): browses the folders on the machine running the server and lists names only. It never opens or reads a file while you browse. It is not limited to the project roots, because that is how you choose them. Only use it on a server you trust, and set `APP_PASSWORD` before exposing the app beyond this PC.
 
 - **Date and time format** (Settings → General): the date format and 24- or 12-hour clock used across the app.
+- **Tags** (Settings → General): one switch for the whole install, on by default. Off only hides tags (the columns, pickers, filters and detail rows); your tags, the API, backups and exports stay, and turning it back on restores everything. Collections aren't tags and stay. A saved `?tagId=` link shows every row while tags are off.
+- **User accounts** (Settings → General): see [users.md](users.md#turn-accounts-off).
 - **Branding** (Settings → Appearance): the app name, logo and favicon. Leave the name empty for the default.
 - **Network** (Settings → Network): the host and port saved for the next start. **Restart and open in new tab** applies them. The page shows when a command-line flag or environment variable is overriding the saved value.
 - **Integrations** (Settings → Integrations): slicer config folders and programs belong to their integration. Slicing projects uses the **Slicer program** of the Bambu Studio integration.
