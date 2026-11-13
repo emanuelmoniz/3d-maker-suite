@@ -3101,7 +3101,7 @@ Do Step 15c of the 5.6.0 plan in PLAN.md. Use frontend-design for the Correct us
 
 ## Phase 41 - Release
 
-### [ ] Step 16 - Real test, docs, push & v5.6.0-alpha.2
+### [x] Step 16 - Real test, docs, push & v5.6.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - CHANGELOG, version `5.6.0-alpha.2`, `pnpm version:check`. Commit on `dev`, push, tag `v5.6.0-alpha.2` on `dev`. Check the run and the release.
@@ -3115,6 +3115,8 @@ Do Step 15c of the 5.6.0 plan in PLAN.md. Use frontend-design for the Correct us
 - A single PC: accounts off and on again; the hub switch blocked while off.
 - Install the Windows setup and the connector: the logo on the setup, the shortcuts and the uninstall entry.
 - Fix anything found.
+
+**Manual scenarios: untested** (no VPS, NAS, phone or Windows install available). Only the release part was done: alpha.2 was tagged, its CI e2e failed on two stale tests, fixed and released as alpha.3. Re-run the scenarios above before the stable 5.6.0.
 
 **Done when:** every scenario worked; the tag is pushed and the workflow is green.
 **Prompt:**

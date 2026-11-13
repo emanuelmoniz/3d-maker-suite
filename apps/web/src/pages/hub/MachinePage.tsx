@@ -377,13 +377,11 @@ function Slicers({ device: d }: { device: Device }) {
   return (
     <Section title={t("hub:machine.slicers")}>
       {libraries.length > 0 && (
-        <>
-          <ul className="grid gap-2">
-            {libraries.map((lib) => (
-              <SlicerLine key={lib} device={d} library={lib} />
-            ))}
-          </ul>
-        </>
+        <ul className="grid gap-2">
+          {libraries.map((lib) => (
+            <SlicerLine key={lib} device={d} library={lib} />
+          ))}
+        </ul>
       )}
       {/* A slicer is installed on a machine from its card in Integrations. */}
       {may.integrations && (

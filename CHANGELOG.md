@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [5.6.0-alpha.3] - 2026-11-13
+
+Pre-release, third of 5.6.0. Same app as alpha.2: only the end-to-end tests changed, to follow the new prints table columns and the device page header. No migration.
+
 ## [5.6.0-alpha.2] - 2026-11-13
 
 Pre-release, second of 5.6.0. Lists everything since 5.6.0-alpha.1. Back up before updating. Migrations 0122 (Open in slicer rights), 0123 (check-out locks), 0124 (rescan schedule) and 0125 (usage corrections) apply as described below.

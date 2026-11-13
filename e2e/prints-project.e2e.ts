@@ -15,8 +15,8 @@ test("prints: project column links to the project, sorts and filters", async ({ 
 
   await page.goto("/prints");
   const table = page.getByRole("table", { name: "Prints" });
-  // After the selection column.
-  await expect(table.getByRole("columnheader").nth(1)).toContainText("Project");
+  // After the selection column and the print name.
+  await expect(table.getByRole("columnheader").nth(2)).toContainText("Project");
   await expect(table.getByRole("link", { name: "001-Dragon" })).toHaveAttribute(
     "href",
     `/projects/${project.id}`,
