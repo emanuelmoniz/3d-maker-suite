@@ -2,6 +2,7 @@ import type { HubFileSaved, ProjectDetail, ProjectFileEntry } from "@3d-maker-su
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   File as FileIcon,
   Folder,
   FolderInput,
@@ -23,7 +24,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
-import { textLink } from "../../lib/cx.ts";
+import { cx, textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatRelative, formatSize } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
@@ -34,7 +35,7 @@ import {
 } from "../../lib/projectFiles.ts";
 import {
   fileVersionUrl,
-  projectFileUrl,
+  projectDownloadUrl,
   useFileVersions,
   useProjectSaved,
 } from "../../lib/projects.ts";
@@ -128,6 +129,33 @@ function IconButton({
     >
       {children}
     </Button>
+  );
+}
+
+/** A download (file or zip) the browser saves; icon only, named by `label`, when it has no text. */
+function DownloadLink({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children?: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      download
+      aria-label={children ? undefined : label}
+      title={children ? undefined : label}
+      className={cx(
+        "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium transition-colors hover:bg-surface-2",
+        children ? "h-9 border border-border bg-surface px-3" : "h-10 w-10 sm:h-9 sm:w-9",
+      )}
+    >
+      <Download className="size-4" aria-hidden />
+      {children}
+    </a>
   );
 }
 
@@ -258,6 +286,10 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
           </span>
         )}
         {!dir && <SavedBy saved={ctx.saved.get(entry.path)} />}
+        <DownloadLink
+          href={projectDownloadUrl(ctx.projectId, entry.path)}
+          label={t("projects:files.download", n)}
+        />
         {ctx.history && !dir && (
           <IconButton
             label={t("projects:files.history", n)}
@@ -527,20 +559,23 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
         onFiles("", e.dataTransfer.files);
       }}
     >
-      <Write can="projects" when={project.canEdit}>
-        <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-          <div className="flex gap-2">
-            <Button onClick={() => picker.current?.click()}>
-              <Upload className="size-4" aria-hidden />
-              {t("projects:files.upload")}
-            </Button>
-            <Button onClick={() => open({ kind: "folder", dir: "" })}>
-              <FolderPlus className="size-4" aria-hidden />
-              {t("projects:files.newFolder")}
-            </Button>
-          </div>
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+        <DownloadLink href={projectDownloadUrl(id, "")} label={t("projects:files.downloadAll")}>
+          {t("projects:files.downloadAll")}
+        </DownloadLink>
+        <Write can="projects" when={project.canEdit}>
+          <Button onClick={() => picker.current?.click()}>
+            <Upload className="size-4" aria-hidden />
+            {t("projects:files.upload")}
+          </Button>
+          <Button onClick={() => open({ kind: "folder", dir: "" })}>
+            <FolderPlus className="size-4" aria-hidden />
+            {t("projects:files.newFolder")}
+          </Button>
           <FilePick inputRef={picker} multiple onFiles={(f) => onFiles("", f)} />
-        </div>
+        </Write>
+      </div>
+      <Write can="projects" when={project.canEdit}>
         <p className="mb-2 text-muted">{t("projects:files.dropHint")}</p>
       </Write>
       {uploads.length > 0 && (
@@ -692,24 +727,81 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const files = project.meta.files.filter((f) => f.kind !== "shortcut");
   const saved = new Map((useProjectSaved(project.id).data ?? []).map((s) => [s.file, s]));
-  if (project.folderState !== "ok" || !files.length) return null;
+  const online = project.folderState === "ok";
+  if (!online && project.folderState !== "offline") return null;
+  if (online && !files.length) return null;
+  // Every folder that holds a listed file (also through a subfolder), in tree order.
+  const folders = [
+    ...new Set(
+      files.flatMap((f) => {
+        const parts = f.path.split("/").slice(0, -1);
+        return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
+      }),
+    ),
+  ].sort((a, b) => (a.replaceAll("/", "\0") < b.replaceAll("/", "\0") ? -1 : 1));
+  const indent = (path: string) => ({
+    paddingLeft: `${0.5 + (path ? path.split("/").length : 0) * 1.25}rem`,
+  });
+  const download = (path: string, name: string) =>
+    online && (
+      <DownloadLink
+        href={projectDownloadUrl(project.id, path)}
+        label={t("projects:files.download", { name })}
+      />
+    );
   return (
     <Collapsible title={t("projects:detail.files")} className="mt-6 rounded-lg">
-      <ul className="grid gap-1">
-        {files.map((f) => (
-          <li key={f.path} className="flex flex-wrap items-center gap-x-2">
-            <FileIcon className="size-4 shrink-0 text-muted" aria-hidden />
-            <a
-              href={projectFileUrl(project.id, f.path)}
-              download={f.path.slice(f.path.lastIndexOf("/") + 1)}
-              className={`min-w-0 wrap-anywhere ${textLink}`}
-            >
-              {f.path}
-            </a>
-            <span className="ml-auto shrink-0 text-muted text-sm">{formatSize(f.size)}</span>
-            <SavedBy saved={saved.get(f.path)} className="basis-full pl-6" />
-          </li>
-        ))}
+      {online ? (
+        <div className="mb-2 flex justify-end">
+          <DownloadLink
+            href={projectDownloadUrl(project.id, "")}
+            label={t("projects:files.downloadAll")}
+          >
+            {t("projects:files.downloadAll")}
+          </DownloadLink>
+        </div>
+      ) : (
+        <p className="mb-2 text-muted">{t("projects:files.deviceOffline")}</p>
+      )}
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+        {["", ...folders].map((dir) => {
+          const name = dir.slice(dir.lastIndexOf("/") + 1);
+          const inside = files.filter((f) => dirOf(f.path) === dir);
+          if (!dir && !inside.length) return null;
+          return (
+            <li key={dir}>
+              {dir && (
+                <div style={indent(dirOf(dir))} className="flex items-center gap-2 py-1 pr-2">
+                  <span className="flex min-h-9 min-w-0 grow items-center gap-2">
+                    <Folder className="size-4 shrink-0 text-muted" aria-hidden />
+                    <span className="break-all font-medium">{name}</span>
+                  </span>
+                  {download(dir, name)}
+                </div>
+              )}
+              <ul>
+                {inside.map((f) => {
+                  const file = f.path.slice(f.path.lastIndexOf("/") + 1);
+                  return (
+                    <li
+                      key={f.path}
+                      style={indent(dir)}
+                      className="flex flex-wrap items-center gap-x-2 py-1 pr-2"
+                    >
+                      <span className="flex min-h-9 min-w-0 grow basis-48 items-center gap-2">
+                        <FileIcon className="size-4 shrink-0 text-muted" aria-hidden />
+                        <span className="break-all">{file}</span>
+                        <span className="shrink-0 text-muted">{formatSize(f.size)}</span>
+                      </span>
+                      <SavedBy saved={saved.get(f.path)} />
+                      {download(f.path, file)}
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          );
+        })}
       </ul>
     </Collapsible>
   );

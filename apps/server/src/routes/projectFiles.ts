@@ -20,11 +20,14 @@ import {
 import { type Db, schema } from "@3d-maker-suite/db";
 import { isHidden } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
+import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import yazl from "yazl";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { mayEditRoot, type Rights, rootRule } from "../lib/auth.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { sha256Of } from "../projects/hubFiles.ts";
 import { projectPath, segments } from "../projects/paths.ts";
 import { listRoots, onDeviceRoot, projectDir, projectFile, rootFs } from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
@@ -59,6 +62,52 @@ const repath = (path: string, from: string, to: string | null) =>
       ? null
       : to + path.slice(from.length)
     : path;
+
+const attachment = (reply: FastifyReply, name: string) =>
+  reply.header("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
+
+/** Every file below `abs` as `rel/...`, like the list: no hidden files, no links. */
+async function walk(abs: string, rel: string): Promise<{ abs: string; path: string }[]> {
+  const out: { abs: string; path: string }[] = [];
+  for (const e of await readEntries(abs)) {
+    if (e.link || isHidden(e.name)) continue;
+    const path = rel ? `${rel}/${e.name}` : e.name;
+    if (e.type === "dir") out.push(...(await walk(e.abs, path)));
+    else out.push({ abs: e.abs, path });
+  }
+  return out;
+}
+
+/** One file as an attachment, with its sha256 as the `ETag` (the upload's conflict check). */
+const sendFile = async (reply: FastifyReply, abs: string, name: string) =>
+  attachment(reply, name)
+    .type("application/octet-stream")
+    .header("etag", `"${await sha256Of(abs)}"`)
+    .send(createReadStream(abs));
+
+/**
+ * A zip streamed as it is made, stored (3MF is a zip already); each file is opened only when its
+ * turn comes, one at a time. A failure then cuts the connection: the browser reports a failed
+ * download instead of saving a broken zip.
+ */
+function sendZip(
+  reply: FastifyReply,
+  name: string,
+  files: { path: string; open: () => Promise<string> }[],
+) {
+  const zip = new yazl.ZipFile();
+  const out = zip.outputStream as Readable;
+  zip.on("error", (e) => out.destroy(e));
+  for (const f of files)
+    zip.addReadStreamLazy(f.path, { compress: false }, (cb) =>
+      f.open().then(
+        (abs) => cb(null, createReadStream(abs)),
+        (e) => cb(e, undefined as never),
+      ),
+    );
+  zip.end();
+  return attachment(reply, `${name}.zip`).type("application/zip").send(out);
+}
 
 /**
  * File manager for a project folder: every path is project-relative and checked by `projectPath`,
@@ -162,6 +211,54 @@ export const projectFilesRoutes =
         if (isDir || !IMAGE_TYPES[extname(path).toLowerCase()])
           throw new HttpError(404, "not_found", "Image not found");
         return imageReply(reply, path).send(createReadStream(abs));
+      },
+    );
+
+    // A file, a folder as a zip, or "" the whole project folder; for anyone who sees the project.
+    // Not `/:id/file`: that serves only what the scan listed, while a hub root lists the real folder.
+    app.get(
+      "/:id/files/download",
+      { schema: { params, querystring: projectFilesQuery, response: errors } },
+      async (req, reply) => {
+        const rel = req.query.path;
+        const row = db.select().from(projects).where(eq(projects.id, req.params.id)).get();
+        const name = (path: string) => path.split("/").pop() || (row?.name ?? "project");
+        if (row?.rootId && row.folder !== null && onDeviceRoot(db, row.rootId)) {
+          // Only what its device's last scan listed can be pulled.
+          segments(rel, true);
+          const listed = projectMetaSchema
+            .parse(row.meta)
+            .files.filter((f) => f.kind !== "shortcut");
+          const pull = async (path: string) => {
+            const abs = await projectFile(db, row, path);
+            if (!abs) throw new HttpError(404, "path_not_found", "Path not found");
+            return abs;
+          };
+          if (listed.some((f) => f.path === rel))
+            return sendFile(reply, await pull(rel), name(rel));
+          const files = listed.filter((f) => !rel || f.path.startsWith(`${rel}/`));
+          const first = files[0];
+          if (!first) throw new HttpError(404, "path_not_found", "Path not found");
+          // An offline device fails here, as a normal error before the first byte.
+          await pull(first.path);
+          return sendZip(
+            reply,
+            name(rel || row.folder),
+            files.map((f) => ({
+              path: rel ? f.path.slice(rel.length + 1) : f.path,
+              open: () => pull(f.path),
+            })),
+          );
+        }
+        const p = await project(req.params.id);
+        const { abs, isDir } = await projectPath(p.dir, rel, "existing");
+        if (!isDir) return sendFile(reply, abs, name(rel));
+        const files = await walk(abs, "");
+        return sendZip(
+          reply,
+          name(rel || p.own.rel),
+          files.map((f) => ({ path: f.path, open: async () => f.abs })),
+        );
       },
     );
 

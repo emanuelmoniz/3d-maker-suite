@@ -75,7 +75,7 @@ The hub fetches a file only when it needs it: slicing, auto slicing, a download 
 
 ### Offline
 
-While a device is offline, its roots and projects show **Offline** with the last known data. Plate previews, the cover and the gallery picks the device sent still show. Other images, files and any write wait for the device: a change to the cover or gallery is sent on its next connect.
+While a device is offline, its roots and projects show **Offline** with the last known data. Plate previews, the cover and the gallery picks the device sent still show. Other images, files and any write wait for the device: a change to the cover or gallery is sent on its next connect. Downloads need the device online too (a file the hub cached in the last hour still comes); the project's **Files** section lists the files and says they can be downloaded once the device is back. A download holds only the files the device's last scan listed ([projects.md](projects.md#downloading-files)).
 
 ### Plate previews and gallery
 

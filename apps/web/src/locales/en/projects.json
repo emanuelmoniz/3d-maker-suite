@@ -341,6 +341,9 @@
     "tooLarge": "The file is over the upload limit (Settings > Projects).",
     "error": "That didn't work. Check the name and try again.",
     "history": "Versions of {{name}}",
+    "download": "Download {{name}}",
+    "downloadAll": "Download full project folder",
+    "deviceOffline": "Its device is offline. The files can be downloaded once the device is back.",
     "versions": {
       "title": "Versions of {{name}}",
       "version": "Version",

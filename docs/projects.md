@@ -74,6 +74,12 @@ Avoid putting one root inside another. A project follows its root's auto slice s
 
 A project made without a folder (for example by a prints import), or whose folder is gone, keeps its number. When a **new folder** whose prefix is that number shows up in a root, the scan makes it the project's folder instead of adding a second project. Only an exact number match is adopted; a folder you add by hand with typed fields is always a new project.
 
+## Downloading files
+
+Everyone who can see a project can download its files, also with download-only rights. In the project's **Files** section, each file and folder has a download button: a file comes as it is, a folder as a zip. **Download full project folder** zips the whole folder, named after it. Zips are stored uncompressed (3MF files are zips already), and hidden files and links are left out.
+
+On the server, a download takes the real folder, so files below the root's files depth or past the file limit are included. In a folder on a device, only the files its last scan listed can be downloaded: files the scan leaves out (files depth, file limit) aren't in a download, and the device must be online ([hub.md](hub.md#offline)). If a file can't be read halfway through a zip, the download fails in the browser instead of saving a broken zip.
+
 ## Deleted files: the trash
 
 Files removed in the app are moved, not erased, into `.3d-maker-suite-trash` in the project's root, as `<timestamp>_<project folder>/<path>`. The folder starts with a dot, so scans ignore it. Settings → Projects shows how many items it holds and empties it. The move is a rename, so a project folder on another volume than its root (a mount inside the root) can't be trashed.

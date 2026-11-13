@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +8,7 @@ import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { setRoots } from "./testRoots.ts";
+import { unzip } from "./testZip.ts";
 
 let dir: string;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -156,6 +158,58 @@ describe("path guard", () => {
       expect(res.statusCode).toBe(403);
       expect(res.json().error.code).toBe("not_allowed");
     }
+  });
+});
+
+describe("download", () => {
+  const download = (path = "") =>
+    app.inject(`/api/projects/${id}/files/download?${new URLSearchParams({ path })}`);
+  it("sends a file beyond the files depth, with its hash", async () => {
+    await setRoots(app, { path: root(), filesDepth: 0 });
+    await mkdir(join(folder, "a", "b"), { recursive: true });
+    await writeFile(join(folder, "a", "b", "deep.stl"), "deep");
+    await scan();
+    expect((await project()).meta.files.map((f: { path: string }) => f.path)).not.toContain(
+      "a/b/deep.stl",
+    );
+    const res = await download("a/b/deep.stl");
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe("deep");
+    expect(res.headers["content-disposition"]).toBe("attachment; filename*=UTF-8''deep.stl");
+    expect(res.headers.etag).toBe(`"${createHash("sha256").update("deep").digest("hex")}"`);
+  });
+
+  it("zips a folder and the full project, without hidden files or links", async () => {
+    await mkdir(join(folder, "parts", "small"), { recursive: true });
+    await writeFile(join(folder, "main.3mf"), "main");
+    await writeFile(join(folder, "parts", "a.stl"), "a");
+    await writeFile(join(folder, "parts", "small", "b.stl"), "b");
+    await writeFile(join(folder, "parts", ".hidden"), "h");
+    await symlink(outside(), join(folder, "parts", "link"), "junction");
+
+    const part = await download("parts");
+    expect(part.headers["content-type"]).toBe("application/zip");
+    expect(part.headers["content-disposition"]).toBe("attachment; filename*=UTF-8''parts.zip");
+    expect(await unzip(part.rawPayload)).toEqual({ "a.stl": "a", "small/b.stl": "b" });
+
+    const all = await download();
+    expect(all.headers["content-disposition"]).toBe(
+      `attachment; filename*=UTF-8''${encodeURIComponent("001_Boat Test.zip")}`,
+    );
+    expect(await unzip(all.rawPayload)).toEqual({
+      "main.3mf": "main",
+      "parts/a.stl": "a",
+      "parts/small/b.stl": "b",
+    });
+  });
+
+  it("refuses paths outside the project", async () => {
+    await symlink(outside(), join(folder, "link"), "junction");
+    expect((await download("../outside/secret.txt")).statusCode).toBe(400);
+    expect((await download(".hidden")).statusCode).toBe(400);
+    expect((await download("link/secret.txt")).statusCode).toBe(403);
+    expect((await download("link")).statusCode).toBe(403);
+    expect((await download("missing.stl")).statusCode).toBe(404);
   });
 });
 

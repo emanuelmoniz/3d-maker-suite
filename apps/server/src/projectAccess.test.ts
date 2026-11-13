@@ -203,6 +203,22 @@ describe("project access over HTTP", () => {
     return { db, app, dir, root: root ?? { id: "" }, add, as };
   };
 
+  it("lets a viewer download a project's files; a hidden project is a 404", async () => {
+    const { add, as } = await setup();
+    const admin = add("admin", "admin");
+    const viewer = add("viewer", "viewer");
+    const solo = add("editor", "solo", { projectsSeeAll: false });
+    const [asAdmin, asViewer, asSolo] = await Promise.all([as(admin), as(viewer), as(solo)]);
+    const p = (await asAdmin("POST", "/api/projects", { name: "Box", createFolder: true })).json();
+    writeFileSync(join(p.folderPath, "box.stl"), "box");
+    const url = `/api/projects/${p.id}/files/download?path=`;
+    const file = await asViewer("GET", `${url}box.stl`);
+    expect(file.statusCode).toBe(200);
+    expect(file.body).toBe("box");
+    expect((await asViewer("GET", url)).headers["content-type"]).toBe("application/zip");
+    expect((await asSolo("GET", `${url}box.stl`)).statusCode).toBe(404);
+  });
+
   it("hides other people's projects, makes them download-only, and sets the owner", async () => {
     const { db, add, as } = await setup();
     const admin = add("admin", "admin");

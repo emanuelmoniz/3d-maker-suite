@@ -3014,7 +3014,7 @@ Do Step 11b of the 5.6.0 plan in PLAN.md.
 Do Step 12 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Download files, folders and the full project
+### [x] Step 13 - Download files, folders and the full project
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - One route, `GET /:id/files/download?path=`, for anyone who can see the project (else 404, as elsewhere; no `canEdit` check). A file comes back as an attachment, a folder as a zip, and an empty `path` as the full project folder, with the folder's name.

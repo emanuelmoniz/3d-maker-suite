@@ -58,7 +58,7 @@ function partsOf(rel: string) {
   throw invalid();
 }
 
-const sha256Of = async (abs: string) => {
+export const sha256Of = async (abs: string) => {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(abs)) hash.update(chunk);
   return hash.digest("hex");

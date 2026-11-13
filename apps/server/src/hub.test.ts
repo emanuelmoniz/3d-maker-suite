@@ -9,6 +9,7 @@ import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "
 import { buildApp } from "./app.ts";
 import { adapters } from "./integrations/registry.ts";
 import { hashPassword } from "./lib/password.ts";
+import { unzip } from "./testZip.ts";
 import { VERSION } from "./updates/updates.ts";
 
 const PW = "password123";
@@ -1105,5 +1106,100 @@ describe("hub events", () => {
     expect((await get()).body).toBe("hello");
     expect(seen).toBe(2);
     await s.cancel();
+  });
+
+  it("downloads from another user's device root: a file, a zip; refused offline", async () => {
+    // The device is the viewer's; the admin downloads.
+    const { db, app, send, open, token, deviceId } = await live();
+    const root = db
+      .insert(schema.roots)
+      .values({ name: "WS", location: deviceId, path: "C:/models", position: 0 })
+      .returning()
+      .get();
+    const dev = (url: string, payload: object | Buffer, headers = {}) =>
+      app.inject({
+        method: "PUT",
+        url: `/api/hub/device${url}`,
+        payload,
+        headers: { authorization: `Bearer ${token}`, ...headers },
+      });
+    const s = await open();
+    await s.until(": open");
+    const data: Record<string, string> = { "box.stl": "box", "parts/a.stl": "a" };
+    const files = Object.entries(data).map(([path, d]) => ({
+      path,
+      kind: "model",
+      size: d.length,
+      mtime: 1_700_000_000_000,
+    }));
+    const scan = { files, models: [], mainFile: null, sourceUrl: null, hasModel: true };
+    await dev(`/roots/${root.id}/folders`, {
+      rel: "001_Box",
+      digest: "a",
+      scan: { ...scan, unreadable: 0 },
+      texts: {},
+      cover: null,
+      previews: [],
+      gallery: [],
+      galleryLeftOut: [],
+    });
+    const [{ id }] = (await send("GET", "/api/projects")).json().items;
+    const download = (path: string) =>
+      send("GET", `/api/projects/${id}/files/download?${new URLSearchParams({ path })}`);
+    // Answers each `fs.upload` the device gets with the file it asks for.
+    let seen = 0;
+    const serve = async (count: number) => {
+      for (let i = 0; i < count; i++) {
+        const asks = (t: string) => [
+          ...t.matchAll(
+            /"type":"fs\.upload","requestId":"([^"]+)","rootId":"[^"]+","rel":"([^"]+)"/g,
+          ),
+        ];
+        const m = asks((await s.until((t) => asks(t).length > seen)) ?? "")[seen++];
+        const body = data[(m?.[2] ?? "").slice("001_Box/".length)] ?? "";
+        await dev(`/files/${m?.[1]}`, Buffer.from(body), {
+          "content-type": "application/octet-stream",
+          "x-file-sha256": createHash("sha256").update(body).digest("hex"),
+        });
+      }
+    };
+
+    let pending = download("box.stl");
+    await serve(1);
+    const file = await pending;
+    expect(file.statusCode).toBe(200);
+    expect(file.body).toBe("box");
+    expect(file.headers.etag).toBe(`"${createHash("sha256").update("box").digest("hex")}"`);
+
+    // box.stl is cached: only parts/a.stl is pulled.
+    pending = download("");
+    await serve(1);
+    const zip = await pending;
+    expect(zip.headers["content-disposition"]).toBe("attachment; filename*=UTF-8''001_Box.zip");
+    expect(await unzip(zip.rawPayload)).toEqual(data);
+    pending = download("parts");
+    expect(await unzip((await pending).rawPayload)).toEqual({ "a.stl": "a" });
+    expect((await download("nothing")).statusCode).toBe(404);
+
+    await s.cancel();
+    await expect.poll(async () => (await download("box.stl")).statusCode).toBe(200);
+    // Uncached and offline: a normal error, before anything is sent.
+    db.update(schema.deviceRootFolders)
+      .set({
+        scan: {
+          rel: "001_Box",
+          digest: "b",
+          scan: { ...scan, files: [{ ...files[0], size: 9 }], unreadable: 0 },
+          texts: {},
+          galleryLeftOut: [],
+        },
+      })
+      .run();
+    db.update(schema.projects)
+      .set({
+        meta: { files: [{ ...files[0], size: 9 }], models: [], multicolor: false, materials: [] },
+      })
+      .run();
+    await expect.poll(async () => (await download("")).json().error?.code).toBe("device_offline");
   });
 });
