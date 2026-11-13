@@ -246,6 +246,19 @@ test("mobile: the More sheet reaches secondary pages", async ({ page }) => {
   await expect(page).toHaveURL(/\/stats$/);
 });
 
+test("mobile: the bottom bar shows Projects, and More reaches Printers", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/");
+  const bar = page.getByRole("navigation", { name: "Main navigation" });
+  for (const name of ["Home", "Filament", "Projects", "Prints", "More"]) {
+    await expect(bar.getByText(name, { exact: true })).toBeVisible();
+  }
+  await expect(bar.getByRole("link", { name: "Printers" })).toHaveCount(0);
+  await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "Printers" }).click();
+  await expect(page).toHaveURL(/\/printers$/);
+});
+
 test("hub switch: off by default, and waits for user accounts", async ({ page }) => {
   await page.goto("/settings");
   const hub = page.getByRole("switch", { name: "Hub" });

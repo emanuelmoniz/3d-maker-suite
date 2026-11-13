@@ -51,7 +51,6 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Printer,
         label: "nav:items.printers.label",
         description: "nav:items.printers.description",
-        primary: true,
       },
       {
         to: "/maintenance",
@@ -76,6 +75,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: FolderKanban,
         label: "nav:items.projects.label",
         description: "nav:items.projects.description",
+        primary: true,
       },
       {
         to: "/prints",

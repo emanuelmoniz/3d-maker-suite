@@ -2916,7 +2916,7 @@ Do Step 7 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 
 ## Phase 39 - Mobile bar and links
 
-### [ ] Step 8 - Projects in the bottom bar
+### [x] Step 8 - Projects in the bottom bar
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - In `shell/nav.ts`, move `primary: true` from Printers to Projects. Printers moves to the More sheet. The sidebar doesn't change.
