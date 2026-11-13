@@ -56,6 +56,14 @@ export function createHubChannel(db: Db) {
       for (const set of streams.values()) for (const s of set) s.write(frame(null, event));
     },
 
+    /** Sends a live event to one device's open streams; never stored. False while it's offline. */
+    tell(deviceId: string, event: HubEvent) {
+      const set = online(deviceId) && streams.get(deviceId);
+      if (!set) return false;
+      for (const s of set) s.write(frame(null, event));
+      return true;
+    },
+
     /** A stored event, for the replay when a stream opens; null seq = a live one for one stream. */
     frame: (seq: number | null, event: HubEvent) => frame(seq, event),
 

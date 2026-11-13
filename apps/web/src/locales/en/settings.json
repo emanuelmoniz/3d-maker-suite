@@ -359,6 +359,10 @@
     "filesChangedHub": "Each project's file list changes at the next scan.",
     "filesChangedDevice": "The machine sends the projects' file lists again when you save.",
     "autoSliceTitle": "Slicing",
+    "rescanTitle": "Rescan",
+    "rescan": "Rescan this folder periodically",
+    "rescanHint": "Catches changes the folder watcher misses, on network shares (SMB, NFS) and cloud folders. Only folders that changed are read again. Not needed on a local disk.",
+    "rescanAtHint": "In the server's time zone, for a folder on a machine too. Any time: counted from the last rescan.",
     "editByTitle": "Who can edit",
     "editBy": {
       "roles": "All users who can edit projects",

@@ -35,6 +35,7 @@ import { pruneSessions } from "./lib/session.ts";
 import { autoSlice, autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createDeviceFiles } from "./projects/deviceFiles.ts";
 import { createHubFiles } from "./projects/hubFiles.ts";
+import { createRescans } from "./projects/rescans.ts";
 import { useDeviceFiles } from "./projects/rootFs.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue, useSliceWorkers } from "./projects/sliceQueue.ts";
@@ -384,6 +385,7 @@ export async function buildApp(
     onScanned: (id, before) => autoSlice(db, syncer.adapters, sliceQueue, projectsLog, id, before),
   });
   await app.register(rootsRoutes(db, hub, scanner), { prefix: "/api/roots" });
+  const rescans = createRescans(db, scanner, hub);
   const installer = createSlicerInstaller(db, dataDir, syncer.adapters, logFor("integrations"), {
     // A new version outdates its slices (ADR-0013); auto slicing redoes them.
     onInstalled: (id) => {
@@ -491,6 +493,8 @@ export async function buildApp(
   }
   if (opts.syncSchedule) {
     const job = new Cron(opts.syncSchedule, { protect: true }, async () => {
+      // Not awaited: a big share's walk mustn't hold up the syncs.
+      void rescans().catch((err) => projectsLog.error({ err }, "project rescan failed"));
       await syncer.runAll();
       // A source that moved: the new device starts sending, an old one stops.
       await deviceCatalog

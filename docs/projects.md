@@ -44,7 +44,16 @@ A folder numbered `0` (`000_template`, `000_new-project`) is never a project, ev
 
 ## Shared folders on a machine
 
-A project folder on a paired machine (a device root) is only indexed: the server never copies it to other devices, and it keeps no versions of it except for uploads made through the app. To share it between workstations, use the company's own storage (an SMB share or a cloud drive) and index it from one connector only; the storage's own history (snapshots, Previous versions) covers saves from a slicer. The connector rescans the folder at start and every 10 minutes, since change events get lost on network and cloud folders. Details: [hub.md](hub.md#indexing-a-shared-folder).
+A project folder on a paired machine (a device root) is only indexed: the server never copies it to other devices, and it keeps no versions of it except for uploads made through the app. To share it between workstations, use the company's own storage (an SMB share or a cloud drive) and index it from one connector only; the storage's own history (snapshots, Previous versions) covers saves from a slicer. Details: [hub.md](hub.md#indexing-a-shared-folder).
+
+## Rescan
+
+Every project folder is watched, so a change shows within seconds. On network shares (SMB, NFS) and cloud folders the watcher misses changes, so each project folder also has a **Rescan** setting on its page in Projects settings:
+
+- **Rescan this folder periodically**, on by default, every hour.
+- **Frequency** (every 15 minutes, hour, day, week or month) and an optional time, as in catalog sync. The time is in the server's time zone, for a folder on a machine too: the server keeps the schedule and tells the machine when to rescan. An offline machine is skipped, and indexes its folders when it connects.
+- A rescan reads again only the project folders whose files changed in size or modified time, so an idle folder costs a directory walk. It is not needed on a local disk; turn it off there if you like.
+- **Scan** on the Projects page still reads every folder in full.
 
 ## Files depth and the file limit
 

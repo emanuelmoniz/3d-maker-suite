@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { id, isoDate } from "./entities.ts";
+import { id, isoDate, syncPolicySchema } from "./entities.ts";
 import { ROOT_EDIT_BY } from "./enums.ts";
 
 /** Where a root's files live (ADR-0014): "hub" is a folder on this server. */
@@ -16,6 +16,15 @@ export function devicePathIn(folder: string, path: string) {
   return fold(path).startsWith(fold(folder));
 }
 
+/**
+ * A root's periodic rescan: the safety net for watcher events lost on SMB, NFS and cloud folders.
+ * The hub runs it on the schedule of catalog sync (`schedulePattern`), for a device root too.
+ */
+export const rootRescanSchema = syncPolicySchema
+  .pick({ frequency: true, atMinute: true, atHour: true, atWeekday: true, atDay: true })
+  .extend({ enabled: z.boolean() });
+export type RootRescan = z.infer<typeof rootRescanSchema>;
+
 /** A folder searched for projects, with its own scan settings. */
 export const rootSchema = z.object({
   id,
@@ -29,6 +38,7 @@ export const rootSchema = z.object({
   filesDepth: z.number().int().min(0).nullable(),
   /** Off: its projects don't slice again when a file changes (unless a project says so). */
   autoSlice: z.boolean(),
+  rescan: rootRescanSchema,
   /**
    * Who edits its files (ADR-0014): "roles" editors and admins, "admins", "users" the picked
    * `editorIds`, "none" nobody (view only). On a device root, a device's own user always may, and
@@ -56,13 +66,23 @@ const settings = rootSchema.pick({
   projectDepth: true,
   filesDepth: true,
   autoSlice: true,
+  rescan: true,
   editBy: true,
   editorIds: true,
 });
+export const ROOT_RESCAN_DEFAULT: RootRescan = {
+  enabled: true,
+  frequency: "1h",
+  atMinute: null,
+  atHour: null,
+  atWeekday: null,
+  atDay: null,
+};
 export const ROOT_DEFAULTS: z.infer<typeof settings> = {
   projectDepth: 1,
   filesDepth: null,
   autoSlice: true,
+  rescan: ROOT_RESCAN_DEFAULT,
   editBy: "roles",
   editorIds: [],
 };

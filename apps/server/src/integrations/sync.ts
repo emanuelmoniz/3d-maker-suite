@@ -190,7 +190,10 @@ export function schedulePattern(frequency: SyncFrequency, at: At): string | null
 }
 
 /** Is a type due: never ran, its next slot after the last run has come, or (no time set) its frequency has passed. */
-function isDue(p: At & { frequency: SyncFrequency; lastRunAt: string | null }, now = Date.now()) {
+export function isDue(
+  p: At & { frequency: SyncFrequency; lastRunAt: string | null },
+  now = Date.now(),
+) {
   if (!p.lastRunAt) return true;
   const pattern = schedulePattern(p.frequency, p);
   if (!pattern) return now - Date.parse(p.lastRunAt) >= FREQUENCY_MS[p.frequency] - DUE_SLACK_MS;

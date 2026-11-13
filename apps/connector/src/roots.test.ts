@@ -234,22 +234,20 @@ describe("writes from the web", () => {
 });
 
 describe("rescan", () => {
-  it("looks at a root again on a timer, without any watcher event, and sends what the hub wants", async () => {
-    const timed = createRootSync({ request, log: () => {}, store, rescanMs: 50 });
+  it("indexes a root again on the hub's roots.rescan, without any watcher event", async () => {
     sent = [];
-    await timed.start(); // the start's own index
-    const indexes = () => sent.filter((s) => s.path.endsWith("/index")).length;
-    expect(indexes()).toBe(1);
-    // The hub now sees a change it lost the event for: it asks for the folder at the next rescan.
+    // A change whose event was lost: the hub sees another digest and asks for the folder.
     want = ["001_Box"];
-    await new Promise((r) => setTimeout(r, 300));
-    timed.stop();
-    expect(indexes()).toBeGreaterThan(1);
-    expect(sent.some((s) => s.path === `/roots/${rootId}/folders`)).toBe(true);
-    await timed.idle(); // a sync already running finishes
-    const after = indexes();
-    await new Promise((r) => setTimeout(r, 150));
-    expect(indexes()).toBe(after); // stopped: no more rescans
+    sync.handle({ type: "roots.rescan", rootId });
+    await sync.idle();
+    expect(sent.map((s) => s.path)).toEqual([`/roots/${rootId}/index`, `/roots/${rootId}/folders`]);
+  });
+
+  it("ignores a rescan of a root it doesn't sync", async () => {
+    sent = [];
+    sync.handle({ type: "roots.rescan", rootId: randomUUID() });
+    await sync.idle();
+    expect(sent).toEqual([]);
   });
 });
 

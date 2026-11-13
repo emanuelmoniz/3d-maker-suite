@@ -312,6 +312,11 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("connector.update") }),
   /** Its roots were added, changed or removed, or a scan was asked for: read them, sync them all. */
   z.object({ type: z.literal("roots.changed") }),
+  /**
+   * Live only (5.6.0): a root's periodic rescan is due (its `rescan` schedule, kept on the hub).
+   * Index it again: its digests decide what is sent. An older connector skips it.
+   */
+  z.object({ type: z.literal("roots.rescan"), rootId: id }),
   /** Live only: files of the hub roots changed; ask for the changes since the cursor. */
   z.object({ type: z.literal("sync.changed") }),
   /** One level of the folder browser (`listFolder`); `path` null = where browsing starts. */

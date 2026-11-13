@@ -3064,6 +3064,15 @@ Plan Step 14 of the 5.6.0 plan in PLAN.md.
 Do Step 15 of the 5.6.0 plan in PLAN.md.
 ```
 
+### [x] Step 15b - Rescan schedule per project folder
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Each root gets a **Rescan** setting on its page: on/off, then catalog sync's frequency and time (on, every hour by default; one migration, a JSON column on `roots`).
+- The hub keeps every schedule on its minute tick. A hub root: a quick pass that reads again only folders whose `folderDigest` changed, and scans new ones. A device root: the live event `roots.rescan` while online; the connector's fixed timer from Step 15 goes.
+- Docs (`projects.md` Rescan, `hub.md`, ADR-0014).
+
+**Done when:** a quick pass reads only changed and new folders of its own root; the tick runs due roots only, and retries an offline device on the next tick; the connector re-indexes on `roots.rescan`; the setting saves from the page; tests, lint and `pnpm i18n:check` pass.
+
 ## Phase 41 - Release
 
 ### [ ] Step 16 - Real test, docs, push & v5.6.0-alpha.2

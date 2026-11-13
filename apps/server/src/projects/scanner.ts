@@ -15,6 +15,7 @@ import {
   type Cover,
   descriptionOf,
   type FolderScan,
+  folderDigest,
   isHidden,
   scanFolder,
 } from "@3d-maker-suite/host";
@@ -550,6 +551,53 @@ export function createProjectScanner(
     return state;
   }
 
+  /**
+   * Each hub folder's digest (names, sizes, mtimes) as the last rescan saw it. ponytail: in
+   * memory; after a restart a folder's first rescan only records it (the boot scan read it all),
+   * persist it if a change between the boot scan and the first rescan ever goes missing.
+   */
+  const digests = new Map<string, string>();
+
+  /**
+   * A hub root's periodic rescan, the safety net for watcher events lost on SMB, NFS and cloud
+   * folders: only folders whose digest changed are read again, and a new folder is scanned as the
+   * watcher's discover would. Skipped while a scan runs (the next one is due soon enough).
+   */
+  async function rescan(root: Root) {
+    if (onDevice(root) || state.state === "running") return;
+    const all = await spots();
+    const s = all.find((x) => x.root.id === root.id);
+    if (!s?.base) return;
+    const { base } = s;
+    const known = new Set(
+      db
+        .select({ rel: projects.folder })
+        .from(projects)
+        .where(eq(projects.rootId, root.id))
+        .all()
+        .map((r) => r.rel),
+    );
+    const max = readPreferences(db).projectScanMaxFiles;
+    let created = false;
+    for (const rel of await s.fs.discover(root.projectDepth)) {
+      if (!owns(all, s, rel)) continue;
+      const place = { root, rel };
+      try {
+        const digest = await folderDigest(join(base, ...rel.split("/")), max, root.filesDepth);
+        const before = digests.get(keyOf(place));
+        digests.set(keyOf(place), digest);
+        if (before === undefined ? known.has(rel) : before === digest) continue;
+        if (known.has(rel)) {
+          await refreshPlace(place);
+          await indexPlace(place);
+        } else if ((await scanOne(place)) === "created") created = true;
+      } catch (err) {
+        log.warn({ err, root: root.path, folder: rel }, "project rescan failed");
+      }
+    }
+    if (created) linkPrints(db);
+  }
+
   /** Scans what the watcher saw: the touched project folders, plus a discover for new folders. */
   async function flush() {
     if (state.state === "running") {
@@ -677,6 +725,7 @@ export function createProjectScanner(
   return {
     status: () => state,
     start,
+    rescan,
     addFolder,
     usableFolder,
     claim,

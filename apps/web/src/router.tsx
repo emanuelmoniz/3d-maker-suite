@@ -568,8 +568,8 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
-      // users: the save bar.
-      loader: () => Promise.all(["settings", "hub", "users"].map(loadNamespace)),
+      // users: the save bar; integrations: the rescan's schedule (catalog sync's controls).
+      loader: () => Promise.all(["settings", "hub", "users", "integrations"].map(loadNamespace)),
       component: ProjectFolderPage,
     }),
   ),

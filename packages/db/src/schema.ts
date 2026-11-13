@@ -31,6 +31,8 @@ import {
   type ProjectRights,
   ROLE_BUILT_INS,
   ROOT_EDIT_BY,
+  ROOT_RESCAN_DEFAULT,
+  type RootRescan,
   type SharedFolder,
   SLICER_PRESET_KINDS,
   type SlicerSystem,
@@ -655,6 +657,8 @@ export const roots = sqliteTable(
     // How deep a project's files are listed; null = all.
     filesDepth: integer(),
     autoSlice: integer({ mode: "boolean" }).notNull().default(true),
+    /** Its periodic rescan (`RootRescan`); the default is `ROOT_RESCAN_DEFAULT`. */
+    rescan: text({ mode: "json" }).$type<RootRescan>().notNull().default(ROOT_RESCAN_DEFAULT),
     /** Who edits its files besides a device root's own user (ADR-0014); "users" = `root_editors`. */
     editBy: text({ enum: ROOT_EDIT_BY }).notNull().default("roles"),
     position: integer().notNull(),

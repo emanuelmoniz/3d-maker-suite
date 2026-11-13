@@ -1,0 +1,1 @@
+ALTER TABLE `roots` ADD `rescan` text DEFAULT '{"enabled":true,"frequency":"1h","atMinute":null,"atHour":null,"atWeekday":null,"atDay":null}' NOT NULL;

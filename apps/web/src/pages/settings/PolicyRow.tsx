@@ -315,22 +315,13 @@ export function PolicyFields({
                 : t("integrations:policies.manualFilesHint")}
             </p>
           ) : auto ? (
-            <div className="grid gap-3">
-              <FormField label={t("integrations:policies.frequency")}>
-                {(f) => (
-                  <Combobox
-                    {...f}
-                    aria-label={t("integrations:policies.frequencyOf", { type: name })}
-                    value={p.frequency}
-                    disabled={disabled}
-                    onChange={(v) => set({ frequency: v as SyncFrequency })}
-                    options={options(FREQUENCIES)}
-                  />
-                )}
-              </FormField>
-              <ScheduleAt policy={p} name={name} disabled={disabled} set={set} />
-              <p className="text-muted">{t("integrations:policies.at.hint")}</p>
-            </div>
+            <Schedule
+              schedule={p}
+              name={name}
+              disabled={disabled}
+              set={set}
+              hint={t("integrations:policies.at.hint")}
+            />
           ) : (
             <p className="text-muted">{t("integrations:policies.manualHint")}</p>
           )}
@@ -628,6 +619,44 @@ export function ReviewPeriod({
   );
 }
 
+type Scheduled = At & { frequency: SyncFrequency };
+
+/** A schedule's frequency and time: a sync type's, or a project folder's rescan. */
+export function Schedule({
+  schedule: p,
+  name,
+  disabled,
+  set,
+  hint,
+}: {
+  schedule: Scheduled;
+  /** What runs, for the controls' labels. */
+  name: string;
+  disabled: boolean;
+  set: (change: Partial<Scheduled>) => void;
+  hint: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid gap-3">
+      <FormField label={t("integrations:policies.frequency")}>
+        {(f) => (
+          <Combobox
+            {...f}
+            aria-label={t("integrations:policies.frequencyOf", { type: name })}
+            value={p.frequency}
+            disabled={disabled}
+            onChange={(v) => set({ frequency: v as SyncFrequency })}
+            options={Object.entries(FREQUENCIES).map(([value, key]) => ({ value, label: t(key) }))}
+          />
+        )}
+      </FormField>
+      <ScheduleAt policy={p} name={name} disabled={disabled} set={set} />
+      <p className="text-muted">{hint}</p>
+    </div>
+  );
+}
+
 /**
  * When an `auto` type runs within its frequency, in the server's time zone. A cleared time
  * ("Any time") unsets them all: every frequency since the last run.
@@ -638,7 +667,7 @@ function ScheduleAt({
   disabled,
   set,
 }: {
-  policy: SyncPolicy;
+  policy: Scheduled;
   name: string;
   disabled: boolean;
   set: (change: Partial<At>) => void;

@@ -17,6 +17,7 @@ import { rootErrorKey, rootsQuery, useChangeRoot } from "../../lib/roots.ts";
 import { useUsers } from "../../lib/users.ts";
 import { type ExampleName, folderTree, type TreeNode } from "./folderTree.ts";
 import { tileClass } from "./IntegrationFormPage.tsx";
+import { Schedule } from "./PolicyRow.tsx";
 import { same } from "./RightsEditor.tsx";
 import { SaveBar } from "./RoleEditPage.tsx";
 
@@ -78,7 +79,14 @@ export function useRootSources() {
 
 type Draft = Pick<
   Root,
-  "location" | "path" | "projectDepth" | "filesDepth" | "autoSlice" | "editBy" | "editorIds"
+  | "location"
+  | "path"
+  | "projectDepth"
+  | "filesDepth"
+  | "autoSlice"
+  | "rescan"
+  | "editBy"
+  | "editorIds"
 >;
 
 const draftOf = (r: Root): Draft => ({
@@ -87,6 +95,7 @@ const draftOf = (r: Root): Draft => ({
   projectDepth: r.projectDepth,
   filesDepth: r.filesDepth,
   autoSlice: r.autoSlice,
+  rescan: r.rescan,
   editBy: r.editBy,
   editorIds: r.editorIds,
 });
@@ -376,6 +385,27 @@ function FolderForm({ root }: { root: Root | null }) {
           />
           <p className="text-muted">{t("settings:projects.autoSliceHint")}</p>
         </div>
+      </section>
+
+      <section className={sectionClass}>
+        <h2 className="text-base font-semibold">{t("settings:folder.rescanTitle")}</h2>
+        <div>
+          <Switch
+            label={t("settings:folder.rescan")}
+            checked={draft.rescan.enabled}
+            onChange={(e) => set({ rescan: { ...draft.rescan, enabled: e.target.checked } })}
+          />
+          <p className="text-muted">{t("settings:folder.rescanHint")}</p>
+        </div>
+        {draft.rescan.enabled && (
+          <Schedule
+            schedule={draft.rescan}
+            name={t("settings:folder.rescanTitle")}
+            disabled={false}
+            set={(change) => set({ rescan: { ...draft.rescan, ...change } })}
+            hint={t("settings:folder.rescanAtHint")}
+          />
+        )}
       </section>
 
       <section className={sectionClass}>
