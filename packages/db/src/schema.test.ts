@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BUILT_IN_RIGHTS, BUILT_IN_ROLE_IDS } from "@3d-maker-suite/core";
 import Database from "better-sqlite3";
-import { count, eq, getTableColumns } from "drizzle-orm";
+import { count, eq, getTableColumns, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -2296,5 +2296,33 @@ describe("migration 0122", () => {
     });
     const roles = now.select({ p: s.roles.permissions }).from(s.roles).all();
     expect(roles.some((r) => "machine.slicers" in r.p)).toBe(false);
+  });
+});
+
+describe("migration 0123", () => {
+  it("drops the locks and their settings, keeps the files' versions", () => {
+    const now = migrateAcross(122, (sqlite) =>
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.editor}', 'x', 'x');
+        insert into devices (id, user_id, name, token_hash, created_at, updated_at) values ('d', 'u', 'Desk', 'h', 'x', 'x');
+        insert into roots (id, name, location, path, position, created_at, updated_at) values ('r', 'r', 'hub', '/r', 0, 'x', 'x');
+        insert into hub_files (id, root_id, path, size, mtime_ms, sha256, version, seq, lock_device_id, locked_at, lock_touched_at, saved_user, saved_device, saved_at)
+          values ('f', 'r', 'a/m.3mf', 1, 1, 'h', 2, 1, 'd', 'x', 'x', 'u', 'Desk', 'x');
+        insert into hub_file_versions (id, file_id, version, size, saved_at) values ('v', 'f', 1, 1, 'x');
+        insert into settings (key, value) values ('hubLocks', '"strict"'), ('hubLockIdleMin', '60'), ('hubVersions', 'true');
+      `),
+    );
+    const cols = now.all<{ name: string }>(sql`select name from pragma_table_info('hub_files')`);
+    expect(cols.map((c) => c.name).filter((n) => n.startsWith("lock"))).toEqual([]);
+    expect(now.select().from(s.hubFiles).get()).toMatchObject({
+      savedUser: "u",
+      savedDevice: "Desk",
+    });
+    expect(now.select({ id: s.hubFileVersions.id }).from(s.hubFileVersions).all()).toEqual([
+      { id: "v" },
+    ]);
+    expect(now.select({ key: s.settings.key }).from(s.settings).all()).toEqual([
+      { key: "hubVersions" },
+    ]);
   });
 });

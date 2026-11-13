@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { UPDATE_CHANNELS } from "./enums.ts";
-import { DEVICE_SYNC_MODES, HUB_LOCK_MODES } from "./hub.ts";
+import { DEVICE_SYNC_MODES } from "./hub.ts";
 import { LOG_LEVELS, LOG_MODULES } from "./logs.ts";
 
 export const LANGUAGES = ["en"] as const;
@@ -87,9 +87,6 @@ const shape = {
   hubEnabled: z.boolean(),
   /** A device that deletes more files than this from one hub root at once pauses and asks. */
   hubDeleteGuard: z.number().int().min(1).max(10_000),
-  /** Check-out locks; a lock with no save from its device for `hubLockIdleMin` minutes is released. */
-  hubLocks: z.enum(HUB_LOCK_MODES),
-  hubLockIdleMin: z.number().int().min(5).max(1440),
   /** An accepted upload keeps the file's previous content, the newest `hubVersionsKeep` of them. */
   hubVersions: z.boolean(),
   hubVersionsKeep: z.number().int().min(1).max(100),
@@ -164,8 +161,6 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   accountsEnabled: true,
   hubEnabled: false,
   hubDeleteGuard: 20,
-  hubLocks: "off",
-  hubLockIdleMin: 60,
   hubVersions: false,
   hubVersionsKeep: 5,
   hubDefaultSyncMode: "selected",

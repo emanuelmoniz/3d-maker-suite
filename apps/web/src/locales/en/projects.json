@@ -353,13 +353,7 @@
       "empty": "No earlier versions are kept.",
       "error": "The versions couldn't be loaded."
     },
-    "lock": {
-      "by": "Being edited by {{user}} on {{device}}",
-      "done": "Done editing",
-      "doneFor": "Done editing {{name}}",
-      "force": "Force unlock",
-      "forceFor": "Force unlock {{name}}",
-      "error": "The file couldn't be released. Try again."
-    }
+    "savedBy": "Last saved by {{user}} on {{device}}, {{ago}}",
+    "savedByWeb": "Last saved by {{user}} in the browser, {{ago}}"
   }
 }

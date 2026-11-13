@@ -37,9 +37,6 @@ export const deviceSyncModeSchema = z.enum(DEVICE_SYNC_MODES);
 /** A pick's level for the machine's user (ADR-0021); the user's own rights still cap it. */
 export const PICK_LEVELS = ["read", "edit"] as const;
 export const pickLevelSchema = z.enum(PICK_LEVELS);
-/** Check-out locks (ADR-0014): `strict` also makes an offline device's hub-root files read-only. */
-export const HUB_LOCK_MODES = ["off", "on", "strict"] as const;
-export const hubLockModeSchema = z.enum(HUB_LOCK_MODES);
 
 /**
  * How a connector finds an adapter's desktop slicer (ADR-0014): the Windows `Uninstall` key's exact
@@ -253,7 +250,6 @@ export type Device = z.infer<typeof deviceSchema>;
 export type ConnectorUpdateFailure = z.infer<typeof connectorUpdateFailureSchema>;
 export type DeviceUpdate = z.input<typeof deviceUpdateSchema>;
 export type DeviceSyncMode = z.infer<typeof deviceSyncModeSchema>;
-export type HubLockMode = z.infer<typeof hubLockModeSchema>;
 export type DesktopSlicer = z.infer<typeof desktopSlicerSchema>;
 export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
 export type SlicerInstallTarget = z.infer<typeof slicerInstallTargetSchema>;
@@ -548,8 +544,7 @@ export const hubChangesQuerySchema = z.object({
 /**
  * One page of changes in `seq` order. `cursor`: send it as `since` next time (it moves even when
  * nothing on the page is for this user); `more`: ask again at once. Only versions and hashes
- * count, never clocks. `access` "read": the user may only download it, or another device has it
- * checked out (sync it read-only). `lock`: who has it checked out, this device or another one.
+ * count, never clocks. `access` "read": the user may only download it (sync it read-only).
  */
 export const hubChangesSchema = z.object({
   cursor: z.number().int(),
@@ -563,7 +558,8 @@ export const hubChangesSchema = z.object({
       version: z.number().int(),
       deleted: z.boolean(),
       access: z.enum(["edit", "read"]),
-      lock: z.enum(["mine", "other"]).nullable(),
+      /** Read by connectors older than 5.6.0 only: always null, locks are gone. */
+      lock: z.null().optional(),
     }),
   ),
 });
@@ -590,18 +586,20 @@ export const hubSyncRootsSchema = z.object({
   deleteGuard: z.number().int(),
   /** Read by connectors older than 5.5.0 only. */
   mode: deviceSyncModeSchema.optional(),
-  locks: hubLockModeSchema,
+  /** Read by connectors older than 5.6.0 only: always "off", locks are gone. */
+  locks: z.literal("off").optional(),
 });
-
-/** `GET /api/projects/:id/locks`: the project's files that a device has checked out. */
-export const hubFileLockSchema = z.object({
+/**
+ * `GET /api/projects/:id/saved`: who saved each file last, information only. A hub root: the
+ * last save that reached the hub (`device` null for a web upload); a device root: its user and
+ * device, at the file's time in the last scan. Files with nothing known are left out.
+ */
+export const hubFileSavedSchema = z.object({
   /** Relative to the project folder, like `meta.files`. */
   file: z.string(),
   user: z.string(),
-  device: z.string(),
-  /** The lock's user is the one asking (they may click Done editing). */
-  mine: z.boolean(),
-  lockedAt: isoDate,
+  device: z.string().nullable(),
+  savedAt: isoDate,
 });
 /** `GET /api/projects/:id/versions`: a file's kept earlier versions, newest first. */
 export const hubFileVersionSchema = z.object({
@@ -619,13 +617,11 @@ export const hubFileVersionQuerySchema = z.object({
 /** `GET /api/hub/versions`: disk used by the kept versions. */
 export const hubVersionsUsageSchema = z.object({ files: z.number().int(), bytes: z.number() });
 
-export const hubFileLockQuerySchema = z.object({ file: z.string().min(1) });
-
 export type HubChanges = z.infer<typeof hubChangesSchema>;
 export type HubSyncRoots = z.infer<typeof hubSyncRootsSchema>;
 export type HubFileVersion = z.infer<typeof hubFileVersionSchema>;
+export type HubFileSaved = z.infer<typeof hubFileSavedSchema>;
 export type HubVersionsUsage = z.infer<typeof hubVersionsUsageSchema>;
-export type HubFileLock = z.infer<typeof hubFileLockSchema>;
 export type DeviceSyncState = z.infer<typeof deviceSyncStateSchema>;
 export type HubUploadResult = z.infer<typeof hubUploadResultSchema>;
 export type DeviceRoot = z.infer<typeof deviceRootSchema>;

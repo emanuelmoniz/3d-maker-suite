@@ -96,12 +96,7 @@ function assertChange(
 // users.manage only (lib/auth.ts). Hashes never leave: userSchema has no such field.
 // ponytail: unpaginated, a household has a handful of users.
 export const usersRoutes =
-  (
-    db: Db,
-    key: Buffer,
-    /** Before a user is deleted (their devices go with them): their locks are released. */
-    onDelete: (userId: string) => void = () => {},
-  ): FastifyPluginAsyncZod =>
+  (db: Db, key: Buffer): FastifyPluginAsyncZod =>
   async (app) => {
     app.get("/", { schema: { response: { 200: z.array(userSchema) } } }, async () =>
       db.select().from(users).orderBy(asc(users.displayName)).all(),
@@ -187,8 +182,6 @@ export const usersRoutes =
           if (isAdmin(role) && req.user && !req.user.rights.admin)
             throw new HttpError(403, "admin_only", "Only admins change admin accounts");
           if (isAdmin(role) && !row.disabled && enabledAdmins(tx) <= 1) throw lastAdmin();
-          // Same connection, so this is inside the transaction.
-          onDelete(row.id);
           // Also by hand: a database that ran 0078 before its FK got `set null` would refuse this.
           tx.update(schema.projects)
             .set({ ownerId: null })

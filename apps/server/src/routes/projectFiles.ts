@@ -65,7 +65,12 @@ const repath = (path: string, from: string, to: string | null) =>
  * so nothing outside the folder is reachable. Each change re-scans the project right away.
  */
 export const projectFilesRoutes =
-  (db: Db, scanner: ProjectScanner): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    scanner: ProjectScanner,
+    /** A user uploaded `path` (root-relative) into the root `rootId`: "Last saved by". */
+    onUpload: (rootId: string, path: string, user: string) => Promise<void> = async () => {},
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     // Raw stream, read by the upload route itself (Fastify's bodyLimit doesn't apply to it).
     app.addContentTypeParser("application/octet-stream", (_req, payload, done) =>
@@ -234,6 +239,8 @@ export const projectFilesRoutes =
           await rm(tmp, { force: true });
         }
         await changed(p);
+        if (req.user && p.row.rootId)
+          await onUpload(p.row.rootId, `${p.own.rel}/${path}`, req.user.displayName);
         return reply.status(replaced ? 200 : 201).send({ path });
       },
     );

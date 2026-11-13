@@ -5,8 +5,7 @@ import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
   galleryImages,
-  hubFileLockQuerySchema,
-  hubFileLockSchema,
+  hubFileSavedSchema,
   hubFileVersionQuerySchema,
   hubFileVersionSchema,
   type IntegrationAdapter,
@@ -1008,18 +1007,32 @@ export const projectsRoutes =
       },
     );
 
-    /** The project's hub root, when its folder is in one (only hub-root files are checked out). */
+    /** The project's hub root, when its folder is in one (only hub-root files keep versions). */
     const hubRootOf = (p: Project) =>
       p.folder
         ? listRoots(db).find((r) => r.id === p.rootId && r.location === ROOT_HUB)
         : undefined;
     app.get(
-      "/:id/locks",
-      { schema: { params, response: { 200: z.array(hubFileLockSchema), ...notFound } } },
+      "/:id/saved",
+      { schema: { params, response: { 200: z.array(hubFileSavedSchema), ...notFound } } },
       async (req) => {
         const p = get(req.params.id);
-        const root = hubRootOf(p);
-        return root && p.folder ? hubFiles.locksIn(root.id, p.folder, req.user?.id) : [];
+        const root = p.folder && listRoots(db).find((r) => r.id === p.rootId);
+        if (!root || !p.folder) return [];
+        if (root.location === ROOT_HUB) return hubFiles.savedIn(root.id, p.folder);
+        // A device root: its user saved there, at the time its last scan saw.
+        const who = db
+          .select({ user: schema.users.displayName, device: schema.devices.name })
+          .from(schema.devices)
+          .innerJoin(schema.users, eq(schema.users.id, schema.devices.userId))
+          .where(eq(schema.devices.id, root.location))
+          .get();
+        if (!who) return [];
+        return p.meta.files.flatMap((f) =>
+          f.kind === "shortcut" || f.mtime === undefined
+            ? []
+            : [{ file: f.path, ...who, savedAt: new Date(f.mtime).toISOString() }],
+        );
       },
     );
     app.get(
@@ -1057,29 +1070,6 @@ export const projectsRoutes =
           .type("application/octet-stream")
           .header("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(name)}`)
           .send(stream);
-      },
-    );
-    // Done editing (the lock's user) or force-unlock (an admin).
-    app.delete(
-      "/:id/locks",
-      {
-        schema: {
-          params,
-          querystring: hubFileLockQuerySchema,
-          response: { 204: z.null(), 400: apiErrorSchema, ...errors },
-        },
-      },
-      async (req, reply) => {
-        const p = get(req.params.id);
-        const root = hubRootOf(p);
-        if (!root) throw new HttpError(404, "not_found", "File not found");
-        const me = req.user;
-        await hubFiles.unlock(
-          root,
-          `${p.folder}/${req.query.file}`,
-          (_, userId) => !me || me.rights.admin || me.id === userId,
-        );
-        return reply.status(204).send(null);
       },
     );
 

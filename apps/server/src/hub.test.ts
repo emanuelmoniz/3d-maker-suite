@@ -586,6 +586,18 @@ describe("hub events", () => {
     expect((await index("a")).json()).toEqual({ want: [] });
     expect((await index("b")).json()).toEqual({ want: ["001_Box"] });
 
+    // Last saved by: the device's user on the device, at the time its scan saw.
+    const device = db.select().from(schema.devices).get();
+    const saved = await send("GET", `/api/projects/${(await detail()).id}/saved`);
+    expect(saved.json()).toEqual(
+      ["box.stl", "README.md"].map((file) => ({
+        file,
+        user: "viewer",
+        device: device?.name,
+        savedAt: new Date(1).toISOString(),
+      })),
+    );
+
     // Linking a doc reads the text the device sent.
     const { id } = await detail();
     await send("PATCH", `/api/projects/${id}`, { descriptionFile: "README.md" });

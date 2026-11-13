@@ -431,13 +431,7 @@ export function OrdersConfigPage() {
   );
 }
 
-const LOCK_HINTS = {
-  off: "hub:settings.lockHints.off",
-  on: "hub:settings.lockHints.on",
-  strict: "hub:settings.lockHints.strict",
-} as const;
-
-/** Hub management settings: the sync (mass delete guard, locks) and file versions. */
+/** Hub management settings: the sync (mass delete guard) and file versions. */
 export function HubConfigPage() {
   const { t } = useTranslation();
   const usage = useVersionsUsage().data;
@@ -446,8 +440,6 @@ export function HubConfigPage() {
       {({ v: values, commit }) => {
         const {
           hubDeleteGuard: v,
-          hubLocks: locks,
-          hubLockIdleMin: idle,
           hubVersions: versions,
           hubVersionsKeep: keep,
           hubDefaultSyncMode: syncMode,
@@ -477,43 +469,6 @@ export function HubConfigPage() {
                   />
                 )}
               </FormField>
-              <FormField label={t("hub:settings.locks")} hint={t(LOCK_HINTS[locks])}>
-                {(p) => (
-                  <Combobox
-                    {...p}
-                    value={locks}
-                    onChange={(x) =>
-                      (x === "off" || x === "on" || x === "strict") && commit({ hubLocks: x })
-                    }
-                    options={[
-                      { value: "off", label: t("hub:settings.lockModes.off") },
-                      { value: "on", label: t("hub:settings.lockModes.on") },
-                      { value: "strict", label: t("hub:settings.lockModes.strict") },
-                    ]}
-                  />
-                )}
-              </FormField>
-              {locks !== "off" && (
-                <FormField label={t("hub:settings.lockIdle")} hint={t("hub:settings.lockIdleHint")}>
-                  {(p) => (
-                    <input
-                      key={idle}
-                      {...p}
-                      className={inputClass}
-                      type="number"
-                      min={5}
-                      max={1440}
-                      step={1}
-                      defaultValue={idle}
-                      onBlur={(e) => {
-                        const n = e.target.valueAsNumber;
-                        if (e.target.checkValidity() && Number.isFinite(n) && n !== idle)
-                          commit({ hubLockIdleMin: n });
-                      }}
-                    />
-                  )}
-                </FormField>
-              )}
               <FormField
                 label={t("hub:settings.defaultSyncMode")}
                 hint={t("hub:settings.defaultSyncModeHint")}

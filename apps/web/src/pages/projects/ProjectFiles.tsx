@@ -1,4 +1,4 @@
-import type { HubFileLock, ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
+import type { HubFileSaved, ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
 import {
   ChevronDown,
   ChevronRight,
@@ -7,7 +7,6 @@ import {
   FolderInput,
   FolderPlus,
   History,
-  Lock,
   Pencil,
   RefreshCw,
   Trash2,
@@ -23,9 +22,9 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Write } from "../../components/Write.tsx";
 import { ApiError } from "../../lib/api.ts";
-import { useCan, useIsAdmin } from "../../lib/auth.ts";
+import { useCan } from "../../lib/auth.ts";
 import { textLink } from "../../lib/cx.ts";
-import { formatDateTime, formatSize } from "../../lib/format.ts";
+import { formatDateTime, formatRelative, formatSize } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import {
   uploadProjectFile,
@@ -37,8 +36,7 @@ import {
   fileVersionUrl,
   projectFileUrl,
   useFileVersions,
-  useProjectLocks,
-  useUnlockFile,
+  useProjectSaved,
 } from "../../lib/projects.ts";
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
@@ -60,12 +58,32 @@ type Ctx = {
   toggle: (path: string) => void;
   /** Shows a file's kept versions; none while the hub is off. */
   history?: (path: string) => void;
-  /** Checked-out files by path; Done editing (mine) or force-unlock (`admin`). */
-  locks: Map<string, HubFileLock>;
-  admin: boolean;
-  unlock: (path: string) => void;
-  unlocking: boolean;
+  /** Who saved each file last, by path. */
+  saved: Map<string, HubFileSaved>;
 };
+
+/** "Last saved by", information only; nothing when unknown. */
+function SavedBy({
+  saved,
+  className = "",
+}: {
+  saved: HubFileSaved | undefined;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  if (!saved) return null;
+  const ago = formatRelative(saved.savedAt);
+  return (
+    <span
+      className={`min-w-0 text-muted text-sm wrap-anywhere ${className}`}
+      title={formatDateTime(saved.savedAt)}
+    >
+      {saved.device
+        ? t("projects:files.savedBy", { user: saved.user, device: saved.device, ago })
+        : t("projects:files.savedByWeb", { user: saved.user, ago })}
+    </span>
+  );
+}
 
 /** A hidden file input that a button opens; keeps the picker keyboard reachable through the button. */
 function FilePick({
@@ -186,7 +204,6 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
   const replace = useRef<HTMLInputElement>(null);
   const dir = entry.type === "dir";
   const n = { name: entry.name };
-  const lock = ctx.locks.get(entry.path);
   const drop = (e: DragEvent) => {
     if (!dir) return;
     e.preventDefault();
@@ -240,27 +257,7 @@ function Row({ entry, depth, ctx }: { entry: ProjectFileEntry; depth: number; ct
             <span className="shrink-0 text-muted">{formatSize(entry.size)}</span>
           </span>
         )}
-        {lock && (
-          <span className="flex shrink-0 flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-warn wrap-anywhere">
-              <Lock className="size-4 shrink-0" aria-hidden />
-              {t("projects:files.lock.by", { user: lock.user, device: lock.device })}
-            </span>
-            {(lock.mine || ctx.admin) && (
-              <Button
-                variant="ghost"
-                disabled={ctx.unlocking}
-                aria-label={t(
-                  lock.mine ? "projects:files.lock.doneFor" : "projects:files.lock.forceFor",
-                  n,
-                )}
-                onClick={() => ctx.unlock(entry.path)}
-              >
-                {t(lock.mine ? "projects:files.lock.done" : "projects:files.lock.force")}
-              </Button>
-            )}
-          </span>
-        )}
+        {!dir && <SavedBy saved={ctx.saved.get(entry.path)} />}
         {ctx.history && !dir && (
           <IconButton
             label={t("projects:files.history", n)}
@@ -369,9 +366,7 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
     path: string;
     answer: (replace: boolean) => void;
   } | null>(null);
-  const locks = useProjectLocks(id, !!project.folderPath).data ?? [];
-  const unlock = useUnlockFile(id);
-  const admin = useIsAdmin();
+  const saved = useProjectSaved(id).data ?? [];
   const hubOn = usePreferences().data?.values.hubEnabled;
   const [history, setHistory] = useState<string | null>(null);
 
@@ -615,11 +610,7 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
             selected,
             toggle,
             history: hubOn ? setHistory : undefined,
-            locks: new Map(locks.map((l) => [l.file, l])),
-            admin,
-            unlock: (path) =>
-              unlock.mutate(path, { onError: () => setFailed(t("projects:files.lock.error")) }),
-            unlocking: unlock.isPending,
+            saved: new Map(saved.map((s) => [s.file, s])),
           }}
         />
       </div>
@@ -700,12 +691,13 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
 export function DeviceFileList({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const files = project.meta.files.filter((f) => f.kind !== "shortcut");
+  const saved = new Map((useProjectSaved(project.id).data ?? []).map((s) => [s.file, s]));
   if (project.folderState !== "ok" || !files.length) return null;
   return (
     <Collapsible title={t("projects:detail.files")} className="mt-6 rounded-lg">
       <ul className="grid gap-1">
         {files.map((f) => (
-          <li key={f.path} className="flex items-center gap-2">
+          <li key={f.path} className="flex flex-wrap items-center gap-x-2">
             <FileIcon className="size-4 shrink-0 text-muted" aria-hidden />
             <a
               href={projectFileUrl(project.id, f.path)}
@@ -715,6 +707,7 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
               {f.path}
             </a>
             <span className="ml-auto shrink-0 text-muted text-sm">{formatSize(f.size)}</span>
+            <SavedBy saved={saved.get(f.path)} className="basis-full pl-6" />
           </li>
         ))}
       </ul>

@@ -2999,7 +2999,7 @@ Do Step 11 of the 5.6.0 plan in PLAN.md.
 Do Step 11b of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Remove locks, add "Last saved by"
+### [x] Step 12 - Remove locks, add "Last saved by"
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Remove the **Check-out locks** setting (`hubLockModeSchema`), check-out on the first save, read-only from a lock on devices, release on slicer exit, the idle-release job, **Done editing** (project page and the connector's local page), force-unlock and "Being edited by".

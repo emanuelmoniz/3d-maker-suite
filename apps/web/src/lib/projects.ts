@@ -1,5 +1,5 @@
 import type {
-  HubFileLock,
+  HubFileSaved,
   HubFileVersion,
   Page,
   PlateSetup,
@@ -285,13 +285,12 @@ export function useConnectorId(ports: (number | null)[], enabled: boolean) {
   });
 }
 
-/** The project's files a device has checked out (a hub root's project only). */
-export const useProjectLocks = (id: string, enabled: boolean) =>
+/** Who saved each of the project's files last ("Last saved by"); unknown files left out. */
+export const useProjectSaved = (id: string) =>
   useQuery({
-    queryKey: ["projects", id, "locks"],
-    queryFn: () => api<HubFileLock[]>("GET", `/api/projects/${id}/locks`),
+    queryKey: ["projects", id, "saved"],
+    queryFn: () => api<HubFileSaved[]>("GET", `/api/projects/${id}/saved`),
     refetchInterval: 30_000,
-    enabled,
   });
 
 /** A hub file's kept earlier versions; `file` is relative to the project. */
@@ -308,16 +307,6 @@ export const useFileVersions = (id: string, file: string | null) =>
 
 export const fileVersionUrl = (id: string, file: string, version: number) =>
   `/api/projects/${id}/versions/download?${new URLSearchParams({ file, version: String(version) })}`;
-
-/** Done editing (my own lock) or force-unlock (an admin): `file` is relative to the project. */
-export const useUnlockFile = (id: string) => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (file: string) =>
-      api("DELETE", `/api/projects/${id}/locks?file=${encodeURIComponent(file)}`),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["projects", id, "locks"] }),
-  });
-};
 
 /** The name a project goes by everywhere: "001-aquaterrario" (the number padded like the folders). */
 export const projectName = (t: TFunction, p: Pick<Project, "number" | "name">) =>

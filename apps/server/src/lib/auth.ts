@@ -233,8 +233,6 @@ const KEYS: Record<string, Need> = Object.fromEntries([
     on("hub.manage"),
     "hubEnabled",
     "hubDeleteGuard",
-    "hubLocks",
-    "hubLockIdleMin",
     "hubVersions",
     "hubVersionsKeep",
     "hubDefaultSyncMode",

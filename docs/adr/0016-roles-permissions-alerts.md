@@ -38,7 +38,7 @@ The table is today's role × prefix table (ADR-0012) and the rules `can()` adds 
 | `integrations.sync` | `POST /integrations/:id/sync`, for a task whose policy has `editorSync` (see "Integration tasks") | on | on | off |
 | `integrations.review` | `POST /import/integration/:id/:type` and `POST /import/:entity/apply` of that review, for a task whose policy has `editorReview` | on | on | off |
 | `integrations.manage` | every other `/integrations` route, the managed slicer (`/integrations/:id/slicer`), file imports under `/import`, `/slicer-zip`, `/fs` outside the roots (slicer folders), the setup fields in GET `/integrations`; key `defaultSlicerId` | on | off | off |
-| `hub.manage` | `/hub` (devices, pairing codes, connector settings); keys `hubEnabled`, `hubDeleteGuard`, `hubLocks`, `hubLockIdleMin`, `hubVersions`, `hubVersionsKeep`, `hubDefaultSyncMode`, `deviceFolderMaxMb` | on | off | off |
+| `hub.manage` | `/hub` (devices, pairing codes, connector settings); keys `hubEnabled`, `hubDeleteGuard`, `hubVersions`, `hubVersionsKeep`, `hubDefaultSyncMode`, `deviceFolderMaxMb` | on | off | off |
 | `settings.server` | `/server-config`, `/updates`, `/docs`; key `updateChannel` | on | off | off |
 | `settings.backup` | `/backups` except restore; keys `backupAuto`, `backupKeep` | on | off | off |
 | `settings.logs` | `/logs`; keys `logActive`, `logLevels`, `logModules`, `logRetentionDays`, `logMaxEntries` | on | off | off |

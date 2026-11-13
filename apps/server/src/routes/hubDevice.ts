@@ -637,7 +637,8 @@ export const hubDeviceRoutes =
             .all()
             .map((r) => ({ ...r, picked: picks.roots.has(r.id) })),
           deleteGuard: readPreferences(db).hubDeleteGuard,
-          locks: readPreferences(db).hubLocks,
+          // What connectors older than 5.6.0 read: locks are gone.
+          locks: "off" as const,
         };
       },
     );
@@ -664,8 +665,8 @@ export const hubDeviceRoutes =
         },
       },
       async (req) => {
-        const id = deviceOf(req);
-        return sync.changes(req.user, id, req.query.since, req.query.limit, pickLevels(db, id));
+        const picks = pickLevels(db, deviceOf(req));
+        return sync.changes(req.user, req.query.since, req.query.limit, picks);
       },
     );
 
@@ -725,24 +726,7 @@ export const hubDeviceRoutes =
         const id = deviceOf(req);
         const root = hubRoot(req.params.rootId);
         picked(id, root.id, req.query.path, true);
-        await sync.trash(req.user, id, root, req.query.path, req.query.base ?? 0);
-        return reply.status(204).send(null);
-      },
-    );
-
-    // Done editing on the status page, or the slicer the connector launched has exited.
-    app.delete(
-      "/sync/roots/:rootId/lock",
-      {
-        schema: {
-          params: rootParams,
-          querystring: hubFileQuerySchema,
-          response: { 204: z.null(), ...errors },
-        },
-      },
-      async (req, reply) => {
-        const id = deviceOf(req);
-        await sync.unlock(hubRoot(req.params.rootId), req.query.path, (holder) => holder === id);
+        await sync.trash(req.user, root, req.query.path, req.query.base ?? 0);
         return reply.status(204).send(null);
       },
     );

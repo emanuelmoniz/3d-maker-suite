@@ -211,12 +211,12 @@ test("README screenshots", async ({ page, app }) => {
 
 test("hub screenshots", async ({ page, app }) => {
   test.setTimeout(180_000);
-  // A hub root with locks and versions on, one paired workstation that saves a 3MF twice.
+  // A hub root with versions on, one paired workstation that saves a 3MF twice.
   await page.request.post("/api/auth/setup", {
     data: { displayName: "Ana Pereira", email: "ana@example.com", password: "correct horse" },
   });
   await page.request.patch("/api/preferences", {
-    data: { hubEnabled: true, hubLocks: "on", hubVersions: true },
+    data: { hubEnabled: true, hubVersions: true, hubDefaultSyncMode: "all" },
   });
   const hubDir = join(app.dataDir, "hub-models");
   mkdirSync(hubDir, { recursive: true });
@@ -294,7 +294,7 @@ test("hub screenshots", async ({ page, app }) => {
   await page.goto(`/projects/${vase.id}`);
   await page.waitForLoadState("networkidle");
   await page.getByRole("heading", { name: "Files", exact: true }).click();
-  await expect(page.getByText("Being edited by Ana Pereira on Desk PC")).toBeVisible();
+  await expect(page.getByText(/Last saved by Ana Pereira on Desk PC/)).toBeVisible();
 
   await page.getByRole("button", { name: "Versions of vase.3mf" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();

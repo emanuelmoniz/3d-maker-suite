@@ -103,23 +103,16 @@ Picks are set in **Projects settings → Sources → Receive from server**: a ca
 - Upgrading to 5.5.0 keeps what each device synced: *Everything* became a pick per project folder, *Selected projects* a pick per selected project, each at Edit.
 - The picks belong to the device. **Change user** keeps them, and the new user's rights apply from the next sync: files that user can't see leave the device, files they may only download turn read-only.
 
-### Locks
+### No locks: conflicts and "Last saved by"
 
-**Hub management → Settings → Check-out locks** has three modes (default **Off**):
+There are no locks: anyone may edit a hub file on any device at once. Two saves of the same file never overwrite each other; the later one becomes a conflict copy (see [Conflicts](#conflicts)). 5.6.0 removed the check-out locks of earlier versions: upgrading clears them, and files that were read-only on a device only because of a lock turn writable at its next sync. Files stay read-only where it's a right: a pick at **Read**, or a file the user may only download.
 
-- **Off**: anyone can edit a hub file on any device at once. Clashing saves become conflict copies.
-- **On**: the first save of a file on a workstation checks it out for that device. Other devices get the file read-only until it is released. Their saves still become conflict copies and their deletes are refused.
-- **Strict**: as On, and a device that is offline can only read hub files (except the ones it has checked out), because it can't check anything out.
+Each file on the project page shows **Last saved by `<user>` on `<device>`, `<time ago>`**, information only:
 
-A checked-out file is released when:
+- **Hub root:** the last save that reached the hub, from a device's sync or an upload in the browser ("in the browser" then).
+- **Device root:** the device's user and the device, at the time the device's last scan saw the file change.
 
-- you choose **Done editing** (the project page or the connector's local page),
-- it has had no save for the idle time (**Release a checked-out file after this many minutes without a save**, default 60),
-- an admin force-unlocks it, or the device is revoked or its user deleted, or locks are switched off.
-
-The project page shows "Being edited by `<user>` on `<device>`" on a checked-out file.
-
-**Limits.** Locks are soft. They guard against two devices editing the same file by accident, not against someone who works around them: editing on the server's computer (which changes the hub folder in place and takes no lock), copying a file out, or editing the hub's disk directly doesn't check them. A device that was offline when a file was checked out learns about it when it reconnects.
+It's hidden when unknown, for example for a file changed directly on the hub's disk.
 
 ### Versions
 
@@ -234,7 +227,7 @@ Download the connector file for your system from the [releases page](https://git
 | macOS | `….dmg` | Drag the app to Applications |
 | Linux | `….tar.gz` | Unpack, run `install.sh` |
 
-The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the machine's page on the hub once paired, and the pair screen before. With the hub out of reach it opens the connector's **local page**, <http://127.0.0.1:4301/local>: the machine, its user, the hub and whether it's reachable, with **Open on the hub**, **Open sync folder**, held deletes, **Done editing**, **Change user**, **Restart server**, **Stop server** and **Unpair**. Every other setting is on the [machine page](#machine-page). Its sync folder is `<home>/3D Maker Suite`.
+The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the machine's page on the hub once paired, and the pair screen before. With the hub out of reach it opens the connector's **local page**, <http://127.0.0.1:4301/local>: the machine, its user, the hub and whether it's reachable, with **Open on the hub**, **Open sync folder**, held deletes, **Change user**, **Restart server**, **Stop server** and **Unpair**. Every other setting is on the [machine page](#machine-page). Its sync folder is `<home>/3D Maker Suite`.
 
 ### Warnings you will see
 

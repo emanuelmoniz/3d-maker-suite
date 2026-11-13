@@ -2,6 +2,16 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+Migration 0123 drops the check-out locks and their settings.
+
+### Added
+- **Last saved by `<user>` on `<device>`, `<time ago>`** on each project file, information only: on a hub root the last save that reached the hub (a device's sync or a browser upload), on a device root the device's user and the device as its last scan saw ([docs/hub.md](docs/hub.md#no-locks-conflicts-and-last-saved-by))
+
+### Removed
+- **Check-out locks** (Hub management → Settings), with Done editing, force-unlock and "Being edited by". Two devices saving the same file still never overwrite each other: the later save becomes a conflict copy. Upgrading clears every lock, and files read-only on a device only because of a lock turn writable at its next sync. Read picks and download-only files stay read-only
+
 ## [5.6.0-alpha.1] - 2026-11-13
 
 Pre-release, first of 5.6.0. Lists everything since 5.5.0. No migration: the new settings are preferences.

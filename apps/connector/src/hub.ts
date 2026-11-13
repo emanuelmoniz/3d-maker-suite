@@ -96,10 +96,7 @@ type Options = {
   /** Why the update to the hub's version failed, sent when the stream opens. */
   updateFailure?: () => ConnectorUpdateFailure | undefined;
   /** Where the hub roots are synced to, and the data folder for its state file; none = no sync. */
-  sync?: { dataDir: string; syncDir: string } & Pick<
-    Parameters<typeof createHubSync>[0],
-    "alive" | "handoffMs" | "pollMs"
-  >;
+  sync?: { dataDir: string; syncDir: string };
   /** Where slicers' config folders are (tests); the real ones by default. */
   presetConfigDir?: Parameters<typeof createPresetShare>[0]["configDir"];
   /** The process list and the queue's timing (tests); the real ones by default. */
@@ -443,7 +440,6 @@ export function createLink({
       presetInstall?.stop();
       catalog?.stop();
       catalogInstall?.stop();
-      void sync?.offline();
     }
   }
 
@@ -512,8 +508,6 @@ export function createLink({
 
   const start = () => {
     running?.abort();
-    // Until it connects; connecting starts the sync over (and gives files their access back).
-    void sync?.offline();
     running = new AbortController();
     void run(running.signal);
   };

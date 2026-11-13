@@ -862,6 +862,13 @@
       "when": 1794501000000,
       "tag": "0122_drop_open_in_slicer",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "6",
+      "when": 1794586570079,
+      "tag": "0123_drop_hub_locks",
+      "breakpoints": true
     }
   ]
 }

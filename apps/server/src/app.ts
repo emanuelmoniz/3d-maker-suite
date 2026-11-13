@@ -35,7 +35,7 @@ import { pruneSessions } from "./lib/session.ts";
 import { autoSlice, autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createDeviceFiles } from "./projects/deviceFiles.ts";
 import { createHubFiles } from "./projects/hubFiles.ts";
-import { useDeviceFiles } from "./projects/rootFs.ts";
+import { hubRoots, useDeviceFiles } from "./projects/rootFs.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue, useSliceWorkers } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
@@ -231,10 +231,7 @@ export async function buildApp(
   await app.register(authRoutes(db, key, !!opts.access?.password, opts.setupToken, link), {
     prefix: "/api/auth",
   });
-  await app.register(
-    usersRoutes(db, key, (id) => hubFiles.releaseLocks({ userId: id })),
-    { prefix: "/api/users" },
-  );
+  await app.register(usersRoutes(db, key), { prefix: "/api/users" });
   await app.register(rolesRoutes(db), { prefix: "/api/roles" });
   const hub = createHubChannel(db);
   // Files pulled from device roots (ADR-0014); a temp folder of its own without a data dir (tests).
@@ -261,7 +258,6 @@ export async function buildApp(
       db,
       hub,
       () => void evaluate(),
-      (id) => hubFiles.releaseLocks({ deviceId: id }),
       () => hubFiles.versionsUsage(),
       deviceCatalog,
       opts.adapters ?? [],
@@ -286,12 +282,6 @@ export async function buildApp(
       // A lower limit drops the older versions now.
       if (patch.hubVersionsKeep !== undefined)
         void hubFiles.pruneVersions(v.hubVersionsKeep).catch((err) => app.log.error({ err }));
-      // Connectors read the lock mode with their roots (strict makes them read-only offline).
-      if (patch.hubLocks !== undefined) {
-        if (patch.hubLocks === "off") hubFiles.releaseLocks();
-        for (const { id } of db.select({ id: schema.devices.id }).from(schema.devices).all())
-          if (hub.online(id)) hub.publish(id, { type: "roots.changed" });
-      }
     }),
     { prefix: "/api/preferences" },
   );
@@ -433,7 +423,13 @@ export async function buildApp(
   await app.register(projectsRoutes(db, dataDir, scanner, hub, hubFiles, syncer.adapters), {
     prefix: "/api/projects",
   });
-  await app.register(projectFilesRoutes(db, scanner), { prefix: "/api/projects" });
+  await app.register(
+    projectFilesRoutes(db, scanner, async (rootId, path, user) => {
+      const root = hubRoots(db).find((r) => r.id === rootId);
+      if (root && readPreferences(db).hubEnabled) await hubFiles.savedBy(root, path, user);
+    }),
+    { prefix: "/api/projects" },
+  );
   await app.register(projectSlicingRoutes(db, syncer.adapters, sliceQueue), {
     prefix: "/api/projects",
   });
@@ -501,9 +497,6 @@ export async function buildApp(
   }
   if (opts.syncSchedule) {
     const job = new Cron(opts.syncSchedule, { protect: true }, async () => {
-      // A checked-out file with no save from its device for the idle time is released.
-      const idle = readPreferences(db).hubLockIdleMin * 60_000;
-      hubFiles.releaseLocks({ idleBefore: new Date(Date.now() - idle).toISOString() });
       await syncer.runAll();
       // A source that moved: the new device starts sending, an old one stops.
       await deviceCatalog

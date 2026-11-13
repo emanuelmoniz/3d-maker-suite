@@ -248,18 +248,6 @@ ${syncView()}`;
 </div>`,
       )
       .join("\n");
-    // The files this device has checked out; the slicer closing releases them too, where it can.
-    const editing = (link.sync?.editing() ?? [])
-      .map(
-        (e) => `<li class="row"><span>${esc(e.root)}/${esc(e.path)}</span>
-<form method="post" action="/sync/done"><input type="hidden" name="key" value="${esc(e.key)}"><button type="submit">${t("connector:locks.done")}</button></form></li>`,
-      )
-      .join("\n");
-    const locks = editing
-      ? `<h3>${t("connector:locks.title")}</h3>
-<p class="muted">${t("connector:locks.intro")}</p>
-<ul>${editing}</ul>`
-      : "";
     return `<section aria-labelledby="sync">
 <h2 id="sync">${t("connector:sync.title")}</h2>
 <p class="muted">${t("connector:sync.intro")}</p>
@@ -269,7 +257,6 @@ ${syncView()}`;
 </dl>
 ${s.error ? `<p class="error">${t("connector:sync.error", { error: s.error })}</p>` : ""}
 ${held}
-${locks}
 </section>`;
   };
 
@@ -494,11 +481,6 @@ ${body}
         const root = (await readForm(req)).get("root") ?? "";
         const sync = link.sync;
         if (sync) void (path === "/sync/confirm" ? sync.confirm(root) : sync.restore(root));
-        return back();
-      }
-      if (req.method === "POST" && path === "/sync/done") {
-        const key = (await readForm(req)).get("key") ?? "";
-        void link.sync?.done(key);
         return back();
       }
       if (req.method === "POST" && path === "/open-folder") {

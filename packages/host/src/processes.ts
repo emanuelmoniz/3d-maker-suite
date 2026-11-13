@@ -20,7 +20,7 @@ export function isRunningIn(out: string, name: string) {
   });
 }
 
-/** Every process's name. The check-out lock's exit detection only knows the pids it started. */
+/** Every process's name, to tell whether a slicer is running. */
 export const listProcesses = (platform: string = process.platform) =>
   exec(
     platform === "win32" ? "tasklist" : "ps",

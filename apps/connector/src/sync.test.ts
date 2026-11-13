@@ -1,5 +1,6 @@
 // Two connectors and a real hub (the server's buildApp on a free port) syncing a hub root.
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -120,8 +121,6 @@ describe("hub root sync", () => {
     if (!dir) cleanup.push(() => rmSync(at, { recursive: true, force: true }));
     cleanup.push(async () => {
       link.close();
-      // The stream's end queues the strict-locks check a moment later.
-      await new Promise((r) => setTimeout(r, 200));
       await link.sync?.idle();
     });
     if (store.token()) link.start();
@@ -260,24 +259,25 @@ describe("hub root sync", () => {
   }, 120_000);
 
   const writable = (p: string) => (statSync(p).mode & 0o200) !== 0;
-  it("strict locks: offline, only the files checked out here stay writable", async () => {
+  it("no locks: nothing turns read-only offline, and an older connector's lock is undone", async () => {
     const h = await hub();
-    await h.send("PATCH", "/api/preferences", { hubLocks: "strict" });
-    await h.put("p/mine.stl", "one");
-    await h.put("p/other.stl", "two");
+    await h.put("p/m.stl", "one");
     const a = await device(h, "WS-A");
-    const mine = join(a.folder, "p/mine.stl");
-    const other = join(a.folder, "p/other.stl");
-    await until(() => read(mine) === "one" && read(other) === "two");
-    writeFileSync(mine, "edited");
-    await until(() => a.sync().editing().length === 1);
-
+    const file = join(a.folder, "p/m.stl");
+    await until(() => read(file) === "one");
+    await a.sync().idle();
     a.link.close();
-    await until(() => !writable(other));
-    expect(writable(mine)).toBe(true);
+    await a.sync().idle();
+    expect(writable(file)).toBe(true);
 
-    a.link.start();
-    await until(() => a.link.state().status === "online" && writable(other));
-    expect(read(join(h.dir, "p/mine.stl"))).toBe("edited");
+    // What a 5.5 connector left: read-only because another device had it checked out.
+    const state = join(a.dir, "sync.json");
+    const saved = JSON.parse(readFileSync(state, "utf8"));
+    for (const e of Object.values(saved.files)) Object.assign(e as object, { readOnly: true });
+    writeFileSync(state, JSON.stringify({ ...saved, locks: "strict" }));
+    chmodSync(file, 0o444);
+    await device(h, "WS-A", "admin", a.dir);
+    await until(() => writable(file));
+    expect(read(file)).toBe("one");
   }, 120_000);
 });
