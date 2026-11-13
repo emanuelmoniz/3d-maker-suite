@@ -42,7 +42,7 @@ const imported = {
 /** One type's sync policy, as stored or (no row yet) its default. */
 export const syncPolicySchema = z.object({
   type: z.enum(CAPABILITIES),
-  /** `openInSlicer` and `slice` are actions: only `off` or `manual` (= on). */
+  /** `slice` is an action: only `off` or `manual` (= on). */
   mode: z.enum(SYNC_MODES),
   /** Only used by `auto`. */
   frequency: z.enum(SYNC_FREQUENCIES),

@@ -14,12 +14,10 @@ describe("slicers reported to the hub", () => {
     name: id,
     version: null,
     path: id,
-    cmd: id,
-    args: [],
     cli: { cmd: id, args: [] },
   });
 
-  it("the hub learns which found slicer is the default", async () => {
+  it("the hub learns the slicers found here", async () => {
     const dir = mkdtempSync(join(tmpdir(), "slicers-"));
     try {
       const store = openStore(dir);
@@ -33,12 +31,8 @@ describe("slicers reported to the hub", () => {
           return new Response("[]");
         },
       });
-      store.set({ defaultSlicer: "orca-slicer" });
       await slicers.refresh();
-      expect(puts.at(-1)).toMatchObject([
-        { id: "bambu-studio", default: false },
-        { id: "orca-slicer", default: true },
-      ]);
+      expect(puts.at(-1)).toMatchObject([{ id: "bambu-studio" }, { id: "orca-slicer" }]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

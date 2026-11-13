@@ -76,7 +76,6 @@ const USER_SCOPE_HINTS: Record<SyncScope, string> = {
   imported: "integrations:policies.userScopeHints.imported",
 };
 const ACTION_HINTS: Record<(typeof ACTIONS)[number], string> = {
-  openInSlicer: "integrations:actionHints.openInSlicer",
   slice: "integrations:actionHints.slice",
 };
 const MERGES: Record<SyncMerge, string> = {

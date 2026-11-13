@@ -111,10 +111,8 @@ type Options = {
    * `stop` ends it for good (until login or started by hand).
    */
   settings?: {
-    get: () => Omit<ConnectorSettings, "defaultSlicer">;
-    set: (
-      patch: Pick<ConnectorSettingsPatch, "port" | "autostart">,
-    ) => Promise<Omit<ConnectorSettingsResult, "defaultSlicer">>;
+    get: () => ConnectorSettings;
+    set: (patch: ConnectorSettingsPatch) => Promise<ConnectorSettingsResult>;
     restart: () => void;
     stop: () => void;
   };
@@ -241,16 +239,6 @@ export function createLink({
     if (!res.ok || !answer.success) throw new PairError("unreachable");
     return answer.data as z.infer<T>;
   };
-  /**
-   * The slicer Open uses: a found one's id, or "" to ask each time. False for one not found here.
-   * The hub hears of it with the slicer list.
-   */
-  const setDefaultSlicer = (id: string) => {
-    if (id && !slicers.list().some((f) => f.id === id)) return false;
-    store.set({ defaultSlicer: id });
-    void slicers.refresh();
-    return true;
-  };
   /** The machine page's requests; ENOTSUP when this connector has no settings to give (tests). */
   const editSettings = async (
     event: Extract<
@@ -266,18 +254,12 @@ export function createLink({
   ) => {
     const { requestId } = event;
     if (!settings) return void (await reply(requestId, { ok: false, code: "ENOTSUP" }));
-    const defaultSlicer = () => store.get().defaultSlicer ?? "";
     try {
       if (event.type === "connector.settings.get")
-        await reply(requestId, {
-          ok: true,
-          result: { ...settings.get(), defaultSlicer: defaultSlicer() },
-        });
+        await reply(requestId, { ok: true, result: settings.get() });
       else if (event.type === "connector.settings.set") {
-        if (event.defaultSlicer !== undefined && !setDefaultSlicer(event.defaultSlicer))
-          return void (await reply(requestId, { ok: false, code: "ENOENT" }));
         const result = await settings.set({ port: event.port, autostart: event.autostart });
-        await reply(requestId, { ok: true, result: { ...result, defaultSlicer: defaultSlicer() } });
+        await reply(requestId, { ok: true, result });
       } else {
         // Answered first: the hub's request must not time out on a process that is gone.
         await reply(requestId, { ok: true, result: null });

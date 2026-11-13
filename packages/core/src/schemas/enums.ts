@@ -145,13 +145,13 @@ export const NEW_SPOOL_FIELD = ["import", "unset", "review"] as const;
 /** `server`: a slicer the app downloads and runs itself (ADR-0013). */
 export const INTEGRATION_KINDS = ["cloud", "local", "server", "worker"] as const;
 /**
- * What an integration can do: the data types it provides, plus the `openInSlicer` and `slice`
- * actions. The adapter declares only what it really has, the user sets each one's sync policy
+ * What an integration can do: the data types it provides, plus the `slice`
+ * action. The adapter declares only what it really has, the user sets each one's sync policy
  * (or `off`).
  */
-export const CAPABILITIES = [...SYNC_TYPES, "openInSlicer", "slice"] as const;
+export const CAPABILITIES = [...SYNC_TYPES, "slice"] as const;
 /** Actions are only on (`manual`) or `off`, and need the slicer program. */
-export const ACTIONS = ["openInSlicer", "slice"] as const;
+export const ACTIONS = ["slice"] as const;
 export const isAction = (c: string): c is (typeof ACTIONS)[number] =>
   (ACTIONS as readonly string[]).includes(c);
 

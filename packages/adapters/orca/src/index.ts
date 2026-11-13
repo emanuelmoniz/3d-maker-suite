@@ -54,7 +54,6 @@ export function orcaSlicerAdapter(): IntegrationAdapter {
       "filamentMaterials",
       "filamentPresets",
       ...USER_PRESET_TYPES,
-      "openInSlicer",
       "slice",
     ],
     library: orcaSlicerLibrary(),

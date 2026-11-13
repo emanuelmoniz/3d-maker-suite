@@ -99,7 +99,6 @@ it("splits cloud and local, each declaring only what it provides", () => {
       "userMachinePresets",
       "userProcessPresets",
       "userFilamentPresets",
-      "openInSlicer",
       "slice",
     ],
     undefined,

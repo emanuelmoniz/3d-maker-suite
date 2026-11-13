@@ -34,7 +34,7 @@ beforeEach(async () => {
     ...mockAdapter(),
     id: "slicer",
     kind: "local" as const,
-    capabilities: ["openInSlicer" as const],
+    capabilities: ["slice" as const],
   };
   db = openDb(":memory:");
   app = await buildApp(db, false, join(dir, "data"), { adapters: [slicer] });

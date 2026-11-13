@@ -233,21 +233,16 @@ export const hubRoutes =
         },
       },
       async (req) => {
-        const { port, autostart, defaultSlicer } = req.body;
+        const { port, autostart } = req.body;
         machineGuard(db, req.user, req.params.id);
         if (port !== undefined || autostart !== undefined)
           machineGuard(db, req.user, req.params.id, "connection");
-        if (defaultSlicer !== undefined) machineGuard(db, req.user, req.params.id, "slicers");
-        const res = await channel.ask(
+        return channel.ask(
           req.params.id,
           (requestId) => ({ type: "connector.settings.set", requestId, ...req.body }),
           connectorSettingsResultSchema,
           { error: deviceError },
         );
-        // A connector before 5.5.0 drops a key it doesn't know and answers ok.
-        if (defaultSlicer !== undefined && res.defaultSlicer === undefined)
-          throw new HttpError(409, "device_outdated", "The connector is too old for this");
-        return res;
       },
     );
 

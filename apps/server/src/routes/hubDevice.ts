@@ -277,12 +277,10 @@ export const hubDeviceRoutes =
       if (!level) throw new HttpError(404, "not_found", "File not found");
     };
 
-    // What to look for, from the adapters that open files in a slicer; then what it found.
+    // What to look for, from the adapters with a desktop slicer; then what it found.
     const desktopSlicers = () =>
       adapters.flatMap((a) =>
-        a.desktop && a.capabilities.includes("openInSlicer")
-          ? [{ id: a.id, library: presetLibrary(a), ...a.desktop }]
-          : [],
+        a.desktop ? [{ id: a.id, library: presetLibrary(a), ...a.desktop }] : [],
       );
     app.get(
       "/slicers",

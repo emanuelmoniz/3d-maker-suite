@@ -32,7 +32,6 @@ export const permissionsSchema = z.object({
   "users.manage": z.boolean(),
   // ADR-0021: a machine's own user edits these sections of its page.
   "machine.connection": z.boolean(),
-  "machine.slicers": z.boolean(),
   "machine.catalog": z.boolean(),
   "machine.projects": z.boolean(),
 });
@@ -83,7 +82,6 @@ const switches = (on: boolean) => ({
   "settings.alerts": on,
   "users.manage": on,
   "machine.connection": on,
-  "machine.slicers": on,
   "machine.catalog": on,
   "machine.projects": on,
 });
@@ -184,7 +182,6 @@ export const hasLevel = (p: Permissions, module: PermissionModule, min: Permissi
 /** A section of a machine's page (ADR-0021) and the module its data needs at write, if any. */
 export const MACHINE_SECTIONS = {
   connection: null,
-  slicers: null,
   catalog: "catalog",
   projects: "projects",
 } as const satisfies Record<string, PermissionModule | null>;

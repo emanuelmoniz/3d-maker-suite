@@ -369,14 +369,9 @@ describe("connector and hub", () => {
     expect((await h.send("GET", `${url}/settings`)).json()).toEqual({
       port: 4301,
       autostart: true,
-      defaultSlicer: "",
     });
     const saved = await h.send("PUT", `${url}/settings`, { port: 4400 });
-    expect(saved.json()).toMatchObject({ port: 4400, restartRequired: true, defaultSlicer: "" });
-    // Only a slicer found here can be the default; none found, so only "ask each time".
-    const unknown = await h.send("PUT", `${url}/settings`, { defaultSlicer: "nope" });
-    expect(unknown.json().error.code).toBe("device_failed");
-    expect((await h.send("PUT", `${url}/settings`, { defaultSlicer: "" })).statusCode).toBe(200);
+    expect(saved.json()).toMatchObject({ port: 4400, restartRequired: true });
     expect((await h.send("POST", `${url}/restart`)).statusCode).toBe(204);
     await until(() => calls.includes("restart"));
     expect((await h.send("POST", `${url}/stop`)).statusCode).toBe(204);

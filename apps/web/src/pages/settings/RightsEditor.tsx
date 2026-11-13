@@ -96,12 +96,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
       ),
       on(
         "permissions",
-        "machine.slicers",
-        "users:rights.machineSlicers",
-        "users:rights.machineSlicersHint",
-      ),
-      on(
-        "permissions",
         "machine.catalog",
         "users:rights.machineCatalog",
         "users:rights.machineCatalogHint",

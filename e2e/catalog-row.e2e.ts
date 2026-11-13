@@ -91,7 +91,7 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   expect(await names("/api/brands")).toEqual(["Acme"]);
   expect(await names("/api/machine-presets")).toEqual(["Acme X 0.4 nozzle"]);
   const { policies } = await app.api<{ policies: Policy[] }>("GET", `/api/integrations/${id}`);
-  const catalog = policies.filter((p) => p.type !== "openInSlicer" && p.type !== "slice");
+  const catalog = policies.filter((p) => p.type !== "slice");
   expect(catalog.length).toBeGreaterThanOrEqual(7);
   // A pick keeps the catalog and system cards to what you have; the user preset cards don't change.
   const scopeOf = (type: string) => catalog.find((p) => p.type === type)?.scope;

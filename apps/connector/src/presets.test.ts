@@ -209,8 +209,6 @@ describe("device presets (ADR-0017)", () => {
                   name: k.windowsName,
                   version: "1",
                   path: "x",
-                  cmd: "x",
-                  args: [],
                   cli: { cmd: "x", args: [] },
                 }),
               ),

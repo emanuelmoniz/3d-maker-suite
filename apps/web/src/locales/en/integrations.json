@@ -159,11 +159,9 @@
     "userMachinePresets": "Printer user presets",
     "userProcessPresets": "Process user presets",
     "userFilamentPresets": "Filament user presets",
-    "openInSlicer": "Open projects in the slicer",
     "slice": "Use as slicer"
   },
   "actionHints": {
-    "openInSlicer": "When active, you can open the slicer using a button on each project.",
     "slice": "When active, this integration can be used for slicing projects."
   },
   "catalog": {

@@ -348,49 +348,6 @@ function Connection({ device: d, edit }: { device: Device; edit: boolean }) {
   );
 }
 
-/** The default slicer lives on the connector: changed live, shown from its last report. */
-function DefaultSlicer({ device: d, edit }: { device: Device; edit: boolean }) {
-  const { t } = useTranslation();
-  const adapterName = useAdapterName();
-  const { save } = useConnectorActions(d.id);
-  // Its slicer list (with the default) reaches the hub just after the answer.
-  const devices = useDevices();
-  const current = d.slicers.find((s) => s.default)?.id ?? "";
-  const options = [
-    { value: "", label: t("hub:machine.askEachTime") },
-    ...d.slicers.map((s) => ({ value: s.id, label: adapterName(s.id) })),
-  ];
-  if (!d.slicers.length) return null;
-  return (
-    <div className="grid gap-1 sm:max-w-md">
-      {edit && d.online ? (
-        <>
-          <span className="text-muted">{t("hub:machine.defaultSlicer")}</span>
-          <Combobox
-            aria-label={t("hub:machine.defaultSlicer")}
-            value={current}
-            disabled={save.isPending}
-            options={options}
-            onChange={(v) =>
-              save.mutate(
-                { defaultSlicer: v },
-                { onSuccess: () => setTimeout(() => devices.refetch(), 500) },
-              )
-            }
-          />
-          <Alert error={save.error} />
-        </>
-      ) : (
-        <p>
-          {t("hub:machine.defaultSlicerIs", {
-            name: options.find((o) => o.value === current)?.label ?? "",
-          })}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /** One slicer on the machine: its version, and whether it is the hub's slicer (ADR-0022). */
 function SlicerLine({ device: d, library }: { device: Device; library: string }) {
   const { t } = useTranslation();
@@ -421,7 +378,6 @@ function Slicers({ device: d }: { device: Device }) {
     <Section title={t("hub:machine.slicers")}>
       {libraries.length > 0 && (
         <>
-          <DefaultSlicer device={d} edit={may.edit("slicers")} />
           <ul className="grid gap-2">
             {libraries.map((lib) => (
               <SlicerLine key={lib} device={d} library={lib} />

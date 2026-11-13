@@ -21,7 +21,7 @@ export interface IntegrationAdapter {
   kind: IntegrationKind;
   /**
    * Only what this source really provides. A cloud one is usable once signed in, a local one once
-   * its folder is found; `openInSlicer` only needs a program path.
+   * its folder is found.
    */
   capabilities: readonly Capability[];
   /** Non-secret settings, stored as plain JSON. */

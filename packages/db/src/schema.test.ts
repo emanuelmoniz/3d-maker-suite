@@ -2271,3 +2271,30 @@ describe("migration 0121", () => {
     ]);
   });
 });
+
+describe("migration 0122", () => {
+  it("drops the openInSlicer policies and the machine.slicers right, and nothing else", () => {
+    const now = migrateAcross(121, (sqlite) => {
+      sqlite.exec(`
+        insert into integrations (id, adapter_id, config, created_at, updated_at) values ('i', 'mock', '{}', 'x', 'x');
+        insert into sync_policies (integration_id, type, mode, frequency) values ('i', 'openInSlicer', 'manual', '1h'), ('i', 'slice', 'manual', '1h');
+      `);
+      sqlite
+        .prepare(
+          "insert into users (id, email, display_name, password_hash, role_id, permissions, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', ?, ?, 'x', 'x')",
+        )
+        .run(
+          BUILT_IN_ROLE_IDS.editor,
+          JSON.stringify({ "machine.slicers": true, "machine.catalog": true }),
+        );
+    });
+    expect(now.select({ type: s.syncPolicies.type }).from(s.syncPolicies).all()).toEqual([
+      { type: "slice" },
+    ]);
+    expect(now.select({ p: s.users.permissions }).from(s.users).get()?.p).toEqual({
+      "machine.catalog": true,
+    });
+    const roles = now.select({ p: s.roles.permissions }).from(s.roles).all();
+    expect(roles.some((r) => "machine.slicers" in r.p)).toBe(false);
+  });
+});

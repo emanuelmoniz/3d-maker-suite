@@ -34,7 +34,7 @@ Each device in **Hub management** opens its machine page. It has every setting o
 - **Actions**, at the top: **Restart connector**, **Stop connector** and **Revoke**.
 - **Identity**: its name and user. **Software**: the OS and connector version, and **Update now** when it's outdated.
 - **Connection**: the local page port and start at login, read live from the connector.
-- **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)); and the default slicer (or **Ask each time**). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
+- **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)). The section has no switches: every slicer on the machine is listed on **Catalog → Settings → Sources**, where its System and User presets are set ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)). **Sync sources configurations** links there. With Integrations manage, a link opens Integrations, where a slicer is installed on the machine ([Slice workers](#slice-workers)). With no slicer on the machine, the section has only that link.
 - **Projects**: **Receive from server** (with its number of picks and its sync state, such as *Up to date · 120 files*, below) and **Share to server** (its number of shared folders, and *Up to date* while it is online, below). **Sync sources configurations** opens Projects settings → Sources, where both are set up.
 
 Opened in a browser on that machine, the page also links to the connector's [local page](#install-the-connector).
@@ -44,7 +44,6 @@ Opened in a browser on that machine, the page also links to the connector's [loc
 | Section | Switch | Also needs |
 |---|---|---|
 | Connection, Restart, Stop | **Connection** | |
-| Default slicer | **Slicers** | |
 | System presets Receive, User presets Receive and Share (on **Catalog → Settings → Sources**) | **Catalog** | Catalog write |
 | Projects Receive and Share | **Projects** | Projects write |
 
@@ -52,7 +51,7 @@ Identity, Update now and Revoke stay with **Manage the hub**.
 
 The machine's own user sees its page even without a switch, with each value as text. A machine paired to someone else shows as not found. The switches are in [users.md](users.md#permissions).
 
-The port, start at login, default slicer, Restart and Stop need the connector online. The other switches are kept on the hub and apply when it reconnects. A connector older than 5.5.0 says it's too old for Stop, the default slicer and Share to server; it updates itself to the hub's version when it connects.
+The port, start at login, Restart and Stop need the connector online. The other switches are kept on the hub and apply when it reconnects. A connector older than 5.5.0 says it's too old for Stop and Share to server; it updates itself to the hub's version when it connects.
 
 ### Change a connector's user
 

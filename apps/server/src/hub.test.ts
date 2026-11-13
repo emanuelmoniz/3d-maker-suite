@@ -956,20 +956,6 @@ describe("hub events", () => {
     await answer("connector.stop", { ok: true, result: null });
     expect((await stop).statusCode).toBe(204);
 
-    // An older connector drops `defaultSlicer` and answers ok.
-    const slicerOld = send("PUT", `${url}/settings`, { defaultSlicer: "" });
-    await answer("connector.settings.set", {
-      ok: true,
-      result: { port: 4301, autostart: true, restartRequired: false },
-    });
-    expect(await code(slicerOld)).toBe("device_outdated");
-    const slicer = send("PUT", `${url}/settings`, { defaultSlicer: "" });
-    await answer("connector.settings.set", {
-      ok: true,
-      result: { port: 4301, autostart: true, defaultSlicer: "", restartRequired: false },
-    });
-    expect((await slicer).json()).toMatchObject({ defaultSlicer: "" });
-
     const shared = () => db.select().from(schema.devices).get()?.shareProjects;
     const shareOld = send("PATCH", url, { shareProjects: false });
     await answer("projects.share", old);

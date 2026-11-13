@@ -113,13 +113,7 @@ export function createSlicers({
         if (!res.ok) throw new Error(`slicers: HTTP ${res.status}`);
         known = z.array(desktopSlicerSchema).parse(await res.json());
         found = await find(known);
-        const { defaultSlicer } = store.get();
-        const body = found.map(({ id, version, path }) => ({
-          id,
-          version,
-          path,
-          default: id === defaultSlicer,
-        }));
+        const body = found.map(({ id, version, path }) => ({ id, version, path }));
         const put = await request("/slicers", { method: "PUT", body });
         if (!put.ok) throw new Error(`slicers: HTTP ${put.status}`);
       } catch (e) {

@@ -940,7 +940,7 @@ describe("capabilities", () => {
     expect(await caps(id)).toEqual([]);
     // Unknown types and ones this adapter doesn't have are refused.
     expect((await setPolicy(id, "nope", { mode: "off" })).statusCode).toBe(400);
-    expect((await setPolicy(id, "openInSlicer", { mode: "off" })).json().error.code).toBe(
+    expect((await setPolicy(id, "userMachinePresets", { mode: "off" })).json().error.code).toBe(
       "invalid_policy",
     );
   });
@@ -963,12 +963,12 @@ describe("capabilities", () => {
     expect(await caps(id)).toEqual([]);
   });
 
-  it("slicer paths: empty means none, and openInSlicer needs a program that exists", async () => {
+  it("slicer paths: empty means none, and slice needs a program that exists", async () => {
     const slicer = {
       ...mockAdapter(state),
       id: "slicer",
       kind: "local" as const,
-      capabilities: ["openInSlicer" as const],
+      capabilities: ["slice" as const],
     };
     app = await buildApp(db, false, "", { adapters: [slicer] });
     const { id } = (
@@ -979,17 +979,22 @@ describe("capabilities", () => {
     ).json();
     expect(await caps(id)).toEqual([]);
     const set = async (slicerPath: string) =>
-      (await send("PATCH", `/api/integrations/${id}`, { slicerPath })).json();
+      (
+        await send("PATCH", `/api/integrations/${id}`, {
+          slicerPath,
+          slicerConfigDir: import.meta.dirname,
+        })
+      ).json();
     expect(await set(` ${process.execPath} `)).toMatchObject({
       slicerPath: process.execPath,
-      capabilities: ["openInSlicer"],
+      capabilities: ["slice"],
     });
     expect(await set("/no/such/slicer")).toMatchObject({ capabilities: [] });
     expect(await set("")).toMatchObject({ slicerPath: null, capabilities: [] });
     // An action is on (manual) or off, never scheduled.
-    expect((await setPolicy(id, "openInSlicer", { mode: "auto" })).statusCode).toBe(400);
+    expect((await setPolicy(id, "slice", { mode: "auto" })).statusCode).toBe(400);
     await set(process.execPath);
-    expect((await setPolicy(id, "openInSlicer", { mode: "off" })).json().capabilities).toEqual([]);
+    expect((await setPolicy(id, "slice", { mode: "off" })).json().capabilities).toEqual([]);
   });
 
   it("a local source is ok when its folder is on this server, else unavailable; only its own types run", async () => {

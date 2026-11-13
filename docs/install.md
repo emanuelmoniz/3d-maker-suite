@@ -156,7 +156,6 @@ Images are published to `ghcr.io/emanuelmoniz/3d-maker-suite`: `:X.Y.Z` and `:la
 
 | Feature | Why | What to do instead |
 |---|---|---|
-| Open in slicer | A slicer can't run inside the container, and it would open on the server, not on your screen | Hidden automatically. Download the file and open it on your PC |
 | Slicing projects | No slicer is installed in the image | Use the `-slicer` image and install a server slicer from the app ([slicing.md](slicing.md#docker)), type time and grams per plate, or slice on your PC |
 | Local slicer presets | The slicer's config folder lives on your PC, not in the container | [Import a catalog zip](import.md#slicer-catalog-from-a-zip), or mount the config folder into the container and set **Config folder** |
 | Live folder watching on network shares | Change events don't arrive over SMB/NFS, and Docker Desktop on Windows/macOS may not forward them | Files are found on startup and on a manual scan; use **Scan folders** after adding files |

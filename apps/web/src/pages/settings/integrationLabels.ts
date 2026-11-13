@@ -67,6 +67,5 @@ export const CAPS: Record<Capability, string> = {
   filamentBrands: "integrations:capabilities.filamentBrands",
   filamentMaterials: "integrations:capabilities.filamentMaterials",
   filamentPresets: "integrations:capabilities.filamentPresets",
-  openInSlicer: "integrations:capabilities.openInSlicer",
   slice: "integrations:capabilities.slice",
 };

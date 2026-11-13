@@ -191,8 +191,6 @@
     "hubHint": "Pair and edit workstations and change hub settings.",
     "machineConnection": "Connection",
     "machineConnectionHint": "Change the port and start at login, and restart or stop the connector on machines paired to them.",
-    "machineSlicers": "Slicers",
-    "machineSlicersHint": "Turn Use as slicer on or off and pick the default slicer on machines paired to them.",
     "machineCatalog": "Catalog",
     "machineCatalogHint": "Turn System and User presets Receive and Share on or off on machines paired to them. Also needs Catalog at Write.",
     "machineProjects": "Projects",

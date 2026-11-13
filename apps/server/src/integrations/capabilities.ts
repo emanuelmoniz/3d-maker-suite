@@ -132,9 +132,7 @@ function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[]
   return adapter.capabilities.filter(
     (c) =>
       policyOf(db, row.id, c).mode !== "off" &&
-      (isAction(c)
-        ? slicerApp && (c === "openInSlicer" || source)
-        : source || readsLibrary(db, adapter)),
+      (isAction(c) ? slicerApp && source : source || readsLibrary(db, adapter)),
   );
 }
 

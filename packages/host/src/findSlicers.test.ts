@@ -65,15 +65,13 @@ HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Bam
     const exe = process.platform === "win32" ? process.execPath : "";
     if (exe)
       expect(await findSlicers(known, "win32", reg(exe))).toMatchObject([
-        { id: "bambu-studio", path: exe, cmd: exe, args: [], cli: { cmd: exe, args: [] } },
+        { id: "bambu-studio", path: exe, cli: { cmd: exe, args: [] } },
       ]);
     expect(await findSlicers(known, "win32", reg("C:\\nope\\bambu-studio.exe"))).toEqual([]);
     expect(
       await findSlicers(known, "linux", async () => "com.bambulab.BambuStudio\t2.8\n"),
     ).toMatchObject([
       {
-        cmd: "flatpak",
-        args: ["run", "com.bambulab.BambuStudio"],
         cli: { cmd: "flatpak", args: ["run", "com.bambulab.BambuStudio"] },
       },
     ]);

@@ -415,7 +415,6 @@ export function bambuStudioAdapter(): IntegrationAdapter {
       "filamentMaterials",
       "filamentPresets",
       ...USER_PRESET_TYPES,
-      "openInSlicer",
       "slice",
     ],
     library: bambuStudioLibrary(),

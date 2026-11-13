@@ -160,7 +160,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
         const id = /"requestId":"([^"]+)"/.exec(block)?.[1];
         // Settings as a 5.5.0 connector; Stop as one before it, which doesn't know it.
         const answer = block.includes("connector.settings.get")
-          ? { ok: true, result: { port: 4301, autostart: true, defaultSlicer: "" } }
+          ? { ok: true, result: { port: 4301, autostart: true } }
           : block.includes("connector.stop")
             ? { ok: false, code: "ENOTSUP" }
             : null;

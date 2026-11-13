@@ -5,13 +5,11 @@ import { promisify } from "node:util";
 import type { DesktopSlicer, DeviceSlicer } from "@3d-maker-suite/core";
 
 /**
- * A slicer found here, its product name (`windowsName`), how to start it with a file, and how to
- * run it headless (`cli`: `--help`, slicing on a worker).
+ * A slicer found here, its product name (`windowsName`) and how to run it headless (`cli`:
+ * `--help`, slicing on a worker).
  */
 export type Found = DeviceSlicer & {
   name: string;
-  cmd: string;
-  args: string[];
   cli: { cmd: string; args: string[] };
 };
 type Run = (cmd: string, args: string[]) => Promise<string>;
@@ -93,8 +91,6 @@ export async function findSlicers(
           name: k.windowsName,
           version: key?.DisplayVersion || null,
           path,
-          cmd: path,
-          args: [],
           cli: { cmd: path, args: [] },
         });
     }
@@ -103,15 +99,13 @@ export async function findSlicers(
       const path = join("/Applications", k.macApp);
       if (!(await isDir(path))) continue;
       const plist = await readFile(join(path, "Contents", "Info.plist"), "utf8").catch(() => "");
-      // `open -a`: the file joins the running app, if there is one; headless, its program.
+      // Headless, its program.
       const exe = plistString(plist, "CFBundleExecutable") ?? k.macApp.replace(/\.app$/, "");
       found.push({
         id: k.id,
         name: k.windowsName,
         version: plistVersion(plist),
         path,
-        cmd: "open",
-        args: ["-a", path],
         cli: { cmd: join(path, "Contents", "MacOS", exe), args: [] },
       });
     }
@@ -126,8 +120,6 @@ export async function findSlicers(
           name: k.windowsName,
           version: apps.get(k.flatpak) ?? null,
           path: k.flatpak,
-          cmd: "flatpak",
-          args: ["run", k.flatpak],
           cli: { cmd: "flatpak", args: ["run", k.flatpak] },
         });
   }

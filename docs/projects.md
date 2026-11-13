@@ -52,7 +52,7 @@ A folder numbered `0` (`000_template`, `000_new-project`) is never a project, ev
 
 ## Auto slice
 
-Per root (default on). When a project's 3MF changes on disk and a slicer integration is set up, the app slices it again and raises an alert. A project can override its root (on, off, or follow the root). See [open in slicer](open-in-slicer.md) for the slicer setup.
+Per root (default on). When a project's 3MF changes on disk and a slicer integration is set up, the app slices it again and raises an alert. A project can override its root (on, off, or follow the root). See [the slicer setup](open-in-slicer.md).
 
 ## Several roots: examples
 

@@ -73,8 +73,6 @@ export const deviceSlicerSchema = z.object({
   id: z.string().max(100),
   version: z.string().max(100).nullable(),
   path: z.string().max(4096),
-  /** The one picked on its status page; none picked = the hub asks which one opens. */
-  default: z.boolean().optional(),
 });
 
 /** `SlicerSystem`: picks a managed slicer's build. */
@@ -272,24 +270,16 @@ export type DeviceUserResult = z.infer<typeof deviceUserResultSchema>;
 /** A file in a slice's work folder: a plain name, never a path or a dot file. */
 export const sliceFileName = z.string().regex(/^[\w-][\w.-]{0,99}$/);
 
-/**
- * What the machine page changes on a connector, live. `defaultSlicer`: a found slicer's id, or ""
- * to ask each time.
- */
+/** What the machine page changes on a connector, live. */
 const connectorSettingsPatch = {
   port: z.number().int().min(1024).max(65535).optional(),
   autostart: z.boolean().optional(),
-  defaultSlicer: z.string().max(100).optional(),
 };
 export const connectorSettingsPatchSchema = z.strictObject(connectorSettingsPatch);
-/**
- * A connector's settings, read live from it (`PUT`'s port is the one in use until a restart). A
- * connector before 5.5.0 sends no `defaultSlicer`.
- */
+/** A connector's settings, read live from it (`PUT`'s port is the one in use until a restart). */
 export const connectorSettingsSchema = z.object({
   port: z.number().int(),
   autostart: z.boolean(),
-  defaultSlicer: z.string().optional(),
 });
 export const connectorSettingsResultSchema = connectorSettingsSchema.extend({
   /** The saved port differs from the one in use: a restart applies it. */

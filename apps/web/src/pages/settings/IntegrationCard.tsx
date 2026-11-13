@@ -89,12 +89,11 @@ function DefaultSlicer({ library, rows }: { library: string; rows: Integration[]
   const save = useSavePreferences();
   const list = useIntegrations().data ?? [];
   const chosen = useDefaultLibrary();
-  const can = (i: Integration) =>
-    i.capabilities.includes("slice") || i.capabilities.includes("openInSlicer");
+  const can = (i: Integration) => i.capabilities.includes("slice");
   const types = [...new Set(list.filter(can).map(libraryOf))];
   // The chosen one while it still works, else the first (the server's rule).
   const current = chosen && types.includes(chosen) ? chosen : types[0];
-  const target = rows.find((i) => i.capabilities.includes("slice")) ?? rows.find(can);
+  const target = rows.find(can);
   if (types.length < 2 || !target) return null;
   if (current === library) return <SourceBadge>{t("integrations:slicer.isDefault")}</SourceBadge>;
   return admin ? (

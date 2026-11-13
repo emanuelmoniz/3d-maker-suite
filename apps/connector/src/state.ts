@@ -87,8 +87,7 @@ export function writeConfig(dir: string, patch: { port?: number; autostart?: boo
 }
 
 /**
- * `cursor` is the last hub event handled (the stream's `Last-Event-ID`); `defaultSlicer` the id of
- * the slicer Open uses (slicers.ts); `sharedFolders` the folders the hub may use, as the hub keeps
+ * `cursor` is the last hub event handled (the stream's `Last-Event-ID`); `sharedFolders` the folders the hub may use, as the hub keeps
  * them (roots.ts, ADR-0021).
  */
 type State = {
@@ -96,7 +95,6 @@ type State = {
   deviceId?: string;
   deviceName?: string;
   cursor?: number;
-  defaultSlicer?: string;
   sharedFolders?: SharedFolder[];
   /** Before 5.5.0 it kept the list itself: sent to the hub once, then dropped. */
   folders?: string[];

@@ -2981,7 +2981,7 @@ Replaces the earlier Open and copy steps (decided on 2026-11-13). The server is 
 Do Step 11 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 11b - Remove what Open left behind
+### [x] Step 11b - Remove what Open left behind
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Step 11 removed Open itself. These were found by searching for readers; each has none left except the ones named. Check again before deleting.
 - **`openInSlicer` capability:** gone from `CAPABILITIES` and `ACTIONS` (`enums.ts`), the bambu and orca adapters, `capabilities.ts` (`slicerApp && source`), the "Open projects in the slicer" policy row (`PolicyRow`, `integrationLabels`, `integrations.json`), `IntegrationCard` (`can` = `slice` only) and the tests and e2e that name it. **Keep `slicerPath`:** slicing, `deviceCatalog` and the worker slicer read it. **Careful:** `hubDevice.ts` decides which adapters to discover on a device with `a.capabilities.includes("openInSlicer")`; it must become `a.desktop`, or the catalog Sources lose every slicer.
