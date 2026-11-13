@@ -78,6 +78,10 @@ Alert emails and ntfy messages link back to the app. **Settings → Server → P
 
 **Send test** carries the link too, so you can check it. `APP_PUBLIC_URL` overrides all of this.
 
+**Test** calls `<address>/api/health` from the server and checks it is this very server that answers (same start time). It says one of: reached this server, name not found, nothing answering, certificate not valid, no answer in 5 s, another server (or a redirect), or host not allowed (add the name to `APP_ALLOWED_HOSTS`). Redirects aren't followed and no response content is shown. **Open address** opens the address in a new tab, to check from the device you're on.
+
+What the test can't prove: it runs from the server, not from your phone on mobile data. A home router often can't reach its own external IP from inside, so a failure can be a false alarm. **Save** stays allowed after a failed test. The app never looks up your external IP (that would need a third-party service); type it.
+
 ## In-app settings
 
 The Settings page covers general options, appearance, costs (currency, energy, labour, markup, and the printer and accessory defaults), printers, accessories, prints, projects (the folders the app watches, with project depth, files depth and auto slice per folder, and the files-per-project limit), integrations, alerts, backups, language and network. Each module has its own config page, opened from the gear button on that module. Filament has none: the brands and materials it held are in **Catalog**, with their presets (see [Import](import.md#the-catalog)).

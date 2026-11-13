@@ -477,7 +477,19 @@
       "invalid": "Enter an address that starts with http:// or https://.",
       "link": "Alerts link to {{value}}. Applies at once, no restart.",
       "noLink": "Alerts carry no link. Choose an address above to add one.",
-      "fixed": "Set by the APP_PUBLIC_URL environment variable: {{value}}"
+      "fixed": "Set by the APP_PUBLIC_URL environment variable: {{value}}",
+      "test": "Test",
+      "open": "Open address",
+      "mayBeFalse": "The test runs from the server, and a home router often can't reach its own external address from inside, so this can be a false alarm. You can still save it. Use Open address to check from this device.",
+      "result": {
+        "ok": "Reached this server.",
+        "notFound": "The name wasn't found. Check the spelling and your DNS.",
+        "refused": "Nothing answered at this address and port.",
+        "certificate": "The HTTPS certificate isn't valid for this address.",
+        "timeout": "No answer within 5 seconds.",
+        "otherServer": "Something answered, but it isn't this server (or it redirected).",
+        "hostNotAllowed": "This server refused the name. Add it to APP_ALLOWED_HOSTS."
+      }
     }
   },
   "hub": {

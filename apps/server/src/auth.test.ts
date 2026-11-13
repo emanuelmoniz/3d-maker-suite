@@ -92,6 +92,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/logs/clear": ["-", "-"],
   "/api/server-config/stop": ["-", "-"],
   "/api/server-config/autostart": ["-", "-"],
+  "/api/server-config/test-address": ["-", "-"],
   "/api/integrations": ["R", "R"],
   "/api/integrations/abc/sync": ["R", "RW"],
   "/api/slicer-zip": ["-", "-"],

@@ -48,6 +48,20 @@ export const serverConfigResponseSchema = z.object({
   link: z.string().optional(),
 });
 
+/** The address to try, before or after saving it. */
+export const testAddressSchema = z.object({ url: publicUrlSchema });
+/** `otherServer`: it answered but isn't this server (or redirected). `hostNotAllowed`: 403 forbidden_host. */
+export const testAddressResultSchema = z.enum([
+  "ok",
+  "notFound",
+  "refused",
+  "certificate",
+  "timeout",
+  "otherServer",
+  "hostNotAllowed",
+]);
+export const testAddressResponseSchema = z.object({ result: testAddressResultSchema });
+
 /** Whether the app starts when the user signs in (only offered when the launch command is known). */
 export const autostartSchema = z.object({ enabled: z.boolean() });
 /** `supported` is false when the launch command is unknown (Docker, dev); then `enabled` is always false. */
@@ -55,4 +69,5 @@ export const autostartStateSchema = autostartSchema.extend({ supported: z.boolea
 
 export type ServerConfigPatch = z.infer<typeof serverConfigPatchSchema>;
 export type ServerConfigResponse = z.infer<typeof serverConfigResponseSchema>;
+export type TestAddressResult = z.infer<typeof testAddressResultSchema>;
 export type AutostartState = z.infer<typeof autostartStateSchema>;

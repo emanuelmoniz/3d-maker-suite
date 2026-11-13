@@ -3,6 +3,8 @@ import {
   autostartStateSchema,
   serverConfigPatchSchema,
   serverConfigResponseSchema,
+  testAddressResponseSchema,
+  testAddressSchema,
 } from "@3d-maker-suite/core";
 import type { Autostart } from "@3d-maker-suite/host";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
@@ -16,6 +18,8 @@ import {
   readSavedConfig,
   writeSavedConfig,
 } from "../config.ts";
+import { testAddress } from "../lib/testAddress.ts";
+import { STARTED_AT } from "./health.ts";
 
 export const serverConfigRoutes =
   (
@@ -62,6 +66,13 @@ export const serverConfigRoutes =
         writeSavedConfig(config.dataDir, next);
         return view();
       },
+    );
+
+    // The server calls the address itself, so it also answers for one only reachable from here.
+    app.post(
+      "/test-address",
+      { schema: { body: testAddressSchema, response: { 200: testAddressResponseSchema } } },
+      async (req) => ({ result: await testAddress(req.body.url, STARTED_AT) }),
     );
 
     // Writes are only there when the launch command is known (APP_LAUNCH_CMD); GET always answers.

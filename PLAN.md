@@ -2947,7 +2947,7 @@ Do Step 8 of the 5.6.0 plan in PLAN.md.
 Do Step 9 of the 5.6.0 plan in PLAN.md. Use frontend-design for the picker.
 ```
 
-### [ ] Step 10 - Test the address
+### [x] Step 10 - Test the address
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A route under the server config routes, with their permission: the server calls `<url>/api/health` and compares `startedAt` with its own `STARTED_AT`, which proves it reached this server. 5 s timeout, no redirects followed, and only a result code comes back, never the response body.
