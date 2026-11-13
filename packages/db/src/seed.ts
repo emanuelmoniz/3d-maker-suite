@@ -66,7 +66,6 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
       {
         name: "Desk P1S",
         modelId: at(models, 1),
-        runtimeOffsetSec: 120 * 3600,
         purchasedAt: ago(200),
         purchasePrice: 59900,
       },
@@ -77,6 +76,16 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
         .returning()
         .get(),
     );
+    // A used machine: 120 h before it was added.
+    tx.insert(s.usageCorrections)
+      .values({
+        printerId: at(printers, 1).id,
+        deltaSec: 120 * 3600,
+        deltaPrints: 0,
+        note: "Bought used",
+        createdAt: ago(200),
+      })
+      .run();
     tx.insert(s.printerComments)
       .values([
         { printerId: at(printers, 0).id, body: "X axis makes a clicking noise", pinned: true },

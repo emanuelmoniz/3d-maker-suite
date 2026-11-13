@@ -3073,6 +3073,32 @@ Do Step 15 of the 5.6.0 plan in PLAN.md.
 
 **Done when:** a quick pass reads only changed and new folders of its own root; the tick runs due roots only, and retries an offline device on the next tick; the connector re-indexes on `roots.rescan`; the setting saves from the page; tests, lint and `pnpm i18n:check` pass.
 
+### [x] Step 15c - Prints columns, releases link, device page header, device scan progress, usage corrections
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- **Prints table:** the print name (`title`) becomes the first column and project comes second (`apps/web/src/pages/prints/PrintsPage.tsx`, `projectColumn` and `title`). Hiding the project column on a project page still works.
+- **Releases link:** next to the hub switch (`HubSwitch`, `apps/web/src/pages/settings/ServerSection.tsx`), a link to the latest GitHub release, `${REPO_URL}/releases/latest` (`REPO_URL` from `packages/core/src/links.ts`). It opens in a new tab and its text is an i18n key.
+- **Hub device page header** (`MachinePage`, `apps/web/src/pages/hub/MachinePage.tsx`):
+  - Remove the byline under the name (`hub:machine.byline`: user · OS · connector version) and its key.
+  - The online/offline pill moves from the header's actions to right next to the machine name (check that `PageHeader`'s `title` takes a node, or add a slot for it).
+  - Remove the **Actions** card (`Actions`, `hub:machine.actions`). Its buttons (Restart, Stop, Revoke) go top right in the header's `actions`, the way `ServerActions` sits on the Server settings page (`SettingsPage.tsx`). Rights, offline disabling, the confirm dialogs and the status/error messages stay as they are.
+- **Device root scan progress:** adding a project folder on a connector starts the device's sync, but the Projects page shows no bar. The cause: `ScanPanel` reads `scanner.status()`, and only `pass()` over hub roots sets it. `deviceIndex` / `deviceFolderScanned` (`apps/server/src/projects/scanner.ts`, called from `routes/hubDevice.ts`) never touch it, and `useScan` (`apps/web/src/lib/projects.ts`) stops polling once it sees idle. The fix:
+  - The scanner tracks progress per device root. The root is discovering from `roots.changed` / `roots.rescan` until `deviceIndex` arrives. After that, `total` = the `want` count from the index and `done` grows with each `deviceFolderScanned`. Progress is dropped when the device goes offline.
+  - `status()` adds the device roots to the hub pass: running while any root is running, with the totals added up.
+  - Adding or changing a root (and pressing Scan) invalidates the scan query, so the bar appears without a reload.
+- **Usage corrections for printers and accessories** (like a spool's correction):
+  - One migration adds a `usage_corrections` table: `printerId` or `accessoryId` (exactly one), `deltaSec`, `deltaPrints`, `note`, `createdAt`. The existing `printers.runtimeOffsetSec` / `printsOffset` move into it as one starting row per printer, then the columns are dropped. `usageOf` / `printerUsageColumns` / `accessoryUsageOf` / `accessoryUsageColumns` (`apps/server/src/lib/maintenance.ts`) add the sum of the corrections. The seed and the tests that set offsets use the table.
+  - The user types the **real total** of hours and prints, plus an optional note. The server stores the difference from the current total. Zod schema in `packages/core/src/schemas`. `POST /printers/:id/usage` and `/accessories/:id/usage`, plus `GET .../usage/history`.
+  - UI: a **Correct usage** dialog on the printer and accessory detail pages, with the history list, built like `AdjustDialog.tsx` (filament). The runtime and maintenance due dates update after a save.
+  - Maintenance task snapshots keep their values. Due dates use the corrected usage.
+  - Docs: the printers/maintenance user doc gets one paragraph on correcting usage.
+
+**Done when:** print name is the first column in the prints table; the releases link opens the latest release; the device page has no byline or Actions card, its buttons are top right and the pill sits next to the name; adding a device root on an online connector shows the bar on the Projects page and it reaches 100%; server tests cover device root progress (index → folders → idle, device offline) and a usage correction for a printer and an accessory (the total matches the typed value, maintenance due uses it, the offsets migrate); tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 15c of the 5.6.0 plan in PLAN.md. Use frontend-design for the Correct usage dialog.
+```
+
 ## Phase 41 - Release
 
 ### [ ] Step 16 - Real test, docs, push & v5.6.0-alpha.2

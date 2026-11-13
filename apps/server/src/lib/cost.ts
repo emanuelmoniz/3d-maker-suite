@@ -15,7 +15,7 @@ import { accessoryUsageColumns } from "./maintenance.ts";
 import { readPreferences } from "./preferences.ts";
 
 const { printers, prints, maintenanceTasks, spools, filamentMaterials, accessories } = schema;
-const { accessoryInstalls } = schema;
+const { accessoryInstalls, usageCorrections } = schema;
 
 export type Rate = { wearPerHour: number; maintenancePerHour: number };
 export type DeviceRates = ReturnType<typeof deviceRates>;
@@ -34,6 +34,13 @@ export function deviceRates(db: Db) {
       .select({ id: prints.printerId, n: sum(prints.durationSec) })
       .from(prints)
       .groupBy(prints.printerId)
+      .all(),
+  );
+  const corrections = sumBy(
+    db
+      .select({ id: usageCorrections.printerId, n: sum(usageCorrections.deltaSec) })
+      .from(usageCorrections)
+      .groupBy(usageCorrections.printerId)
       .all(),
   );
   const spent = sumBy(
@@ -69,7 +76,7 @@ export function deviceRates(db: Db) {
                 (p.includeMaintenanceCost ?? prefs.includeMaintenanceCost)
                   ? maintenancePerHour(
                       spent.get(p.id) ?? 0,
-                      p.runtimeOffsetSec + (runtime.get(p.id) ?? 0),
+                      (corrections.get(p.id) ?? 0) + (runtime.get(p.id) ?? 0),
                     )
                   : 0,
             }

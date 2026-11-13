@@ -7,6 +7,9 @@ import type {
   PrinterInput,
   PrinterPatch,
   PrintStats,
+  UsageCorrection,
+  UsageCorrectionInput,
+  UsageTotals,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
@@ -82,6 +85,33 @@ function useCommentMutation<V>(base: string, fn: (v: V) => Promise<unknown>) {
   return useMutation({
     mutationFn: fn,
     onSuccess: () => qc.invalidateQueries({ queryKey: commentsKey(base) }),
+  });
+}
+
+// Usage of a printer or accessory (`base` as for notes): its totals and hand corrections.
+const usageKey = (base: string) => [...base.split("/").slice(2), "usage"];
+
+export const useUsage = (base: string) =>
+  useQuery({ queryKey: usageKey(base), queryFn: () => api<UsageTotals>("GET", `${base}/usage`) });
+
+export const useUsageHistory = (base: string, enabled: boolean) =>
+  useQuery({
+    queryKey: [...usageKey(base), "history"],
+    queryFn: () => api<UsageCorrection[]>("GET", `${base}/usage/history`),
+    enabled,
+  });
+
+/** Saves the real totals; the lists, the page and maintenance due read them again. */
+export function useCorrectUsage(base: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: UsageCorrectionInput) => api<UsageTotals>("POST", `${base}/usage`, v),
+    onSuccess: () =>
+      Promise.all(
+        [["printers"], ["accessories"], ["maintenance"]].map((queryKey) =>
+          qc.invalidateQueries({ queryKey }),
+        ),
+      ),
   });
 }
 

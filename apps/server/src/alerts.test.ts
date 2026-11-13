@@ -185,8 +185,11 @@ describe("alerts", () => {
     const type = (
       await send("POST", "/api/maintenance/types", { name: "Nozzle", intervalPrints: 100 })
     ).json();
-    const printed = (n: number) =>
-      db.update(schema.printers).set({ printsOffset: n }).where(eq(schema.printers.id, p.id)).run();
+    const printed = (n: number) => {
+      const c = schema.usageCorrections;
+      db.delete(c).where(eq(c.printerId, p.id)).run();
+      db.insert(c).values({ printerId: p.id, deltaSec: 0, deltaPrints: n }).run();
+    };
     const sev = async () => {
       await evaluate();
       return (await list()).find((a: { kind: string }) => a.kind === "maintenance_due")?.severity;

@@ -54,9 +54,10 @@ flowchart LR
 | **Brand** | Printer maker | name (unique, any case), url?, logoPath? |
 | **PrinterModel** | A model of a brand | brandId, model (unique per brand, any case), powerW? (pre-fills new printers), imagePath? (shown for printers without a photo) |
 | **MachinePreset** | Slicer machine preset for a model | name, printerModelId, nozzleDiameterMm, sourcePreset? (`<library>:<preset id>` when imported) |
-| **Printer** | A physical machine | name, modelId, serial?, nozzleDiameterMm, runtimeOffsetSec, printsOffset (baseline for a used machine), state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
+| **Printer** | A physical machine | name, modelId, serial?, nozzleDiameterMm, state (from the `printerStates` setting), powerW?, purchasedAt?, purchasePrice?, warrantyEndsAt?, warrantyNotes?, photoPath?, archivedAt? |
 | **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
 | **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModelIds[] + appliesToPrinterIds[] (union; empty = all printers) |
+| **UsageCorrection** | A hand correction of usage (a used machine, a counter read off it) | printerId or accessoryId, deltaSec, deltaPrints, note?, createdAt |
 | **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
 | **FilamentMaterial** | A plastic (PLA, PETG…) | name, densityGcm3?, nozzleTempC?, bedTempC?, pricePerKg? (the default for a spool without a price paid) |
 | **FilamentPreset** | A slicer's filament preset (settings only, no colour) | brand, material, name, diameterMm, densityGcm3, sourcePreset? |
@@ -73,7 +74,7 @@ flowchart LR
 Notes:
 
 - **Maintenance "due" is computed, not stored.** It comes from the latest MaintenanceTask for each (printer, type), compared with the printer's current hours, print count and the date.
-- **Printer totals are derived.** Hours and print count are the sum of its Prints plus `runtimeOffsetSec`/`printsOffset`.
+- **Printer totals are derived.** Hours and print count are the sum of its Prints plus its UsageCorrections (up to the time asked for). The user types the real totals; the API stores the difference.
 - **Usage keeps the material.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. Its `material` is then what prices it (that material's default), so cost and stats still work.
 - **A spool is not a preset** (ADR-0020). A spool says what is on the shelf (brand, material, name, colour); a preset is a slicer setting. A plate keeps both per slot. A spool's price per kg is its price paid, else its material's default.
 - **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).

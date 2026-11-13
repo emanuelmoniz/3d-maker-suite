@@ -58,6 +58,7 @@ const {
   spools,
   spoolWeightEntries,
   taggings,
+  usageCorrections,
 } = schema;
 
 const MAX_ITEMS = 20;
@@ -209,7 +210,7 @@ export const ITEMS = {
       through(ACCESSORY, installs.printerId, installs.accessoryId),
       listed(MAINTENANCE_TYPE, maintenanceTypes.appliesToPrinterIds),
     ],
-    goes: [printerComments.printerId],
+    goes: [printerComments.printerId, usageCorrections.printerId],
     clears: [plates.printerId],
     tag: "printer",
     alerts: alertTasks.printer,
@@ -233,7 +234,7 @@ export const ITEMS = {
       through(PRINTER, installs.accessoryId, installs.printerId),
       listed(MAINTENANCE_TYPE, maintenanceTypes.appliesToAccessoryIds),
     ],
-    goes: [accessoryComments.accessoryId],
+    goes: [accessoryComments.accessoryId, usageCorrections.accessoryId],
     tag: "accessory",
     alerts: alertTasks.accessory,
     image: "photoPath",

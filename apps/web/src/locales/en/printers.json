@@ -77,6 +77,27 @@
       "error": "Couldn't load usage."
     }
   },
+  "usage": {
+    "action": "Correct usage",
+    "title": "Correct usage",
+    "intro": "Type the totals {{name}} shows. The difference from what the app counted is saved, and prints logged later add on top.",
+    "counted": "Counted",
+    "corrected": "Corrected",
+    "hours": "Print hours",
+    "prints": "Prints",
+    "note": "Note",
+    "noteHint": "Optional, e.g. where the numbers come from.",
+    "save": "Save usage",
+    "saveError": "Couldn't save the usage. Try again.",
+    "loadError": "Couldn't load the usage.",
+    "historyTitle": "Corrections",
+    "historyEmpty": "No corrections yet.",
+    "noNote": "No note",
+    "deltaPrints_one": "{{value}} print",
+    "deltaPrints_other": "{{value}} prints",
+    "totalTime": "Total print time",
+    "totalPrints": "Total prints"
+  },
   "comments": {
     "title": "Notes",
     "label": "Add a note",

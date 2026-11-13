@@ -57,6 +57,21 @@ export const commentPatchSchema = z
   .partial()
   .strict();
 
+/**
+ * Correct a printer's or accessory's usage: the real totals now (e.g. read off the machine). The
+ * API stores the difference from the current totals.
+ */
+export const usageCorrectionInputSchema = z.object({
+  runtimeSec: z.number().int().nonnegative(),
+  prints: z.number().int().nonnegative(),
+  note: z.string().trim().min(1).nullable().optional(),
+});
+/** A printer's or accessory's usage now (corrections + logged prints). */
+export const usageTotalsSchema = usageCorrectionInputSchema.pick({
+  runtimeSec: true,
+  prints: true,
+});
+
 /** Totals for a set of prints (one printer, one period). Reusable by the Stats module. */
 export const printStatsSchema = z.object({
   printCount: z.number().int(),
@@ -101,5 +116,7 @@ export type PrinterRow = z.infer<typeof printerRowSchema>;
 export type PrinterInput = z.infer<typeof printerInputSchema>;
 export type PrinterPatch = z.infer<typeof printerPatchSchema>;
 export type CommentInput = z.infer<typeof commentInputSchema>;
+export type UsageCorrectionInput = z.infer<typeof usageCorrectionInputSchema>;
+export type UsageTotals = z.infer<typeof usageTotalsSchema>;
 export type CommentPatch = z.infer<typeof commentPatchSchema>;
 export type PrintStats = z.infer<typeof printStatsSchema>;

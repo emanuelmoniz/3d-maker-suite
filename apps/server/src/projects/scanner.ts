@@ -42,6 +42,7 @@ const at = ({ root, rel }: Place) => and(eq(projects.rootId, root.id), eq(projec
 const keyOf = ({ root, rel }: Place) => `${root.id}\0${rel}`;
 
 const WATCH_DEBOUNCE_MS = 3000;
+const DEVICE_STALE_MS = 5 * 60_000;
 const THUMB_DIR = "thumbnails";
 const short = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32);
 
@@ -85,9 +86,54 @@ export function createProjectScanner(
     onScanned?: (projectId: string, before: ProjectMeta) => Promise<void>;
     /** Re-reads `rel` ("" = all) of a hub root into the sync index (ADR-0014): every file, any depth. */
     index?: (root: Root, rel: string) => Promise<void>;
+    /** Whether a device's connector is connected: a device root's progress ends when it isn't. */
+    online?: (deviceId: string) => boolean;
   } = {},
 ) {
   let state = idle();
+  /**
+   * Device roots syncing now (ADR-0014): discovering from the hub's ask until the device's index,
+   * then `done` of the `total` folders it wants. `at`: the last step. ponytail: a folder the hub
+   * never gets (it failed on the device) leaves no trace here, so a root silent for
+   * DEVICE_STALE_MS counts as finished; a "failed" report from the connector would end it exactly.
+   */
+  const deviceProgress = new Map<
+    string,
+    /** `total` null: discovering. */
+    { deviceId: string; total: number | null; done: number; startedAt: string; at: number }
+  >();
+
+  /** The hub asked a device to index its roots (one root, or all of them). */
+  function deviceSyncing(deviceId: string, rootId?: string) {
+    const startedAt = new Date().toISOString();
+    for (const r of db
+      .select({ id: roots.id })
+      .from(roots)
+      .where(eq(roots.location, deviceId))
+      .all())
+      if (!rootId || r.id === rootId)
+        deviceProgress.set(r.id, { deviceId, total: null, done: 0, startedAt, at: Date.now() });
+  }
+
+  /** The hub's pass with the device roots syncing now added up. */
+  function status(): ProjectScanStatus {
+    for (const [id, p] of deviceProgress)
+      if (!opts.online?.(p.deviceId) || Date.now() - p.at > DEVICE_STALE_MS)
+        deviceProgress.delete(id);
+    if (!deviceProgress.size) return state;
+    const all = [...deviceProgress.values()];
+    const hub = state.state === "running";
+    const discovering = (hub && state.phase === "discovering") || all.some((p) => p.total === null);
+    return {
+      ...state,
+      state: "running",
+      phase: discovering ? "discovering" : "scanning",
+      total: (hub ? state.total : 0) + all.reduce((n, p) => n + (p.total ?? 0), 0),
+      done: (hub ? state.done : 0) + all.reduce((n, p) => n + p.done, 0),
+      startedAt: hub ? state.startedAt : (all.map((p) => p.startedAt).sort()[0] ?? null),
+      finishedAt: null,
+    };
+  }
   const pending = new Map<string, { root: Root; rel: string; at: number }>();
   /** What the watcher saw, for the sync index. */
   const toIndex = new Map<string, Place>();
@@ -389,6 +435,7 @@ export function createProjectScanner(
     else missingOnDevice.delete(root.id);
     if (index.state === "unshared") {
       unsharedOnDevice.add(root.id);
+      deviceProgress.delete(root.id);
       return [];
     }
     unsharedOnDevice.delete(root.id);
@@ -420,7 +467,19 @@ export function createProjectScanner(
     for (const name of await readdir(previewDir(root.id)).catch(() => []))
       if (!keep.has(name))
         await rm(join(previewDir(root.id), name), { recursive: true, force: true });
-    return listed.filter((f) => have.get(f.rel) !== f.digest).map((f) => f.rel);
+    const want = listed.filter((f) => have.get(f.rel) !== f.digest).map((f) => f.rel);
+    // Also an index the hub didn't ask for (a reconnect, the device's watcher) shows its folders.
+    const p = deviceProgress.get(root.id);
+    if (want.length)
+      deviceProgress.set(root.id, {
+        deviceId: root.location,
+        total: want.length,
+        done: 0,
+        startedAt: p?.startedAt ?? new Date().toISOString(),
+        at: Date.now(),
+      });
+    else deviceProgress.delete(root.id);
+    return want;
   }
 
   /**
@@ -456,12 +515,21 @@ export function createProjectScanner(
       data: Buffer.from(cover.data, "base64"),
       file: cover.file,
     };
-    const result = await scanOne(place, async () => ({
-      dir: null,
-      scan: fromDevice(sent, linkOf(place), data),
-    }));
-    if (result === "created") linkPrints(db);
-    return result;
+    try {
+      const result = await scanOne(place, async () => ({
+        dir: null,
+        scan: fromDevice(sent, linkOf(place), data),
+      }));
+      if (result === "created") linkPrints(db);
+      return result;
+    } finally {
+      const p = deviceProgress.get(root.id);
+      if (p?.total != null) {
+        p.done++;
+        p.at = Date.now();
+        if (p.done >= p.total) deviceProgress.delete(root.id);
+      }
+    }
   }
 
   /** A device folder that is gone: its project reads "missing". */
@@ -548,7 +616,7 @@ export function createProjectScanner(
       toIndex.clear();
       void run();
     }
-    return state;
+    return status();
   }
 
   /**
@@ -723,8 +791,9 @@ export function createProjectScanner(
   }
 
   return {
-    status: () => state,
+    status,
     start,
+    deviceSyncing,
     rescan,
     addFolder,
     usableFolder,

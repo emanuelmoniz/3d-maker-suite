@@ -2326,3 +2326,28 @@ describe("migration 0123", () => {
     ]);
   });
 });
+
+describe("migration 0125", () => {
+  it("moves a printer's offsets into a starting usage correction", () => {
+    const now = migrateAcross(124, (sqlite) =>
+      sqlite.exec(`
+        insert into printers (id, name, runtime_offset_sec, prints_offset, purchased_at, created_at, updated_at)
+          values ('a', 'Used', 3600, 5, '2025-01-01', '2026-01-01T00:00:00.000Z', 'x'),
+                 ('b', 'New', 0, 0, null, '2026-01-01T00:00:00.000Z', 'x');
+      `),
+    );
+    const cols = now.all<{ name: string }>(sql`select name from pragma_table_info('printers')`);
+    expect(cols.map((c) => c.name)).not.toContain("prints_offset");
+    expect(now.select().from(s.usageCorrections).all()).toEqual([
+      {
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        printerId: "a",
+        accessoryId: null,
+        deltaSec: 3600,
+        deltaPrints: 5,
+        note: null,
+        createdAt: "2025-01-01",
+      },
+    ]);
+  });
+});

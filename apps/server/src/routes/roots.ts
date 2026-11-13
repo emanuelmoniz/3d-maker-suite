@@ -91,7 +91,10 @@ export const rootsRoutes =
      */
     const changed = (r: Row) => {
       if (!onDevice(r)) channel.nudge({ type: "roots.changed" });
-      else if (channel.online(r.location)) channel.publish(r.location, { type: "roots.changed" });
+      else if (channel.online(r.location)) {
+        channel.publish(r.location, { type: "roots.changed" });
+        scanner.deviceSyncing(r.location);
+      }
     };
 
     app.get("/", { schema: { response: { 200: z.array(rootSchema) } } }, async (req) =>

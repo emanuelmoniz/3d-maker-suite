@@ -256,8 +256,6 @@ export const printerSchema = z.object({
   modelId: id,
   serial: z.string().nullable(),
   nozzleDiameterMm: z.number().positive(),
-  runtimeOffsetSec: seconds,
-  printsOffset: z.number().int().nonnegative(),
   purchasedAt: isoDate.nullable(),
   purchasePrice: money.nullable(),
   warrantyEndsAt: isoDate.nullable(),
@@ -474,6 +472,15 @@ export const spoolWeightEntrySchema = z.object({
   createdAt: isoDate,
 });
 
+/** A hand correction of a printer's or accessory's usage: the difference from its total then. */
+export const usageCorrectionSchema = z.object({
+  id,
+  deltaSec: z.number().int(),
+  deltaPrints: z.number().int(),
+  note: z.string().nullable(),
+  createdAt: isoDate,
+});
+
 // Refinements mirror the CHECK constraints on `prints`.
 export const printSchema = z
   .object({
@@ -582,6 +589,7 @@ export type FilamentMaterial = z.infer<typeof filamentMaterialSchema>;
 export type FilamentPreset = z.infer<typeof filamentPresetSchema>;
 export type Spool = z.infer<typeof spoolSchema>;
 export type SpoolWeightEntry = z.infer<typeof spoolWeightEntrySchema>;
+export type UsageCorrection = z.infer<typeof usageCorrectionSchema>;
 export type Print = z.infer<typeof printSchema>;
 export type PrintFilamentUsage = z.infer<typeof printFilamentUsageSchema>;
 export type Tag = z.infer<typeof tagSchema>;

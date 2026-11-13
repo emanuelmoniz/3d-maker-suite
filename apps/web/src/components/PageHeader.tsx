@@ -4,11 +4,14 @@ import { BackLink } from "./BackLink";
 
 export function PageHeader({
   title,
+  badge,
   description,
   actions,
   backTo,
 }: {
   title: string;
+  /** Sits right next to the title, outside the heading (a status pill). */
+  badge?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   /** Fallback route for the back link, used when there is no in-app history. */
@@ -24,7 +27,10 @@ export function PageHeader({
         />
       )}
       <div>
-        <h1 className="text-xl font-semibold tracking-tight wrap-anywhere">{title}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="min-w-0 text-xl font-semibold tracking-tight wrap-anywhere">{title}</h1>
+          {badge}
+        </div>
         {description && <p className="mt-0.5 text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

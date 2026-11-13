@@ -34,7 +34,7 @@ import { deleteItem } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { assertPeriod } from "../lib/installs.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
-import { accessoryUsageColumns } from "../lib/maintenance.ts";
+import { accessoryUsageColumns, usageRoutes } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -321,4 +321,6 @@ export const accessoriesRoutes =
       response: accessoryCommentSchema,
       getParent: get,
     });
+
+    usageRoutes(app, db, { target: "accessoryId", get });
   };

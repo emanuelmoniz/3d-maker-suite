@@ -149,9 +149,13 @@ describe("printers", () => {
       energyWh: 200,
     });
 
-    // The list shows lifetime usage: offsets plus logged prints; sortable and filterable.
+    // The list shows lifetime usage: corrections plus logged prints; sortable and filterable.
     const old = await create({ name: "Old" });
-    db.update(schema.printers).set({ printsOffset: 5, runtimeOffsetSec: 3600 }).run();
+    db.insert(schema.usageCorrections)
+      .values(
+        [p, old].map((x) => ({ printerId: x.id, deltaSec: 3600, deltaPrints: 5, note: null })),
+      )
+      .run();
     const list = async (q: string) => (await app.inject(`/api/printers${q}`)).json().items;
     expect(await list("?sort=-prints")).toMatchObject([
       { id: p.id, prints: 7, runtimeSec: 3600 + 10800 },

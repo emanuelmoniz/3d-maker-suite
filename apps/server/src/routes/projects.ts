@@ -383,7 +383,10 @@ export const projectsRoutes =
             .filter(onDevice)
             .map((r) => r.location),
         ))
-          if (hub.online(location)) hub.publish(location, { type: "roots.changed" });
+          if (hub.online(location)) {
+            hub.publish(location, { type: "roots.changed" });
+            scanner.deviceSyncing(location);
+          }
         return reply.status(202).send(scanner.start());
       },
     );

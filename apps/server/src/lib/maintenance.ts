@@ -1,27 +1,49 @@
 import {
+  apiErrorSchema,
   appliesToAccessory,
   appliesToPrinter,
   type MaintenanceDueItem,
   maintenanceDue,
   type UsageSnapshot,
+  usageCorrectionInputSchema,
+  usageCorrectionSchema,
+  usageTotalsSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, count, eq, isNull, lte, type SQL, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, lte, type SQL, sql, sum } from "drizzle-orm";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import { z } from "zod";
 import { accessoryTitle, printerTitle } from "./numbers.ts";
 
 const { accessories, maintenanceTypes, maintenanceTasks, printers, prints } = schema;
 
-/** Lifetime runtime and print count (offsets + logged prints), optionally up to a date. */
-export const usageOf = (db: Db, p: typeof printers.$inferSelect, upTo?: string): UsageSnapshot => {
+type Target = "printer_id" | "accessory_id";
+/** The sum of a target's usage corrections (`delta_sec` or `delta_prints`), up to a date. */
+const corrected = (
+  target: Target,
+  id: SQL | string,
+  what: "delta_sec" | "delta_prints",
+  upTo?: string,
+) =>
+  sql<number>`(SELECT coalesce(sum(c.${sql.raw(what)}), 0) FROM usage_corrections c
+    WHERE c.${sql.raw(target)} = ${id}${upTo ? sql` AND c.created_at <= ${upTo}` : sql``})`;
+
+/** Lifetime runtime and print count (corrections + logged prints), optionally up to a date. */
+export const usageOf = (db: Db, p: { id: string }, upTo?: string): UsageSnapshot => {
   const row = db
-    .select({ sec: sum(prints.durationSec), n: count() })
+    .select({
+      sec: sum(prints.durationSec),
+      n: count(),
+      fixSec: corrected("printer_id", p.id, "delta_sec", upTo),
+      fixPrints: corrected("printer_id", p.id, "delta_prints", upTo),
+    })
     .from(prints)
     .where(and(eq(prints.printerId, p.id), upTo ? lte(prints.startedAt, upTo) : undefined))
     .get();
   return {
     at: upTo ?? new Date().toISOString(),
-    runtimeSec: p.runtimeOffsetSec + Number(row?.sec ?? 0),
-    prints: p.printsOffset + (row?.n ?? 0),
+    runtimeSec: Number(row?.fixSec ?? 0) + Number(row?.sec ?? 0),
+    prints: Number(row?.fixPrints ?? 0) + (row?.n ?? 0),
   };
 };
 
@@ -31,8 +53,8 @@ export const printerUsageColumns = () => {
   const logged = (what: SQL) =>
     sql<number>`(SELECT coalesce(${what}, 0) FROM prints p WHERE p.printer_id = ${of("id")})`;
   return {
-    runtimeSec: sql<number>`${of("runtime_offset_sec")} + ${logged(sql`sum(p.duration_sec)`)}`,
-    prints: sql<number>`${of("prints_offset")} + ${logged(sql`count(*)`)}`,
+    runtimeSec: sql<number>`${corrected("printer_id", of("id"), "delta_sec")} + ${logged(sql`sum(p.duration_sec)`)}`,
+    prints: sql<number>`${corrected("printer_id", of("id"), "delta_prints")} + ${logged(sql`count(*)`)}`,
     // Whole percent of logged prints that succeeded (same as printer page and stats); null without prints.
     successRate: sql<
       number | null
@@ -53,17 +75,97 @@ const accessoryPrints = (accessoryId: SQL | string, upTo?: string, what = sql`co
 
 /** Runtime and print count of an accessory, as SQL for a select (list sort/filter). */
 export const accessoryUsageColumns = (accessoryId: SQL) => ({
-  runtimeSec: accessoryPrints(accessoryId, undefined, sql`sum(p.duration_sec)`),
-  prints: accessoryPrints(accessoryId),
+  runtimeSec: sql<number>`${corrected("accessory_id", accessoryId, "delta_sec")} + ${accessoryPrints(accessoryId, undefined, sql`sum(p.duration_sec)`)}`,
+  prints: sql<number>`${corrected("accessory_id", accessoryId, "delta_prints")} + ${accessoryPrints(accessoryId)}`,
 });
 
-/** Like `usageOf`, for an accessory (no offsets: it starts at 0). */
+/** Like `usageOf`, for an accessory. */
 export const accessoryUsageOf = (db: Db, accessoryId: string, upTo?: string): UsageSnapshot => {
   const row = db.get<{ sec: number; n: number }>(
-    sql`SELECT ${accessoryPrints(accessoryId, upTo, sql`sum(p.duration_sec)`)} AS sec, ${accessoryPrints(accessoryId, upTo)} AS n`,
+    sql`SELECT ${corrected("accessory_id", accessoryId, "delta_sec", upTo)} + ${accessoryPrints(accessoryId, upTo, sql`sum(p.duration_sec)`)} AS sec,
+      ${corrected("accessory_id", accessoryId, "delta_prints", upTo)} + ${accessoryPrints(accessoryId, upTo)} AS n`,
   );
   return { at: upTo ?? new Date().toISOString(), runtimeSec: row.sec, prints: row.n };
 };
+
+/**
+ * `GET /:id/usage` (the totals now), `POST /:id/usage` (the real totals now; the difference from the current ones is stored) and
+ * `GET /:id/usage/history`, newest first, for printers and accessories.
+ */
+export function usageRoutes(
+  app: Parameters<FastifyPluginAsyncZod>[0],
+  db: Db,
+  o: {
+    target: "printerId" | "accessoryId";
+    /** Throws 404 when the target doesn't exist. */
+    get: (id: string) => unknown;
+  },
+) {
+  const { usageCorrections: c } = schema;
+  const of = (id: string) =>
+    o.target === "printerId" ? usageOf(db, { id }) : accessoryUsageOf(db, id);
+  const params = z.object({ id: z.uuid() });
+  const notFound = { 404: apiErrorSchema };
+
+  app.get(
+    "/:id/usage",
+    { schema: { params, response: { 200: usageTotalsSchema, ...notFound } } },
+    async (req) => {
+      o.get(req.params.id);
+      const { runtimeSec, prints } = of(req.params.id);
+      return { runtimeSec, prints };
+    },
+  );
+
+  app.post(
+    "/:id/usage",
+    {
+      schema: {
+        params,
+        body: usageCorrectionInputSchema,
+        response: { 200: usageTotalsSchema, ...notFound },
+      },
+    },
+    async (req) => {
+      o.get(req.params.id);
+      const now = of(req.params.id);
+      const deltaSec = req.body.runtimeSec - now.runtimeSec;
+      const deltaPrints = req.body.prints - now.prints;
+      if (deltaSec || deltaPrints)
+        db.insert(c)
+          .values({
+            [o.target]: req.params.id,
+            deltaSec,
+            deltaPrints,
+            note: req.body.note ?? null,
+            createdAt: now.at,
+          })
+          .run();
+      const { runtimeSec, prints } = of(req.params.id);
+      return { runtimeSec, prints };
+    },
+  );
+
+  app.get(
+    "/:id/usage/history",
+    { schema: { params, response: { 200: z.array(usageCorrectionSchema), ...notFound } } },
+    async (req) => {
+      o.get(req.params.id);
+      return db
+        .select({
+          id: c.id,
+          deltaSec: c.deltaSec,
+          deltaPrints: c.deltaPrints,
+          note: c.note,
+          createdAt: c.createdAt,
+        })
+        .from(c)
+        .where(eq(c[o.target], req.params.id))
+        .orderBy(desc(c.createdAt), desc(sql`rowid`))
+        .all();
+    },
+  );
+}
 
 /** Every active printer and accessory x applicable type, unsorted. */
 export function dueItems(

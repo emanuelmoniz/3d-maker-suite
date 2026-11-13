@@ -24,11 +24,13 @@ import {
   usePrinterStats,
   useRemovePhoto,
   useUploadPhoto,
+  useUsage,
 } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
 import { useCostInfo } from "./CostFields.tsx";
 import { PrinterAccessories } from "./PrinterAccessories.tsx";
 import { StateBadge } from "./StateBadge.tsx";
+import { UsageDialog } from "./UsageDialog.tsx";
 
 export function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -111,6 +113,8 @@ export function PrinterDetailPage() {
   const removePhoto = useRemovePhoto(id);
   const models = useModelInfo();
   const costInfo = useCostInfo(printer, "printer");
+  const usage = useUsage(`/api/printers/${id}`).data;
+  const [correcting, setCorrecting] = useState(false);
 
   if (isError)
     return (
@@ -144,6 +148,7 @@ export function PrinterDetailPage() {
         }
         actions={
           <Write can="printers" level="manage">
+            <Button onClick={() => setCorrecting(true)}>{t("printers:usage.action")}</Button>
             <Link to="/printers/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>
@@ -155,6 +160,12 @@ export function PrinterDetailPage() {
             />
           </Write>
         }
+      />
+      <UsageDialog
+        base={`/api/printers/${id}`}
+        name={printerName(t, printer)}
+        open={correcting}
+        onClose={() => setCorrecting(false)}
       />
       {(upload.isError || removePhoto.isError) && (
         <p role="alert" className="mb-4 text-bad">
@@ -178,6 +189,15 @@ export function PrinterDetailPage() {
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Info label={t("printers:detail.info.serial")}>{printer.serial ?? none}</Info>
+              {/* Lifetime: logged prints plus corrections. */}
+              {usage && (
+                <>
+                  <Info label={t("printers:usage.totalPrints")}>{formatNumber(usage.prints)}</Info>
+                  <Info label={t("printers:usage.totalTime")}>
+                    {formatDuration(usage.runtimeSec)}
+                  </Info>
+                </>
+              )}
               <Info label={t("printers:detail.info.power")}>
                 {printer.powerW === null
                   ? none

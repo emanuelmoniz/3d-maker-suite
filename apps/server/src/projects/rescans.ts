@@ -9,7 +9,11 @@ import type { ProjectScanner } from "./scanner.ts";
  * rescanned here; a device root's connector is told to index it again, while it's online. The
  * last runs are in memory: after a restart each root is due once, which costs only digests.
  */
-export function createRescans(db: Db, scanner: Pick<ProjectScanner, "rescan">, hub: HubChannel) {
+export function createRescans(
+  db: Db,
+  scanner: Pick<ProjectScanner, "rescan" | "deviceSyncing">,
+  hub: HubChannel,
+) {
   const lastRun = new Map<string, string>();
   let busy = false;
   /** One at a time: a big share's walk may outlast a tick. */
@@ -24,6 +28,7 @@ export function createRescans(db: Db, scanner: Pick<ProjectScanner, "rescan">, h
         if (onDevice(root)) {
           // Offline: skipped, its connect indexes it anyway.
           if (!hub.tell(root.location, { type: "roots.rescan", rootId: root.id })) continue;
+          scanner.deviceSyncing(root.location, root.id);
         } else await scanner.rescan(root);
         lastRun.set(root.id, new Date(now).toISOString());
       }

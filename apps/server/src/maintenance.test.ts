@@ -64,6 +64,76 @@ describe("maintenance", () => {
     expect(history.total).toBe(1);
   });
 
+  it("a usage correction makes the typed totals the usage; due uses them, task snapshots stay", async () => {
+    const printer = (
+      await post("/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
+    ).json();
+    const ams = (await post("/api/accessories", { name: "AMS", type: "AMS" })).json();
+    const nozzle = (
+      await post("/api/maintenance/types", { name: "Clean nozzle", intervalPrints: 10 })
+    ).json();
+    const rollers = (
+      await post("/api/maintenance/types", {
+        name: "AMS rollers",
+        target: "accessory",
+        intervalPrints: 10,
+        appliesToAccessoryTypes: ["AMS"],
+      })
+    ).json();
+    const row = async (typeId: string) =>
+      (await due()).find((i: { typeId: string }) => i.typeId === typeId);
+    db.insert(schema.prints)
+      .values(
+        Array.from({ length: 3 }, () => ({
+          printerId: printer.id,
+          title: "t",
+          outcome: "success" as const,
+          startedAt: "2026-01-01T00:00:00.000Z",
+          durationSec: 600,
+        })),
+      )
+      .run();
+    const task = await post("/api/maintenance/tasks", { printerId: printer.id, typeId: nozzle.id });
+    expect(task.json()).toMatchObject({ printerPrintsAt: 3, printerRuntimeSecAt: 1800 });
+
+    // Printer: the typed totals; the difference is stored.
+    const url = `/api/printers/${printer.id}/usage`;
+    const fix = await post(url, { runtimeSec: 36_000, prints: 12, note: "Read off the screen" });
+    expect(fix.json()).toEqual({ runtimeSec: 36_000, prints: 12 });
+    const history = async () => (await app.inject(`${url}/history`)).json();
+    expect(await history()).toEqual([
+      {
+        id: expect.any(String),
+        deltaSec: 34_200,
+        deltaPrints: 9,
+        note: "Read off the screen",
+        createdAt: expect.any(String),
+      },
+    ]);
+    const list = (await app.inject("/api/printers")).json().items;
+    expect(list[0]).toMatchObject({ runtimeSec: 36_000, prints: 12 });
+    // Due from the task's snapshot (3) to the corrected 12; the snapshot itself stays.
+    expect(await row(nozzle.id)).toMatchObject({ status: "upcoming", remainingPrints: 1 });
+    const tasks = (await app.inject(`/api/maintenance/tasks?printerId=${printer.id}`)).json();
+    expect(tasks.items[0]).toMatchObject({ printerPrintsAt: 3, printerRuntimeSecAt: 1800 });
+    // The same totals again store nothing.
+    await post(url, { runtimeSec: 36_000, prints: 12 });
+    expect(await history()).toHaveLength(1);
+
+    // Accessory: the same, from zero.
+    const fixAms = await post(`/api/accessories/${ams.id}/usage`, { runtimeSec: 7200, prints: 11 });
+    expect(fixAms.json()).toEqual({ runtimeSec: 7200, prints: 11 });
+    expect((await app.inject(`/api/accessories/${ams.id}`)).json()).toMatchObject({
+      runtimeSec: 7200,
+      prints: 11,
+    });
+    expect(await row(rollers.id)).toMatchObject({ status: "overdue", remainingPrints: -1 });
+
+    expect((await post(url, { runtimeSec: -1, prints: 0 })).statusCode).toBe(400);
+    const unknown = `/api/accessories/${crypto.randomUUID()}/usage`;
+    expect((await post(unknown, { runtimeSec: 0, prints: 0 })).statusCode).toBe(404);
+  });
+
   describe("accessories", () => {
     const at = (day: number, h = 0) => new Date(Date.UTC(2026, 0, day, h)).toISOString();
     const printPart = (printerId: string, startedAt: string) => ({

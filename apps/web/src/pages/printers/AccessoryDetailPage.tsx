@@ -25,6 +25,7 @@ import { useCostInfo } from "./CostFields.tsx";
 import { InstallDialog, RemoveDialog } from "./InstallDialogs.tsx";
 import { Info, linkButton, Photo } from "./PrinterDetailPage.tsx";
 import { StateBadge } from "./StateBadge.tsx";
+import { UsageDialog } from "./UsageDialog.tsx";
 
 export function AccessoryDetailPage() {
   const { t } = useTranslation();
@@ -37,6 +38,7 @@ export function AccessoryDetailPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
   const upload = useUploadAccessoryPhoto(id);
   const removePhoto = useRemoveAccessoryPhoto(id);
   const printers = usePrinters({ archived: "all" }).data?.items ?? [];
@@ -66,6 +68,7 @@ export function AccessoryDetailPage() {
         }
         actions={
           <Write can="printers" level="manage">
+            <Button onClick={() => setCorrecting(true)}>{t("printers:usage.action")}</Button>
             <Link to="/printers/accessories/$id/edit" params={{ id }} className={linkButton}>
               {t("printers:detail.edit")}
             </Link>
@@ -77,6 +80,12 @@ export function AccessoryDetailPage() {
             />
           </Write>
         }
+      />
+      <UsageDialog
+        base={`/api/accessories/${id}`}
+        name={accessoryName(t, accessory)}
+        open={correcting}
+        onClose={() => setCorrecting(false)}
       />
       <ConfirmDialog
         open={deleting !== null}
@@ -121,7 +130,7 @@ export function AccessoryDetailPage() {
                 )}
               </Info>
               <Info label={t("printers:detail.info.serial")}>{accessory.serial ?? none}</Info>
-              {/* Usage: the prints of the printers it was on, while it was on them. */}
+              {/* Usage: the prints of the printers it was on, while it was on them, plus corrections. */}
               <Info label={t("printers:detail.stats.prints")}>
                 {formatNumber(accessory.prints)}
               </Info>

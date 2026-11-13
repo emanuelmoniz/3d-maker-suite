@@ -664,6 +664,78 @@ describe("hub events", () => {
     expect(add.json().error.code).toBe("device_offline");
   });
 
+  it("shows a device root's sync in the scan status: discovering, its folders, idle; offline ends it", async () => {
+    const { db, app, send, open, token, deviceId } = await live();
+    const dev = (url: string, payload: object) =>
+      app.inject({
+        method: "PUT",
+        url: `/api/hub/device${url}`,
+        payload,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    const root = db
+      .insert(schema.roots)
+      .values({ name: "WS", location: deviceId, path: "C:/models", position: 0 })
+      .returning()
+      .get();
+    const folder = (rel: string) => ({
+      rel,
+      digest: "a",
+      scan: {
+        files: [{ path: "box.stl", kind: "model", size: 5, mtime: 1 }],
+        models: [],
+        mainFile: "box.stl",
+        sourceUrl: null,
+        hasModel: true,
+        unreadable: 0,
+      },
+      texts: {},
+      cover: null,
+      previews: [],
+      gallery: [],
+      galleryLeftOut: [],
+    });
+    const status = async () => (await send("GET", "/api/projects/scan")).json();
+    const s = await open();
+    await s.until(": open");
+    expect(await status()).toMatchObject({ state: "idle" });
+
+    // Scan asks the device: its root discovers until the index comes, then counts its folders.
+    expect((await send("POST", "/api/projects/scan")).statusCode).toBe(202);
+    expect(await status()).toMatchObject({ state: "running", phase: "discovering" });
+    const rels = ["001_Box", "002_Cup"] as const;
+    await dev(`/roots/${root.id}/index`, {
+      state: "ok",
+      folders: rels.map((rel) => ({ rel, digest: "a" })),
+    });
+    expect(await status()).toMatchObject({
+      state: "running",
+      phase: "scanning",
+      total: 2,
+      done: 0,
+    });
+    await dev(`/roots/${root.id}/folders`, folder(rels[0]));
+    expect(await status()).toMatchObject({ state: "running", total: 2, done: 1 });
+    await dev(`/roots/${root.id}/folders`, folder(rels[1]));
+    expect(await status()).toMatchObject({ state: "idle" });
+
+    // Nothing new to send: done at the index.
+    await send("POST", "/api/projects/scan");
+    await dev(`/roots/${root.id}/index`, {
+      state: "ok",
+      folders: rels.map((rel) => ({ rel, digest: "a" })),
+    });
+    expect(await status()).toMatchObject({ state: "idle" });
+
+    // The device goes offline mid-sync: its progress is dropped.
+    await send("POST", "/api/projects/scan");
+    expect(await status()).toMatchObject({ state: "running" });
+    await s.cancel();
+    for (let i = 0; i < 100 && (await status()).state !== "idle"; i++)
+      await new Promise((r) => setTimeout(r, 20));
+    expect(await status()).toMatchObject({ state: "idle" });
+  });
+
   it("tells a connector too old for a request from one that doesn't answer", async () => {
     const { app, send, open, token, deviceId } = await live();
     const s = await open();

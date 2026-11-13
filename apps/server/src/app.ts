@@ -379,6 +379,7 @@ export async function buildApp(
   app.addHook("onClose", async () => clearTimeout(nudge));
   const scanner = createProjectScanner(db, dataDir, projectsLog, {
     watch: opts.watchProjects,
+    online: hub.online,
     index: async (root, rel) => {
       if (readPreferences(db).hubEnabled) await hubFiles.reindex(root, rel);
     },

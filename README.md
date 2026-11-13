@@ -89,6 +89,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Bambu Cloud setup | [docs/bambu-cloud.md](docs/bambu-cloud.md) |
 | Project folders: structure, depths, Docker | [docs/projects.md](docs/projects.md) |
 | Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
+| Printers, usage and maintenance | [docs/printers.md](docs/printers.md) |
 | Archive, delete and bulk actions | [docs/archive-delete.md](docs/archive-delete.md) |
 | Slicing: server slicers, presets, Docker | [docs/slicing.md](docs/slicing.md) |
 | Slicer program | [docs/open-in-slicer.md](docs/open-in-slicer.md) |

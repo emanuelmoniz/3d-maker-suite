@@ -92,11 +92,13 @@ describe("rescan schedule", () => {
     const rescan = vi.fn(async (_root: { id: string }) => {});
     let online = true;
     const tell = vi.fn(() => online);
-    const tick = createRescans(db, { rescan }, { tell } as unknown as HubChannel);
+    const deviceSyncing = vi.fn();
+    const tick = createRescans(db, { rescan, deviceSyncing }, { tell } as unknown as HubChannel);
 
     await tick(start);
     expect(rescan.mock.calls.map(([r]) => r.id)).toEqual([hubOn.id]);
     expect(tell).toHaveBeenCalledWith(device, { type: "roots.rescan", rootId: onDevice.id });
+    expect(deviceSyncing).toHaveBeenCalledWith(device, onDevice.id);
 
     await tick(start + 10 * 60 * 1000); // within the hour: nothing
     expect(rescan).toHaveBeenCalledTimes(1);

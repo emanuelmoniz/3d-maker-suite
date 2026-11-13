@@ -1,4 +1,9 @@
-import type { AutostartState, ServerConfigPatch, ServerConfigResponse } from "@3d-maker-suite/core";
+import {
+  type AutostartState,
+  REPO_URL,
+  type ServerConfigPatch,
+  type ServerConfigResponse,
+} from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +13,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { api } from "../../lib/api.ts";
 import { useCan, useIsAdmin, useMe } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useSetServerState } from "../../lib/serverState.ts";
 import { health } from "../../lib/updates.ts";
@@ -170,13 +176,23 @@ export function HubSwitch() {
   if (on === undefined) return null;
   return (
     <div>
-      <Switch
-        label={t("settings:hub.enabled")}
-        aria-describedby="hub-enabled-hint"
-        checked={on}
-        disabled={save.isPending || (noUsers && !on)}
-        onChange={(e) => save.mutate({ hubEnabled: e.target.checked })}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <Switch
+          label={t("settings:hub.enabled")}
+          aria-describedby="hub-enabled-hint"
+          checked={on}
+          disabled={save.isPending || (noUsers && !on)}
+          onChange={(e) => save.mutate({ hubEnabled: e.target.checked })}
+        />
+        <a
+          href={`${REPO_URL}/releases/latest`}
+          target="_blank"
+          rel="noreferrer"
+          className={textLink}
+        >
+          {t("settings:hub.releases")}
+        </a>
+      </div>
       <p id="hub-enabled-hint" className="text-muted">
         {t("settings:hub.enabledHint")}
       </p>

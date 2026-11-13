@@ -465,8 +465,11 @@ function Projects({ device: d }: { device: Device }) {
   );
 }
 
-/** Restart and Stop act on the connector (live); Revoke on the pairing (hub.manage). */
-function Actions({ device: d }: { device: Device }) {
+/**
+ * Restart and Stop act on the connector (live); Revoke on the pairing (hub.manage). The buttons go
+ * in the page header, the messages under it.
+ */
+function useActions(d: Device) {
   const { t } = useTranslation();
   const may = useMay(d);
   const navigate = useNavigate();
@@ -474,27 +477,27 @@ function Actions({ device: d }: { device: Device }) {
   const { revoke } = useDeviceActions();
   const [dialog, setDialog] = useState<"stop" | "revoke" | null>(null);
   const connection = may.edit("connection");
-  if (!connection && !may.manage) return null;
-  return (
-    <Section title={t("hub:machine.actions")}>
-      {connection && !d.online && <OfflineNote />}
-      <div className="flex flex-wrap gap-2">
-        {connection && (
-          <>
-            <Button disabled={!d.online} busy={restart.isPending} onClick={() => restart.mutate()}>
-              {t("hub:devices.restart")}
-            </Button>
-            <Button disabled={!d.online || stop.isPending} onClick={() => setDialog("stop")}>
-              {t("hub:machine.stop")}
-            </Button>
-          </>
-        )}
-        {may.manage && (
-          <Button variant="danger" onClick={() => setDialog("revoke")}>
-            {t("hub:devices.revoke")}
+  const buttons = (
+    <>
+      {connection && (
+        <>
+          <Button disabled={!d.online} busy={restart.isPending} onClick={() => restart.mutate()}>
+            {t("hub:devices.restart")}
           </Button>
-        )}
-      </div>
+          <Button disabled={!d.online || stop.isPending} onClick={() => setDialog("stop")}>
+            {t("hub:machine.stop")}
+          </Button>
+        </>
+      )}
+      {may.manage && (
+        <Button variant="danger" onClick={() => setDialog("revoke")}>
+          {t("hub:devices.revoke")}
+        </Button>
+      )}
+    </>
+  );
+  const messages = (
+    <>
       <Alert error={restart.error ?? stop.error} />
       {restart.isSuccess && (
         <p role="status" className="text-muted">
@@ -526,7 +529,31 @@ function Actions({ device: d }: { device: Device }) {
         }}
         onConfirm={() => revoke.mutate(d.id, { onSuccess: () => navigate({ to: "/hub" }) })}
       />
-    </Section>
+    </>
+  );
+  return { buttons, messages };
+}
+
+/** The pill next to the name, and the actions top right. */
+function Header({ device: d, backTo }: { device: Device; backTo: { to: "/hub" | "/" } }) {
+  const { t } = useTranslation();
+  const { buttons, messages } = useActions(d);
+  return (
+    <>
+      <PageHeader
+        title={d.name}
+        badge={
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium ${d.online ? "bg-ok/15 text-ok" : "bg-border text-muted"}`}
+          >
+            {t(d.online ? "hub:devices.online" : "hub:devices.offline")}
+          </span>
+        }
+        backTo={backTo}
+        actions={buttons}
+      />
+      {messages}
+    </>
   );
 }
 
@@ -556,30 +583,14 @@ export function MachinePage() {
   const rights = useRights();
   const me = useMe();
   const manage = useCan("hub.manage");
-  const unknown = t("hub:devices.unknown");
+  const backTo = manage ? { to: "/hub" as const } : { to: "/" as const };
   return (
     <>
-      <PageHeader
-        title={device?.name ?? t("hub:machine.titleFallback")}
-        description={
-          device &&
-          t("hub:machine.byline", {
-            user: device.userName,
-            os: device.os ?? unknown,
-            version: device.connectorVersion ?? unknown,
-          })
-        }
-        backTo={manage ? { to: "/hub" } : { to: "/" }}
-        actions={
-          device && (
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-medium ${device.online ? "bg-ok/15 text-ok" : "bg-border text-muted"}`}
-            >
-              {t(device.online ? "hub:devices.online" : "hub:devices.offline")}
-            </span>
-          )
-        }
-      />
+      {device ? (
+        <Header device={device} backTo={backTo} />
+      ) : (
+        <PageHeader title={t("hub:machine.titleFallback")} backTo={backTo} />
+      )}
       {devices.isError && (
         <p role="alert" className="text-bad">
           {t("hub:loadError")}
@@ -591,7 +602,6 @@ export function MachinePage() {
           {!device.online && <p className="text-muted">{t("hub:machine.offline")}</p>}
           <LocalPage device={device} />
           <div className={cardGrid}>
-            <Actions device={device} />
             <Identity key={device.name} device={device} manage={manage} />
             <Software device={device} manage={manage} />
             <Connection

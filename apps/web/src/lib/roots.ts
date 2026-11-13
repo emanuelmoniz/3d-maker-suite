@@ -23,7 +23,11 @@ export function useChangeRoot() {
         : "remove" in c
           ? api<null>("DELETE", `/api/roots/${c.remove}`)
           : api<Root>("PATCH", `/api/roots/${c.id}`, c.patch),
-    onSettled: () => qc.invalidateQueries({ queryKey: rootsQuery.queryKey }),
+    onSettled: () => {
+      // A device root's sync starts now: the Projects page's bar shows it without a reload.
+      void qc.invalidateQueries({ queryKey: ["projects", "scan"] });
+      return qc.invalidateQueries({ queryKey: rootsQuery.queryKey });
+    },
   });
 }
 

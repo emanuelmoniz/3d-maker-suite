@@ -181,7 +181,6 @@
   },
   "machine": {
     "titleFallback": "Machine",
-    "byline": "{{user}} · {{os}} · connector {{version}}",
     "offline": "Offline: changes apply when it reconnects.",
     "localPage": "You're on this machine: open its local page",
     "nameIs": "Name: {{name}}",
@@ -203,7 +202,6 @@
     "stopReceivingTitle": "Stop receiving projects on {{name}}?",
     "stopReceivingBody": "Its copies of hub projects are removed from the machine. Nothing is deleted on the hub.",
     "stopReceiving": "Stop receiving",
-    "actions": "Actions",
     "stop": "Stop connector",
     "stopTitle": "Stop the connector on {{name}}?",
     "stopBody": "It goes offline and starts again only when someone logs in on that computer or starts it by hand.",

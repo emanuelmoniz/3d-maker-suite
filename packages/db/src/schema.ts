@@ -340,8 +340,6 @@ export const printers = sqliteTable(
     modelId: text().references(() => printerModels.id, { onDelete: "restrict" }),
     serial: text(),
     nozzleDiameterMm: real().notNull().default(0.4),
-    runtimeOffsetSec: integer().notNull().default(0),
-    printsOffset: integer().notNull().default(0),
     purchasedAt: text(),
     purchasePrice: integer(),
     warrantyEndsAt: text(),
@@ -517,6 +515,32 @@ export const maintenanceTasks = sqliteTable(
     index("maintenance_tasks_accessory_idx").on(t.accessoryId, t.typeId, t.doneAt),
     check(
       "maintenance_tasks_target_ck",
+      sql`(${t.printerId} IS NULL) <> (${t.accessoryId} IS NULL)`,
+    ),
+  ],
+);
+
+/**
+ * Hand corrections of a printer's or accessory's usage (a used machine's hours, a counter read
+ * off the device). Its usage = logged prints + these deltas up to that time. Deleted with it.
+ */
+export const usageCorrections = sqliteTable(
+  "usage_corrections",
+  {
+    id: id(),
+    // Exactly one target.
+    printerId: text().references(() => printers.id, { onDelete: "cascade" }),
+    accessoryId: text().references(() => accessories.id, { onDelete: "cascade" }),
+    deltaSec: integer().notNull(),
+    deltaPrints: integer().notNull(),
+    note: text(),
+    createdAt: text().notNull().$defaultFn(now),
+  },
+  (t) => [
+    index("usage_corrections_printer_idx").on(t.printerId, t.createdAt),
+    index("usage_corrections_accessory_idx").on(t.accessoryId, t.createdAt),
+    check(
+      "usage_corrections_target_ck",
       sql`(${t.printerId} IS NULL) <> (${t.accessoryId} IS NULL)`,
     ),
   ],

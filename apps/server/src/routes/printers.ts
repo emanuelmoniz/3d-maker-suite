@@ -35,7 +35,7 @@ import { commentRoutes } from "../lib/comments.ts";
 import { deleteItem } from "../lib/dependents.ts";
 import { imageRoutes } from "../lib/images.ts";
 import { dateRange, listPage, taggedWith } from "../lib/list.ts";
-import { printerUsageColumns } from "../lib/maintenance.ts";
+import { printerUsageColumns, usageRoutes } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
@@ -241,6 +241,8 @@ export const printersRoutes =
       response: printerCommentSchema,
       getParent: get,
     });
+
+    usageRoutes(app, db, { target: "printerId", get });
 
     imageRoutes(app, dataDir, {
       name: "photo",

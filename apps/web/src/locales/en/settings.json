@@ -498,6 +498,7 @@
   },
   "hub": {
     "enabled": "Hub",
+    "releases": "Latest release on GitHub",
     "enabledHint": "Lets workstations, a NAS or a file server join this server with a small connector app, so project folders on those devices show up here and folders on this server can sync to them. Off: nothing changes.",
     "needsUsers": "The hub needs user accounts, because each device acts as a user. Add an admin account under Users first.",
     "needsAccountsOn": "The hub needs user accounts, because each device acts as a user. Turn on user accounts under General first."

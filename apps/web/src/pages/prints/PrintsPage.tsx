@@ -88,7 +88,6 @@ export function PrintsTable({
         scope,
       }}
       columns={[
-        ...(hideProject ? [] : [projectColumn]),
         {
           id: "title",
           header: t("prints:list.columns.title"),
@@ -114,6 +113,7 @@ export function PrintsTable({
           sort: "title",
           filter: "title",
         },
+        ...(hideProject ? [] : [projectColumn]),
         {
           id: "startedAt",
           header: t("prints:list.columns.startedAt"),
