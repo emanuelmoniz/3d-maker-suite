@@ -91,7 +91,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
 | Archive, delete and bulk actions | [docs/archive-delete.md](docs/archive-delete.md) |
 | Slicing: server slicers, presets, Docker | [docs/slicing.md](docs/slicing.md) |
-| Open in slicer | [docs/open-in-slicer.md](docs/open-in-slicer.md) |
+| Slicer program | [docs/open-in-slicer.md](docs/open-in-slicer.md) |
 | Backups | [docs/backups.md](docs/backups.md) |
 | Logs | [docs/logs.md](docs/logs.md) |
 | FAQ | [docs/faq.md](docs/faq.md) |

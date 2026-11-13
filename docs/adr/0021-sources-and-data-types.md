@@ -110,7 +110,7 @@ Every schedule is on a line of a Sources tab, set with **Edit** (today's `Policy
 - A machine receives **picks**: a hub root, or a folder inside one (a project folder or a parent of several). This replaces `syncMode` all or selected.
 - Each pick has a **users and roles list, each with Read or Edit.** A machine syncs a pick only if its user is on the list, directly or through their role, and never beyond that user's `projects` level and folder rights (ADR-0016). Read syncs read-only, as "download only" does today.
 - The connector mirrors the picked paths: `root1/*`, `root2/project2`. The hub already filters the change feed per device (`/sync/changes`); it filters by picks instead of `device_projects`.
-- **Open** on a project that isn't synced on that machine adds a pick for its folder, with the machine's user at Edit, as it adds a `device_projects` row today.
+- ~~**Open** on a project that isn't synced on that machine adds a pick for its folder.~~ Removed in 5.6.0 with Open itself (ADR-0014, last amendment): picks are only added on the hub.
 - Picks are edited in Projects settings → Sources, one line each with a switch that pauses it, with `hub.manage` or `projects` manage. The machine page's **Receive from the hub** switch shows "3 picks" and links there.
 - New machines: `hubDefaultSyncMode` becomes **New machines receive**: every hub root (one pick per hub root, the machine's user at Edit) or nothing until picked.
 

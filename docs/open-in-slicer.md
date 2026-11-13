@@ -1,12 +1,14 @@
-# Open in slicer / open folder
+# Slicer program
 
-In **Settings → Integrations**, add a local integration (Bambu Studio or OrcaSlicer) and set its **Slicer program** to the full path of your slicer. The button shows only while "Open projects in the slicer" is ticked there and that program exists on the computer running the server, so a server without a slicer (a NAS) offers none. With several slicers set up, one is the default and the project page shows a picker. The server starts it with the model file as its only argument. "Open folder" uses the OS file manager. Both only work for projects whose folder is inside a configured project folder, and for model files the scan listed.
+Since 5.6.0 the project page has no **Open** or **Open folder** button: files stay where they are, and opening one in a slicer is your own step ([ADR-0014](adr/0014-hub-and-connector.md), last amendment). What is left of this page is the slicer setup.
 
-| OS | Slicer path example | Open folder uses |
-|----|---------------------|------------------|
-| Windows | `C:\Program Files\Bambu Studio\bambu-studio.exe` | `explorer` |
-| macOS | `/Applications/BambuStudio.app/Contents/MacOS/BambuStudio` | `open` |
-| Linux | `/usr/bin/bambu-studio` (or the AppImage path) | `xdg-open` |
+In **Settings → Integrations**, add a local integration (Bambu Studio or OrcaSlicer) and set its **Slicer program** to the full path of your slicer. The program must exist on the computer running the server, so a server without a slicer (a NAS) has none. The server uses it for slicing ([slicing](slicing.md)).
+
+| OS | Slicer path example |
+|----|---------------------|
+| Windows | `C:\Program Files\Bambu Studioambu-studio.exe` |
+| macOS | `/Applications/BambuStudio.app/Contents/MacOS/BambuStudio` |
+| Linux | `/usr/bin/bambu-studio` (or the AppImage path) |
 
 OrcaSlicer is the same: `C:\Program Files\OrcaSlicer\orca-slicer.exe` on Windows, `/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer` on macOS, `/usr/bin/orca-slicer` (or the AppImage) on Linux. Its presets are read from `%APPDATA%\OrcaSlicer`, `~/Library/Application Support/OrcaSlicer` or `~/.config/OrcaSlicer` (Flatpak: `~/.var/app/io.github.softfever.OrcaSlicer/config/OrcaSlicer`), both `user/default/` and the cloud-synced `user/<uuid>/` folders.
 
