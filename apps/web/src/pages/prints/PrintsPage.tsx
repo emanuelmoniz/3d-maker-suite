@@ -6,7 +6,7 @@ import {
   printFilters,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, Layers, Plus } from "lucide-react";
+import { Layers, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
@@ -93,22 +93,9 @@ export function PrintsTable({
           header: t("prints:list.columns.title"),
           archivedMark: true,
           cell: (p) => (
-            <span className="flex items-center gap-2">
-              <Link to="/prints/$id" params={{ id: p.id }} className={textLink}>
-                {printName(t, p)}
-              </Link>
-              {p.sourceUrl && (
-                <a
-                  href={p.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={t("prints:list.openDesign")}
-                  className="text-muted hover:text-fg"
-                >
-                  <ExternalLink className="size-4" aria-hidden />
-                </a>
-              )}
-            </span>
+            <Link to="/prints/$id" params={{ id: p.id }} className={textLink}>
+              {printName(t, p)}
+            </Link>
           ),
           sort: "title",
           filter: "title",
