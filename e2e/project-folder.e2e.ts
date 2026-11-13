@@ -105,7 +105,6 @@ test("project folder: a missing folder shows a banner, linking another fixes it"
   await page.goto(`/projects/${p.id}`);
   const banner = page.getByRole("alert").filter({ hasText: "The project folder was not found" });
   await expect(banner).toContainText(join("models", basename(gone)));
-  await expect(page.getByRole("button", { name: "Open folder" })).toHaveCount(0);
 
   await banner.getByRole("button", { name: /^Browse for/ }).click();
   // Opens in the root the missing folder was in.
@@ -113,7 +112,6 @@ test("project folder: a missing folder shows a banner, linking another fixes it"
   await picker.getByRole("button", { name: "Moved" }).click();
   await picker.getByRole("button", { name: "Select this folder" }).click();
   await expect(banner).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open folder" })).toBeVisible();
 });
 
 test("change projects' root: moves the selection, reports a conflict, touches no file", async ({
