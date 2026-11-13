@@ -4,6 +4,45 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [5.6.0] - 2026-11-13
+
+Stable release of 5.6.0. Lists everything since 5.5.0. Back up before updating. Migrations 0122 (Open in slicer rights), 0123 (check-out locks, cleared on upgrade), 0124 (rescan schedule) and 0125 (usage corrections) apply as described below. Updating keeps all data.
+
+### Added
+- **Busy spinner** on actions that can take over a second (Sync now, check for updates, slicer install and remove, backup, export, import apply, empty trash, restarts). It appears after about 1 s, and screen readers get the busy state
+- **Tags setting** (Settings → General): hides tags install-wide and restores them when turned back on; nothing is deleted ([docs/configuration.md](docs/configuration.md#in-app-settings)). Projects can now get tags from their form
+- **User accounts switch** (Settings → General): off works like the no-users mode, for a single user. Users, roles and sessions are kept; turning it back on signs everyone in again. The hub needs accounts, so each switch blocks the other ([docs/users.md](docs/users.md))
+- **Users | Roles page** in the menu, with Users and Roles tabs, in place of those two Settings sections. Old links redirect
+- **Logo and icons:** the app icon in the favicon, sidebar, sign-in pages and connector page, the installers (Windows, macOS, Linux) and the README header
+- Printer and project names on Stats link to their page
+- **Last saved by `<user>` on `<device>`, `<time ago>`** on each project file, information only: on a hub root the last save that reached the hub, on a device root the device's user and the device as its last scan saw ([docs/hub.md](docs/hub.md#no-locks-conflicts-and-last-saved-by))
+- **Uploads with a conflict check:** while the hub is on, replacing a file checks it didn't change since the page listed it. If it did, the upload is kept as `<name> (conflict <user> <date>).<ext>` and the Sync conflict alert is raised. With **Keep earlier versions of files** on, a browser upload keeps the replaced file as a version too ([docs/projects.md](docs/projects.md#uploading-files))
+- **Upload into a device folder** while the device is online: its connector writes the file, with the same check. Versions of those uploads are kept on the device, in the connector's data folder, and listed on the project page ([docs/hub.md](docs/hub.md#uploading-into-a-device-folder)). Each device folder is sent once again after the update, so its files gain their hashes
+- **Public address** (Settings → General): the address used for links in alerts and emails, picked from Automatic, Internal IP, or a Domain or external IP, with a test from the server. `APP_PUBLIC_URL` still works. Test notifications by email and ntfy carry the link
+- **Download project files:** a file, a folder or the full project folder (as a zip) from the project page, for anyone who sees the project, hub folders and device folders alike. A device folder needs its workstation online; offline it says so
+- **Rescan setting per project folder** (on, every hour by default, with the catalog sync's frequency and time). A server folder re-reads only folders that changed; a device folder is rescanned by its connector, which keeps shared folders (SMB, cloud drives) up to date ([docs/hub.md](docs/hub.md#indexing-a-shared-folder))
+- **Device folders on the Projects scan status:** a bar while a device indexes its folders, dropped when it goes offline
+- **Correct usage** for printers and accessories, with its history, like a spool's correction. Usage and maintenance due include the corrections ([docs/printers.md](docs/printers.md))
+- A link to the latest release next to the hub switch
+
+### Changed
+- Restart and update show a full-screen overlay that blocks the page until the server is back, in place of the banner
+- Catalog import and export are on **Import | Export**; the brands type is labelled Printer brands
+- Two-column layout on desktop for settings cards and long forms; Alerts settings has separate Email and ntfy cards; printer, accessory, print and order forms lay fields two by two
+- Projects is in the mobile bottom bar, Printers under More
+- Hub device page: Restart, Stop and Revoke at the top right with the online pill next to the name; no Actions card
+- Prints table: the print name comes first, the project second, with no design link icon next to the name
+- The Stats printer and outcome tables are stacked; the trash icon is red everywhere
+- The server's Fastify is 5.12.5 or newer, and its request logging uses `LogController`, which removes a deprecation warning in tests and CI. No change for users
+
+### Removed
+- **Open in slicer and Open folder.** Files stay where they are: the server replicates its project folders to the devices that receive them, and opening a file is your own step. The default slicer on a device page and the `machine.slicers` right go too
+- **Check-out locks** (Hub management → Settings), with Done editing, force-unlock and "Being edited by". Two devices saving the same file still never overwrite each other: the later save becomes a conflict copy. Upgrading clears every lock, and files read-only on a device only because of a lock turn writable at its next sync. Read picks and download-only files stay read-only
+
+### Fixed
+- With **Tags** turned off, a page could still ask for the tag list while the settings were loading. Tag requests now wait for the settings
+- After a restart, the page reloaded as soon as anything answered, which could be the old process still closing. It now waits for the new one
+
 ## [5.6.0-alpha.4] - 2026-11-13
 
 Pre-release, fourth of 5.6.0. No migration.

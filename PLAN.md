@@ -3124,7 +3124,7 @@ Do Step 15c of the 5.6.0 plan in PLAN.md. Use frontend-design for the Correct us
 Do Step 16 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release. Then guide me through each scenario and fix what we find.
 ```
 
-### [ ] Step 17 - Docs, push & v5.6.0 release
+### [x] Step 17 - Docs, push & v5.6.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Check the docs against what shipped, `pnpm screenshots`, CHANGELOG (everything since 5.5.0), version `5.6.0`, `pnpm version:check`.
