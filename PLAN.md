@@ -2792,9 +2792,9 @@ Then fast-forward main to dev, push, push the v5.5.0 tag and confirm the release
 
 ---
 
-# Plan 5.6.0 - Clearer, accounts, brand and the right machine
+# Plan 5.6.0 - Clearer, accounts, brand and files where they are
 
-Minor release, starts after the 5.5.0 release. Old plans 5.5.0 (Steps 2-4) and 5.6.0 merged, plus accounts and the logo. One DB change: the accounts switch preference. No new dependency (`yazl` is already in the server). Skills: `frontend-design` for the overlay, the Users | Roles page and the address picker; `webapp-testing` for browser checks.
+Minor release, starts after the 5.5.0 release. Old plans 5.5.0 (Steps 2-4) and 5.6.0 merged, plus accounts and the logo. Two DB changes: the accounts switch preference, and dropping the lock data. No new dependency (`yazl` is already in the server). Skills: `frontend-design` for the overlay, the Users | Roles page and the address picker; `webapp-testing` for browser checks.
 
 Design:
 - **Waiting:** show nothing under about 1 s, a busy indicator up to about 10 s, and progress beyond that. An update's length is unknown, so it shows phase text, not a percentage.
@@ -2802,8 +2802,9 @@ Design:
 - **Tags:** one setting for the whole install, on by default. Off only hides tags: the data, the API, backups and exports stay, and turning it back on restores everything. Collections aren't tags and stay.
 - **User accounts switch:** off works like the no-users mode (the host guard and `APP_PASSWORD`), for a single user. Accounts are kept, and turning it back on restores them. The hub needs accounts, so each switch blocks the other.
 - **Logo:** `3D_Maker_Suite_BRAND_Icon_Color.svg` is the app icon everywhere (favicon, sidebar and sign-in fallback, connector, installers). The horizontal logo heads the README.
-- **Open:** only on the machine the user sits at, and only if the user can edit the project. The server's computer uses its integration slicer. Any other computer needs a connector that answers the page's probe, is paired to this user and has a slicer. Everything else, phones included, gets no button. Nothing opens on another machine. Open folder follows the same rule.
-- **Device root** (a machine's shared folder added as a project folder): the machine holding the files opens the original. Another machine with a connector opens a copy, whose saves stay on that machine.
+- **Files stay where they are:** the server's project folders are the only ones the app replicates (to devices that Receive them), and the server is their source of truth. A device root (a machine's folder added as a project folder) is only indexed; sharing it between workstations is the company's job (SMB, a cloud drive). Open in slicer and Open folder are removed.
+- **No locks:** conflict copies and versions are the safety net, and each file shows who saved it last. Versions are kept on the server, and for a device root only for uploads through the app, on that machine.
+- **Upload:** a user who can edit uploads a file back; if it changed since they got it, the upload becomes a conflict copy.
 - **Public address:** one saved address used for links in alerts (email and ntfy). The server never reads it from a request: `Host` can be forged.
 - **Download:** anyone who can see a project can download its files, folders and the full project folder, viewers included. There's no separate permission: read access already means download, and the 3D view needs the same bytes, so a download right couldn't be enforced. It works from any machine, phones included, wherever the files are: the hub pulls a device root's files from its connector, whoever's device it is, as long as that device is online. Download sits in the files section, not the page header.
 
@@ -2962,54 +2963,40 @@ Do Step 9 of the 5.6.0 plan in PLAN.md. Use frontend-design for the picker.
 Do Step 10 of the 5.6.0 plan in PLAN.md.
 ```
 
-## Phase 40 - Open on this machine, download
+## Phase 40 - Files stay where they are
 
-### [ ] Step 11 - Open only on this machine
+Replaces the earlier Open and copy steps (decided on 2026-11-13). The server is the only machine that replicates files: its project folders go to the devices that Receive them. A device root is only indexed, and sharing it between workstations is the company's job (an SMB share, a cloud drive or anything else). No locks: conflict copies and versions are the safety net.
+
+### [ ] Step 11 - Remove Open in slicer and Open folder
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `ProjectDetailPage.tsx`: remove the fallback to the user's online devices. Open and Open folder use the server's computer or the device whose connector answers `whoami` (`useConnectorId`). No answer: no buttons. Delete what only served the fallback: `deviceId`, `pickDevice`, `pickFolderDevice` and the device choice in the dialog. Keep the choice of slicer.
-- This also applies to hub root projects. Safari, a declined local network prompt, or a connector paired through another address gets no answer, so no button. `docs/hub.md` says so and how to fix it.
-- Same rule on the file rows and the header: edit permission first (`Write`, `canEdit`).
-- It's a UI rule: the server can't know where a browser is. `/:id/open` keeps checking that the device is the user's and online.
-- `docs/hub.md`: rewrite the Open section (remove "When the page can't ask").
+- Web: the Open and Open folder buttons (page header and file rows), their dialogs and the slicer choice for Open. `useConnectorId` and the connector's `/api/whoami` stay: the machine page's link to its local page uses them.
+- Server: `/:id/open`, the open hub events and "Open adds a pick".
+- Connector: the `open` and `open.folder` handlers and the slicer launch. Slicer discovery stays (the catalog Sources use it).
+- `docs/hub.md` (remove the Open section), `docs/projects.md`, ADR-0014: add an amendment.
 
-**Done when:** e2e with `page.route` on `whoami` and the devices call: answered with a slicer, buttons; answered without a slicer, no Open; no answer, no buttons, including with other devices online; no edit right, no buttons; tests, lint and `pnpm i18n:check` pass.
+**Done when:** no Open or Open folder anywhere in the UI, the API or the connector; the catalog still lists each machine's slicers; tests, lint and `pnpm i18n:check` pass (no unused keys left).
 **Prompt:**
 ```
 Do Step 11 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Open a device root's files on their machine
+### [ ] Step 12 - Remove locks, add "Last saved by"
 **Model:** Opus · **Effort:** Medium
 **Scope:**
-- Server: `openDevices` also serves a device root, marking the device that holds it (`holdsFiles`). `/:id/open`: no `deviceProjects` row and no lock for a device root (the slicer edits the original, and the connector's watcher sends the change).
-- Connector: `open` and `open.folder` look in the device's own roots when the path isn't in the sync folder: `roots` exposes a lookup through `baseOf` and `inRoot`, so no `..` and no link out of the root. Check that `sync.opened` ignores a root it doesn't sync.
-- Web: remove the `onDevice` exclusion for the machine holding the files. `DeviceFileList` takes `onOpen` and shows Open on model rows, behind `Write`.
-- `docs/hub.md`: replace "Open in slicer and Open folder are hidden on device projects". ADR-0014: add an amendment.
+- Remove the **Check-out locks** setting (`hubLockModeSchema`), check-out on the first save, read-only from a lock on devices, release on slicer exit, the idle-release job, **Done editing** (project page and the connector's local page), force-unlock and "Being edited by".
+- A new Drizzle migration drops the lock data. Upgrading clears existing locks, and files read-only only because of a lock become writable on the devices.
+- Read-only stays where it is a right: Read picks and download-only files.
+- Each file row shows **Last saved by `<user>` on `<device>`, `<time ago>`**, information only. Hub root: from the last save that reached the hub (device sync or web upload). Device root: the device's user and the device, from the last scan that saw the change. Hidden when unknown.
+- `docs/hub.md` (replace Locks with a short section on conflicts and the label), ADR-0014 amendment, CHANGELOG note that locks were removed.
 
-**Done when:** connector tests cover a device root path, a `..` path and a link out of the root; server tests cover the holder, another user's device and an offline device; e2e for the header and file row; tests, lint and `pnpm i18n:check` pass.
+**Done when:** connector and server tests: two devices saving the same file give a conflict copy, no read-only from locks, a migrated DB with locks starts clean; e2e for the label on a hub root and a device root; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 12 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Open a copy on another machine **[plan mode]**
-**Model:** Opus · **Effort:** High
-**Scope:**
-- A device root's project, opened from another machine of a user who can edit it, with a connector and slicer there: the hub pulls the file from the holding device (its existing temp cache) and that connector downloads it to its data folder, then opens it. The holding device must be online. The target gets a time limit like `DEVICE_OPEN_MS`.
-- Before opening, a dialog says it's a copy and saves stay on this computer. Afterwards, the page says where the copy is.
-- No lock, no `deviceProjects` row, no sync back. A device token only gets files of a project its user may edit.
-- The connector removes copies older than 30 days at start.
-- To decide in the plan: the copy's folder (under the user's home, because a Flatpak slicer can't read `/tmp`; not a name that can clash with a root in the sync folder) and the hub event's shape (a new type, or a flag on `open`).
-- `docs/hub.md`, and the ADR-0014 amendment.
-
-**Done when:** connector and server tests cover the copy, the holder offline, no edit right and another user's token; e2e for the dialog; tests, lint and `pnpm i18n:check` pass.
-**Prompt:**
-```
-Plan Step 13 of the 5.6.0 plan in PLAN.md.
-```
-
-### [ ] Step 14 - Download files, folders and the full project
+### [ ] Step 13 - Download files, folders and the full project
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - One route, `GET /:id/files/download?path=`, for anyone who can see the project (else 404, as elsewhere; no `canEdit` check). A file comes back as an attachment, a folder as a zip, and an empty `path` as the full project folder, with the folder's name.
@@ -3018,23 +3005,58 @@ Plan Step 13 of the 5.6.0 plan in PLAN.md.
 - Zips stream with `yazl`, stored uncompressed since 3MF is already a zip. A device root's files are pulled through the existing cache, one at a time. A failure before the first byte is a normal error; later, the connection is cut so the browser reports a failed download, not a broken zip.
 - `ProjectFiles` rows: a Download icon button on files and folders, outside `Write`. The files section gets **Download full project folder**, outside `Write` too. No button in the page header.
 - `DeviceFileList`: the same buttons. It's flat today, so group it by folder from the listed paths. While the device is offline it says the files can be downloaded once the device is back, instead of showing nothing.
+- A downloaded file carries its hash (`ETag`) for the upload check in Step 14.
 - `docs/projects.md`, `docs/hub.md` (the device must be online), `docs/users.md`.
 
 **Done when:** server tests cover a file beyond `filesDepth`, a zip's entries, the full project, a path outside the project, a viewer (allowed), a user who can't see the project (404), another user's device root and an offline device; e2e as a viewer on a hub root and a device root, at phone width too; no download button in the header; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**
 ```
-Do Step 14 of the 5.6.0 plan in PLAN.md.
+Do Step 13 of the 5.6.0 plan in PLAN.md.
+```
+
+### [ ] Step 14 - Upload with a conflict check, device root versions **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Upload sends the hash of the file it replaces, as the page listed it (`baseHash`). No `baseHash` for a new file.
+- **Hub root:** unchanged since `baseHash`: the file is replaced, and the old content becomes a version when versions are on (today only device saves keep one). Changed: the upload is kept as `<name> (conflict <user> <date>).<ext>` and the Sync conflict alert fires.
+- **Device root:** the hub hands the file to the owning connector, which writes inside its root (`baseOf`/`inRoot`: no `..`, no link out of the root) through a temp file and a rename. Before replacing, the connector moves the old file into its versions folder in its **data folder**, never in the root (a shared folder would carry it to everyone). Hash on disk differs from `baseHash`: a conflict copy beside the file. Device offline: refused with a clear message.
+- Device root versions come only from uploads through the app. The connector keeps the newest N (the same **Keep earlier versions** setting as the server) and reports them with the index; the project page lists them like a hub root's, and downloading one pulls it through the cache (device online).
+- Rights: edit on the project, plus `editOtherDevices` for another user's device root. Check whether upload into device roots exists already (ADR-0014 lists only create folder and trash on the connector).
+- To decide in the plan: the versions folder's layout on the connector, and the hub event's shape for a write.
+- `docs/projects.md`, `docs/hub.md`: device root versions cover app uploads only; saves from a slicer, an SMB share or a cloud drive need the storage's own history (Step 15).
+
+**Done when:** connector tests cover a write, a `..` path, a link out of the root, a conflict and version pruning; server tests cover a hub root conflict, a hub root version from an upload, another user's device root without `editOtherDevices` and an offline device; e2e for an upload and a conflict; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Plan Step 14 of the 5.6.0 plan in PLAN.md.
+```
+
+### [ ] Step 15 - Shared folders as device roots, ADR and docs
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Connector: a full rescan of each device root at start and on a timer, as a safety net, because change events get lost on SMB, NFS and cloud folders. Only changed files (size and mtime, then hash) are read again.
+- `docs/hub.md`, a section **Indexing a shared folder**: point one connector at the SMB share or the synced cloud folder; keep cloud files on the device (placeholders make the scan download everything); index each shared folder from **one** connector only, or the hub shows the same projects twice; changes made outside the app are credited to the indexing device's user.
+- Recommend the storage's own history for device roots: NAS snapshots, Windows Previous versions, the cloud's version history. The app keeps versions for server folders, and for device roots only for uploads.
+- ADR-0014 amendment (or a new ADR): the server is the only machine that replicates, device roots are index-only, no locks, where versions are kept.
+- `docs/projects.md` and `docs/users.md` match.
+
+**Done when:** a connector test: a file changed without a watcher event shows up after a rescan; docs and ADR reviewed; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 15 of the 5.6.0 plan in PLAN.md.
 ```
 
 ## Phase 41 - Release
 
-### [ ] Step 15 - Real test, docs, push & v5.6.0-alpha.2
+### [ ] Step 16 - Real test, docs, push & v5.6.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - CHANGELOG, version `5.6.0-alpha.2`, `pnpm version:check`. Commit on `dev`, push, tag `v5.6.0-alpha.2` on `dev`. Check the run and the release.
 - On the real VPS, updated to the alpha, with a workstation connector on it:
   - Pick the domain as Public address and test it. Try a wrong name too. Send test by email and ntfy: the link opens the app on a phone.
-  - On the workstation: Open and Open folder on a device root project (the slicer opens the original, and a save reaches the hub). A second computer with a connector: Open gets a copy. A phone: no Open or Open folder.
+  - No Open or Open folder anywhere. Two workstations receiving the same server folder save the same file: a conflict copy and the alert; the row shows who saved last.
+  - Upload a changed file to a server folder (a new version) and to a device root (the old one kept as a version on that machine). Upload over a file someone changed meanwhile: a conflict copy.
+  - A device root on an SMB share or a cloud folder: a change made from another PC shows up after the rescan.
   - On a phone, as a viewer: download a file, a folder and the full project folder of a device root project on someone else's workstation, then the same with that workstation offline (a clear message, no download).
 - A NAS or Docker install: no link until an address is picked, then the typed LAN IP works.
 - A single PC: accounts off and on again; the hub switch blocked while off.
@@ -3044,10 +3066,10 @@ Do Step 14 of the 5.6.0 plan in PLAN.md.
 **Done when:** every scenario worked; the tag is pushed and the workflow is green.
 **Prompt:**
 ```
-Do Step 15 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release. Then guide me through each scenario and fix what we find.
+Do Step 16 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release. Then guide me through each scenario and fix what we find.
 ```
 
-### [ ] Step 16 - Docs, push & v5.6.0 release
+### [ ] Step 17 - Docs, push & v5.6.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Check the docs against what shipped, `pnpm screenshots`, CHANGELOG (everything since 5.5.0), version `5.6.0`, `pnpm version:check`.
@@ -3056,7 +3078,7 @@ Do Step 15 of the 5.6.0 plan in PLAN.md. Push dev, push the tag and confirm the 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; updating 5.5.0 to 5.6.0 keeps all data.
 **Prompt:**
 ```
-Do Step 16 of the 5.6.0 plan in PLAN.md. Only document what changed since 5.5.0.
+Do Step 17 of the 5.6.0 plan in PLAN.md. Only document what changed since 5.5.0.
 Then fast-forward main to dev, push, push the v5.6.0 tag and confirm the release.
 ```
 
@@ -3065,9 +3087,10 @@ Then fast-forward main to dev, push, push the v5.6.0 tag and confirm the release
 - Tag management (rename, delete).
 - Per-user tag visibility: the setting applies to the whole install.
 - A login-free mode with the hub on: the hub needs accounts.
-- `://` slicer links (dropped on 2026-11-05): they open a downloaded copy, and a browser can't tell if a slicer is installed.
-- A computer with a slicer but no connector: no button, because the page can't detect the slicer.
-- A connector paired to another user: no button for you on that computer.
+- Open in slicer and Open folder (removed on 2026-11-13): files reach a workstation through Receive, a company share or a download.
+- Replicating device roots or sharing files between workstations: the company's share or cloud does it.
+- Versions of device root files changed outside the app (a shadow copy would double the disk): the storage's own history covers it.
+- Locks, and merging two edits of a 3MF.
 - Checking the address from outside the network: it would need a third-party service.
 - Downloading several picked files as one zip.
 - A separate download permission: anyone who can see a project can download it.
