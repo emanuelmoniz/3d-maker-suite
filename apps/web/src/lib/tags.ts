@@ -10,11 +10,17 @@ import { usePreferences } from "./preferences.ts";
 /** The install-wide tags switch. Off only hides tags: no requests, no columns, no pickers. */
 export const useTagsEnabled = () => usePreferences().data?.values.tagsEnabled ?? true;
 
+/** Tag requests wait for the preferences, so a slow load never fires one while tags are off. */
+const useTagsLoaded = () => {
+  const prefs = usePreferences().data;
+  return !!prefs && prefs.values.tagsEnabled !== false;
+};
+
 export const useTags = () =>
   useQuery({
     queryKey: ["tags", "list"],
     queryFn: () => api<Tag[]>("GET", "/api/tags"),
-    enabled: useTagsEnabled(),
+    enabled: useTagsLoaded(),
   });
 
 export const useCollections = () =>
@@ -27,7 +33,7 @@ export const useTaggings = (type: TaggableType) =>
   useQuery({
     queryKey: ["tags", "taggings", type],
     queryFn: () => api<Tagging[]>("GET", `/api/tags/taggings?entityType=${type}`),
-    enabled: useTagsEnabled(),
+    enabled: useTagsLoaded(),
   });
 
 /** `tagsOf(entityId)` -> its tags, for list columns. */

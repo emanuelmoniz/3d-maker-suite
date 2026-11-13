@@ -4,6 +4,13 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [5.6.0-alpha.4] - 2026-11-13
+
+Pre-release, fourth of 5.6.0. No migration.
+
+### Fixed
+- With **Tags** turned off, a page could still ask for the tag list while the settings were loading. Tag requests now wait for the settings
+
 ## [5.6.0-alpha.3] - 2026-11-13
 
 Pre-release, third of 5.6.0. Same app as alpha.2: only the end-to-end tests changed, to follow the new prints table columns and the device page header. No migration.
