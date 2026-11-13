@@ -42,6 +42,10 @@ A folder numbered `0` (`000_template`, `000_new-project`) is never a project, ev
 - A model file directly in the root is not a project. A folder with no model is not a project.
 - Folders starting with `.` and `node_modules` are skipped everywhere.
 
+## Shared folders on a machine
+
+A project folder on a paired machine (a device root) is only indexed: the server never copies it to other devices, and it keeps no versions of it except for uploads made through the app. To share it between workstations, use the company's own storage (an SMB share or a cloud drive) and index it from one connector only; the storage's own history (snapshots, Previous versions) covers saves from a slicer. The connector rescans the folder at start and every 10 minutes, since change events get lost on network and cloud folders. Details: [hub.md](hub.md#indexing-a-shared-folder).
+
 ## Files depth and the file limit
 
 - **Files depth** (per root, default all) is how many subfolder levels below a project folder are listed and watched. 0 lists only the files right in the project folder, 1 adds its subfolders, and so on; empty means all levels.

@@ -213,6 +213,16 @@ The shared folders are picked on the hub, in **Projects settings → Sources**: 
 - Upgrading to 5.5.0, the connector sends the list it kept on its first connect, and from then on the hub's list wins. A connector that hasn't sent it yet (an older one) shows "Its connector hasn't sent its shared folders yet" on its card, and its own list still applies.
 - The sync folder for hub roots isn't affected.
 
+### Indexing a shared folder
+
+A device root can point at a folder the company already shares between workstations, an SMB share or a synced cloud folder. The app indexes it; it doesn't replicate it. Sharing it between people is the storage's job.
+
+- **Index each shared folder from one connector only.** Two connectors on the same folder make the hub show every project twice. Point one connector, ideally on an always-on machine, at the SMB share or the cloud folder.
+- **Keep cloud files on the device.** A cloud drive's online-only placeholders make the scan download everything it reads. Set the folder to "always keep on this device" first.
+- **Changes made outside the app** (a slicer saving to the share, a colleague's cloud client) are credited to the indexing device's user, since only that connector sees them.
+- **Missed events are caught by a rescan.** A connector watches its folders, but change events get lost on SMB, NFS and cloud folders. So it also scans every device root in full at start and then every 10 minutes. Only folders whose files' size or modified time changed are read again (and only files that changed are hashed), so an idle share costs a directory walk, not a copy. A change shows within the rescan interval at the latest.
+- **Use the storage's own history.** The app keeps versions for server folders, and for a device root only for uploads made through the app. For saves from a slicer or a share, use NAS snapshots, Windows Previous versions or the cloud's version history.
+
 ## Owners and permissions
 
 Every project has an owner: the user who created it, the device's user for a project in a device root, or the oldest admin for projects that existed before 5.0.0. A folder found by a scan has no owner. Admins change the owner (or set it to nobody) when they edit the project, except in device roots.

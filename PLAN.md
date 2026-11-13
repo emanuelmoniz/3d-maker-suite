@@ -3049,7 +3049,7 @@ Do Step 13 of the 5.6.0 plan in PLAN.md.
 Plan Step 14 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 15 - Shared folders as device roots, ADR and docs
+### [x] Step 15 - Shared folders as device roots, ADR and docs
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Connector: a full rescan of each device root at start and on a timer, as a safety net, because change events get lost on SMB, NFS and cloud folders. Only changed files (size and mtime, then hash) are read again.

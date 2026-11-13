@@ -233,6 +233,26 @@ describe("writes from the web", () => {
   });
 });
 
+describe("rescan", () => {
+  it("looks at a root again on a timer, without any watcher event, and sends what the hub wants", async () => {
+    const timed = createRootSync({ request, log: () => {}, store, rescanMs: 50 });
+    sent = [];
+    await timed.start(); // the start's own index
+    const indexes = () => sent.filter((s) => s.path.endsWith("/index")).length;
+    expect(indexes()).toBe(1);
+    // The hub now sees a change it lost the event for: it asks for the folder at the next rescan.
+    want = ["001_Box"];
+    await new Promise((r) => setTimeout(r, 300));
+    timed.stop();
+    expect(indexes()).toBeGreaterThan(1);
+    expect(sent.some((s) => s.path === `/roots/${rootId}/folders`)).toBe(true);
+    await timed.idle(); // a sync already running finishes
+    const after = indexes();
+    await new Promise((r) => setTimeout(r, 150));
+    expect(indexes()).toBe(after); // stopped: no more rescans
+  });
+});
+
 describe("shared folders", () => {
   it("sends the list it kept itself on connect, then keeps the hub's (ADR-0021)", async () => {
     store.set({ sharedFolders: undefined, folders: [base] });

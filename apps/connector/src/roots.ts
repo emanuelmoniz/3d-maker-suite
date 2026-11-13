@@ -66,6 +66,11 @@ export const STABLE_MS = 2000;
 /** A 3MF that doesn't open yet (still written, locked) is tried again this often, this many times. */
 const RETRY_MS = 5000;
 const RETRIES = 3;
+/**
+ * Change events get lost on SMB, NFS and cloud folders, so every root is also scanned in full on
+ * this timer. Only folders whose digest (size and mtime) changed are read again.
+ */
+const RESCAN_MS = 10 * 60 * 1000;
 
 type Live = {
   root: DeviceRoot;
@@ -97,14 +102,18 @@ export function createRootSync({
   log,
   store,
   dataDir,
+  rescanMs = RESCAN_MS,
 }: {
   request: Request;
   log: (line: string) => void;
   store: Store;
   /** Where earlier versions of uploaded files are kept; none without one. */
   dataDir?: string;
+  /** How often every root is looked at again, whatever the watcher said. */
+  rescanMs?: number;
 }) {
   let live: Live[] = [];
+  let rescan: NodeJS.Timeout | undefined;
   const versions = dataDir ? createVersions(join(dataDir, "versions")) : null;
   /** This device's roots from the hub, each with its real path (`path` while it's missing). */
   async function fetchRoots() {
@@ -323,6 +332,7 @@ export function createRootSync({
 
   function halt() {
     run++;
+    clearInterval(rescan);
     for (const l of live) {
       l.watcher?.close();
       clearTimeout(l.timer);
@@ -372,6 +382,11 @@ export function createRootSync({
         await sync(l);
         if (mine === run && (await isDir(base))) watchRoot(l);
       }
+      if (mine !== run) return;
+      rescan = setInterval(() => {
+        for (const l of live) void serial(() => sync(l));
+      }, rescanMs);
+      rescan.unref();
     });
   }
 
