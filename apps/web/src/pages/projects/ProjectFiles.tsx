@@ -1,4 +1,10 @@
-import type { HubFileSaved, ProjectDetail, ProjectFileEntry } from "@3d-maker-suite/core";
+import type {
+  HubFileSaved,
+  ProjectDetail,
+  ProjectFileEntry,
+  ProjectFilesList,
+} from "@3d-maker-suite/core";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronRight,
@@ -379,37 +385,39 @@ function Children({ path, depth, ctx }: { path: string; depth: number; ctx: Ctx 
   );
 }
 
-/** The project folder as a tree: create, rename, move, delete, upload (picker or drop) and replace. */
-export function ProjectFiles({ project }: { project: ProjectDetail }) {
+/** Why a file action failed, for the user. */
+function useErrorText() {
+  const { t } = useTranslation();
+  return (e: unknown) => {
+    const code = e instanceof ApiError ? e.code : undefined;
+    if (code === "path_exists") return t("projects:files.exists");
+    if (code === "file_too_large") return t("projects:files.tooLarge");
+    if (code === "device_offline") return t("common:pathPicker.deviceOffline");
+    if (code === "device_timeout") return t("common:pathPicker.deviceTimeout");
+    if (code === "device_outdated") return t("common:pathPicker.deviceOutdated");
+    return t("projects:files.error");
+  };
+}
+
+/**
+ * Uploads into a project's folder (picker, drop, replace), one file at a time: progress, errors,
+ * the question before replacing a name, and the uploads kept as conflict copies. `sha256Of`: the
+ * hash the page listed for a path (the server checks the file is still that).
+ */
+function useUploads(project: ProjectDetail, sha256Of: (path: string) => string | undefined) {
   const { t } = useTranslation();
   const id = project.id;
+  const errorText = useErrorText();
   const actions = useProjectFileActions(id);
-  const picker = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
-  const [ask, setAsk] = useState<Ask | null>(null);
-  const folders = useProjectFolders(id, ask?.kind === "move" || ask?.kind === "bulkMove");
-  const top = useProjectFolder(id, "").data?.entries ?? [];
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [value, setValue] = useState("");
   const [uploads, setUploads] = useState<Transfer[]>([]);
-  const [over, setOver] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<{
+  const [kept, setKept] = useState<{ name: string; copy: string }[]>([]);
+  const [question, setQuestion] = useState<{
     path: string;
     answer: (replace: boolean) => void;
   } | null>(null);
-  const saved = useProjectSaved(id).data ?? [];
-  const hubOn = usePreferences().data?.values.hubEnabled;
-  const [history, setHistory] = useState<string | null>(null);
-
-  if (!project.folderPath) return null;
-
-  const errorText = (e: unknown) =>
-    e instanceof ApiError && e.code === "path_exists"
-      ? t("projects:files.exists")
-      : e instanceof ApiError && e.code === "file_too_large"
-        ? t("projects:files.tooLarge")
-        : t("projects:files.error");
+  const canWrite = useCan("projects") && project.canEdit;
 
   const send = async (path: string, file: File, replace: boolean): Promise<void> => {
     const key = ++seq.current;
@@ -417,30 +425,118 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
     const progress = (fraction: number) =>
       setUploads((u) => u.map((x) => (x.key === key ? { ...x, fraction } : x)));
     try {
-      await uploadProjectFile(id, path, file, replace, progress);
+      const r = await uploadProjectFile(id, path, file, replace, sha256Of(path), progress);
+      if (r.conflict) setKept((k) => [...k, { name: path, copy: r.path }]);
     } catch (e) {
       // An existing name never gets replaced silently: ask first.
       if (e instanceof ApiError && e.code === "path_exists" && !replace) {
         setUploads((u) => u.filter((x) => x.key !== key));
-        const yes = await new Promise<boolean>((answer) => setConflict({ path, answer }));
+        const yes = await new Promise<boolean>((answer) => setQuestion({ path, answer }));
         if (yes) return send(path, file, true);
       } else setFailed(`${path}: ${errorText(e)}`);
     } finally {
       setUploads((u) => u.filter((x) => x.key !== key));
     }
   };
-  const canWrite = useCan("projects") && project.canEdit;
-  const onFiles = async (dir: string, files: FileList | File[]) => {
-    if (!canWrite) return;
+  const start = () => {
     setFailed(null);
-    for (const f of Array.from(files)) await send(join(dir, f.name), f, false);
-    actions.done();
+    setKept([]);
   };
-  const onReplace = async (path: string, file: File) => {
-    setFailed(null);
-    await send(path, file, true);
-    actions.done();
+
+  return {
+    errorText,
+    setFailed,
+    async onFiles(dir: string, files: FileList | File[]) {
+      if (!canWrite) return;
+      start();
+      for (const f of Array.from(files)) await send(join(dir, f.name), f, false);
+      actions.done();
+    },
+    async onReplace(path: string, file: File) {
+      start();
+      await send(path, file, true);
+      actions.done();
+    },
+    view: (
+      <>
+        {uploads.length > 0 && (
+          <ul className="mb-2 grid gap-2" aria-live="polite">
+            {uploads.map((u) => (
+              <li
+                key={u.key}
+                className="flex flex-col gap-1 rounded-md border border-border bg-surface-2 p-2"
+              >
+                <span className="break-all">{t("projects:files.uploading", { name: u.name })}</span>
+                <progress
+                  className="h-2 w-full accent-accent"
+                  aria-label={u.name}
+                  value={u.fraction}
+                  max={1}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        {failed && (
+          <p role="alert" className="mb-2 text-bad">
+            {failed}
+          </p>
+        )}
+        {kept.length > 0 && (
+          <ul role="status" className="mb-2 grid gap-1 text-warn">
+            {kept.map((k) => (
+              <li key={k.copy} className="wrap-anywhere">
+                {t("projects:files.conflictKept", k)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <ConfirmDialog
+          open={!!question}
+          title={t("projects:files.replaceTitle")}
+          description={t("projects:files.replaceHint", { name: question?.path ?? "" })}
+          confirmLabel={t("projects:files.replaceAction")}
+          destructive
+          onConfirm={() => {
+            question?.answer(true);
+            setQuestion(null);
+          }}
+          onCancel={() => {
+            question?.answer(false);
+            setQuestion(null);
+          }}
+        />
+      </>
+    ),
   };
+}
+
+/** The project folder as a tree: create, rename, move, delete, upload (picker or drop) and replace. */
+export function ProjectFiles({ project }: { project: ProjectDetail }) {
+  const { t } = useTranslation();
+  const id = project.id;
+  const qc = useQueryClient();
+  const actions = useProjectFileActions(id);
+  const picker = useRef<HTMLInputElement>(null);
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const folders = useProjectFolders(id, ask?.kind === "move" || ask?.kind === "bulkMove");
+  const top = useProjectFolder(id, "").data?.entries ?? [];
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [value, setValue] = useState("");
+  const [over, setOver] = useState(false);
+  const saved = useProjectSaved(id).data ?? [];
+  const hubOn = usePreferences().data?.values.hubEnabled;
+  const [history, setHistory] = useState<string | null>(null);
+  // The hash its folder's list gave (while the hub is on).
+  const { errorText, setFailed, onFiles, onReplace, view } = useUploads(
+    project,
+    (path) =>
+      qc
+        .getQueryData<ProjectFilesList>(["projects", id, "files", dirOf(path)])
+        ?.entries.find((e) => e.path === path)?.sha256,
+  );
+
+  if (!project.folderPath) return null;
 
   const toggle = (path: string) =>
     setSelected((s) => {
@@ -578,29 +674,7 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
       <Write can="projects" when={project.canEdit}>
         <p className="mb-2 text-muted">{t("projects:files.dropHint")}</p>
       </Write>
-      {uploads.length > 0 && (
-        <ul className="mb-2 grid gap-2" aria-live="polite">
-          {uploads.map((u) => (
-            <li
-              key={u.key}
-              className="flex flex-col gap-1 rounded-md border border-border bg-surface-2 p-2"
-            >
-              <span className="break-all">{t("projects:files.uploading", { name: u.name })}</span>
-              <progress
-                className="h-2 w-full accent-accent"
-                aria-label={u.name}
-                value={u.fraction}
-                max={1}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      {failed && (
-        <p role="alert" className="mb-2 text-bad">
-          {failed}
-        </p>
-      )}
+      {view}
       <Write can="projects" when={project.canEdit}>
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <label className="mr-auto flex min-h-9 items-center gap-2">
@@ -700,36 +774,61 @@ export function ProjectFiles({ project }: { project: ProjectDetail }) {
           </FormField>
         )}
       </ConfirmDialog>
-      <ConfirmDialog
-        open={!!conflict}
-        title={t("projects:files.replaceTitle")}
-        description={t("projects:files.replaceHint", { name: conflict?.path ?? "" })}
-        confirmLabel={t("projects:files.replaceAction")}
-        destructive
-        onConfirm={() => {
-          conflict?.answer(true);
-          setConflict(null);
-        }}
-        onCancel={() => {
-          conflict?.answer(false);
-          setConflict(null);
-        }}
-      />
     </Collapsible>
   );
 }
 
+/** An icon button that opens a file picker. */
+function PickButton({
+  label,
+  multiple,
+  onFiles,
+  children,
+}: {
+  label: string;
+  multiple?: boolean;
+  onFiles: (files: FileList) => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <IconButton label={label} onClick={() => ref.current?.click()}>
+        {children}
+      </IconButton>
+      <FilePick inputRef={ref} multiple={multiple} onFiles={onFiles} />
+    </>
+  );
+}
+
 /**
- * The files of a project in a device root (ADR-0014): only viewed and downloaded here; the hub
- * pulls each from its device. Edits happen on the device.
+ * The files of a project in a device root (ADR-0014), as its device's last scan listed them: the
+ * hub pulls each from the device to download it, and its connector writes uploads there (online
+ * only). Other edits happen on the device.
  */
 export function DeviceFileList({ project }: { project: ProjectDetail }) {
   const { t } = useTranslation();
   const files = project.meta.files.filter((f) => f.kind !== "shortcut");
   const saved = new Map((useProjectSaved(project.id).data ?? []).map((s) => [s.file, s]));
+  const hubOn = usePreferences().data?.values.hubEnabled;
+  const [history, setHistory] = useState<string | null>(null);
+  const [over, setOver] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
+  // The hash its device's scan gave.
+  const { onFiles, onReplace, view } = useUploads(
+    project,
+    (path) => files.find((f) => f.path === path)?.sha256,
+  );
   const online = project.folderState === "ok";
   if (!online && project.folderState !== "offline") return null;
-  if (online && !files.length) return null;
+  if (online && !files.length && !project.canEdit) return null;
+  /** Upload buttons: only while its device is online. */
+  const write = (node: ReactNode) =>
+    online && (
+      <Write can="projects" when={project.canEdit}>
+        {node}
+      </Write>
+    );
   // Every folder that holds a listed file (also through a subfolder), in tree order.
   const folders = [
     ...new Set(
@@ -750,19 +849,49 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
       />
     );
   return (
-    <Collapsible title={t("projects:detail.files")} className="mt-6 rounded-lg">
+    <Collapsible
+      title={t("projects:detail.files")}
+      className={`mt-6 rounded-lg ${over ? "outline-2 outline-accent" : ""}`}
+      onDragOver={(e) => {
+        if (!online) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={(e) => e.currentTarget.contains(e.relatedTarget as Node) || setOver(false)}
+      onDrop={(e) => {
+        if (!online) return;
+        e.preventDefault();
+        setOver(false);
+        onFiles("", e.dataTransfer.files);
+      }}
+    >
       {online ? (
-        <div className="mb-2 flex justify-end">
-          <DownloadLink
-            href={projectDownloadUrl(project.id, "")}
-            label={t("projects:files.downloadAll")}
-          >
-            {t("projects:files.downloadAll")}
-          </DownloadLink>
-        </div>
+        <>
+          <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+            {files.length > 0 && (
+              <DownloadLink
+                href={projectDownloadUrl(project.id, "")}
+                label={t("projects:files.downloadAll")}
+              >
+                {t("projects:files.downloadAll")}
+              </DownloadLink>
+            )}
+            {write(
+              <>
+                <Button onClick={() => picker.current?.click()}>
+                  <Upload className="size-4" aria-hidden />
+                  {t("projects:files.upload")}
+                </Button>
+                <FilePick inputRef={picker} multiple onFiles={(f) => onFiles("", f)} />
+              </>,
+            )}
+          </div>
+          {write(<p className="mb-2 text-muted">{t("projects:files.dropHint")}</p>)}
+        </>
       ) : (
         <p className="mb-2 text-muted">{t("projects:files.deviceOffline")}</p>
       )}
+      {view}
       <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {["", ...folders].map((dir) => {
           const name = dir.slice(dir.lastIndexOf("/") + 1);
@@ -777,6 +906,15 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
                     <span className="break-all font-medium">{name}</span>
                   </span>
                   {download(dir, name)}
+                  {write(
+                    <PickButton
+                      label={t("projects:files.uploadTo", { name })}
+                      multiple
+                      onFiles={(f) => onFiles(dir, f)}
+                    >
+                      <Upload className="size-4" aria-hidden />
+                    </PickButton>,
+                  )}
                 </div>
               )}
               <ul>
@@ -795,6 +933,22 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
                       </span>
                       <SavedBy saved={saved.get(f.path)} />
                       {download(f.path, file)}
+                      {hubOn && online && !!f.versions?.length && (
+                        <IconButton
+                          label={t("projects:files.history", { name: file })}
+                          onClick={() => setHistory(f.path)}
+                        >
+                          <History className="size-4" aria-hidden />
+                        </IconButton>
+                      )}
+                      {write(
+                        <PickButton
+                          label={t("projects:files.replace", { name: file })}
+                          onFiles={(picked) => onReplace(f.path, picked[0] as File)}
+                        >
+                          <RefreshCw className="size-4" aria-hidden />
+                        </PickButton>,
+                      )}
                     </li>
                   );
                 })}
@@ -803,6 +957,7 @@ export function DeviceFileList({ project }: { project: ProjectDetail }) {
           );
         })}
       </ul>
+      <VersionsDialog projectId={project.id} file={history} onClose={() => setHistory(null)} />
     </Collapsible>
   );
 }

@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, rmdir, stat } from "node:fs/promises";
 import { basename, extname, isAbsolute, join, posix, relative } from "node:path";
+import type { Readable } from "node:stream";
 import { read3mfEntry, read3mfPaint } from "@3d-maker-suite/3mf";
 import {
   apiErrorSchema,
@@ -51,6 +52,7 @@ import { dropNewFolder, folderName, newProjectFolder } from "../projects/newFold
 import { projectPath, segments } from "../projects/paths.ts";
 import {
   absPath,
+  deviceFilesOf,
   listRoots,
   onDevice,
   onDeviceRoot,
@@ -1007,26 +1009,27 @@ export const projectsRoutes =
       },
     );
 
-    /** The project's hub root, when its folder is in one (only hub-root files keep versions). */
-    const hubRootOf = (p: Project) =>
-      p.folder
-        ? listRoots(db).find((r) => r.id === p.rootId && r.location === ROOT_HUB)
-        : undefined;
+    /** The project's root, when it has a folder. */
+    const rootOf = (p: Project) =>
+      p.folder ? listRoots(db).find((r) => r.id === p.rootId) : undefined;
+    /** A device root's device and its user: who saved there. */
+    const deviceOwner = (deviceId: string) =>
+      db
+        .select({ user: schema.users.displayName, device: schema.devices.name })
+        .from(schema.devices)
+        .innerJoin(schema.users, eq(schema.users.id, schema.devices.userId))
+        .where(eq(schema.devices.id, deviceId))
+        .get();
     app.get(
       "/:id/saved",
       { schema: { params, response: { 200: z.array(hubFileSavedSchema), ...notFound } } },
       async (req) => {
         const p = get(req.params.id);
-        const root = p.folder && listRoots(db).find((r) => r.id === p.rootId);
+        const root = rootOf(p);
         if (!root || !p.folder) return [];
         if (root.location === ROOT_HUB) return hubFiles.savedIn(root.id, p.folder);
         // A device root: its user saved there, at the time its last scan saw.
-        const who = db
-          .select({ user: schema.users.displayName, device: schema.devices.name })
-          .from(schema.devices)
-          .innerJoin(schema.users, eq(schema.users.id, schema.devices.userId))
-          .where(eq(schema.devices.id, root.location))
-          .get();
+        const who = deviceOwner(root.location);
         if (!who) return [];
         return p.meta.files.flatMap((f) =>
           f.kind === "shortcut" || f.mtime === undefined
@@ -1046,8 +1049,16 @@ export const projectsRoutes =
       },
       async (req) => {
         const p = get(req.params.id);
-        const root = hubRootOf(p);
-        return root ? hubFiles.versionsOf(root.id, `${p.folder}/${req.query.file}`) : [];
+        const root = rootOf(p);
+        if (!root) return [];
+        if (root.location === ROOT_HUB)
+          return hubFiles.versionsOf(root.id, `${p.folder}/${req.query.file}`);
+        // A device root: what its connector kept from uploads, as its last scan listed them.
+        const kept = p.meta.files.find((f) => f.path === req.query.file)?.versions ?? [];
+        const who = deviceOwner(root.location);
+        return kept
+          .map((v) => ({ ...v, user: who?.user ?? null, device: who?.device ?? null }))
+          .sort((a, b) => b.version - a.version);
       },
     );
     app.get(
@@ -1060,9 +1071,17 @@ export const projectsRoutes =
       },
       async (req, reply) => {
         const p = get(req.params.id);
-        const root = hubRootOf(p);
+        const root = rootOf(p);
         const { file, version } = req.query;
-        const stream = root && hubFiles.versionStream(root.id, `${p.folder}/${file}`, version);
+        const rel = `${p.folder}/${file}`;
+        let stream: Readable | null = null;
+        if (root?.location === ROOT_HUB) stream = hubFiles.versionStream(root.id, rel, version);
+        else if (root) {
+          // Kept on its device: pulled through the cache (the device must be online).
+          segments(file);
+          const abs = await deviceFilesOf(db).pull(root, rel, version);
+          stream = abs ? createReadStream(abs) : null;
+        }
         if (!stream) throw new HttpError(404, "not_found", "Version not found");
         const ext = extname(file);
         const name = `${basename(file, ext)} (v${version})${ext}`;

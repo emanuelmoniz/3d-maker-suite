@@ -160,7 +160,9 @@ test("download as a viewer: a hub root and a device root (375px)", async ({ page
     .poll(async () => {
       await page.reload();
       await page.getByRole("heading", { name: "Files", exact: true }).click();
-      return page.getByText("The files can be downloaded once the device is back.").count();
+      return page
+        .getByText("Files can be downloaded and uploaded once the device is back.")
+        .count();
     })
     .toBe(1);
   await expect(page.getByRole("link", { name: /^Download/ })).toHaveCount(0);

@@ -293,6 +293,8 @@ export async function discoverFolders(base: string, depth: number): Promise<stri
 export async function folderDigest(dir: string, maxFiles: number, filesDepth: number | null) {
   const files = await collect(dir, maxFiles, filesDepth);
   const h = createHash("sha256");
+  // The scan's format: a new one (5.6.0: files' sha256) makes every folder be sent once again.
+  h.update("2\n");
   h.update(JSON.stringify(files.map((f) => [f.path, f.size, f.mtimeMs])));
   return h.digest("hex");
 }

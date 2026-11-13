@@ -13,6 +13,18 @@ export const projectFileSchema = z.object({
   size: z.number().int().nonnegative(),
   /** Last change (ms since epoch). Older scans lack it. */
   mtime: z.number().optional(),
+  /** Device roots: its hash (an upload over it sends it as `base`). Older connectors lack it. */
+  sha256: z.string().optional(),
+  /** Device roots: earlier versions the connector kept from uploads through the app. */
+  versions: z
+    .array(
+      z.object({
+        version: z.number().int().positive(),
+        size: z.number().int().nonnegative(),
+        savedAt: isoDate,
+      }),
+    )
+    .optional(),
 });
 
 // Same shape as `ThreeMfInfo` from @3d-maker-suite/3mf; core does not depend on that package.

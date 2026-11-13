@@ -348,7 +348,9 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
     case "hub_conflict":
       return {
         title: "Sync conflict",
-        body: `${c.file} changed on the hub and on ${c.device}; their version is ${c.copy}`,
+        body: c.device
+          ? `${c.file} changed on the hub and on ${c.device}; their version is ${c.copy}`
+          : `${c.file} changed before ${c.user}'s upload; the upload is ${c.copy}`,
       };
     case "hub_mass_delete":
       return {

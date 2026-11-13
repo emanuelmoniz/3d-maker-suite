@@ -20,7 +20,7 @@ import {
   hubSyncRootsSchema,
   hubUploadResultSchema,
 } from "@3d-maker-suite/core";
-import { inRoot, relParts, syncSkipped } from "@3d-maker-suite/host";
+import { inRoot, relParts, sha256Of, syncSkipped } from "@3d-maker-suite/host";
 import { QUIET_MS, type Request, STABLE_MS } from "./roots.ts";
 
 /** One synced file: the hub version this copy is, and the local stat it had then. */
@@ -60,11 +60,6 @@ const isDir = async (p: string) => (await stat(p).catch(() => null))?.isDirector
 const same = (e: Entry | undefined, s: Stats | null) =>
   !!e && !!s && e.size === s.size && e.mtimeMs === s.mtimeMs;
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-async function sha256Of(abs: string) {
-  const hash = createHash("sha256");
-  await pipeline(createReadStream(abs), hash);
-  return hash.digest("hex");
-}
 /** A file can't be renamed over or deleted on Windows while it is read-only. */
 const writable = (abs: string) => chmod(abs, 0o644).catch(() => {});
 

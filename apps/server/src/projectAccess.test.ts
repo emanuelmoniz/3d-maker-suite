@@ -355,6 +355,12 @@ describe("project access over HTTP", () => {
     expect(await canEdit(asAdmin)).toBe(true);
     expect(await canEdit(asOther)).toBe(false);
     expect((await asOther("PATCH", `/api/projects/${p.id}`, { name: "x" })).statusCode).toBe(403);
+    // An upload into it too; its own user gets as far as the device, which is offline.
+    const upload = `/api/projects/${p.id}/files/content?path=box.stl`;
+    expect((await asOther("PUT", upload)).statusCode).toBe(403);
+    const offline = await asOwner("PUT", upload);
+    expect(offline.statusCode).toBe(409);
+    expect(offline.json().error.code).toBe("device_offline");
     await asAdmin("PATCH", `/api/users/${other.id}`, {
       projectRights: { "projects.editOtherDevices": true },
     });

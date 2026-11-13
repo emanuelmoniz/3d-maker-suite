@@ -166,7 +166,7 @@ export function createLink({
       // A stream body needs it (undici); the DOM's RequestInit type doesn't know it.
       duplex: "half",
     } as RequestInit);
-  const roots = createRootSync({ request, log, store });
+  const roots = createRootSync({ request, log, store, dataDir: syncAt?.dataDir });
   const sync =
     syncAt &&
     createHubSync({

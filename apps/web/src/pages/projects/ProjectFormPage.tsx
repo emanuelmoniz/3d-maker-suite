@@ -12,7 +12,7 @@ import { cardGrid } from "../../components/Section.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { useIsAdmin, useMe } from "../../lib/auth.ts";
 import { isConflict } from "../../lib/catalog.ts";
-import { uploadProjectFile } from "../../lib/projectFiles.ts";
+import { listedSha256, uploadProjectFile } from "../../lib/projectFiles.ts";
 import {
   galleryImages,
   useCreateProject,
@@ -151,6 +151,7 @@ function ProjectForm({ project }: { project?: ProjectDetail }) {
             file,
             new File([description.text], name),
             true,
+            await listedSha256(project, file),
             () => {},
           );
         } catch {

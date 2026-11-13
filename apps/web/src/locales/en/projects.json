@@ -343,7 +343,8 @@
     "history": "Versions of {{name}}",
     "download": "Download {{name}}",
     "downloadAll": "Download full project folder",
-    "deviceOffline": "Its device is offline. The files can be downloaded once the device is back.",
+    "deviceOffline": "Its device is offline. Files can be downloaded and uploaded once the device is back.",
+    "conflictKept": "{{name}} changed after this list loaded, so it wasn't replaced. Your upload was kept as {{copy}}.",
     "versions": {
       "title": "Versions of {{name}}",
       "version": "Version",

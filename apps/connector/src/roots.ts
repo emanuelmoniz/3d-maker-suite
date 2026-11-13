@@ -1,7 +1,14 @@
-import { createHash } from "node:crypto";
-import { createReadStream, type FSWatcher, type ReadStream, watch } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  createReadStream,
+  createWriteStream,
+  type FSWatcher,
+  type ReadStream,
+  watch,
+} from "node:fs";
+import { chmod, lstat, readFile, realpath, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
   DEVICE_COVER_MAX,
@@ -17,6 +24,7 @@ import {
   sharedFolderSchema,
 } from "@3d-maker-suite/core";
 import {
+  conflictName,
   discoverFolders,
   folderDigest,
   inRoot,
@@ -24,13 +32,16 @@ import {
   listFolder,
   readCover,
   readPlatePreviews,
+  relParts,
   rootMkdir,
   rootTrash,
   scanFolder,
+  sha256Of,
   within,
 } from "@3d-maker-suite/host";
 import { z } from "zod";
 import type { Store } from "./state.ts";
+import { createVersions } from "./versions.ts";
 
 /**
  * A request to the hub's device API (`/api/hub/device/...`) with this device's token: a JSON
@@ -85,12 +96,16 @@ export function createRootSync({
   request,
   log,
   store,
+  dataDir,
 }: {
   request: Request;
   log: (line: string) => void;
   store: Store;
+  /** Where earlier versions of uploaded files are kept; none without one. */
+  dataDir?: string;
 }) {
   let live: Live[] = [];
+  const versions = dataDir ? createVersions(join(dataDir, "versions")) : null;
   /** This device's roots from the hub, each with its real path (`path` while it's missing). */
   async function fetchRoots() {
     const roots = await call("/roots", undefined, z.array(deviceRootSchema));
@@ -130,6 +145,20 @@ export function createRootSync({
       : undefined;
   }
 
+  /**
+   * Files' hashes by real path, read again only when size or mtime changed. ponytail: in memory
+   * only, and a gone file's entry stays until a restart (after one the hub asks only for changed
+   * folders).
+   */
+  const hashes = new Map<string, { size: number; mtimeMs: number; sha256: string }>();
+  async function hashOf(abs: string, size: number, mtimeMs: number) {
+    const h = hashes.get(abs);
+    if (h && h.size === size && h.mtimeMs === mtimeMs) return h.sha256;
+    const sha256 = await sha256Of(abs).catch(() => null);
+    if (sha256) hashes.set(abs, { size, mtimeMs, sha256 });
+    return sha256;
+  }
+
   const dirOf = (l: Live, rel: string) => join(l.base, ...rel.split("/"));
   const digestOf = (l: Live, rel: string) =>
     folderDigest(dirOf(l, rel), l.root.maxFiles, l.root.filesDepth);
@@ -147,11 +176,19 @@ export function createRootSync({
       picked && scan.files.some((f) => f.path === picked && f.kind === "image") ? picked : null;
     // The request fills a budget (`deviceFolderMaxMb`), in order: scan and docs, cover, gallery
     // picks, plate previews. What doesn't fit is left out.
+    // Each file's hash (an upload over it sends it back as its base) and the versions kept of it.
+    const files: DeviceFolder["scan"]["files"] = [];
+    for (const f of scan.files) {
+      const abs = join(dir, ...f.path.split("/"));
+      const sha256 = f.kind === "shortcut" ? null : await hashOf(abs, f.size, f.mtime ?? 0);
+      const kept = (await versions?.list(l.root.id, `${rel}/${f.path}`)) ?? [];
+      files.push({ ...f, ...(sha256 && { sha256 }), ...(kept.length && { versions: kept }) });
+    }
     const body: DeviceFolder = {
       rel,
       digest,
       scan: {
-        files: scan.files,
+        files,
         models: scan.models,
         mainFile: scan.mainFile,
         sourceUrl: scan.sourceUrl,
@@ -357,24 +394,89 @@ export function createRootSync({
     return l.base;
   }
 
-  /** Sends a file the hub asked for: hashed first, then streamed with that hash and its mtime. */
-  async function upload(requestId: string, rootId: string, rel: string) {
+  /**
+   * Sends a file the hub asked for (or a `version` of it kept here): hashed first, then streamed
+   * with that hash and its mtime.
+   */
+  async function upload(requestId: string, rootId: string, rel: string, version?: number) {
     try {
-      const abs = await inRoot(baseOf(rootId), rel);
+      const base = baseOf(rootId);
+      relParts(rel);
+      const abs = version ? await versions?.path(rootId, rel, version) : await inRoot(base, rel);
       const s = abs ? await stat(abs) : null;
       if (!abs || !s?.isFile()) throw Object.assign(new Error(rel), { code: "ENOENT" });
-      const hash = createHash("sha256");
-      await pipeline(createReadStream(abs), hash);
-      const file = {
-        stream: createReadStream(abs),
-        sha256: hash.digest("hex"),
-        mtimeMs: s.mtimeMs,
-      };
+      const sha256 = await sha256Of(abs);
+      const file = { stream: createReadStream(abs), sha256, mtimeMs: s.mtimeMs };
       const res = await request(`/files/${requestId}`, { method: "PUT", file });
       if (!res.ok) log(`upload ${rel}: HTTP ${res.status}`);
     } catch (e) {
       log(`upload ${rel}: ${e instanceof Error ? e.message : e}`);
       await answer(requestId, () => Promise.reject(e));
+    }
+  }
+
+  /** Per path, one write at a time: the check against `base` and the rename belong together. */
+  const writing = new Map<string, Promise<unknown>>();
+  const fail = (message: string, code: string) => Object.assign(new Error(message), { code });
+
+  /**
+   * Writes a web upload into a root (`fs.write`): the bytes come from the hub into a hidden part
+   * file beside the target, checked against their hash. The file there is still `base` (or there
+   * is none): the old one is kept as a version (`keep`), the part renamed over it. Else the part
+   * becomes a conflict copy beside it, named after `by`. A link out of the root stays out.
+   */
+  async function write(e: Extract<HubEvent, { type: "fs.write" }>) {
+    const base = baseOf(e.rootId);
+    const parts = relParts(e.rel);
+    const name = parts.at(-1) ?? "";
+    const parent = parts.slice(0, -1).join("/");
+    const dir = parent ? await inRoot(base, parent) : base;
+    if (!dir || !(await isDir(dir))) throw fail(e.rel, "ENOENT");
+    const part = join(dir, `.${name}.${randomUUID()}.part`);
+    try {
+      const res = await request(`/files/${e.requestId}`, { long: true });
+      if (!res.ok || !res.body) throw fail(`HTTP ${res.status}`, "EIO");
+      const hash = createHash("sha256");
+      await pipeline(
+        Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
+        async function* (src: AsyncIterable<Buffer>) {
+          for await (const chunk of src) {
+            hash.update(chunk);
+            yield chunk;
+          }
+        },
+        createWriteStream(part),
+      );
+      if (hash.digest("hex") !== e.sha256) throw fail("wrong hash", "EIO");
+
+      const key = `${e.rootId}\0${e.rel}`;
+      const run = (writing.get(key) ?? Promise.resolve()).then(async () => {
+        const target = join(dir, name);
+        const st = await lstat(target).catch(() => null);
+        // A folder (or a link) there is never replaced.
+        if (st && !st.isFile()) throw fail(e.rel, "EEXIST");
+        const fresh = !st || (e.base !== null && (await sha256Of(target)) === e.base);
+        if (fresh) {
+          if (st && e.keep > 0 && versions) await versions.keep(e.rootId, e.rel, target, e.keep);
+          // A file can't be renamed over on Windows while it is read-only.
+          if (st) await chmod(target, 0o644).catch(() => {});
+          await rename(part, target);
+          return { status: "updated" as const, path: e.rel };
+        }
+        const at = new Date();
+        for (let n = 1; ; n++) {
+          const copy = conflictName(name, e.by, at, n);
+          if (await lstat(join(dir, copy)).catch(() => null)) continue;
+          await rename(part, join(dir, copy));
+          return { status: "conflict" as const, path: [...parts.slice(0, -1), copy].join("/") };
+        }
+      });
+      const tail = run.catch(() => {});
+      writing.set(key, tail);
+      void tail.then(() => writing.get(key) === tail && writing.delete(key));
+      return await run;
+    } finally {
+      await rm(part, { force: true });
     }
   }
 
@@ -388,7 +490,9 @@ export function createRootSync({
       // operation stays inside them.
       else if (event.type === "fs.list")
         void answer(event.requestId, () => listFolder(event.path, "folder"));
-      else if (event.type === "fs.upload") void upload(event.requestId, event.rootId, event.rel);
+      else if (event.type === "fs.upload")
+        void upload(event.requestId, event.rootId, event.rel, event.version);
+      else if (event.type === "fs.write") void answer(event.requestId, () => write(event));
       else if (event.type === "fs.mkdir")
         void answer(event.requestId, async () => {
           await rootMkdir(baseOf(event.rootId), event.rel);

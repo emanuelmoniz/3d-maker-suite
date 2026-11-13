@@ -55,7 +55,7 @@ With **Catalog** at Read, a user sees the brands, models, materials and slicer p
 
 - **See everyone's projects.** Off: only the projects they own.
 - **Edit everyone's projects.** Needs Projects write. Off: only their own; the others are download only.
-- **Edit files on other workstations.** Change files in folders shared from someone else's workstation ([hub.md](hub.md#owners-and-permissions)).
+- **Edit files on other workstations.** Change and upload files in folders shared from someone else's workstation ([hub.md](hub.md#owners-and-permissions)).
 
 Admin, Editor and Viewer see everyone's projects. Admin and Editor edit them. Only Admin edits files on other workstations. Anyone who sees a project can download its files, folders and the full project folder, also from someone else's workstation ([projects.md](projects.md#downloading-files)).
 

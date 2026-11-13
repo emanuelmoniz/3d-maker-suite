@@ -133,7 +133,11 @@ export function AlertMore({ a }: { a: Alert }) {
         version: c.version,
         hubVersion: c.hubVersion,
       }),
-    hub_conflict: () => t("alerts:more.hub_conflict", { device: c.device, copy: c.copy }),
+    // A device's sync names the device, a web upload its user.
+    hub_conflict: () =>
+      c.device
+        ? t("alerts:more.hub_conflict", { device: c.device, copy: c.copy })
+        : t("alerts:more.hub_conflict_upload", { user: c.user, copy: c.copy }),
     preset_conflict: () => t("alerts:more.preset_conflict", { device: c.device, copy: c.copy }),
     preset_skipped: () =>
       t(

@@ -1,4 +1,6 @@
 // A real connector link against a real hub (the server's buildApp on a free port).
+
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -96,7 +98,15 @@ describe("connector and hub", () => {
       app.server.closeAllConnections();
       return app.close().finally(() => rmSync(dataDir, { recursive: true, force: true }));
     });
-    return { url, send, code, admin, viewer, db };
+    /** A web upload of `body` into a project's folder. */
+    const upload = (id: string, query: Record<string, string>, body: string) =>
+      app.inject({
+        method: "PUT",
+        url: `/api/projects/${id}/files/content?${new URLSearchParams(query)}`,
+        payload: Buffer.from(body),
+        headers: { cookie, "content-type": "application/octet-stream" },
+      });
+    return { url, send, upload, code, admin, viewer, db };
   };
 
   const connector = (
@@ -616,6 +626,39 @@ describe("connector and hub", () => {
       expect(trashed.json().trashedTo).toContain(PROJECT_TRASH_DIR);
       expect(existsSync(cup.folderPath)).toBe(false);
       expect(readdirSync(join(root, PROJECT_TRASH_DIR))).toHaveLength(1);
+    }, 60_000);
+
+    it("writes a web upload on the device, checked against the hash its scan listed", async () => {
+      const { h, device, root, projects } = await setup();
+      await h.send("POST", "/api/roots", { path: root, location: device.id });
+      await until(async () => (await projects()).length === 1, 10_000);
+      const [p] = await projects();
+      const box = join(root, "001_Box", "box.3mf");
+      const sha = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
+      const listed = p.meta.files.find((f: { path: string }) => f.path === "box.3mf");
+      expect(listed.sha256).toBe(sha(readFileSync(box)));
+
+      // A new file; one that is listed needs replace.
+      const added = await h.upload(p.id, { path: "notes.txt" }, "hello");
+      expect(added.statusCode).toBe(201);
+      expect(readFileSync(join(root, "001_Box", "notes.txt"), "utf8")).toBe("hello");
+      expect((await h.upload(p.id, { path: "box.3mf" }, "x")).json().error.code).toBe(
+        "path_exists",
+      );
+
+      // Still at the listed hash: replaced. Again from that hash: changed since, a conflict copy.
+      const replace = { path: "box.3mf", replace: "true", base: listed.sha256 };
+      expect((await h.upload(p.id, replace, "mine")).json()).toEqual({ path: "box.3mf" });
+      expect(readFileSync(box, "utf8")).toBe("mine");
+      const conflict = (await h.upload(p.id, replace, "theirs")).json();
+      expect(conflict).toEqual({
+        path: expect.stringMatching(/^box \(conflict admin .+\)\.3mf$/),
+        conflict: true,
+      });
+      expect(readFileSync(join(root, "001_Box", conflict.path), "utf8")).toBe("theirs");
+      expect(readFileSync(box, "utf8")).toBe("mine");
+      const alerts = (await h.send("GET", "/api/alerts")).json();
+      expect(JSON.stringify(alerts)).toContain(conflict.path);
     }, 60_000);
   });
 });

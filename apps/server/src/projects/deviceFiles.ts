@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { rmSync } from "node:fs";
+import { createReadStream, rmSync } from "node:fs";
 import { mkdir, rename, rm, stat, utimes } from "node:fs/promises";
 import { extname, join } from "node:path";
 import type { Readable } from "node:stream";
-import type { DeviceFolder } from "@3d-maker-suite/core";
+import { type DeviceFolder, deviceWriteResultSchema } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -44,6 +44,8 @@ export function createDeviceFiles(db: Db, channel: HubChannel, dir: string) {
   const pulling = new Map<string, Promise<string>>();
   /** Requests waiting for a file: where it goes. */
   const incoming = new Map<string, string>();
+  /** Writes waiting for their device to get the bytes: the file to send. */
+  const outgoing = new Map<string, string>();
 
   /** A file of the root as its device's last scan lists it (only those are ever pulled). */
   function listed(root: Root, rel: string) {
@@ -74,7 +76,7 @@ export function createDeviceFiles(db: Db, channel: HubChannel, dir: string) {
   }
   const timer = setInterval(sweep, SWEEP_MS).unref();
 
-  async function download(root: Root, rel: string, key: string) {
+  async function download(root: Root, rel: string, key: string, version?: number) {
     await mkdir(dir, { recursive: true });
     const path = join(dir, `${key}${extname(rel).toLowerCase()}`);
     let requestId: string | undefined;
@@ -84,7 +86,7 @@ export function createDeviceFiles(db: Db, channel: HubChannel, dir: string) {
         (id) => {
           requestId = id;
           incoming.set(id, path);
-          return { type: "fs.upload", requestId: id, rootId: root.id, rel };
+          return { type: "fs.upload", requestId: id, rootId: root.id, rel, version };
         },
         z.null(),
         { ms: START_MS },
@@ -100,14 +102,14 @@ export function createDeviceFiles(db: Db, channel: HubChannel, dir: string) {
   return {
     /**
      * A local copy of a file in a device root (`rel`: root-relative), pulled now unless the cache
-     * has it; null when the device's last scan doesn't list it. 409 `device_offline` when its
-     * device isn't connected.
+     * has it; null when the device's last scan doesn't list it (or not that kept `version`). 409
+     * `device_offline` when its device isn't connected.
      */
-    async pull(root: Root, rel: string) {
+    async pull(root: Root, rel: string, version?: number) {
       const file = listed(root, rel);
-      if (!file) return null;
+      if (!file || (version && !file.versions?.some((v) => v.version === version))) return null;
       const key = createHash("sha256")
-        .update(JSON.stringify([root.id, rel, file.size, file.mtime ?? null]))
+        .update(JSON.stringify([root.id, rel, file.size, file.mtime ?? null, version ?? null]))
         .digest("hex");
       const hit = cached.get(key);
       if (hit && (await stat(hit.path).catch(() => null))) {
@@ -116,10 +118,55 @@ export function createDeviceFiles(db: Db, channel: HubChannel, dir: string) {
       }
       let p = pulling.get(key);
       if (!p) {
-        p = download(root, rel, key).finally(() => pulling.delete(key));
+        p = download(root, rel, key, version).finally(() => pulling.delete(key));
         pulling.set(key, p);
       }
       return p;
+    },
+
+    /**
+     * Writes the upload `part` (its `sha256`) into a device root through its connector (`fs.write`):
+     * it compares the file there with `base`, keeps the old one as a version (`keep`) or the upload
+     * as a conflict copy named after `by`.
+     */
+    async write(
+      root: Root,
+      rel: string,
+      part: string,
+      file: { sha256: string; base: string | null; by: string; keep: number },
+    ) {
+      let requestId: string | undefined;
+      try {
+        return await channel.ask(
+          root.location,
+          (id) => {
+            requestId = id;
+            outgoing.set(id, part);
+            return { type: "fs.write", requestId: id, rootId: root.id, rel, ...file };
+          },
+          deviceWriteResultSchema,
+          { ms: START_MS },
+        );
+      } finally {
+        if (requestId) outgoing.delete(requestId);
+      }
+    },
+
+    /** Whether a device root's device is connected now. */
+    online: (root: Root) => channel.online(root.location),
+
+    /** Where an upload for a device waits (the caller removes it). */
+    async partFile() {
+      await mkdir(dir, { recursive: true });
+      return join(dir, `${randomUUID()}.upload`);
+    },
+
+    /** The bytes of an `fs.write` for its device (`GET /api/hub/device/files/:requestId`). */
+    send(deviceId: string, requestId: string) {
+      const part = outgoing.get(requestId);
+      if (!part || !channel.claim(deviceId, requestId))
+        throw new HttpError(404, "not_found", "Nothing waits to be sent");
+      return createReadStream(part);
     },
 
     /**

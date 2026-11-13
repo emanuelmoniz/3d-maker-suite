@@ -71,11 +71,17 @@ A project folder can live on a paired device instead of the server.
 2. In **Projects settings**, under Project folders, choose **Browse…**. Pick the source, **This server** or an online machine with a shared folder, then the folder: on a machine, only its active shared folders and what is inside them. A machine browse goes through the connector; the picker says why it failed (offline, no answer, or a connector that is too old).
 3. The connector watches the folder, waits until a project folder's files stop changing, and sends the hub its scan and the 3MF details. On every connect it checks what changed. The projects use the same page as any other project.
 
-The hub fetches a file only when it needs it: slicing, auto slicing, a download or the 3D view. It asks the connector, checks the file's hash and keeps it in a temporary cache (1 hour, 10 GB at most). Creating a project folder and moving one to the trash run on the device.
+The hub fetches a file only when it needs it: slicing, auto slicing, a download or the 3D view. It asks the connector, checks the file's hash and keeps it in a temporary cache (1 hour, 10 GB at most). Creating a project folder, moving one to the trash and uploading files run on the device.
+
+### Uploading into a device folder
+
+The project's **Files** section uploads into a device folder as into a server folder: **Upload files**, a drop, **Upload into** a folder, or **Replace** on a file. The device must be online. The hub hands the file to the connector, which writes it inside the shared folder through a hidden temporary file and a rename. The scan carries each file's hash: if the file on the device changed since the page listed it, nothing is overwritten. The upload is kept beside it as `<name> (conflict <user> <date>).<ext>`, and a **Sync conflict** alert is raised. The new file shows on the page once the device has sent the folder again, a few seconds later.
+
+With **Keep earlier versions of files** on, the connector keeps the replaced file as a version in its own data folder, never in the shared folder (a shared folder would carry the copies to everyone). It keeps the newest **N**, like the server. The project page lists them, and downloading one needs the device online. These versions cover uploads through the app only. A save from a slicer, or a change through an SMB share or a cloud drive, needs the storage's own history: NAS snapshots, Windows Previous versions, or the cloud's version history.
 
 ### Offline
 
-While a device is offline, its roots and projects show **Offline** with the last known data. Plate previews, the cover and the gallery picks the device sent still show. Other images, files and any write wait for the device: a change to the cover or gallery is sent on its next connect. Downloads need the device online too (a file the hub cached in the last hour still comes); the project's **Files** section lists the files and says they can be downloaded once the device is back. A download holds only the files the device's last scan listed ([projects.md](projects.md#downloading-files)).
+While a device is offline, its roots and projects show **Offline** with the last known data. Plate previews, the cover and the gallery picks the device sent still show. Other images, files and any write wait for the device: a change to the cover or gallery is sent on its next connect. Downloads and uploads need the device online too (a file the hub cached in the last hour still comes); the project's **Files** section lists the files and says they can be downloaded and uploaded once the device is back. A download holds only the files the device's last scan listed ([projects.md](projects.md#downloading-files)).
 
 ### Plate previews and gallery
 
@@ -116,17 +122,19 @@ It's hidden when unknown, for example for a file changed directly on the hub's d
 
 ### Versions
 
-**Hub management → Settings → Keep earlier versions of files** (default off). When on, a save from a device that replaces a hub file keeps the old content as a version, and the newest **N** (default 5, up to 100) are kept per file.
+**Hub management → Settings → Keep earlier versions of files** (default off). When on, a save from a device or an upload in the browser that replaces a hub file keeps the old content as a version, and the newest **N** (default 5, up to 100) are kept per file.
 
 - The project page lists a file's versions (number, user, device, date, size), each with **Download**.
-- Only saves that reach the hub from a device are kept. A change made on the hub's own disk is not.
-- Lowering N deletes the older versions at once. Turning versions off stops keeping new ones and leaves the existing ones.
+- Only saves that reach the hub from a device or the browser are kept. A change made on the hub's own disk is not kept when it happens, but the next save over it keeps it.
+- Lowering N deletes the older versions at once (on a device folder, at a file's next upload). Turning versions off stops keeping new ones and leaves the existing ones.
 - **Disk use.** Versions are stored in `<data folder>/versions`, outside your project roots, and Settings shows the space they use. A big 3MF saved often costs N copies of itself, so choose N with the disk in mind.
 - **Backups** include `versions/`, so they grow with it. The backup list marks the ones that include file versions ([backups.md](backups.md)).
 
 ### Conflicts
 
 If a device uploads a file that changed on the hub or on another device since it last synced, nobody's work is overwritten. The hub keeps the newer version at the original name and the late one beside it as `<name> (conflict <device> <date>).<ext>`, and raises a **Sync conflict** alert that links to the project. Pick the version you want and delete the other.
+
+An upload in the browser is checked the same way: the page sends the hash the file had when its list loaded. If the file changed since, the upload is kept as `<name> (conflict <user> <date>).<ext>`, the page says so, and the same alert is raised. This check needs the hub on; with the hub off, a server folder's upload replaces as it always did.
 
 ### Deleting and the trash
 

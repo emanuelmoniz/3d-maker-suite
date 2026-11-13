@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { copyFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { extname, join, posix } from "node:path";
+import { join, posix } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
@@ -13,7 +13,14 @@ import {
   PROJECT_TRASH_DIR,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { inRoot, relParts, rootTrash, syncSkipped as skipped } from "@3d-maker-suite/host";
+import {
+  conflictName,
+  inRoot,
+  relParts,
+  rootTrash,
+  sha256Of,
+  syncSkipped as skipped,
+} from "@3d-maker-suite/host";
 import { and, asc, desc, eq, gt, isNotNull, max, sql } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
@@ -57,24 +64,6 @@ function partsOf(rel: string) {
   } catch {}
   throw invalid();
 }
-
-export const sha256Of = async (abs: string) => {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(abs)) hash.update(chunk);
-  return hash.digest("hex");
-};
-
-/** ` (conflict <device> <date>)`; the device name made safe for a file name. */
-export const conflictMark = (device: string, at: Date, n: number) => {
-  const who = device.replace(/[\\/:*?"<>|\p{Cc}]/gu, "-").replace(/[. ]+$/, "") || "device";
-  const when = at.toISOString().slice(0, 19).replace("T", " ").replace(/:/g, "-");
-  return ` (conflict ${who} ${when}${n > 1 ? ` ${n}` : ""})`;
-};
-/** `<name> (conflict <device> <date>).<ext>`. */
-const conflictName = (name: string, device: string, at: Date, n: number) => {
-  const ext = extname(name);
-  return `${name.slice(0, name.length - ext.length)}${conflictMark(device, at, n)}${ext}`;
-};
 
 /**
  * The files of hub roots as devices sync them (ADR-0014): the `hub_files` index, kept current by
@@ -262,6 +251,74 @@ export function createHubFiles(
     return dir;
   }
 
+  /**
+   * Puts the checked upload `part` (in `dir`, beside `path`) in place, one at a time per path: the
+   * same bytes as the hub's → unchanged; no file there, or still the one the upload started from
+   * (`base`: a device's version, the web's listed hash) → the next version, the old one kept when
+   * versions are on; else a conflict copy named after the device (or user) beside it and an alert.
+   */
+  function commit(
+    user: Rights | undefined,
+    root: Root,
+    rootBase: string,
+    dir: string,
+    path: string,
+    part: string,
+    sha256: string,
+    base: { version: number } | { sha256: string | null },
+    /** Who it is saved by; `by` names a conflict copy. */
+    who: { user: string | null; device: string | null; by: string },
+  ): Promise<HubUploadResult> {
+    const name = posix.basename(path);
+    return serial(keyOf(root, path), async () => {
+      const row = await refreshNow(root, rootBase, path);
+      const live = row && !row.deleted ? row : undefined;
+      if (live?.sha256 === sha256) return { status: "unchanged", version: live.version };
+      const fresh =
+        !live || ("version" in base ? live.version === base.version : live.sha256 === base.sha256);
+      if (fresh) {
+        const prefs = readPreferences(db);
+        if (live && prefs.hubVersions && dataDir)
+          await archive(root.id, live, join(dir, name), prefs.hubVersionsKeep);
+        await os(rename(part, join(dir, name)));
+        const next = await refreshNow(root, rootBase, path);
+        if (next && !next.deleted)
+          update(next, {
+            savedUser: who.user,
+            savedDevice: who.device,
+            savedAt: new Date().toISOString(),
+          });
+        return { status: "updated", version: next?.version ?? 0 };
+      }
+      const at = new Date();
+      let copy = "";
+      for (let n = 1; ; n++) {
+        copy = posix.join(posix.dirname(path), conflictName(name, who.by, at, n));
+        if (!(await stat(join(dir, posix.basename(copy))).catch(() => null))) break;
+      }
+      await os(rename(part, join(dir, posix.basename(copy))));
+      const kept = await refresh(root, rootBase, copy);
+      const project = accessIn(user, root).projectOf(path);
+      if (kept)
+        raise(db, {
+          kind: "hub_conflict",
+          severity: "warning",
+          module: "hub",
+          task: `hub:${root.id}`,
+          entityType: "hub_file",
+          entityId: kept.id,
+          context: {
+            ...(project && { projectId: project.id, name: project.name }),
+            file: path,
+            copy,
+            // A device's sync names the device, a web upload its user.
+            ...("version" in base ? { device: who.by } : { user: who.by }),
+          },
+        });
+      return { status: "conflict", version: live?.version ?? 0, path: copy };
+    });
+  }
+
   return {
     /**
      * Re-reads `rel` ("" = the whole root) of a hub root into the index: files below it on disk
@@ -380,58 +437,70 @@ export function createHubFiles(
           new HttpError(413, "file_too_large", "The file is too large"),
         );
         if (got !== sha256) throw new HttpError(400, "bad_hash", "The file arrived damaged");
-        return await serial(keyOf(root, path), async () => {
-          const row = await refreshNow(root, rootBase, path);
-          const live = row && !row.deleted ? row : undefined;
-          if (live?.sha256 === sha256) return { status: "unchanged", version: live.version };
-          if (!live || live.version === base) {
-            const prefs = readPreferences(db);
-            if (live && prefs.hubVersions && dataDir)
-              await archive(root.id, live, join(dir, name), prefs.hubVersionsKeep);
-            await os(rename(part, join(dir, name)));
-            const next = await refreshNow(root, rootBase, path);
-            if (next && !next.deleted) {
-              const who = holderOf(deviceId);
-              update(next, {
-                savedUser: who?.user ?? null,
-                savedDevice: who?.device ?? null,
-                savedAt: new Date().toISOString(),
-              });
-            }
-            return { status: "updated", version: next?.version ?? 0 };
-          }
-          const device =
-            db.select({ name: devices.name }).from(devices).where(eq(devices.id, deviceId)).get()
-              ?.name ?? "device";
-          const at = new Date();
-          let copy = "";
-          for (let n = 1; ; n++) {
-            copy = posix.join(posix.dirname(path), conflictName(name, device, at, n));
-            if (!(await stat(join(dir, posix.basename(copy))).catch(() => null))) break;
-          }
-          await os(rename(part, join(dir, posix.basename(copy))));
-          const kept = await refresh(root, rootBase, copy);
-          const project = accessIn(user, root).projectOf(path);
-          if (kept)
-            raise(db, {
-              kind: "hub_conflict",
-              severity: "warning",
-              module: "hub",
-              task: `hub:${root.id}`,
-              entityType: "hub_file",
-              entityId: kept.id,
-              context: {
-                ...(project && { projectId: project.id, name: project.name }),
-                file: path,
-                copy,
-                device,
-              },
-            });
-          return { status: "conflict", version: live?.version ?? 0, path: copy };
-        });
+        const holder = holderOf(deviceId);
+        const device =
+          db.select({ name: devices.name }).from(devices).where(eq(devices.id, deviceId)).get()
+            ?.name ?? "device";
+        return await commit(
+          user,
+          root,
+          rootBase,
+          dir,
+          path,
+          part,
+          sha256,
+          { version: base },
+          {
+            user: holder?.user ?? null,
+            device: holder?.device ?? null,
+            by: device,
+          },
+        );
       } finally {
         await rm(part, { force: true });
       }
+    },
+
+    /**
+     * A web upload of `path` by `user` (named `by`), already in the hidden temp file `part` beside
+     * it with its `sha256`; `base`: the hash the page listed (null = none). Like a device's upload,
+     * checked by hash: the file changed since → a conflict copy and an alert.
+     */
+    async webUpload(
+      user: Rights | undefined,
+      by: string,
+      root: Root,
+      path: string,
+      base: string | null,
+      sha256: string,
+      part: string,
+    ) {
+      const parts = partsOf(path);
+      assertEdit(user, root, path);
+      const rootBase = await baseOf(root);
+      const dir = await parentOf(rootBase, parts);
+      return commit(
+        user,
+        root,
+        rootBase,
+        dir,
+        path,
+        part,
+        sha256,
+        { sha256: base },
+        {
+          user: by,
+          device: null,
+          by,
+        },
+      );
+    },
+
+    /** A file's sha256 as the index has it, checked against the disk first; null when gone. */
+    async hashOf(root: Root, path: string) {
+      const base = await baseOf(root);
+      const row = await refresh(root, base, path);
+      return row && !row.deleted ? row.sha256 : null;
     },
 
     /**
@@ -504,19 +573,6 @@ export function createHubFiles(
         .from(hubFileVersions)
         .get();
       return { files: r?.files ?? 0, bytes: r?.bytes ?? 0 };
-    },
-
-    /**
-     * A web upload of `path` by `user` (the bytes are on disk already): the row catches up and
-     * names them, with no device.
-     */
-    async savedBy(root: Root, path: string, user: string) {
-      const base = await baseOf(root);
-      await serial(keyOf(root, path), async () => {
-        const row = await refreshNow(root, base, path);
-        if (row && !row.deleted)
-          update(row, { savedUser: user, savedDevice: null, savedAt: new Date().toISOString() });
-      });
     },
 
     /** Who saved the files below `folder` of a root last, relative to it; unknown ones left out. */

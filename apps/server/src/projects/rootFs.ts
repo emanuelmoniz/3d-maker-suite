@@ -111,6 +111,12 @@ function localRoot(root: Root): RootFs {
 /** Each app's device files (one hub channel and pull cache per database). */
 const devices = new WeakMap<Db, DeviceFiles>();
 export const useDeviceFiles = (db: Db, files: DeviceFiles) => void devices.set(db, files);
+/** 409 `device_offline` without them (the hub never started its channel). */
+export function deviceFilesOf(db: Db) {
+  const f = devices.get(db);
+  if (!f) throw new HttpError(409, "device_offline", "The device is offline");
+  return f;
+}
 
 /** A root on a device (ADR-0014): pulls, and writes through its connector. */
 function deviceRoot(db: Db, root: Root): RootFs {
@@ -121,9 +127,7 @@ function deviceRoot(db: Db, root: Root): RootFs {
     } catch (e) {
       throw fsError(e as NodeJS.ErrnoException);
     }
-    const f = devices.get(db);
-    if (!f) throw new HttpError(409, "device_offline", "The device is offline");
-    return f;
+    return deviceFilesOf(db);
   };
   return {
     root,

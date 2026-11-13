@@ -80,6 +80,12 @@ Everyone who can see a project can download its files, also with download-only r
 
 On the server, a download takes the real folder, so files below the root's files depth or past the file limit are included. In a folder on a device, only the files its last scan listed can be downloaded: files the scan leaves out (files depth, file limit) aren't in a download, and the device must be online ([hub.md](hub.md#offline)). If a file can't be read halfway through a zip, the download fails in the browser instead of saving a broken zip.
 
+## Uploading files
+
+With edit rights on a project, its **Files** section uploads files: **Upload files**, a drop on the section or on a folder, **Upload into** a folder, or **Replace** on a file. A name that exists asks before replacing it.
+
+While the hub is on, and always in a folder on a device, a replace checks the file first. If it changed since the list loaded (a slicer saved it, another user uploaded it), nothing is overwritten: your upload is kept beside it as `<name> (conflict <user> <date>).<ext>`, the page says so, and a **Sync conflict** alert is raised. Compare the two, keep one and delete the other. With **Keep earlier versions of files** on, a replaced file is kept as a version, which the file's **Versions** button lists ([hub.md](hub.md#versions)). In a folder on a device the device must be online, and its versions stay on that device ([hub.md](hub.md#uploading-into-a-device-folder)).
+
 ## Deleted files: the trash
 
 Files removed in the app are moved, not erased, into `.3d-maker-suite-trash` in the project's root, as `<timestamp>_<project folder>/<path>`. The folder starts with a dot, so scans ignore it. Settings → Projects shows how many items it holds and empties it. The move is a rename, so a project folder on another volume than its root (a mount inside the root) can't be trashed.

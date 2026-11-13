@@ -15,6 +15,8 @@ export const projectFileEntrySchema = z.object({
   /** Bytes; 0 for folders. */
   size: z.number().int().nonnegative(),
   modifiedAt: isoDate,
+  /** A file's hash while the hub is on: an upload over it sends it as `base`. */
+  sha256: z.string().optional(),
 });
 
 export const projectFilesListSchema = z.object({
@@ -27,6 +29,20 @@ export const projectUploadQuery = z.object({
   path: relPath,
   /** Explicit, so an upload never silently overwrites. */
   replace: z.enum(["true", "false"]).default("false"),
+  /**
+   * The hash of the file it replaces, as the page listed it. The file changed since (or the page
+   * listed none there): the upload is kept as a conflict copy beside it. Checked while the hub is
+   * on and on device roots.
+   */
+  base: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+});
+/** An upload's outcome; `conflict`: it was kept as the copy `path`. */
+export const projectUploadResultSchema = z.object({
+  path: z.string(),
+  conflict: z.literal(true).optional(),
 });
 
 export const projectFolderCreateSchema = z.object({ path: relPath });
@@ -43,4 +59,5 @@ export const projectTrashSchema = z.object({
 export type ProjectFileEntry = z.infer<typeof projectFileEntrySchema>;
 export type ProjectFilesList = z.infer<typeof projectFilesListSchema>;
 export type ProjectFileMove = z.infer<typeof projectFileMoveSchema>;
+export type ProjectUploadResult = z.infer<typeof projectUploadResultSchema>;
 export type ProjectTrash = z.infer<typeof projectTrashSchema>;

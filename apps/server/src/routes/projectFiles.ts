@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
@@ -16,25 +16,36 @@ import {
   projectMetaSchema,
   projectTrashSchema,
   projectUploadQuery,
+  projectUploadResultSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { isHidden } from "@3d-maker-suite/host";
+import { isHidden, sha256Of } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import yazl from "yazl";
 import { z } from "zod";
+import { raise } from "../alerts/evaluate.ts";
 import { HttpError } from "../errors.ts";
 import { mayEditRoot, type Rights, rootRule } from "../lib/auth.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { sha256Of } from "../projects/hubFiles.ts";
+import type { HubFiles } from "../projects/hubFiles.ts";
 import { projectPath, segments } from "../projects/paths.ts";
-import { listRoots, onDeviceRoot, projectDir, projectFile, rootFs } from "../projects/rootFs.ts";
+import {
+  deviceFilesOf,
+  hubRoots,
+  listRoots,
+  onDeviceRoot,
+  projectDir,
+  projectFile,
+  rootFs,
+} from "../projects/rootFs.ts";
 import type { ProjectScanner } from "../projects/scanner.ts";
 import { fsError, readEntries } from "./fs.ts";
 import { IMAGE_TYPES, imageReply } from "./projects.ts";
 
 const { projects } = schema;
+type Project = typeof projects.$inferSelect;
 const params = z.object({ id: z.uuid() });
 const errors = {
   400: apiErrorSchema,
@@ -117,10 +128,13 @@ export const projectFilesRoutes =
   (
     db: Db,
     scanner: ProjectScanner,
-    /** A user uploaded `path` (root-relative) into the root `rootId`: "Last saved by". */
-    onUpload: (rootId: string, path: string, user: string) => Promise<void> = async () => {},
+    /** The hub roots' index: while the hub is on, uploads there are checked and versioned. */
+    hubFiles?: HubFiles,
   ): FastifyPluginAsyncZod =>
   async (app) => {
+    const hubRootOf = (rootId: string | null) =>
+      (hubFiles && readPreferences(db).hubEnabled && hubRoots(db).find((r) => r.id === rootId)) ||
+      null;
     // Raw stream, read by the upload route itself (Fastify's bodyLimit doesn't apply to it).
     app.addContentTypeParser("application/octet-stream", (_req, payload, done) =>
       done(null, payload),
@@ -167,19 +181,31 @@ export const projectFilesRoutes =
         },
       },
       async (req) => {
-        const { dir } = await project(req.params.id);
+        const p = await project(req.params.id);
         const rel = req.query.path;
-        const { abs, isDir } = await projectPath(dir, rel, "existing");
+        const { abs, isDir } = await projectPath(p.dir, rel, "existing");
         if (!isDir) throw new HttpError(400, "not_a_directory", "Not a folder");
-        const entries = (await readEntries(abs))
-          .filter((e) => !e.link && !isHidden(e.name))
-          .map((e) => ({
-            name: e.name,
-            path: rel ? `${rel}/${e.name}` : e.name,
-            type: e.type,
-            size: e.type === "file" ? e.size : 0,
-            modifiedAt: e.mtime.toISOString(),
-          }));
+        const root = hubRootOf(p.row.rootId);
+        const entries = await Promise.all(
+          (await readEntries(abs))
+            .filter((e) => !e.link && !isHidden(e.name))
+            .map(async (e) => {
+              const path = rel ? `${rel}/${e.name}` : e.name;
+              // The hub's index hashes it (only a changed file is read): an upload over it sends it.
+              const sha256 =
+                root && e.type === "file"
+                  ? await hubFiles?.hashOf(root, `${p.own.rel}/${path}`).catch(() => null)
+                  : null;
+              return {
+                name: e.name,
+                path,
+                type: e.type,
+                size: e.type === "file" ? e.size : 0,
+                modifiedAt: e.mtime.toISOString(),
+                ...(sha256 && { sha256 }),
+              };
+            }),
+        );
         return { path: rel, entries };
       },
     );
@@ -280,24 +306,103 @@ export const projectFilesRoutes =
       },
     );
 
+    /**
+     * Streams the raw body (no body at all, an empty file, arrives as undefined) to `tmp`, capped;
+     * returns its sha256.
+     */
+    async function receive(body: unknown, tmp: string, maxMb: number) {
+      const max = maxMb * MB;
+      const hash = createHash("sha256");
+      let seen = 0;
+      await os(
+        pipeline(
+          body instanceof Readable ? body : Readable.from([]),
+          async function* (chunks: AsyncIterable<Buffer>) {
+            // ponytail: past the cap the rest is read and dropped (throwing here would cut the
+            // connection, so the client never sees the 413). Only bodies without a
+            // Content-Length get this far; browsers always send one for a File.
+            for await (const chunk of chunks) {
+              seen += chunk.length;
+              if (seen > max) continue;
+              hash.update(chunk);
+              yield chunk;
+            }
+          },
+          createWriteStream(tmp, { flags: "wx" }),
+        ),
+      );
+      if (seen > max) throw tooLarge(maxMb);
+      return hash.digest("hex");
+    }
+
+    /**
+     * The Sync conflict alert for an upload into a device root kept as `copy`; `file` and `copy`
+     * relative to the root, as for a hub root.
+     */
+    const conflictAlert = (row: Project, file: string, copy: string, user: string) =>
+      raise(db, {
+        kind: "hub_conflict",
+        severity: "warning",
+        module: "hub",
+        task: `hub:${row.rootId}`,
+        entityType: "device_file",
+        entityId: `${row.rootId}:${copy}`,
+        context: { projectId: row.id, name: row.name, file, copy, user },
+      });
+
     // One file per request: the raw body is the file. Streams to a hidden temp file next to the
     // target, then renames it over, so a failed or too large upload never leaves half a file.
+    // While the hub is on (and always on a device root) it is checked against `base`, the hash
+    // the page listed: a file changed since is never overwritten, the upload becomes a conflict
+    // copy beside it.
     app.put(
       "/:id/files/content",
       {
         schema: {
           params,
           querystring: projectUploadQuery,
-          response: { 200: projectFilePathSchema, 201: projectFilePathSchema, ...errors },
+          response: { 200: projectUploadResultSchema, 201: projectUploadResultSchema, ...errors },
         },
       },
       async (req, reply) => {
-        const p = await project(req.params.id);
-        const { path, replace } = req.query;
+        const { path, replace, base } = req.query;
         const maxMb = readPreferences(db).projectUploadMaxMb;
-        const max = maxMb * MB;
-        if (Number(req.headers["content-length"] ?? 0) > max) throw tooLarge(maxMb);
+        if (Number(req.headers["content-length"] ?? 0) > maxMb * MB) throw tooLarge(maxMb);
+        const by = req.user?.displayName ?? "web";
 
+        const row = db.select().from(projects).where(eq(projects.id, req.params.id)).get();
+        if (row?.rootId && row.folder !== null && onDeviceRoot(db, row.rootId)) {
+          // Its connector writes it, inside its root; the device must be online.
+          segments(path);
+          const listed = projectMetaSchema.parse(row.meta).files.some((f) => f.path === path);
+          if (listed && replace !== "true")
+            throw new HttpError(409, "path_exists", "Path already exists");
+          const root = listRoots(db).find((r) => r.id === row.rootId);
+          const files = deviceFilesOf(db);
+          if (!root || !files.online(root))
+            throw new HttpError(409, "device_offline", "The device is offline");
+          const tmp = await files.partFile();
+          try {
+            const sha256 = await receive(req.body, tmp, maxMb);
+            const prefs = readPreferences(db);
+            const done = await files.write(root, `${row.folder}/${path}`, tmp, {
+              sha256,
+              base: base ?? null,
+              by,
+              keep: prefs.hubVersions ? prefs.hubVersionsKeep : 0,
+            });
+            if (done.status === "conflict") {
+              conflictAlert(row, `${row.folder}/${path}`, done.path, by);
+              const copy = done.path.slice(row.folder.length + 1);
+              return reply.status(200).send({ path: copy, conflict: true });
+            }
+            return reply.status(listed ? 200 : 201).send({ path });
+          } finally {
+            await rm(tmp, { force: true });
+          }
+        }
+
+        const p = await project(req.params.id);
         let abs: string;
         let replaced = false;
         try {
@@ -310,34 +415,29 @@ export const projectFilesRoutes =
           replaced = true;
         }
 
-        // No body at all (an empty file) arrives as undefined.
-        const body = req.body instanceof Readable ? req.body : Readable.from([]);
         const tmp = join(dirname(abs), `.${randomUUID()}.upload`);
-        let seen = 0;
+        const hubRoot = hubRootOf(p.row.rootId);
+        let copy: string | null = null;
         try {
-          await os(
-            pipeline(
-              body,
-              async function* (chunks: AsyncIterable<Buffer>) {
-                // ponytail: past the cap the rest is read and dropped (throwing here would cut the
-                // connection, so the client never sees the 413). Only bodies without a
-                // Content-Length get this far; browsers always send one for a File.
-                for await (const chunk of chunks) {
-                  seen += chunk.length;
-                  if (seen <= max) yield chunk;
-                }
-              },
-              createWriteStream(tmp, { flags: "wx" }),
-            ),
-          );
-          if (seen > max) throw tooLarge(maxMb);
-          await os(rename(tmp, abs));
+          const sha256 = await receive(req.body, tmp, maxMb);
+          if (hubRoot && hubFiles) {
+            const rel = `${p.own.rel}/${path}`;
+            const done = await hubFiles.webUpload(
+              req.user,
+              by,
+              hubRoot,
+              rel,
+              base ?? null,
+              sha256,
+              tmp,
+            );
+            if (done.status === "conflict") copy = done.path.slice(p.own.rel.length + 1);
+          } else await os(rename(tmp, abs));
         } finally {
           await rm(tmp, { force: true });
         }
         await changed(p);
-        if (req.user && p.row.rootId)
-          await onUpload(p.row.rootId, `${p.own.rel}/${path}`, req.user.displayName);
+        if (copy) return reply.status(200).send({ path: copy, conflict: true });
         return reply.status(replaced ? 200 : 201).send({ path });
       },
     );

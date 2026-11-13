@@ -180,6 +180,7 @@
     "connector_outdated": "It is on version {{version}}, the hub on {{hubVersion}}.",
     "connector_update_failed": "It could not update to version {{hubVersion}}.",
     "hub_conflict": "It changed on the hub and on {{device}}. Their version was kept as {{copy}}.",
+    "hub_conflict_upload": "It changed before {{user}}'s upload. The upload was kept as {{copy}}.",
     "preset_conflict": "It changed on the hub and on {{device}}. Their version was kept as {{copy}}.",
     "preset_skipped_json": "It isn't valid JSON.",
     "preset_skipped_parent": "The slicer lacks the preset it inherits from.",

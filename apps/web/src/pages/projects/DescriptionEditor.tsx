@@ -86,7 +86,8 @@ export function DescriptionEditor({
     if (!/\.md$/i.test(file)) file += ".md";
     const path = folder ? `${folder}/${file}` : file;
     try {
-      await uploadProjectFile(project.id, path, new File([value.text], file), false, () => {});
+      const text = new File([value.text], file);
+      await uploadProjectFile(project.id, path, text, false, undefined, () => {});
     } catch (e) {
       return setNewError(
         t(isConflict(e) ? "projects:form.newFileExists" : "projects:form.writeError"),

@@ -421,9 +421,13 @@ describe("no locks, last saved by", () => {
       device: "Laptop",
       savedAt: expect.any(String),
     });
+    // The list gives the file's hash; the upload sends it back as its base.
+    const listed = (await s.send("GET", `/api/projects/${p.id}/files`)).json();
+    const base = listed.entries.find((e: { path: string }) => e.path === "m.3mf").sha256;
+    expect(base).toBe(createHash("sha256").update("from laptop").digest("hex"));
     const up = await s.app.inject({
       method: "PUT",
-      url: `/api/projects/${p.id}/files/content?path=m.3mf&replace=true`,
+      url: `/api/projects/${p.id}/files/content?path=m.3mf&replace=true&base=${base}`,
       payload: Buffer.from("from the web"),
       headers: {
         cookie: s.cookie,
@@ -436,6 +440,50 @@ describe("no locks, last saved by", () => {
       user: "admin",
       device: null,
       savedAt: expect.any(String),
+    });
+  });
+
+  it("a web upload: checked against the listed hash, the old content kept as a version", async () => {
+    const s = await setup();
+    s.project("a", s.editor.id);
+    const p = s.db.select().from(schema.projects).get();
+    if (!p) throw new Error("setup");
+    await s.send("PATCH", "/api/preferences", { hubVersions: true });
+    await s.desk.put("a/m.3mf", "v1", 0);
+    const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+    const web = (body: string, base?: string) =>
+      s.app.inject({
+        method: "PUT",
+        url: `/api/projects/${p.id}/files/content?path=m.3mf&replace=true${base ? `&base=${base}` : ""}`,
+        payload: Buffer.from(body),
+        headers: { cookie: s.cookie, "content-type": "application/octet-stream" },
+      });
+    const disk = () => readFileSync(join(s.dir, "a", "m.3mf"), "utf8");
+
+    // Unchanged since the list: replaced, the old content is a version.
+    expect((await web("v2", sha("v1"))).json()).toEqual({ path: "m.3mf" });
+    expect(disk()).toBe("v2");
+    const versions = await s.send("GET", `/api/projects/${p.id}/versions?file=m.3mf`);
+    expect(versions.json()).toMatchObject([{ version: 1, size: 2 }]);
+    const v1 = await s.send("GET", `/api/projects/${p.id}/versions/download?file=m.3mf&version=1`);
+    expect(v1.body).toBe("v1");
+
+    // Changed since (the page listed v1), or no base for a file that is there: a conflict copy.
+    for (const base of [sha("v1"), undefined]) {
+      const r = await web("mine", base);
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toEqual({
+        path: expect.stringContaining("(conflict admin "),
+        conflict: true,
+      });
+      expect(disk()).toBe("v2");
+      expect(readFileSync(join(s.dir, "a", r.json().path), "utf8")).toBe("mine");
+    }
+    const alerts = s.db.select().from(schema.alerts).all();
+    expect(alerts.filter((a) => a.kind === "hub_conflict")).toHaveLength(2);
+    expect(alerts.find((a) => a.kind === "hub_conflict")?.context).toMatchObject({
+      file: "a/m.3mf",
+      user: "admin",
     });
   });
 });

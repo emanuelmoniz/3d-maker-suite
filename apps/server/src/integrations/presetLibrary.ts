@@ -24,13 +24,18 @@ import {
   type SlicerPresetKind,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { parsePreset, presetFileName, presetName, presetSha } from "@3d-maker-suite/host";
+import {
+  conflictMark,
+  parsePreset,
+  presetFileName,
+  presetName,
+  presetSha,
+} from "@3d-maker-suite/host";
 import { and, asc, desc, eq, inArray, isNull, max, ne } from "drizzle-orm";
 import { raise } from "../alerts/evaluate.ts";
 import type { Rights } from "../lib/auth.ts";
 import { type PresetKind, presetInUse } from "../lib/dependents.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { conflictMark } from "../projects/hubFiles.ts";
 
 // The hub's slicer preset library (ADR-0017). The `slicer_presets` table is the source of truth;
 // `<dataDir>/presets/<library>/default/<kind>/` holds its live presets, rebuilt at start and kept

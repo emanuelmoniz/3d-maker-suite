@@ -35,7 +35,7 @@ import { pruneSessions } from "./lib/session.ts";
 import { autoSlice, autoSliceSlicer } from "./projects/autoSlice.ts";
 import { createDeviceFiles } from "./projects/deviceFiles.ts";
 import { createHubFiles } from "./projects/hubFiles.ts";
-import { hubRoots, useDeviceFiles } from "./projects/rootFs.ts";
+import { useDeviceFiles } from "./projects/rootFs.ts";
 import { createProjectScanner } from "./projects/scanner.ts";
 import { createSliceQueue, useSliceWorkers } from "./projects/sliceQueue.ts";
 import { accessoriesRoutes } from "./routes/accessories.ts";
@@ -423,13 +423,7 @@ export async function buildApp(
   await app.register(projectsRoutes(db, dataDir, scanner, hub, hubFiles, syncer.adapters), {
     prefix: "/api/projects",
   });
-  await app.register(
-    projectFilesRoutes(db, scanner, async (rootId, path, user) => {
-      const root = hubRoots(db).find((r) => r.id === rootId);
-      if (root && readPreferences(db).hubEnabled) await hubFiles.savedBy(root, path, user);
-    }),
-    { prefix: "/api/projects" },
-  );
+  await app.register(projectFilesRoutes(db, scanner, hubFiles), { prefix: "/api/projects" });
   await app.register(projectSlicingRoutes(db, syncer.adapters, sliceQueue), {
     prefix: "/api/projects",
   });

@@ -3032,7 +3032,7 @@ Do Step 12 of the 5.6.0 plan in PLAN.md.
 Do Step 13 of the 5.6.0 plan in PLAN.md.
 ```
 
-### [ ] Step 14 - Upload with a conflict check, device root versions **[plan mode]**
+### [x] Step 14 - Upload with a conflict check, device root versions **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Upload sends the hash of the file it replaces, as the page listed it (`baseHash`). No `baseHash` for a new file.

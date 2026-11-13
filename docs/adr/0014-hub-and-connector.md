@@ -241,3 +241,11 @@ The project page has one **Open** button instead of "Open in slicer" and "Open o
 - Read-only stays where it is a right: a pick at Read, and files the user may only download.
 - New, information only: each file row shows **Last saved by `<user>` on `<device>`, `<time ago>`** (`GET /api/projects/:id/saved`). A hub root: the last save that reached the hub (a device's upload, or a browser upload, which has no device). A device root: the device's user and the device, at the file's time in its last scan. Hidden when unknown.
 - The Locks parts of the decision above are history.
+
+## Amendment (2026-11-13): uploads with a conflict check (5.6.0 Step 14)
+
+**A web upload is checked like a device's.** The page sends the hash the file had when it was listed (`base`). A hub root, while the hub is on: the list carries each file's `sha256` from `hub_files`; a file that changed since (or one the page didn't list) keeps the upload as `<name> (conflict <user> <date>).<ext>` and raises Sync conflict. Else it is replaced, and the old content becomes a version when versions are on. With the hub off a server folder's upload replaces as before.
+
+- **New fixed operation `fs.write`** (a live request): write a web upload into a device root. The connector GETs the bytes (`GET /api/hub/device/files/:requestId`), checks their hash, writes them through a hidden part file beside the target and a rename, inside its root (`..` and links out refused). A file there that isn't `base` makes the upload a conflict copy. An older connector answers 409 `device_outdated`; an offline device is refused before the upload is read.
+- **Device root versions** come only from these uploads. The connector keeps the replaced file in its data folder, never in the root (a shared folder would carry it to everyone): `versions/<rootId>/<sha256(rel)[:16]>/<n>` and `index.json`, the newest **Keep earlier versions** N (`keep` in the event). It reports them, and each file's `sha256`, with the folder's scan; `fs.upload` with `version` sends one back. Saves from a slicer, an SMB share or a cloud drive need the storage's own history.
+- The folder digest gained a format line, so every folder is sent once after the update and older scans gain their hashes.

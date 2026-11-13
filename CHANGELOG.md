@@ -8,6 +8,8 @@ Migration 0123 drops the check-out locks and their settings.
 
 ### Added
 - **Last saved by `<user>` on `<device>`, `<time ago>`** on each project file, information only: on a hub root the last save that reached the hub (a device's sync or a browser upload), on a device root the device's user and the device as its last scan saw ([docs/hub.md](docs/hub.md#no-locks-conflicts-and-last-saved-by))
+- **Uploads with a conflict check:** while the hub is on, replacing a file checks it didn't change since the page listed it. If it did, the upload is kept as `<name> (conflict <user> <date>).<ext>` and the Sync conflict alert is raised. With **Keep earlier versions of files** on, a browser upload now keeps the replaced file as a version too ([docs/projects.md](docs/projects.md#uploading-files))
+- **Upload into a device folder** (upload, drop, upload into a folder, replace) while the device is online: its connector writes the file, with the same check. Versions of those uploads are kept on the device, in the connector's data folder, and listed on the project page ([docs/hub.md](docs/hub.md#uploading-into-a-device-folder)). Each device folder is sent once again after the update, so its files gain their hashes
 
 ### Removed
 - **Check-out locks** (Hub management → Settings), with Done editing, force-unlock and "Being edited by". Two devices saving the same file still never overwrite each other: the later save becomes a conflict copy. Upgrading clears every lock, and files read-only on a device only because of a lock turn writable at its next sync. Read picks and download-only files stay read-only

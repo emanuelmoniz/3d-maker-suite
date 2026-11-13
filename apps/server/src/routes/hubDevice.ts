@@ -267,6 +267,16 @@ export const hubDeviceRoutes =
       },
     );
 
+    // The bytes of a web upload the hub asked this device to write (`fs.write`).
+    app.get(
+      "/files/:requestId",
+      { schema: { params: z.object({ requestId: z.uuid() }) } },
+      async (req, reply) =>
+        reply
+          .type("application/octet-stream")
+          .send(files.send(deviceOf(req), req.params.requestId)),
+    );
+
     // The device's picks (ADR-0021) decide what it gets: a file no pick covers is as unknown as one
     // the user may not see (404), and only an Edit pick takes changes. 403 keeps the connector's
     // copy on the machine (download-only), also for a new file outside its picks.

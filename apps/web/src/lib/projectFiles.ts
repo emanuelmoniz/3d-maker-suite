@@ -1,4 +1,4 @@
-import type { ProjectFilesList } from "@3d-maker-suite/core";
+import type { ProjectDetail, ProjectFilesList, ProjectUploadResult } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "./api.ts";
 
@@ -56,22 +56,49 @@ export const useProjectFileActions = (id: string) => {
   };
 };
 
-/** PUT one file as a raw body. XHR, because fetch can't report upload progress. */
+/**
+ * A file's hash as the server lists it now: a device root's from its last scan, else from its
+ * folder's list (while the hub is on). ponytail: taken when saving, so a form that replaces a file
+ * overwrites a change made since it opened; take it on open if that matters.
+ */
+export async function listedSha256(project: ProjectDetail, path: string) {
+  const scanned = project.meta.files.find((f) => f.path === path)?.sha256;
+  if (scanned) return scanned;
+  const dir = path.slice(0, Math.max(path.lastIndexOf("/"), 0));
+  const list = await api<ProjectFilesList>("GET", `${base(project.id)}?${q({ path: dir })}`).catch(
+    () => null,
+  );
+  return list?.entries.find((e) => e.path === path)?.sha256;
+}
+
+/**
+ * PUT one file as a raw body. XHR, because fetch can't report upload progress. `sha256`: the hash
+ * of the file it replaces, as listed; the server keeps the upload as a conflict copy when that
+ * file changed since.
+ */
 export const uploadProjectFile = (
   id: string,
   path: string,
   file: File,
   replace: boolean,
+  sha256: string | undefined,
   onProgress: (fraction: number) => void,
 ) =>
-  new Promise<void>((resolve, reject) => {
+  new Promise<ProjectUploadResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", `${base(id)}/content?${q({ path, replace: String(replace) })}`);
+    const query = { path, replace: String(replace), ...(sha256 && { base: sha256 }) };
+    xhr.open("PUT", `${base(id)}/content?${q(query)}`);
     xhr.setRequestHeader("content-type", "application/octet-stream");
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onerror = () => reject(new ApiError("upload failed"));
     xhr.onload = () => {
-      if (xhr.status < 300) return resolve();
+      if (xhr.status < 300) {
+        try {
+          return resolve(JSON.parse(xhr.responseText));
+        } catch {
+          return resolve({ path });
+        }
+      }
       let e: { code?: string; message?: string } | undefined;
       try {
         e = JSON.parse(xhr.responseText)?.error;

@@ -103,9 +103,9 @@
       "all": "Every project folder",
       "selected": "Nothing until picked"
     },
-    "versionsHint": "When a device's save replaces a hub file, the old content is kept. Changes made directly on the hub's own disk are not kept. Backups include the versions, so they grow.",
+    "versionsHint": "When a device's save or an upload in the app replaces a hub file, the old content is kept. An upload into a machine's folder keeps it on that machine. Changes made directly on a disk are not kept. Backups include the hub's versions, so they grow.",
     "versionsKeep": "Versions to keep per file",
-    "versionsKeepHint": "Lowering this deletes the older versions now.",
+    "versionsKeepHint": "Lowering this deletes the older versions on the hub now, and on a machine at a file's next upload.",
     "usage_one": "Using {{size}} for {{count}} kept version.",
     "usage_other": "Using {{size}} for {{count}} kept versions."
   },

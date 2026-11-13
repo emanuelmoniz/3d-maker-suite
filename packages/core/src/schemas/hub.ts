@@ -318,9 +318,36 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("fs.list"), requestId: id, path: z.string().max(4096).nullable() }),
   /**
    * Send a file of a device root: `PUT /api/hub/device/files/:requestId` with the bytes and its
-   * `X-File-Sha256` and `X-File-Mtime`, or an error answer.
+   * `X-File-Sha256` and `X-File-Mtime`, or an error answer. `version`: a kept earlier version of
+   * it (from the connector's data folder) instead.
    */
-  z.object({ type: z.literal("fs.upload"), requestId: id, rootId: id, rel: z.string().max(1024) }),
+  z.object({
+    type: z.literal("fs.upload"),
+    requestId: id,
+    rootId: id,
+    rel: z.string().max(1024),
+    version: z.number().int().positive().optional(),
+  }),
+  /**
+   * Live only: write a web upload into a device root. The connector gets the bytes from
+   * `GET /api/hub/device/files/:requestId` and checks `sha256`. The file there differs from
+   * `base` (null: the page listed no file there): the upload is kept as a conflict copy named
+   * after `by`. Else the old file is kept as a version in its data folder (`keep` newest, 0 = none)
+   * and replaced. The answer's result is a `deviceWriteResultSchema`.
+   */
+  z.object({
+    type: z.literal("fs.write"),
+    requestId: id,
+    rootId: id,
+    rel: z.string().max(1024),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    base: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .nullable(),
+    by: z.string().max(200),
+    keep: z.number().int().min(0).max(100),
+  }),
   /** Make a folder in a device root; the answer's result is null. */
   z.object({ type: z.literal("fs.mkdir"), requestId: id, rootId: id, rel: z.string().max(1024) }),
   /** Move `rel` to the root's trash as `as`; the answer's result is `{ path }`, where it went. */
@@ -576,6 +603,11 @@ export const hubUploadResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.enum(["updated", "unchanged"]), version: z.number().int() }),
   z.object({ status: z.literal("conflict"), version: z.number().int(), path: z.string() }),
 ]);
+/** `fs.write`'s answer: `path` is the file written, the conflict copy for a conflict. */
+export const deviceWriteResultSchema = z.object({
+  status: z.enum(["updated", "conflict"]),
+  path: z.string(),
+});
 
 /**
  * `GET /api/hub/device/sync/roots`: the hub roots, the mass delete guard's threshold. `picked`: a
@@ -624,6 +656,7 @@ export type HubFileSaved = z.infer<typeof hubFileSavedSchema>;
 export type HubVersionsUsage = z.infer<typeof hubVersionsUsageSchema>;
 export type DeviceSyncState = z.infer<typeof deviceSyncStateSchema>;
 export type HubUploadResult = z.infer<typeof hubUploadResultSchema>;
+export type DeviceWriteResult = z.infer<typeof deviceWriteResultSchema>;
 export type DeviceRoot = z.infer<typeof deviceRootSchema>;
 export type DeviceIndex = z.infer<typeof deviceIndexSchema>;
 export type DeviceFolder = z.infer<typeof deviceFolderSchema>;
