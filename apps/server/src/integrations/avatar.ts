@@ -29,7 +29,12 @@ export async function avatar(dataDir: string, id: string, url: string | undefine
   const hit = dataDir ? cached(dataDir, id) : undefined;
   if (hit || !url?.startsWith("https://")) return hit;
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: "error" });
-  const type = res.headers.get("content-type")?.split(";")[0]?.trim() as AvatarType;
+  // Bambu's CDN answers `image/jpg`, not the registered `image/jpeg`.
+  const type = res.headers
+    .get("content-type")
+    ?.split(";")[0]
+    ?.trim()
+    .replace("image/jpg", "image/jpeg") as AvatarType;
   if (!res.ok || !(type in TYPES) || Number(res.headers.get("content-length")) > MAX_BYTES) return;
   const body = Buffer.from(await res.arrayBuffer());
   if (body.length > MAX_BYTES) return;

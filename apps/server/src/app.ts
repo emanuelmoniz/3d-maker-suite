@@ -85,6 +85,11 @@ import { usersRoutes } from "./routes/users.ts";
 import { createUpdater } from "./updates/updates.ts";
 
 // Before 5.5 presets were profiles (ADR-0021): old API paths, bulk kinds and import types still work.
+/** No sync tick for this long = the process was suspended (the PC slept). */
+const SLEEP_GAP_MS = 3 * 60_000;
+/** After that, scheduled syncs wait this long for the network (Wi-Fi) to come back. */
+const WAKE_GRACE_MS = 2 * 60_000;
+
 const LEGACY_PRESET_SEGMENTS: Record<string, string> = {
   "machine-profiles": "machine-presets",
   "print-profiles": "process-presets",
@@ -493,18 +498,31 @@ export async function buildApp(
     });
   }
   if (opts.syncSchedule) {
+    // A PC that slept: the missed tick fires the moment it wakes, before its network is back, and
+    // every vendor call fails ("could not sync"). A tick long after the last one waits a while.
+    let lastTick = Date.now();
+    let wokeAt = 0;
     const job = new Cron(opts.syncSchedule, { protect: true }, async () => {
-      // Not awaited: a big share's walk mustn't hold up the syncs.
-      void rescans().catch((err) => projectsLog.error({ err }, "project rescan failed"));
-      await syncer.runAll();
-      // A source that moved: the new device starts sending, an old one stops.
-      await deviceCatalog
-        .tell()
-        .catch((err) => logFor("integrations").error({ err }, "tell failed"));
-      await syncer.checkCatalogs();
-      await syncer.checkUserPresets();
-      syncer.checkFreed();
-      await evaluate();
+      const now = Date.now();
+      if (now - lastTick > SLEEP_GAP_MS) wokeAt = now;
+      lastTick = now;
+      if (now - wokeAt < WAKE_GRACE_MS) return;
+      try {
+        // Not awaited: a big share's walk mustn't hold up the syncs.
+        void rescans().catch((err) => projectsLog.error({ err }, "project rescan failed"));
+        await syncer.runAll();
+        // A source that moved: the new device starts sending, an old one stops.
+        await deviceCatalog
+          .tell()
+          .catch((err) => logFor("integrations").error({ err }, "tell failed"));
+        await syncer.checkCatalogs();
+        await syncer.checkUserPresets();
+        syncer.checkFreed();
+        await evaluate();
+      } finally {
+        // A long tick isn't a sleep: the gap counts from its end.
+        lastTick = Date.now();
+      }
     });
     app.addHook("onClose", async () => job.stop());
   }

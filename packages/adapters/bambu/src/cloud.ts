@@ -50,7 +50,12 @@ export async function call(url: string, o: CallOpts): Promise<Response> {
       signal: o.signal,
     });
   } catch (err) {
-    o.log.warn({ path, err: (err as Error).name }, "bambu request failed");
+    // fetch only says "TypeError: fetch failed"; the cause's code (ECONNRESET, ENOTFOUND, ...) says why.
+    const cause = (err as { cause?: { code?: string; name?: string } }).cause;
+    o.log.warn(
+      { path, err: (err as Error).name, cause: cause?.code ?? cause?.name },
+      "bambu request failed",
+    );
     throw new IntegrationError("unreachable");
   }
   if (res.ok) return res;

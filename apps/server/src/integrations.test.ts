@@ -1065,6 +1065,40 @@ describe("capabilities", () => {
     expect(await sync(id)).toMatchObject({ status: "error", errorCode: "api_changed" });
     expect(calls).toBe(2);
   });
+
+  it("scheduled syncs wait a couple of minutes after the PC wakes from sleep", async () => {
+    let calls = 0;
+    const counting: IntegrationAdapter = {
+      ...mockAdapter(state),
+      id: "counting",
+      capabilities: ["printers"],
+      create: () => ({
+        test: async () => ({ ok: true }),
+        printers: {
+          listPrinters: async () => {
+            calls++;
+            return [];
+          },
+        },
+      }),
+    };
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      app = await buildApp(db, false, "", { adapters: [counting], syncSchedule: "* * * * *" });
+      await send("POST", "/api/integrations", { adapterId: "counting", secrets: { token: "t" } });
+      await vi.advanceTimersByTimeAsync(61_000);
+      expect(calls).toBe(1);
+      // Asleep for two days: the clock jumps, no timer ran. On waking, the overdue tick waits.
+      vi.setSystemTime(Date.now() + 2 * 24 * 3600_000);
+      await vi.advanceTimersByTimeAsync(61_000);
+      expect(calls).toBe(1);
+      await vi.advanceTimersByTimeAsync(2 * 60_000);
+      expect(calls).toBe(2);
+    } finally {
+      await app.close();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("sign-in", () => {
@@ -1522,17 +1556,18 @@ describe("accounts (ADR-0021)", () => {
         .set({ config: { ...(row?.config as object), avatarUrl } })
         .where(eq(schema.integrations.id, i.id))
         .run();
-    setUrl("https://public-cdn.bblmw.com/a.png");
+    setUrl("https://public-cdn.bblmw.com/a.jpg");
+    // Bambu's CDN sends the unregistered `image/jpg`.
     const fetchMock = vi.fn(
       async () =>
-        new Response(new Uint8Array([137, 80]), { headers: { "content-type": "image/png" } }),
+        new Response(new Uint8Array([255, 216]), { headers: { "content-type": "image/jpg" } }),
     );
     vi.stubGlobal("fetch", fetchMock);
     try {
       for (const _ of [1, 2]) {
         const res = await app.inject(`/api/integrations/${i.id}/avatar`);
         expect(res.statusCode).toBe(200);
-        expect(res.headers["content-type"]).toBe("image/png");
+        expect(res.headers["content-type"]).toBe("image/jpeg");
       }
       expect(fetchMock).toHaveBeenCalledTimes(1);
       // Another account whose photo URL answers with a page, not an image: refused.
