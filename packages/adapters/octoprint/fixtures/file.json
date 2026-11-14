@@ -1,0 +1,51 @@
+{
+  "date": 1794624631,
+  "display": "cube_marlin.gcode",
+  "gcodeAnalysis": {
+    "dimensions": {
+      "depth": 32.623999999999995,
+      "height": 3.05,
+      "width": 32.623999999999995
+    },
+    "estimatedPrintTime": 287.88718369360976,
+    "filament": {
+      "tool0": {
+        "length": 401.11941000000064,
+        "volume": 0.9648052467460224
+      }
+    },
+    "printingArea": {
+      "maxX": 116.312,
+      "maxY": 116.312,
+      "maxZ": 3.05,
+      "minX": 83.688,
+      "minY": 83.688,
+      "minZ": 0
+    },
+    "travelArea": {
+      "maxX": 116.312,
+      "maxY": 116.312,
+      "maxZ": 5,
+      "minX": 0,
+      "minY": 0,
+      "minZ": 0
+    },
+    "travelDimensions": {
+      "depth": 116.312,
+      "height": 5,
+      "width": 116.312
+    }
+  },
+  "hash": "b9e03c0818924e6e97659adfffe3f8afd262f733",
+  "name": "cube_marlin.gcode",
+  "origin": "local",
+  "path": "cube_marlin.gcode",
+  "refs": {
+    "download": "http://localhost:5000/downloads/files/local/cube_marlin.gcode",
+    "resource": "http://localhost:5000/api/files/local/cube_marlin.gcode"
+  },
+  "size": 47411,
+  "type": "machinecode",
+  "typePath": ["machinecode", "gcode"],
+  "user": "_api"
+}

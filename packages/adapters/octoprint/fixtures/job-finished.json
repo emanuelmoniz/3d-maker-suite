@@ -1,0 +1,30 @@
+{
+  "job": {
+    "averagePrintTime": 36.78844033799999,
+    "estimatedPrintTime": 287.88718369360976,
+    "filament": {
+      "tool0": {
+        "length": 401.11941000000064,
+        "volume": 0.9648052467460224
+      }
+    },
+    "file": {
+      "date": 1794624631,
+      "display": "cube_marlin.gcode",
+      "name": "cube_marlin.gcode",
+      "origin": "local",
+      "path": "cube_marlin.gcode",
+      "size": 47411
+    },
+    "lastPrintTime": 36.78844033799999,
+    "user": "_api"
+  },
+  "progress": {
+    "completion": 100,
+    "filepos": 47411,
+    "printTime": 36,
+    "printTimeLeft": 0,
+    "printTimeLeftOrigin": null
+  },
+  "state": "Operational"
+}

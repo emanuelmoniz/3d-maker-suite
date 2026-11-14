@@ -1,0 +1,16 @@
+{
+  "result": {
+    "state": "shutdown",
+    "state_message": "MCU 'mcu' shutdown: Timer too close\nThis often indicates the host computer is overloaded. Check\nfor other processes consuming excessive CPU time, high swap\nusage, disk errors, overheating, unstable voltage, or\nsimilar system problems on the host computer.\nOnce the underlying issue is corrected, use the\n\"FIRMWARE_RESTART\" command to reset the firmware, reload the\nconfig, and restart the host software.\nPrinter is shutdown\n",
+    "hostname": "25533e3d5d25",
+    "klipper_path": "/home/printer/klipper",
+    "python_path": "/home/printer/python-env/bin/python",
+    "process_id": 28,
+    "user_id": 1000,
+    "group_id": 1000,
+    "log_file": "/home/printer/printer_data/logs/klippy.log",
+    "config_file": "/home/printer/printer_data/config/printer.cfg",
+    "software_version": "282db76",
+    "cpu_info": "4 core simulated"
+  }
+}

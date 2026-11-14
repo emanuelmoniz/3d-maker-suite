@@ -1,0 +1,16 @@
+{
+  "done": true,
+  "effectivePrint": false,
+  "effectiveSelect": false,
+  "files": {
+    "local": {
+      "name": "cube_marlin.gcode",
+      "origin": "local",
+      "path": "cube_marlin.gcode",
+      "refs": {
+        "download": "http://localhost:5000/downloads/files/local/cube_marlin.gcode",
+        "resource": "http://localhost:5000/api/files/local/cube_marlin.gcode"
+      }
+    }
+  }
+}

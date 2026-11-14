@@ -1,0 +1,12 @@
+{
+  "action": "create_file",
+  "item": {
+    "modified": 1794653671.8733332,
+    "size": 100226,
+    "permissions": "rw",
+    "path": "cube_orca.gcode",
+    "root": "gcodes"
+  },
+  "print_started": false,
+  "print_queued": false
+}

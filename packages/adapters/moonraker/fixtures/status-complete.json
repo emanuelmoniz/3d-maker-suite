@@ -1,0 +1,86 @@
+{
+  "result": {
+    "eventtime": 1846.808258371,
+    "status": {
+      "print_stats": {
+        "filename": "tile_orca.gcode",
+        "total_duration": 172.92300612400004,
+        "print_duration": 164.77358421400004,
+        "filament_used": 24.48769999999999,
+        "state": "complete",
+        "message": "",
+        "info": {
+          "total_layer": null,
+          "current_layer": null
+        }
+      },
+      "virtual_sdcard": {
+        "file_path": null,
+        "progress": 1,
+        "is_active": false,
+        "file_position": 42408,
+        "file_size": 42408
+      },
+      "display_status": {
+        "progress": 1,
+        "message": "M140 called with S35 ; set bed temperature"
+      },
+      "extruder": {
+        "temperature": 103.26,
+        "target": 0,
+        "power": 0,
+        "can_extrude": true,
+        "pressure_advance": 0.1,
+        "smooth_time": 0.01,
+        "motion_queue": null
+      },
+      "heater_bed": {
+        "temperature": 103.26,
+        "target": 0,
+        "power": 0
+      },
+      "toolhead": {
+        "homed_axes": "xyz",
+        "axis_minimum": [-15, -15, -2, 0],
+        "axis_maximum": [235, 235, 250, 0],
+        "print_time": 64.60347344502965,
+        "stalls": 0,
+        "estimated_print_time": 63.73731085,
+        "extruder": "extruder",
+        "position": [146.75, 153.931, 0.6, 100.34507000000015],
+        "max_velocity": 300,
+        "max_accel": 3000,
+        "minimum_cruise_ratio": 0.5,
+        "square_corner_velocity": 9,
+        "extra_axes": {
+          "extruder": 3
+        }
+      },
+      "webhooks": {
+        "state": "ready",
+        "state_message": "Printer is ready"
+      },
+      "idle_timeout": {
+        "state": "Printing",
+        "printing_time": 174.0635931039999,
+        "idle_timeout": 600
+      },
+      "gcode_move": {
+        "speed_factor": 1,
+        "speed": 6000,
+        "extrude_factor": 1,
+        "absolute_coordinates": true,
+        "absolute_extrude": false,
+        "homing_origin": [0, 0, 0, 0],
+        "position": [146.75, 153.931, 0.6, 100.34507000000015],
+        "gcode_position": [146.75, 153.931, 0.6, 7.380340000000032],
+        "axis_map": {
+          "X": 0,
+          "Y": 1,
+          "Z": 2,
+          "E": 3
+        }
+      }
+    }
+  }
+}

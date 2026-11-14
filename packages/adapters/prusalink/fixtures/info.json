@@ -1,0 +1,10 @@
+{
+  "nozzle_diameter": 0.4,
+  "mmu": false,
+  "serial": "serial-1337",
+  "hostname": "PrusaXL",
+  "min_extrusion_temp": 170,
+  "location": "Workshop",
+  "sd_ready": true,
+  "farm_mode": false
+}

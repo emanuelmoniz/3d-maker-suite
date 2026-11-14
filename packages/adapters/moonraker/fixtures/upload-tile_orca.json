@@ -1,0 +1,12 @@
+{
+  "action": "create_file",
+  "item": {
+    "modified": 1794654036.917624,
+    "size": 42408,
+    "permissions": "rw",
+    "path": "tile_orca.gcode",
+    "root": "gcodes"
+  },
+  "print_started": false,
+  "print_queued": false
+}

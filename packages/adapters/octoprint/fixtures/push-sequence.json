@@ -1,0 +1,4507 @@
+[
+  {
+    "at": "2026-11-14T02:50:29.860Z",
+    "msg": {
+      "connected": {
+        "version": "1.11.8",
+        "display_version": "1.11.8",
+        "branch": "bugfix",
+        "python_version": "3.10.18",
+        "plugin_hash": "51c5cc426714019ec4b81d2736d44047",
+        "config_hash": "16be596c58d9aa01bc1fce569e85e5d6",
+        "debug": false,
+        "safe_mode": null,
+        "online": true,
+        "permissions": [
+          {
+            "key": "ADMIN",
+            "name": "Admin",
+            "dangerous": true,
+            "default_groups": ["admins"],
+            "description": "Admin is allowed to do everything",
+            "needs": {
+              "role": ["admin"]
+            }
+          },
+          {
+            "key": "STATUS",
+            "name": "Status",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to gather basic status information, e.g. job progress, printer state, temperatures, ... Mandatory for the default UI to work",
+            "needs": {
+              "role": ["status"]
+            }
+          },
+          {
+            "key": "CONNECTION",
+            "name": "Connection",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to connect to and disconnect from a printer",
+            "needs": {
+              "role": ["connection"]
+            }
+          },
+          {
+            "key": "WEBCAM",
+            "name": "Webcam",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to watch the webcam stream",
+            "needs": {
+              "role": ["webcam"]
+            }
+          },
+          {
+            "key": "SYSTEM",
+            "name": "System",
+            "dangerous": true,
+            "default_groups": [],
+            "description": "Allows to run system commands, e.g. restart OctoPrint, shutdown or reboot the system, and to retrieve system and usage information",
+            "needs": {
+              "role": ["system"]
+            }
+          },
+          {
+            "key": "FILES_LIST",
+            "name": "File List",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to retrieve a list of all uploaded files and folders, includingtheir metadata (e.g. date, file size, analysis results, ...)",
+            "needs": {
+              "role": ["files_list"]
+            }
+          },
+          {
+            "key": "FILES_UPLOAD",
+            "name": "File Upload",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows users to upload new files, create new folders and copy existing ones. If the File Delete permission is also set, File Upload also allows moving files and folders.",
+            "needs": {
+              "role": ["files_upload"]
+            }
+          },
+          {
+            "key": "FILES_DOWNLOAD",
+            "name": "File Download",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows users to download files. The GCODE viewer is affected by this as well.",
+            "needs": {
+              "role": ["files_download"]
+            }
+          },
+          {
+            "key": "FILES_DELETE",
+            "name": "File Delete",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows users to delete files and folders. If the File Upload permission is also set, File Delete also allows moving files and folders.",
+            "needs": {
+              "role": ["files_delete"]
+            }
+          },
+          {
+            "key": "FILES_SELECT",
+            "name": "File Select",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to select a file for printing",
+            "needs": {
+              "role": ["files_select"]
+            }
+          },
+          {
+            "key": "PRINT",
+            "name": "Print",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to start, pause and cancel a print job",
+            "needs": {
+              "role": ["print"]
+            }
+          },
+          {
+            "key": "GCODE_VIEWER",
+            "name": "GCODE viewer",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows access to the GCODE viewer if the \"File Download\"permission is also set.",
+            "needs": {
+              "role": ["gcodeviewer"]
+            }
+          },
+          {
+            "key": "MONITOR_TERMINAL",
+            "name": "Terminal",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to watch the terminal tab but not to send commands to the printer from it",
+            "needs": {
+              "role": ["monitor_terminal"]
+            }
+          },
+          {
+            "key": "CONTROL",
+            "name": "Control",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to control of the printer by using the temperature controls,the control tab or sending commands through the terminal.",
+            "needs": {
+              "role": ["control"]
+            }
+          },
+          {
+            "key": "SLICE",
+            "name": "Slice",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to slice files",
+            "needs": {
+              "role": ["slice"]
+            }
+          },
+          {
+            "key": "TIMELAPSE_LIST",
+            "name": "Timelapse List",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to list timelapse videos",
+            "needs": {
+              "role": ["timelapse_list"]
+            }
+          },
+          {
+            "key": "TIMELAPSE_DOWNLOAD",
+            "name": "Timelapse Download",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to download timelapse videos",
+            "needs": {
+              "role": ["timelapse_download"]
+            }
+          },
+          {
+            "key": "TIMELAPSE_DELETE",
+            "name": "Timelapse Delete",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to delete timelapse videos",
+            "needs": {
+              "role": ["timelapse_delete"]
+            }
+          },
+          {
+            "key": "TIMELAPSE_MANAGE_UNRENDERED",
+            "name": "Timelapse Manage Unrendered",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to list, delete and render unrendered timelapses",
+            "needs": {
+              "role": ["timelapse_manage_unrendered"]
+            }
+          },
+          {
+            "key": "TIMELAPSE_ADMIN",
+            "name": "Timelapse Admin",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to change the timelapse settings.",
+            "needs": {
+              "role": ["timelapse_admin"]
+            }
+          },
+          {
+            "key": "SETTINGS_READ",
+            "name": "Settings Access",
+            "dangerous": false,
+            "default_groups": ["users", "readonly"],
+            "description": "Allows to read non sensitive settings. Mandatory for the default UI to work.",
+            "needs": {
+              "role": ["settings_read"]
+            }
+          },
+          {
+            "key": "SETTINGS",
+            "name": "Settings Admin",
+            "dangerous": true,
+            "default_groups": [],
+            "description": "Allows to manage settings and also to read sensitive settings",
+            "needs": {
+              "role": ["settings"]
+            }
+          },
+          {
+            "key": "PLUGIN_ACHIEVEMENTS_VIEW",
+            "name": "Achievements Plugin: View instance achievements & stats",
+            "dangerous": false,
+            "default_groups": ["readonly", "users", "admins"],
+            "description": "Allows to view the instance achievements & stats.",
+            "needs": {
+              "role": ["plugin_achievements_view"]
+            },
+            "plugin": "achievements"
+          },
+          {
+            "key": "PLUGIN_ACHIEVEMENTS_RESET",
+            "name": "Achievements Plugin: Reset instance achievements & stats",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to reset the instance achievements & stats.",
+            "needs": {
+              "role": ["plugin_achievements_reset"]
+            },
+            "plugin": "achievements"
+          },
+          {
+            "key": "PLUGIN_ACTION_COMMAND_NOTIFICATION_SHOW",
+            "name": "Action Command Notification Support: Show printer notifications",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to see printer notifications",
+            "needs": {
+              "role": ["plugin_action_command_notification_show"]
+            },
+            "plugin": "action_command_notification"
+          },
+          {
+            "key": "PLUGIN_ACTION_COMMAND_NOTIFICATION_CLEAR",
+            "name": "Action Command Notification Support: Clear printer notifications",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to clear printer notifications",
+            "needs": {
+              "role": ["plugin_action_command_notification_clear"]
+            },
+            "plugin": "action_command_notification"
+          },
+          {
+            "key": "PLUGIN_ACTION_COMMAND_PROMPT_INTERACT",
+            "name": "Action Command Prompt Support: Interact with printer prompts",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to see and interact with printer prompts",
+            "needs": {
+              "role": ["plugin_action_command_prompt_interact"]
+            },
+            "plugin": "action_command_prompt"
+          },
+          {
+            "key": "PLUGIN_ANNOUNCEMENTS_READ",
+            "name": "Announcement Plugin: Read announcements",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to read announcements",
+            "needs": {
+              "role": ["plugin_announcements_read"]
+            },
+            "plugin": "announcements"
+          },
+          {
+            "key": "PLUGIN_ANNOUNCEMENTS_MANAGE",
+            "name": "Announcement Plugin: Manage announcement subscriptions",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to manage announcement subscriptions. Includes \"Read announcements\" permission",
+            "needs": {
+              "role": ["plugin_announcements_manage", "plugin_announcements_read"]
+            },
+            "plugin": "announcements"
+          },
+          {
+            "key": "PLUGIN_APPKEYS_ADMIN",
+            "name": "Application Keys Plugin: Admin access",
+            "dangerous": true,
+            "default_groups": ["admins"],
+            "description": "Allows administrating all application keys",
+            "needs": {
+              "role": ["plugin_appkeys_admin"]
+            },
+            "plugin": "appkeys"
+          },
+          {
+            "key": "PLUGIN_APPKEYS_GRANT",
+            "name": "Application Keys Plugin: Grant access",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to grant app access",
+            "needs": {
+              "role": ["plugin_appkeys_user"]
+            },
+            "plugin": "appkeys"
+          },
+          {
+            "key": "PLUGIN_BACKUP_CREATE",
+            "name": "Backup & Restore: Create backup",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to trigger the creation of backups",
+            "needs": {
+              "role": ["plugin_backup_create"]
+            },
+            "plugin": "backup"
+          },
+          {
+            "key": "PLUGIN_FILE_CHECK_RUN",
+            "name": "File Check: Run File Check",
+            "dangerous": false,
+            "default_groups": ["users", "admins"],
+            "description": "Allows to run File Check and view the results.",
+            "needs": {
+              "role": ["plugin_file_check_run"]
+            },
+            "plugin": "file_check"
+          },
+          {
+            "key": "PLUGIN_FIRMWARE_CHECK_DISPLAY",
+            "name": "Firmware Check: Display firmware check warnings",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to see firmware check warnings",
+            "needs": {
+              "role": ["plugin_firmware_check_display"]
+            },
+            "plugin": "firmware_check"
+          },
+          {
+            "key": "PLUGIN_HEALTH_CHECK_CHECK",
+            "name": "Healthcheck Plugin: Perform healthchecks",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to perform health checks and view their results",
+            "needs": {
+              "role": ["plugin_health_check_check"]
+            },
+            "plugin": "health_check"
+          },
+          {
+            "key": "PLUGIN_LOGGING_MANAGE",
+            "name": "Logging: Logging management",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to download and delete log files and list and set log levels.",
+            "needs": {
+              "role": ["plugin_logging_manage"]
+            },
+            "plugin": "logging"
+          },
+          {
+            "key": "PLUGIN_PLUGINMANAGER_LIST",
+            "name": "Plugin Manager: List plugins",
+            "dangerous": false,
+            "default_groups": ["readonly", "users", "admins"],
+            "description": "Allows to list installed plugins.",
+            "needs": {
+              "role": ["plugin_pluginmanager_list"]
+            },
+            "plugin": "pluginmanager"
+          },
+          {
+            "key": "PLUGIN_PLUGINMANAGER_MANAGE",
+            "name": "Plugin Manager: Manage plugins",
+            "dangerous": false,
+            "default_groups": ["admins"],
+            "description": "Allows to enable, disable and uninstall installed plugins.",
+            "needs": {
+              "role": ["plugin_pluginmanager_manage"]
+            },
+            "plugin": "pluginmanager"
+          },
+          {
+            "key": "PLUGIN_PLUGINMANAGER_INSTALL",
+            "name": "Plugin Manager: Install new plugins",
+            "dangerous": true,
+            "default_groups": ["admins"],
+            "description": "Allows to install new plugins. Includes the \"Manage plugins\" permission.",
+            "needs": {
+              "role": ["plugin_pluginmanager_install", "plugin_pluginmanager_manage"]
+            },
+            "plugin": "pluginmanager"
+          },
+          {
+            "key": "PLUGIN_SOFTWAREUPDATE_CHECK",
+            "name": "Software Update: Check",
+            "dangerous": false,
+            "default_groups": ["users"],
+            "description": "Allows to check for software updates",
+            "needs": {
+              "role": ["plugin_softwareupdate_check"]
+            },
+            "plugin": "softwareupdate"
+          },
+          {
+            "key": "PLUGIN_SOFTWAREUPDATE_UPDATE",
+            "name": "Software Update: Update",
+            "dangerous": true,
+            "default_groups": ["admins"],
+            "description": "Allows to perform software updates",
+            "needs": {
+              "role": ["plugin_softwareupdate_update"]
+            },
+            "plugin": "softwareupdate"
+          },
+          {
+            "key": "PLUGIN_SOFTWAREUPDATE_CONFIGURE",
+            "name": "Software Update: Configure",
+            "dangerous": true,
+            "default_groups": ["admins"],
+            "description": "Allows to configure software update",
+            "needs": {
+              "role": ["plugin_softwareupdate_configure"]
+            },
+            "plugin": "softwareupdate"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.861Z",
+    "msg": {
+      "timelapse": null
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.867Z",
+    "msg": {
+      "event": {
+        "type": "Connecting",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.877Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "OPEN_SERIAL",
+          "state_string": "Opening serial connection"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.879Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Opening serial connection",
+          "flags": {
+            "operational": false,
+            "printing": false,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": false
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": null,
+            "path": null,
+            "size": null,
+            "origin": null,
+            "date": null
+          },
+          "estimatedPrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "length": null,
+            "volume": null
+          },
+          "user": null
+        },
+        "currentZ": null,
+        "progress": {
+          "completion": null,
+          "filepos": null,
+          "printTime": null,
+          "printTimeLeft": null,
+          "printTimeLeftOrigin": null
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 0,
+          "ratio": 0
+        },
+        "serverTime": 1794624629.876498,
+        "temps": [],
+        "busyFiles": [],
+        "markings": [],
+        "logs": "(1 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.896Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "CONNECTING",
+          "state_string": "Connecting"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.902Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "OPERATIONAL",
+          "state_string": "Operational"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.902Z",
+    "msg": {
+      "event": {
+        "type": "Connected",
+        "payload": {
+          "port": "VIRTUAL",
+          "baudrate": 115200
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.911Z",
+    "msg": {
+      "event": {
+        "type": "FirmwareData",
+        "payload": {
+          "name": "Virtual Marlin 1.0",
+          "data": {
+            "FIRMWARE_NAME": "Virtual Marlin 1.0",
+            "PROTOCOL_VERSION": "1.0"
+          }
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:29.920Z",
+    "msg": {
+      "event": {
+        "type": "UpdatedFiles",
+        "payload": {
+          "type": "printables"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:31.037Z",
+    "msg": {
+      "event": {
+        "type": "FileAdded",
+        "payload": {
+          "storage": "local",
+          "path": "cube_marlin.gcode",
+          "name": "cube_marlin.gcode",
+          "type": ["machinecode", "gcode"],
+          "operation": "add"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:31.041Z",
+    "msg": {
+      "event": {
+        "type": "UpdatedFiles",
+        "payload": {
+          "type": "printables"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:31.042Z",
+    "msg": {
+      "event": {
+        "type": "MetadataAnalysisStarted",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "type": "gcode"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:31.042Z",
+    "msg": {
+      "event": {
+        "type": "Upload",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "target": "local",
+          "select": false,
+          "print": false,
+          "effective_select": false,
+          "effective_print": false
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:31.173Z",
+    "msg": {
+      "event": {
+        "type": "MetadataAnalysisFinished",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "result": {
+            "printingArea": {
+              "maxX": 116.312,
+              "maxY": 116.312,
+              "maxZ": 3.05,
+              "minX": 83.688,
+              "minY": 83.688,
+              "minZ": 0
+            },
+            "dimensions": {
+              "depth": 32.623999999999995,
+              "height": 3.05,
+              "width": 32.623999999999995
+            },
+            "travelArea": {
+              "maxX": 116.312,
+              "maxY": 116.312,
+              "maxZ": 5,
+              "minX": 0,
+              "minY": 0,
+              "minZ": 0
+            },
+            "travelDimensions": {
+              "depth": 116.312,
+              "height": 5,
+              "width": 116.312
+            },
+            "estimatedPrintTime": 287.88718369360976,
+            "filament": {
+              "tool0": {
+                "length": 401.11941000000064,
+                "volume": 0.9648052467460224
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:31.877Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Operational",
+          "flags": {
+            "operational": true,
+            "printing": false,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": true,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": null,
+            "path": null,
+            "size": null,
+            "origin": null,
+            "date": null
+          },
+          "estimatedPrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "length": null,
+            "volume": null
+          },
+          "user": null
+        },
+        "currentZ": null,
+        "progress": {
+          "completion": null,
+          "filepos": null,
+          "printTime": null,
+          "printTimeLeft": null,
+          "printTimeLeftOrigin": null
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 8,
+          "ratio": 0
+        },
+        "serverTime": 1794624631.8769872,
+        "temps": [],
+        "busyFiles": [],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          }
+        ],
+        "logs": "(35 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.114Z",
+    "msg": {
+      "event": {
+        "type": "FileSelected",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": null,
+          "owner": "_api",
+          "user": "_api"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.116Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "STARTING",
+          "state_string": "Starting"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.118Z",
+    "msg": {
+      "event": {
+        "type": "PrintStarted",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": 47411,
+          "owner": "_api",
+          "user": "_api"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.128Z",
+    "msg": {
+      "event": {
+        "type": "ChartMarked",
+        "payload": {
+          "type": "print",
+          "label": "Start"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.130Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "PRINTING",
+          "state_string": "Printing"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.136Z",
+    "msg": {
+      "event": {
+        "type": "Home",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.152Z",
+    "msg": {
+      "event": {
+        "type": "plugin_achievements_achievement_unlocked",
+        "payload": {
+          "key": "night_owl",
+          "name": "Night Owl",
+          "description": "Start a print between 23:00 and 03:00.",
+          "hidden": true,
+          "nag": false,
+          "timebased": true,
+          "type": "achievement",
+          "logo": "night_owl"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:32.167Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 5,
+          "old": null
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:33.877Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624633.8774858,
+        "temps": [
+          {
+            "time": 1794624631,
+            "tool0": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624632,
+            "tool0": {
+              "actual": 21.3,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624632,
+            "tool0": {
+              "actual": 21.3,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624632,
+            "tool0": {
+              "actual": 21.36,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624633,
+            "tool0": {
+              "actual": 31.37,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(17 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:35.877Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624635.8779764,
+        "temps": [
+          {
+            "time": 1794624633,
+            "tool0": {
+              "actual": 31.37,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624634,
+            "tool0": {
+              "actual": 41.39,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624635,
+            "tool0": {
+              "actual": 51.39,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:37.878Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624637.8785017,
+        "temps": [
+          {
+            "time": 1794624635,
+            "tool0": {
+              "actual": 51.39,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624636,
+            "tool0": {
+              "actual": 61.4,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624637,
+            "tool0": {
+              "actual": 71.42,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:39.880Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624639.8790498,
+        "temps": [
+          {
+            "time": 1794624637,
+            "tool0": {
+              "actual": 71.42,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624638,
+            "tool0": {
+              "actual": 81.42,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624639,
+            "tool0": {
+              "actual": 91.43,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:41.880Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624641.8795033,
+        "temps": [
+          {
+            "time": 1794624639,
+            "tool0": {
+              "actual": 91.43,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624640,
+            "tool0": {
+              "actual": 101.44,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624641,
+            "tool0": {
+              "actual": 111.45,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:43.880Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624643.87998,
+        "temps": [
+          {
+            "time": 1794624641,
+            "tool0": {
+              "actual": 111.45,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624642,
+            "tool0": {
+              "actual": 121.47,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624643,
+            "tool0": {
+              "actual": 131.48,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:45.881Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624645.880473,
+        "temps": [
+          {
+            "time": 1794624643,
+            "tool0": {
+              "actual": 131.48,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624644,
+            "tool0": {
+              "actual": 141.49,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624645,
+            "tool0": {
+              "actual": 151.5,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:47.881Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624647.8809063,
+        "temps": [
+          {
+            "time": 1794624645,
+            "tool0": {
+              "actual": 151.5,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624646,
+            "tool0": {
+              "actual": 161.51,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624647,
+            "tool0": {
+              "actual": 171.52,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:49.882Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 5,
+        "progress": {
+          "completion": 0.9491468224673598,
+          "filepos": 450,
+          "printTime": 0,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 13,
+          "ratio": 0
+        },
+        "serverTime": 1794624649.8814862,
+        "temps": [
+          {
+            "time": 1794624647,
+            "tool0": {
+              "actual": 171.52,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624648,
+            "tool0": {
+              "actual": 181.53,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624649,
+            "tool0": {
+              "actual": 191.54,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:51.148Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 0.35,
+          "old": 5
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:51.882Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.35,
+        "progress": {
+          "completion": 2.830566746113771,
+          "filepos": 1342,
+          "printTime": 19,
+          "printTimeLeft": 287,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 49,
+          "ratio": 0
+        },
+        "serverTime": 1794624651.881838,
+        "temps": [
+          {
+            "time": 1794624649,
+            "tool0": {
+              "actual": 191.54,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624650,
+            "tool0": {
+              "actual": 200,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(122 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:53.426Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 0.65,
+          "old": 0.35
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:53.882Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.65,
+        "progress": {
+          "completion": 8.70473096960621,
+          "filepos": 4127,
+          "printTime": 21,
+          "printTimeLeft": 285,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 152,
+          "ratio": 2
+        },
+        "serverTime": 1794624653.8821914,
+        "temps": [
+          {
+            "time": 1794624651,
+            "tool0": {
+              "actual": 200,
+              "target": 200
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624653,
+            "tool0": {
+              "actual": 200,
+              "target": 205
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624653,
+            "tool0": {
+              "actual": 200,
+              "target": 205
+            },
+            "bed": {
+              "actual": 21.3,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(253 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:55.883Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.65,
+        "progress": {
+          "completion": 15.310792853979036,
+          "filepos": 7259,
+          "printTime": 23,
+          "printTimeLeft": 283,
+          "printTimeLeftOrigin": "analysis"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 261,
+          "ratio": 1
+        },
+        "serverTime": 1794624655.8826618,
+        "temps": [
+          {
+            "time": 1794624653,
+            "tool0": {
+              "actual": 204.55,
+              "target": 205
+            },
+            "bed": {
+              "actual": 26.18,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(159 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:57.038Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 0.95,
+          "old": 0.65
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:57.883Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.95,
+        "progress": {
+          "completion": 23.496656893969753,
+          "filepos": 11140,
+          "printTime": 25,
+          "printTimeLeft": 101,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 394,
+          "ratio": 1
+        },
+        "serverTime": 1794624657.883092,
+        "temps": [
+          {
+            "time": 1794624655,
+            "tool0": {
+              "actual": 204.94,
+              "target": 205
+            },
+            "bed": {
+              "actual": 45.99,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(305 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:58.923Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 1.25,
+          "old": 0.95
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:59.520Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 1.55,
+          "old": 1.25
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:59.883Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 1.25,
+        "progress": {
+          "completion": 33.61878045179389,
+          "filepos": 15939,
+          "printTime": 27,
+          "printTimeLeft": 73,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 558,
+          "ratio": 0
+        },
+        "serverTime": 1794624659.8834422,
+        "temps": [
+          {
+            "time": 1794624657,
+            "tool0": {
+              "actual": 204.99,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(395 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:50:59.935Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 1.85,
+          "old": 1.55
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:00.350Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 2.15,
+          "old": 1.85
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:00.992Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 2.45,
+          "old": 2.15
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:01.884Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 2.45,
+        "progress": {
+          "completion": 50.188774756912956,
+          "filepos": 23795,
+          "printTime": 29,
+          "printTimeLeft": 48,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 849,
+          "ratio": 0
+        },
+        "serverTime": 1794624661.883815,
+        "temps": [
+          {
+            "time": 1794624659,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(533 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:02.102Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 2.75,
+          "old": 2.45
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:03.884Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 2.75,
+        "progress": {
+          "completion": 61.534243108139464,
+          "filepos": 29174,
+          "printTime": 31,
+          "printTimeLeft": 38,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 1035,
+          "ratio": 0
+        },
+        "serverTime": 1794624663.8841627,
+        "temps": [
+          {
+            "time": 1794624661,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(363 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:04.085Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 3.05,
+          "old": 2.75
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:05.884Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 3.05,
+        "progress": {
+          "completion": 70.30857817805995,
+          "filepos": 33334,
+          "printTime": 33,
+          "printTimeLeft": 33,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 1177,
+          "ratio": 0
+        },
+        "serverTime": 1794624665.8846595,
+        "temps": [
+          {
+            "time": 1794624663,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(251 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:07.884Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 3.05,
+        "progress": {
+          "completion": 72.74261247389846,
+          "filepos": 34488,
+          "printTime": 35,
+          "printTimeLeft": 32,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 1217,
+          "ratio": 0
+        },
+        "serverTime": 1794624667.8850083,
+        "temps": [
+          {
+            "time": 1794624665,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          }
+        ],
+        "logs": "(83 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.896Z",
+    "msg": {
+      "event": {
+        "type": "Home",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.901Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "FINISHING",
+          "state_string": "Finishing"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.902Z",
+    "msg": {
+      "event": {
+        "type": "ChartMarked",
+        "payload": {
+          "type": "done",
+          "label": "Done"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.902Z",
+    "msg": {
+      "event": {
+        "type": "PrintDone",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": 47411,
+          "owner": "_api",
+          "time": 36.78844033799999
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.905Z",
+    "msg": {
+      "event": {
+        "type": "MetadataStatisticsUpdated",
+        "payload": {
+          "storage": "local",
+          "path": "cube_marlin.gcode"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.906Z",
+    "msg": {
+      "event": {
+        "type": "plugin_achievements_achievement_unlocked",
+        "payload": {
+          "key": "one_small_step_for_man",
+          "name": "That's One Small Step For (A) Man",
+          "description": "Finish your first print.",
+          "hidden": false,
+          "nag": false,
+          "timebased": false,
+          "type": "achievement",
+          "logo": "one_small_step_for_man"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:08.906Z",
+    "msg": {
+      "event": {
+        "type": "plugin_achievements_achievement_unlocked",
+        "payload": {
+          "key": "sprint",
+          "name": "Sprint",
+          "description": "Finish a print that took less than 10 minutes.",
+          "hidden": false,
+          "nag": false,
+          "timebased": false,
+          "type": "achievement",
+          "logo": "sprint"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:09.861Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "OPERATIONAL",
+          "state_string": "Operational"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:09.886Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Finishing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": true,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 3.05,
+        "progress": {
+          "completion": 100,
+          "filepos": 47411,
+          "printTime": 36,
+          "printTimeLeft": 0,
+          "printTimeLeftOrigin": null
+        },
+        "offsets": {},
+        "resends": {
+          "count": 4,
+          "transmitted": 1277,
+          "ratio": 0
+        },
+        "serverTime": 1794624669.8853617,
+        "temps": [
+          {
+            "time": 1794624667,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624668,
+            "tool0": {
+              "actual": 205,
+              "target": 0
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          }
+        ],
+        "logs": "(106 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.613Z",
+    "msg": {
+      "event": {
+        "type": "FileSelected",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": null,
+          "owner": "_api",
+          "user": "_api"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.619Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "STARTING",
+          "state_string": "Starting"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.621Z",
+    "msg": {
+      "event": {
+        "type": "PrintStarted",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": 47411,
+          "owner": "_api",
+          "user": "_api"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.628Z",
+    "msg": {
+      "event": {
+        "type": "ChartMarked",
+        "payload": {
+          "type": "print",
+          "label": "Start"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.629Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "PRINTING",
+          "state_string": "Printing"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.645Z",
+    "msg": {
+      "event": {
+        "type": "Home",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.655Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 5,
+          "old": null
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:10.676Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 0.35,
+          "old": 5
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:11.887Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.35,
+        "progress": {
+          "completion": 6.677775199848137,
+          "filepos": 3166,
+          "printTime": 1,
+          "printTimeLeft": 35,
+          "printTimeLeftOrigin": "average"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 6,
+          "transmitted": 1385,
+          "ratio": 0
+        },
+        "serverTime": 1794624671.8857226,
+        "temps": [
+          {
+            "time": 1794624669,
+            "tool0": {
+              "actual": 202.95,
+              "target": 0
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624670,
+            "tool0": {
+              "actual": 202.95,
+              "target": 200
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624670,
+            "tool0": {
+              "actual": 202.95,
+              "target": 200
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          }
+        ],
+        "logs": "(224 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:12.954Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 0.65,
+          "old": 0.35
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:13.887Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.65,
+        "progress": {
+          "completion": 12.788171521376896,
+          "filepos": 6063,
+          "printTime": 3,
+          "printTimeLeft": 33,
+          "printTimeLeftOrigin": "average"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 8,
+          "transmitted": 1491,
+          "ratio": 0
+        },
+        "serverTime": 1794624673.886022,
+        "temps": [
+          {
+            "time": 1794624671,
+            "tool0": {
+              "actual": 200.09,
+              "target": 200
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624672,
+            "tool0": {
+              "actual": 200.09,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624672,
+            "tool0": {
+              "actual": 200.09,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          }
+        ],
+        "logs": "(219 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:15.887Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.65,
+        "progress": {
+          "completion": 16.953871464428087,
+          "filepos": 8038,
+          "printTime": 5,
+          "printTimeLeft": 31,
+          "printTimeLeftOrigin": "average"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 8,
+          "transmitted": 1556,
+          "ratio": 0
+        },
+        "serverTime": 1794624675.8863811,
+        "temps": [
+          {
+            "time": 1794624673,
+            "tool0": {
+              "actual": 204.74,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          }
+        ],
+        "logs": "(133 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:16.566Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 0.95,
+          "old": 0.65
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:17.887Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 0.95,
+        "progress": {
+          "completion": 27.1350530467613,
+          "filepos": 12865,
+          "printTime": 7,
+          "printTimeLeft": 29,
+          "printTimeLeftOrigin": "average"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 8,
+          "transmitted": 1720,
+          "ratio": 0
+        },
+        "serverTime": 1794624677.8867273,
+        "temps": [
+          {
+            "time": 1794624675,
+            "tool0": {
+              "actual": 204.97,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          }
+        ],
+        "logs": "(331 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:18.451Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 1.25,
+          "old": 0.95
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:19.050Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 1.55,
+          "old": 1.25
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:19.465Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 1.85,
+          "old": 1.55
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:19.881Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 2.15,
+          "old": 1.85
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:19.887Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Printing",
+          "flags": {
+            "operational": true,
+            "printing": true,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": 2.15,
+        "progress": {
+          "completion": 40.99470586994579,
+          "filepos": 19436,
+          "printTime": 9,
+          "printTimeLeft": 13,
+          "printTimeLeftOrigin": "linear"
+        },
+        "offsets": {},
+        "resends": {
+          "count": 8,
+          "transmitted": 1964,
+          "ratio": 0
+        },
+        "serverTime": 1794624679.8870215,
+        "temps": [
+          {
+            "time": 1794624677,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [
+          {
+            "origin": "local",
+            "path": "cube_marlin.gcode"
+          }
+        ],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          }
+        ],
+        "logs": "(491 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.524Z",
+    "msg": {
+      "event": {
+        "type": "ZChange",
+        "payload": {
+          "new": 2.45,
+          "old": 2.15
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.757Z",
+    "msg": {
+      "event": {
+        "type": "PrintCancelling",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": 47411,
+          "owner": "_api",
+          "user": "_api"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.758Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "CANCELLING",
+          "state_string": "Cancelling"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.761Z",
+    "msg": {
+      "event": {
+        "type": "PrintCancelled",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": 47411,
+          "position": {
+            "x": null,
+            "e": null,
+            "z": null,
+            "f": null,
+            "t": null,
+            "y": null
+          },
+          "fileposition": 22670,
+          "progress": 47,
+          "owner": "_api",
+          "user": "_api",
+          "time": 10.14428466600009
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.769Z",
+    "msg": {
+      "event": {
+        "type": "ChartMarked",
+        "payload": {
+          "type": "cancel",
+          "label": "Cancel"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.772Z",
+    "msg": {
+      "event": {
+        "type": "plugin_achievements_achievement_unlocked",
+        "payload": {
+          "key": "all_beginnings_are_hard",
+          "name": "All Beginnings Are Hard",
+          "description": "Cancel your first print.",
+          "hidden": false,
+          "nag": false,
+          "timebased": false,
+          "type": "achievement",
+          "logo": "all_beginnings_are_hard"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.774Z",
+    "msg": {
+      "event": {
+        "type": "MetadataStatisticsUpdated",
+        "payload": {
+          "storage": "local",
+          "path": "cube_marlin.gcode"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.775Z",
+    "msg": {
+      "event": {
+        "type": "PrintFailed",
+        "payload": {
+          "name": "cube_marlin.gcode",
+          "path": "cube_marlin.gcode",
+          "origin": "local",
+          "size": 47411,
+          "position": {
+            "x": null,
+            "e": null,
+            "z": null,
+            "f": null,
+            "t": null,
+            "y": null
+          },
+          "fileposition": 22670,
+          "progress": 47,
+          "owner": "_api",
+          "user": "_api",
+          "time": 10.14428466600009,
+          "reason": "cancelled"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:20.778Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "OPERATIONAL",
+          "state_string": "Operational"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:21.888Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Operational",
+          "flags": {
+            "operational": true,
+            "printing": false,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": false,
+            "error": false,
+            "paused": false,
+            "ready": true,
+            "sdReady": true
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": "cube_marlin.gcode",
+            "path": "cube_marlin.gcode",
+            "display": "cube_marlin.gcode",
+            "origin": "local",
+            "size": 47411,
+            "date": 1794624631
+          },
+          "estimatedPrintTime": 287.88718369360976,
+          "averagePrintTime": 36.78844033799999,
+          "lastPrintTime": 36.78844033799999,
+          "filament": {
+            "tool0": {
+              "length": 401.11941000000064,
+              "volume": 0.9648052467460224
+            }
+          },
+          "user": "_api"
+        },
+        "currentZ": null,
+        "progress": {
+          "completion": null,
+          "filepos": null,
+          "printTime": null,
+          "printTimeLeft": null,
+          "printTimeLeftOrigin": null
+        },
+        "offsets": {},
+        "resends": {
+          "count": 8,
+          "transmitted": 2086,
+          "ratio": 0
+        },
+        "serverTime": 1794624681.887414,
+        "temps": [
+          {
+            "time": 1794624679,
+            "tool0": {
+              "actual": 205,
+              "target": 205
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624680,
+            "tool0": {
+              "actual": 205,
+              "target": 0
+            },
+            "bed": {
+              "actual": 60,
+              "target": 60
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624680,
+            "tool0": {
+              "actual": 205,
+              "target": 0
+            },
+            "bed": {
+              "actual": 60,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          }
+        ],
+        "busyFiles": [],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          },
+          {
+            "type": "cancel",
+            "label": "Cancel",
+            "time": 1794624680.7683666
+          }
+        ],
+        "logs": "(251 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:22.863Z",
+    "msg": {
+      "event": {
+        "type": "Disconnecting",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:22.864Z",
+    "msg": {
+      "event": {
+        "type": "UpdatedFiles",
+        "payload": {
+          "type": "printables"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:22.864Z",
+    "msg": {
+      "event": {
+        "type": "FileDeselected",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:22.866Z",
+    "msg": {
+      "event": {
+        "type": "Disconnected",
+        "payload": null
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:22.867Z",
+    "msg": {
+      "event": {
+        "type": "PrinterStateChanged",
+        "payload": {
+          "state_id": "OFFLINE",
+          "state_string": "Offline"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T02:51:23.888Z",
+    "msg": {
+      "current": {
+        "state": {
+          "text": "Offline",
+          "flags": {
+            "operational": false,
+            "printing": false,
+            "cancelling": false,
+            "pausing": false,
+            "resuming": false,
+            "finishing": false,
+            "closedOrError": true,
+            "error": false,
+            "paused": false,
+            "ready": false,
+            "sdReady": false
+          },
+          "error": ""
+        },
+        "job": {
+          "file": {
+            "name": null,
+            "path": null,
+            "display": null,
+            "origin": null,
+            "size": null,
+            "date": null
+          },
+          "estimatedPrintTime": null,
+          "averagePrintTime": null,
+          "lastPrintTime": null,
+          "filament": null,
+          "user": null
+        },
+        "currentZ": null,
+        "progress": {
+          "completion": null,
+          "filepos": null,
+          "printTime": null,
+          "printTimeLeft": null,
+          "printTimeLeftOrigin": null
+        },
+        "offsets": {},
+        "resends": {
+          "count": 0,
+          "transmitted": 0,
+          "ratio": 0
+        },
+        "serverTime": 1794624683.8879175,
+        "temps": [
+          {
+            "time": 1794624681,
+            "tool0": {
+              "actual": 202.7,
+              "target": 0
+            },
+            "bed": {
+              "actual": 57.7,
+              "target": 0
+            },
+            "chamber": {
+              "actual": null,
+              "target": null
+            }
+          },
+          {
+            "time": 1794624682
+          }
+        ],
+        "busyFiles": [],
+        "markings": [
+          {
+            "type": "connected",
+            "label": "Connected",
+            "time": 1794624629.9011676
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624632.1259897
+          },
+          {
+            "type": "done",
+            "label": "Done",
+            "time": 1794624668.8988574
+          },
+          {
+            "type": "print",
+            "label": "Start",
+            "time": 1794624670.625783
+          },
+          {
+            "type": "cancel",
+            "label": "Cancel",
+            "time": 1794624680.7683666
+          },
+          {
+            "type": "disconnected",
+            "label": "Disconnected",
+            "time": 1794624682.8627574
+          }
+        ],
+        "logs": "(5 lines cut)",
+        "messages": "(cut)"
+      }
+    }
+  }
+]

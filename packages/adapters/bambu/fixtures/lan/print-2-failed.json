@@ -1,0 +1,1527 @@
+[
+  {
+    "at": "2026-11-14T11:49:28.344Z",
+    "bytes": 1206,
+    "msg": {
+      "print": {
+        "sequence_id": "0",
+        "command": "project_file",
+        "param": "Metadata/plate_3.gcode",
+        "project_id": "100000005",
+        "design_id": "100000002",
+        "model_id": "100000006",
+        "profile_id": "100000007",
+        "plate_idx": "3",
+        "task_id": "100000005",
+        "subtask_id": "100000005",
+        "subtask_name": "test-print",
+        "job_id": 100000005,
+        "md5": "00000000000000000000000000000000",
+        "timelapse": false,
+        "bed_leveling": false,
+        "flow_cali": false,
+        "vibration_cali": false,
+        "layer_inspect": true,
+        "ams_mapping": [0],
+        "skip_objects": null,
+        "timestamp": 1794656966,
+        "dev_id": "00M00A000000001",
+        "job_type": 1,
+        "use_ams": true,
+        "bed_temp": 65,
+        "auto_bed_leveling": 0,
+        "extrude_cali_flag": 0,
+        "nozzle_offset_cali": 2,
+        "ams_mapping2": [
+          {
+            "ams_id": 0,
+            "slot_id": 0
+          }
+        ],
+        "cfg": "0",
+        "extrude_cali_manual_mode": 0,
+        "url": "https://example.invalid/test-print.3mf",
+        "reason": "success",
+        "result": "success"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:49:30.429Z",
+    "bytes": 446,
+    "msg": {
+      "print": {
+        "nozzle_temper": 77.0625,
+        "bed_temper": 50.25,
+        "bed_target_temper": 65,
+        "heatbreak_fan_speed": "9",
+        "wifi_signal": "-53dBm",
+        "gcode_state": "PREPARE",
+        "gcode_file_prepare_percent": "0",
+        "project_id": "100000005",
+        "profile_id": "100000007",
+        "task_id": "100000005",
+        "subtask_id": "100000005",
+        "gcode_file": "test-print.3mf",
+        "print_type": "cloud",
+        "upgrade_state": {
+          "cur_state_code": 1
+        },
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12253"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:49:39.264Z",
+    "bytes": 272,
+    "msg": {
+      "print": {
+        "nozzle_temper": 74.84375,
+        "nozzle_target_temper": 75,
+        "bed_temper": 50.875,
+        "mc_print_stage": "2",
+        "mc_percent": 0,
+        "wifi_signal": "-55dBm",
+        "gcode_state": "RUNNING",
+        "stg": [2, 13, 24, 4, 3, 14, 13],
+        "layer_num": 0,
+        "k": "0.0240",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12257"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:49:41.322Z",
+    "bytes": 194,
+    "msg": {
+      "print": {
+        "nozzle_temper": 74.65625,
+        "nozzle_target_temper": 140,
+        "bed_temper": 51.65625,
+        "mc_remaining_time": 19,
+        "ams_rfid_status": 2,
+        "stg_cur": 2,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12258"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:49:46.505Z",
+    "bytes": 5059,
+    "msg": {
+      "print": {
+        "nozzle_temper": 85.625,
+        "nozzle_target_temper": 140,
+        "bed_temper": 54.46875,
+        "bed_target_temper": 65,
+        "chamber_temper": 5,
+        "mc_print_stage": "2",
+        "heatbreak_fan_speed": "8",
+        "cooling_fan_speed": "0",
+        "big_fan1_speed": "0",
+        "big_fan2_speed": "0",
+        "mc_percent": 0,
+        "mc_remaining_time": 19,
+        "ams_status": 0,
+        "ams_rfid_status": 2,
+        "hw_switch_state": 0,
+        "spd_mag": 100,
+        "spd_lvl": 2,
+        "print_error": 0,
+        "lifecycle": "product",
+        "wifi_signal": "-53dBm",
+        "gcode_state": "RUNNING",
+        "gcode_file_prepare_percent": "100",
+        "queue_number": 0,
+        "queue_total": 0,
+        "queue_est": 0,
+        "queue_sts": 0,
+        "project_id": "100000005",
+        "profile_id": "100000007",
+        "task_id": "100000005",
+        "subtask_id": "100000005",
+        "subtask_name": "test-print",
+        "gcode_file": "test-print.3mf",
+        "stg": [2, 13, 24, 4, 3, 14, 13],
+        "stg_cur": 2,
+        "print_type": "cloud",
+        "home_flag": 863978904,
+        "mc_print_line_number": "0",
+        "mc_print_sub_stage": 0,
+        "sdcard": true,
+        "force_upgrade": false,
+        "mess_production_state": "active",
+        "layer_num": 0,
+        "total_layer_num": 45,
+        "s_obj": [],
+        "filam_bak": [],
+        "fan_gear": 0,
+        "nozzle_diameter": "0.4",
+        "nozzle_type": "stainless_steel",
+        "cali_version": 0,
+        "k": "0.0240",
+        "flag3": 1794719,
+        "upgrade_state": {
+          "sequence_id": 0,
+          "progress": "",
+          "status": "IDLE",
+          "consistency_request": false,
+          "dis_state": 0,
+          "err_code": 0,
+          "force_upgrade": false,
+          "message": "",
+          "module": "",
+          "new_version_state": 2,
+          "cur_state_code": 1,
+          "idx2": 4161913392,
+          "new_ver_list": [],
+          "mc_for_ams_firmware": {
+            "current_run_firmware_id": 0,
+            "current_firmware_id": 0,
+            "status": "IDLE",
+            "firmware": [
+              {
+                "id": 0,
+                "name": "AMS Lite"
+              },
+              {
+                "id": 1,
+                "name": "AMS/AMS 2 Pro/AMS HT"
+              }
+            ]
+          }
+        },
+        "online": {
+          "ahb": false,
+          "rfid": false,
+          "version": 1746623606
+        },
+        "ipcam": {
+          "ipcam_dev": "1",
+          "ipcam_record": "disable",
+          "timelapse": "disable",
+          "resolution": "1080p",
+          "tutk_server": "disable",
+          "mode_bits": 3,
+          "cfg": "0"
+        },
+        "upload": {
+          "status": "idle",
+          "progress": 0,
+          "message": ""
+        },
+        "net": {
+          "conf": 16,
+          "info": [
+            {
+              "ip": 0,
+              "mask": 16777215,
+              "ch": 0,
+              "ssid": "",
+              "mac": "",
+              "rtt": "0",
+              "retrans": 0
+            },
+            {
+              "ip": 0,
+              "mask": 0,
+              "ch": 0,
+              "ssid": "",
+              "mac": "",
+              "rtt": "",
+              "retrans": 0
+            }
+          ]
+        },
+        "printer": {
+          "print_time": 990,
+          "info": "0"
+        },
+        "hms": [],
+        "ams": {
+          "ams": [
+            {
+              "chip_id": "cccccccccccccccccccccccccccccc1",
+              "check": 0,
+              "id": "0",
+              "humidity": "5",
+              "humidity_raw": "0",
+              "temp": "0.0",
+              "dry_time": 0,
+              "info": "1002",
+              "tray": [
+                {
+                  "id": "0",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA100000100",
+                  "tray_id_name": "A01-Y2",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "F7D959FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "D007D007E803E8039A99193F",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB1",
+                  "ctype": 0,
+                  "cols": ["F7D959FF"]
+                },
+                {
+                  "id": "1",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 812,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA200000100",
+                  "tray_id_name": "A19-P00",
+                  "tray_info_idx": "GFA19",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Pure",
+                  "tray_color": "F7CED7FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "000000000000000000000000",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2",
+                  "ctype": 0,
+                  "cols": ["F7CED7FF"]
+                },
+                {
+                  "id": "2",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA300000100",
+                  "tray_id_name": "A01-B4",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "A3D8E1FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "000000000000000000000000",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB3",
+                  "ctype": 0,
+                  "cols": ["A3D8E1FF"]
+                },
+                {
+                  "id": "3",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA400000100",
+                  "tray_id_name": "A01-A2",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "F99963FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "D007D007E803E8030000003F",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB4",
+                  "ctype": 0,
+                  "cols": ["F99963FF"]
+                }
+              ]
+            }
+          ],
+          "ams_exist_bits": "1",
+          "tray_exist_bits": "f",
+          "tray_is_bbl_bits": "f",
+          "tray_tar": "255",
+          "tray_now": "255",
+          "tray_pre": "255",
+          "tray_read_done_bits": "f",
+          "tray_reading_bits": "0",
+          "version": 9,
+          "insert_flag": false,
+          "power_on_flag": true
+        },
+        "vt_tray": {
+          "id": "254",
+          "tag_uid": "0000000000000000",
+          "tray_id_name": "",
+          "tray_info_idx": "",
+          "tray_type": "",
+          "tray_sub_brands": "",
+          "tray_color": "FFFFFF00",
+          "tray_weight": "0",
+          "tray_diameter": "0.00",
+          "tray_temp": "0",
+          "tray_time": "0",
+          "bed_temp_type": "0",
+          "bed_temp": "0",
+          "nozzle_temp_max": "0",
+          "nozzle_temp_min": "0",
+          "xcam_info": "000000000000000000000000",
+          "tray_uuid": "00000000000000000000000000000000",
+          "remain": 0,
+          "k": 0.019999999552965164,
+          "n": 1,
+          "cali_idx": -1
+        },
+        "lights_report": [
+          {
+            "node": "chamber_light",
+            "mode": "off"
+          }
+        ],
+        "xcam": {
+          "buildplate_marker_detector": true
+        },
+        "command": "push_status",
+        "msg": 0,
+        "sequence_id": "12260"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:49:48.528Z",
+    "bytes": 166,
+    "msg": {
+      "print": {
+        "nozzle_temper": 94.875,
+        "bed_temper": 55.75,
+        "wifi_signal": "-51dBm",
+        "stg_cur": 13,
+        "mc_print_sub_stage": 1,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12261"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:50:27.210Z",
+    "bytes": 208,
+    "msg": {
+      "print": {
+        "nozzle_temper": 140.78125,
+        "bed_temper": 66.25,
+        "ams_status": 258,
+        "wifi_signal": "-51dBm",
+        "stg_cur": 4,
+        "mc_print_sub_stage": 2,
+        "ams": {
+          "tray_tar": "0"
+        },
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12277"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:51:09.962Z",
+    "bytes": 190,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.09375,
+        "ams_status": 263,
+        "wifi_signal": "-50dBm",
+        "mc_print_sub_stage": 2,
+        "ams": {
+          "tray_now": "0",
+          "version": 10
+        },
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12295"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:51:26.250Z",
+    "bytes": 174,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.25,
+        "ams_status": 768,
+        "wifi_signal": "-52dBm",
+        "mc_print_sub_stage": 2,
+        "ams": {
+          "tray_pre": "0"
+        },
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12302"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:51:46.597Z",
+    "bytes": 235,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.84375,
+        "bed_temper": 64.96875,
+        "cooling_fan_speed": "11",
+        "big_fan1_speed": "11",
+        "big_fan2_speed": "11",
+        "mc_percent": 5,
+        "mc_remaining_time": 18,
+        "fan_gear": 128,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12310"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:51:50.686Z",
+    "bytes": 248,
+    "msg": {
+      "print": {
+        "nozzle_temper": 220.15625,
+        "nozzle_target_temper": 170,
+        "cooling_fan_speed": "4",
+        "big_fan1_speed": "4",
+        "big_fan2_speed": "4",
+        "mc_percent": 7,
+        "wifi_signal": "-54dBm",
+        "stg_cur": 3,
+        "fan_gear": 76,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12312"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:52:21.558Z",
+    "bytes": 241,
+    "msg": {
+      "print": {
+        "nozzle_temper": 186.34375,
+        "bed_temper": 64.125,
+        "cooling_fan_speed": "14",
+        "big_fan1_speed": "14",
+        "big_fan2_speed": "14",
+        "mc_percent": 8,
+        "wifi_signal": "-50dBm",
+        "mc_print_sub_stage": 1,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12325"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:52:27.731Z",
+    "bytes": 241,
+    "msg": {
+      "print": {
+        "nozzle_temper": 176.65625,
+        "bed_temper": 63.90625,
+        "cooling_fan_speed": "15",
+        "big_fan1_speed": "15",
+        "big_fan2_speed": "15",
+        "wifi_signal": "-49dBm",
+        "stg_cur": 14,
+        "mc_print_sub_stage": 2,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12328"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:52:31.790Z",
+    "bytes": 197,
+    "msg": {
+      "print": {
+        "nozzle_temper": 174.40625,
+        "bed_temper": 63.9375,
+        "mc_percent": 29,
+        "mc_remaining_time": 13,
+        "wifi_signal": "-52dBm",
+        "mc_print_sub_stage": 0,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12329"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:52:42.002Z",
+    "bytes": 173,
+    "msg": {
+      "print": {
+        "nozzle_temper": 169.15625,
+        "bed_temper": 64.125,
+        "mc_percent": 30,
+        "wifi_signal": "-53dBm",
+        "mc_print_sub_stage": 2,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12334"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:52:53.293Z",
+    "bytes": 5056,
+    "msg": {
+      "print": {
+        "nozzle_temper": 169.5,
+        "nozzle_target_temper": 140,
+        "bed_temper": 64,
+        "bed_target_temper": 65,
+        "chamber_temper": 5,
+        "mc_print_stage": "2",
+        "heatbreak_fan_speed": "8",
+        "cooling_fan_speed": "15",
+        "big_fan1_speed": "15",
+        "big_fan2_speed": "15",
+        "mc_percent": 30,
+        "mc_remaining_time": 13,
+        "ams_status": 768,
+        "ams_rfid_status": 2,
+        "hw_switch_state": 1,
+        "spd_mag": 100,
+        "spd_lvl": 2,
+        "print_error": 0,
+        "lifecycle": "product",
+        "wifi_signal": "-50dBm",
+        "gcode_state": "RUNNING",
+        "gcode_file_prepare_percent": "100",
+        "queue_number": 0,
+        "queue_total": 0,
+        "queue_est": 0,
+        "queue_sts": 0,
+        "project_id": "100000005",
+        "profile_id": "100000007",
+        "task_id": "100000005",
+        "subtask_id": "100000005",
+        "subtask_name": "test-print",
+        "gcode_file": "test-print.3mf",
+        "stg": [2, 13, 24, 4, 3, 14, 13],
+        "stg_cur": 14,
+        "print_type": "cloud",
+        "home_flag": 863978911,
+        "mc_print_line_number": "0",
+        "mc_print_sub_stage": 0,
+        "sdcard": true,
+        "force_upgrade": false,
+        "mess_production_state": "active",
+        "layer_num": 0,
+        "total_layer_num": 45,
+        "s_obj": [],
+        "filam_bak": [],
+        "fan_gear": 255,
+        "nozzle_diameter": "0.4",
+        "nozzle_type": "stainless_steel",
+        "cali_version": 0,
+        "k": "0.0240",
+        "flag3": 1794719,
+        "upgrade_state": {
+          "sequence_id": 0,
+          "progress": "",
+          "status": "IDLE",
+          "consistency_request": false,
+          "dis_state": 0,
+          "err_code": 0,
+          "force_upgrade": false,
+          "message": "",
+          "module": "",
+          "new_version_state": 2,
+          "cur_state_code": 1,
+          "idx2": 4161913392,
+          "new_ver_list": [],
+          "mc_for_ams_firmware": {
+            "current_run_firmware_id": 0,
+            "current_firmware_id": 0,
+            "status": "IDLE",
+            "firmware": [
+              {
+                "id": 0,
+                "name": "AMS Lite"
+              },
+              {
+                "id": 1,
+                "name": "AMS/AMS 2 Pro/AMS HT"
+              }
+            ]
+          }
+        },
+        "online": {
+          "ahb": false,
+          "rfid": false,
+          "version": 1746623606
+        },
+        "ipcam": {
+          "ipcam_dev": "1",
+          "ipcam_record": "disable",
+          "timelapse": "disable",
+          "resolution": "1080p",
+          "tutk_server": "disable",
+          "mode_bits": 3,
+          "cfg": "0"
+        },
+        "upload": {
+          "status": "idle",
+          "progress": 0,
+          "message": ""
+        },
+        "net": {
+          "conf": 16,
+          "info": [
+            {
+              "ip": 0,
+              "mask": 16777215,
+              "ch": 0,
+              "ssid": "",
+              "mac": "",
+              "rtt": "0",
+              "retrans": 0
+            },
+            {
+              "ip": 0,
+              "mask": 0,
+              "ch": 0,
+              "ssid": "",
+              "mac": "",
+              "rtt": "",
+              "retrans": 0
+            }
+          ]
+        },
+        "printer": {
+          "print_time": 990,
+          "info": "0"
+        },
+        "hms": [],
+        "ams": {
+          "ams": [
+            {
+              "chip_id": "cccccccccccccccccccccccccccccc1",
+              "check": 0,
+              "id": "0",
+              "humidity": "5",
+              "humidity_raw": "0",
+              "temp": "0.0",
+              "dry_time": 0,
+              "info": "1002",
+              "tray": [
+                {
+                  "id": "0",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA100000100",
+                  "tray_id_name": "A01-Y2",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "F7D959FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "D007D007E803E8039A99193F",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB1",
+                  "ctype": 0,
+                  "cols": ["F7D959FF"]
+                },
+                {
+                  "id": "1",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 812,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA200000100",
+                  "tray_id_name": "A19-P00",
+                  "tray_info_idx": "GFA19",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Pure",
+                  "tray_color": "F7CED7FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "000000000000000000000000",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2",
+                  "ctype": 0,
+                  "cols": ["F7CED7FF"]
+                },
+                {
+                  "id": "2",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA300000100",
+                  "tray_id_name": "A01-B4",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "A3D8E1FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "000000000000000000000000",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB3",
+                  "ctype": 0,
+                  "cols": ["A3D8E1FF"]
+                },
+                {
+                  "id": "3",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA400000100",
+                  "tray_id_name": "A01-A2",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "F99963FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "D007D007E803E8030000003F",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB4",
+                  "ctype": 0,
+                  "cols": ["F99963FF"]
+                }
+              ]
+            }
+          ],
+          "ams_exist_bits": "1",
+          "tray_exist_bits": "f",
+          "tray_is_bbl_bits": "f",
+          "tray_tar": "0",
+          "tray_now": "0",
+          "tray_pre": "0",
+          "tray_read_done_bits": "f",
+          "tray_reading_bits": "0",
+          "version": 10,
+          "insert_flag": false,
+          "power_on_flag": true
+        },
+        "vt_tray": {
+          "id": "254",
+          "tag_uid": "0000000000000000",
+          "tray_id_name": "",
+          "tray_info_idx": "",
+          "tray_type": "",
+          "tray_sub_brands": "",
+          "tray_color": "FFFFFF00",
+          "tray_weight": "0",
+          "tray_diameter": "0.00",
+          "tray_temp": "0",
+          "tray_time": "0",
+          "bed_temp_type": "0",
+          "bed_temp": "0",
+          "nozzle_temp_max": "0",
+          "nozzle_temp_min": "0",
+          "xcam_info": "000000000000000000000000",
+          "tray_uuid": "00000000000000000000000000000000",
+          "remain": 0,
+          "k": 0.019999999552965164,
+          "n": 1,
+          "cali_idx": -1
+        },
+        "lights_report": [
+          {
+            "node": "chamber_light",
+            "mode": "off"
+          }
+        ],
+        "xcam": {
+          "buildplate_marker_detector": true
+        },
+        "command": "push_status",
+        "msg": 0,
+        "sequence_id": "12339"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:53:27.903Z",
+    "bytes": 251,
+    "msg": {
+      "print": {
+        "nozzle_temper": 140.0625,
+        "bed_temper": 65.03125,
+        "cooling_fan_speed": "3",
+        "big_fan1_speed": "3",
+        "big_fan2_speed": "3",
+        "wifi_signal": "-50dBm",
+        "stg_cur": 13,
+        "mc_print_sub_stage": 1,
+        "fan_gear": 27,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12354"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:10.630Z",
+    "bytes": 189,
+    "msg": {
+      "print": {
+        "nozzle_temper": 217.25,
+        "mc_percent": 31,
+        "wifi_signal": "-55dBm",
+        "stg_cur": 0,
+        "mc_print_sub_stage": 1,
+        "layer_num": 1,
+        "k": "0.0240",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12372"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:16.735Z",
+    "bytes": 104,
+    "msg": {
+      "print": {
+        "nozzle_temper": 218.25,
+        "mc_percent": 32,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12375"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:28.959Z",
+    "bytes": 150,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.71875,
+        "bed_temper": 65.125,
+        "mc_percent": 33,
+        "wifi_signal": "-55dBm",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12380"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:39.151Z",
+    "bytes": 199,
+    "msg": {
+      "print": {
+        "bed_temper": 65,
+        "cooling_fan_speed": "6",
+        "big_fan1_speed": "6",
+        "big_fan2_speed": "6",
+        "wifi_signal": "-55dBm",
+        "layer_num": 2,
+        "fan_gear": 102,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12384"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:41.186Z",
+    "bytes": 211,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.875,
+        "bed_temper": 64.96875,
+        "cooling_fan_speed": "11",
+        "big_fan1_speed": "11",
+        "big_fan2_speed": "11",
+        "mc_percent": 34,
+        "fan_gear": 201,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12385"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:45.274Z",
+    "bytes": 158,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.1875,
+        "bed_temper": 64.90625,
+        "mc_remaining_time": 12,
+        "wifi_signal": "-54dBm",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12387"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:46.431Z",
+    "bytes": 5065,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.1875,
+        "nozzle_target_temper": 220,
+        "bed_temper": 64.90625,
+        "bed_target_temper": 65,
+        "chamber_temper": 5,
+        "mc_print_stage": "2",
+        "heatbreak_fan_speed": "10",
+        "cooling_fan_speed": "11",
+        "big_fan1_speed": "11",
+        "big_fan2_speed": "11",
+        "mc_percent": 34,
+        "mc_remaining_time": 12,
+        "ams_status": 768,
+        "ams_rfid_status": 2,
+        "hw_switch_state": 1,
+        "spd_mag": 100,
+        "spd_lvl": 2,
+        "print_error": 0,
+        "lifecycle": "product",
+        "wifi_signal": "-54dBm",
+        "gcode_state": "RUNNING",
+        "gcode_file_prepare_percent": "100",
+        "queue_number": 0,
+        "queue_total": 0,
+        "queue_est": 0,
+        "queue_sts": 0,
+        "project_id": "100000005",
+        "profile_id": "100000007",
+        "task_id": "100000005",
+        "subtask_id": "100000005",
+        "subtask_name": "test-print",
+        "gcode_file": "test-print.3mf",
+        "stg": [2, 13, 24, 4, 3, 14, 13],
+        "stg_cur": 0,
+        "print_type": "cloud",
+        "home_flag": 863978911,
+        "mc_print_line_number": "0",
+        "mc_print_sub_stage": 1,
+        "sdcard": true,
+        "force_upgrade": false,
+        "mess_production_state": "active",
+        "layer_num": 2,
+        "total_layer_num": 45,
+        "s_obj": [],
+        "filam_bak": [],
+        "fan_gear": 201,
+        "nozzle_diameter": "0.4",
+        "nozzle_type": "stainless_steel",
+        "cali_version": 0,
+        "k": "0.0240",
+        "flag3": 1794719,
+        "upgrade_state": {
+          "sequence_id": 0,
+          "progress": "",
+          "status": "IDLE",
+          "consistency_request": false,
+          "dis_state": 0,
+          "err_code": 0,
+          "force_upgrade": false,
+          "message": "",
+          "module": "",
+          "new_version_state": 2,
+          "cur_state_code": 1,
+          "idx2": 4161913392,
+          "new_ver_list": [],
+          "mc_for_ams_firmware": {
+            "current_run_firmware_id": 0,
+            "current_firmware_id": 0,
+            "status": "IDLE",
+            "firmware": [
+              {
+                "id": 0,
+                "name": "AMS Lite"
+              },
+              {
+                "id": 1,
+                "name": "AMS/AMS 2 Pro/AMS HT"
+              }
+            ]
+          }
+        },
+        "online": {
+          "ahb": false,
+          "rfid": false,
+          "version": 1746623606
+        },
+        "ipcam": {
+          "ipcam_dev": "1",
+          "ipcam_record": "disable",
+          "timelapse": "disable",
+          "resolution": "1080p",
+          "tutk_server": "disable",
+          "mode_bits": 3,
+          "cfg": "0"
+        },
+        "upload": {
+          "status": "idle",
+          "progress": 0,
+          "message": ""
+        },
+        "net": {
+          "conf": 16,
+          "info": [
+            {
+              "ip": 0,
+              "mask": 16777215,
+              "ch": 0,
+              "ssid": "",
+              "mac": "",
+              "rtt": "0",
+              "retrans": 0
+            },
+            {
+              "ip": 0,
+              "mask": 0,
+              "ch": 0,
+              "ssid": "",
+              "mac": "",
+              "rtt": "",
+              "retrans": 0
+            }
+          ]
+        },
+        "printer": {
+          "print_time": 990,
+          "info": "0"
+        },
+        "hms": [],
+        "ams": {
+          "ams": [
+            {
+              "chip_id": "cccccccccccccccccccccccccccccc1",
+              "check": 0,
+              "id": "0",
+              "humidity": "5",
+              "humidity_raw": "0",
+              "temp": "0.0",
+              "dry_time": 0,
+              "info": "1002",
+              "tray": [
+                {
+                  "id": "0",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA100000100",
+                  "tray_id_name": "A01-Y2",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "F7D959FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "D007D007E803E8039A99193F",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB1",
+                  "ctype": 0,
+                  "cols": ["F7D959FF"]
+                },
+                {
+                  "id": "1",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 812,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA200000100",
+                  "tray_id_name": "A19-P00",
+                  "tray_info_idx": "GFA19",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Pure",
+                  "tray_color": "F7CED7FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "000000000000000000000000",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2",
+                  "ctype": 0,
+                  "cols": ["F7CED7FF"]
+                },
+                {
+                  "id": "2",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA300000100",
+                  "tray_id_name": "A01-B4",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "A3D8E1FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "000000000000000000000000",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB3",
+                  "ctype": 0,
+                  "cols": ["A3D8E1FF"]
+                },
+                {
+                  "id": "3",
+                  "state": 3,
+                  "remain": 100,
+                  "k": 0.02400000020861,
+                  "n": 1,
+                  "cali_idx": 45,
+                  "total_len": 330000,
+                  "tag_uid": "AAAAAAA400000100",
+                  "tray_id_name": "A01-A2",
+                  "tray_info_idx": "GFA01",
+                  "tray_type": "PLA",
+                  "tray_sub_brands": "PLA Matte",
+                  "tray_color": "F99963FF",
+                  "tray_weight": "1000",
+                  "tray_diameter": "1.75",
+                  "tray_temp": "55",
+                  "tray_time": "8",
+                  "bed_temp_type": "0",
+                  "bed_temp": "0",
+                  "nozzle_temp_max": "230",
+                  "nozzle_temp_min": "190",
+                  "xcam_info": "D007D007E803E8030000003F",
+                  "tray_uuid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB4",
+                  "ctype": 0,
+                  "cols": ["F99963FF"]
+                }
+              ]
+            }
+          ],
+          "ams_exist_bits": "1",
+          "tray_exist_bits": "f",
+          "tray_is_bbl_bits": "f",
+          "tray_tar": "0",
+          "tray_now": "0",
+          "tray_pre": "0",
+          "tray_read_done_bits": "f",
+          "tray_reading_bits": "0",
+          "version": 10,
+          "insert_flag": false,
+          "power_on_flag": true
+        },
+        "vt_tray": {
+          "id": "254",
+          "tag_uid": "0000000000000000",
+          "tray_id_name": "",
+          "tray_info_idx": "",
+          "tray_type": "",
+          "tray_sub_brands": "",
+          "tray_color": "FFFFFF00",
+          "tray_weight": "0",
+          "tray_diameter": "0.00",
+          "tray_temp": "0",
+          "tray_time": "0",
+          "bed_temp_type": "0",
+          "bed_temp": "0",
+          "nozzle_temp_max": "0",
+          "nozzle_temp_min": "0",
+          "xcam_info": "000000000000000000000000",
+          "tray_uuid": "00000000000000000000000000000000",
+          "remain": 0,
+          "k": 0.019999999552965164,
+          "n": 1,
+          "cali_idx": -1
+        },
+        "lights_report": [
+          {
+            "node": "chamber_light",
+            "mode": "off"
+          }
+        ],
+        "xcam": {
+          "buildplate_marker_detector": true
+        },
+        "command": "push_status",
+        "msg": 0,
+        "sequence_id": "12388"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:54:52.517Z",
+    "bytes": 162,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.375,
+        "bed_temper": 64.875,
+        "mc_percent": 35,
+        "wifi_signal": "-55dBm",
+        "layer_num": 3,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12391"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:04.748Z",
+    "bytes": 152,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.59375,
+        "bed_temper": 64.90625,
+        "mc_percent": 36,
+        "wifi_signal": "-54dBm",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12395"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:10.874Z",
+    "bytes": 126,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.875,
+        "wifi_signal": "-56dBm",
+        "layer_num": 4,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12398"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:14.950Z",
+    "bytes": 122,
+    "msg": {
+      "print": {
+        "nozzle_temper": 220,
+        "bed_temper": 64.9375,
+        "mc_percent": 37,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12400"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:27.177Z",
+    "bytes": 140,
+    "msg": {
+      "print": {
+        "bed_temper": 64.90625,
+        "mc_percent": 38,
+        "wifi_signal": "-56dBm",
+        "layer_num": 5,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12405"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:39.376Z",
+    "bytes": 127,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.875,
+        "bed_temper": 64.84375,
+        "mc_percent": 39,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12408"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:41.440Z",
+    "bytes": 104,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.9375,
+        "layer_num": 6,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12409"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:43.462Z",
+    "bytes": 156,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.875,
+        "bed_temper": 64.8125,
+        "mc_remaining_time": 11,
+        "wifi_signal": "-58dBm",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12410"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:52.206Z",
+    "bytes": 81,
+    "msg": {
+      "print": {
+        "mc_percent": 40,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12413"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:55.498Z",
+    "bytes": 360,
+    "msg": {
+      "print": {
+        "nozzle_temper": 220.03125,
+        "nozzle_target_temper": 0,
+        "bed_target_temper": 0,
+        "mc_print_stage": "1",
+        "ams_status": 0,
+        "ams_rfid_status": 0,
+        "print_error": 50348044,
+        "wifi_signal": "-60dBm",
+        "gcode_state": "FAILED",
+        "gcode_file": "",
+        "stg": [],
+        "print_type": "idle",
+        "fan_gear": 119,
+        "upgrade_state": {
+          "cur_state_code": 0
+        },
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12414"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:57.545Z",
+    "bytes": 273,
+    "msg": {
+      "print": {
+        "nozzle_temper": 220.1875,
+        "bed_temper": 64.75,
+        "heatbreak_fan_speed": "8",
+        "cooling_fan_speed": "2",
+        "big_fan1_speed": "2",
+        "big_fan2_speed": "2",
+        "wifi_signal": "-55dBm",
+        "stg_cur": 255,
+        "home_flag": 863978904,
+        "fan_gear": 0,
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12415"
+      }
+    }
+  },
+  {
+    "at": "2026-11-14T11:55:59.594Z",
+    "bytes": 232,
+    "msg": {
+      "print": {
+        "nozzle_temper": 219.4375,
+        "bed_temper": 64.71875,
+        "cooling_fan_speed": "0",
+        "big_fan1_speed": "0",
+        "big_fan2_speed": "0",
+        "mc_percent": 0,
+        "print_error": 0,
+        "wifi_signal": "-61dBm",
+        "command": "push_status",
+        "msg": 1,
+        "sequence_id": "12416"
+      }
+    }
+  }
+]

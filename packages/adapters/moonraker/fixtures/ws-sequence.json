@@ -1,0 +1,3225 @@
+[
+  {
+    "at": "2026-11-14T10:54:31.726Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "result": {
+        "eventtime": 1304.469967845,
+        "status": {
+          "print_stats": {
+            "filename": "",
+            "total_duration": 0,
+            "print_duration": 0,
+            "filament_used": 0,
+            "state": "standby",
+            "message": "",
+            "info": {
+              "total_layer": null,
+              "current_layer": null
+            }
+          },
+          "virtual_sdcard": {
+            "file_path": null,
+            "progress": 0,
+            "is_active": false,
+            "file_position": 0,
+            "file_size": 0
+          },
+          "display_status": {
+            "progress": 0,
+            "message": null
+          },
+          "extruder": {
+            "temperature": 0,
+            "target": 0,
+            "power": 0,
+            "can_extrude": false,
+            "pressure_advance": 0.1,
+            "smooth_time": 0.01,
+            "motion_queue": null
+          },
+          "heater_bed": {
+            "temperature": 0,
+            "target": 0,
+            "power": 0
+          },
+          "toolhead": {
+            "homed_axes": "",
+            "axis_minimum": [-15, -15, -2, 0],
+            "axis_maximum": [235, 235, 250, 0],
+            "print_time": 0,
+            "stalls": 0,
+            "estimated_print_time": 0.4976788,
+            "extruder": "extruder",
+            "position": [0, 0, 0, 0],
+            "max_velocity": 300,
+            "max_accel": 3000,
+            "minimum_cruise_ratio": 0.5,
+            "square_corner_velocity": 5,
+            "extra_axes": {
+              "extruder": 3
+            }
+          },
+          "webhooks": {
+            "state": "ready",
+            "state_message": "Printer is ready"
+          },
+          "idle_timeout": {
+            "state": "Idle",
+            "printing_time": 0,
+            "idle_timeout": 600
+          },
+          "gcode_move": {
+            "speed_factor": 1,
+            "speed": 1500,
+            "extrude_factor": 1,
+            "absolute_coordinates": true,
+            "absolute_extrude": true,
+            "homing_origin": [0, 0, 0, 0],
+            "position": [0, 0, 0, 0],
+            "gcode_position": [0, 0, 0, 0],
+            "axis_map": {
+              "X": 0,
+              "Y": 1,
+              "Z": 2,
+              "E": 3
+            }
+          }
+        }
+      },
+      "id": 1
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:31.775Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_active_spool_set",
+      "params": [
+        {
+          "spool_id": 3
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:31.930Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_filelist_changed",
+      "params": [
+        {
+          "action": "modify_file",
+          "item": {
+            "modified": 1794653671.8733332,
+            "size": 100226,
+            "permissions": "rw",
+            "path": "cube_orca.gcode",
+            "root": "gcodes"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:31.974Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "estimated_print_time": 0.52639775
+          }
+        },
+        1304.721188714
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:32.924Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_filelist_changed",
+      "params": [
+        {
+          "action": "create_file",
+          "item": {
+            "modified": 1794653671.8733332,
+            "size": 100226,
+            "permissions": "rw",
+            "path": "cube_orca.gcode",
+            "root": "gcodes"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:34.948Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["File opened:cube_orca.gcode Size:100226"]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:34.949Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["File selected"]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:34.950Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// M190 called with S35"]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:34.950Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// M109 called with S220"]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:34.981Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "homed_axes": "x",
+            "print_time": 1.1334098,
+            "estimated_print_time": 0.8809486
+          },
+          "print_stats": {
+            "filename": "cube_orca.gcode",
+            "total_duration": 0.03176648500016199,
+            "state": "printing"
+          },
+          "idle_timeout": {
+            "state": "Printing",
+            "printing_time": 0.03055092600015996
+          },
+          "gcode_move": {
+            "position": [352.5, 0, 0, 0],
+            "gcode_position": [352.5, 0, 0, 0]
+          },
+          "virtual_sdcard": {
+            "file_path": "/home/printer/printer_data/gcodes/cube_orca.gcode",
+            "progress": 0.006385568614930257,
+            "is_active": true,
+            "file_position": 640,
+            "file_size": 100226
+          },
+          "display_status": {
+            "message": "M109 called with S220"
+          }
+        },
+        1307.727786482
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:34.988Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_history_changed",
+      "params": [
+        {
+          "action": "added",
+          "job": {
+            "end_time": null,
+            "filament_used": 0,
+            "filename": "cube_orca.gcode",
+            "metadata": {
+              "size": 100226,
+              "modified": 1794653671.8733332,
+              "uuid": "f53cf93c-8431-45d3-b926-f87ad10c0bb0",
+              "file_processors": [],
+              "slicer": "OrcaSlicer",
+              "slicer_version": "2.5.0-rc",
+              "gcode_start_byte": 597,
+              "gcode_end_byte": 76423,
+              "layer_count": 15,
+              "object_height": 3,
+              "estimated_time": 134,
+              "nozzle_diameter": 0.4,
+              "layer_height": 0.2,
+              "first_layer_height": 0.2,
+              "first_layer_extr_temp": 220,
+              "first_layer_bed_temp": 35,
+              "chamber_temp": 0,
+              "filament_name": "Generic PLA @System",
+              "filament_type": "PLA",
+              "filament_colors": ["#F2754E"],
+              "extruder_colors": ["#F2754E"],
+              "filament_temps": [220],
+              "referenced_tools": [],
+              "mmu_print": 1,
+              "filament_total": 331.1,
+              "filament_weight_total": 0.99,
+              "filament_weights": [0.99],
+              "printer_model": "Voron 2.4 300",
+              "printer_variant": "0.4"
+            },
+            "print_duration": 0,
+            "status": "in_progress",
+            "start_time": 1794653674.981262,
+            "total_duration": 0.03176648500016199,
+            "auxiliary_data": [
+              {
+                "provider": "spoolman",
+                "name": "spool_ids",
+                "value": [3],
+                "description": "Spool IDs used",
+                "units": null
+              }
+            ],
+            "user": "_TRUSTED_USER_",
+            "exists": true,
+            "job_id": "000002"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:37.236Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 2.2856153669999912
+          },
+          "toolhead": {
+            "homed_axes": "xy",
+            "print_time": 1.4994097999999996,
+            "estimated_print_time": 1.14664575
+          },
+          "print_stats": {
+            "total_duration": 2.2868309259999933
+          },
+          "gcode_move": {
+            "position": [0, 352.5, 0, 0],
+            "gcode_position": [0, 352.5, 0, 0]
+          }
+        },
+        1309.982850923
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:42.250Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 7.299670254000148
+          },
+          "toolhead": {
+            "estimated_print_time": 1.7280417
+          },
+          "print_stats": {
+            "total_duration": 7.30088581300015
+          }
+        },
+        1314.99690581
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:43.430Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// Unknown command:\"PRINT_START\""]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:47.263Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 12.312917341999992
+          },
+          "toolhead": {
+            "estimated_print_time": 2.31342095
+          },
+          "print_stats": {
+            "total_duration": 12.314132900999994,
+            "print_duration": 4.011432045999982
+          }
+        },
+        1320.010152898
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:52.276Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 17.325672777000136
+          },
+          "toolhead": {
+            "estimated_print_time": 2.89972295
+          },
+          "print_stats": {
+            "total_duration": 17.32688833600014,
+            "print_duration": 9.024187481000126
+          }
+        },
+        1325.022908333
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:54:57.290Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 22.340274287000057
+          },
+          "toolhead": {
+            "estimated_print_time": 3.4864961
+          },
+          "print_stats": {
+            "total_duration": 22.34148984600006,
+            "print_duration": 14.038788991000047
+          }
+        },
+        1330.037509843
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:02.300Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 27.350357168000073
+          },
+          "toolhead": {
+            "estimated_print_time": 4.07356165
+          },
+          "print_stats": {
+            "total_duration": 27.351572727000075,
+            "print_duration": 19.048871872000063
+          }
+        },
+        1335.047592724
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:02.750Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// Runout sensor reports: Runout G-Code"]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:07.313Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 32.36272979500018
+          },
+          "toolhead": {
+            "estimated_print_time": 4.6621211
+          },
+          "print_stats": {
+            "total_duration": 32.36394535400018,
+            "print_duration": 24.061244499000168
+          }
+        },
+        1340.059965351
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:12.326Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 37.37592031100007
+          },
+          "toolhead": {
+            "estimated_print_time": 5.25062235
+          },
+          "print_stats": {
+            "total_duration": 37.377135870000075,
+            "print_duration": 29.074435015000063
+          }
+        },
+        1345.073155867
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:17.339Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 42.38859084400019
+          },
+          "toolhead": {
+            "estimated_print_time": 5.8392493
+          },
+          "print_stats": {
+            "total_duration": 42.38980640300019,
+            "print_duration": 34.08710554800018
+          }
+        },
+        1350.0858264
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:22.352Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 47.40190564300019
+          },
+          "toolhead": {
+            "estimated_print_time": 6.4274028
+          },
+          "print_stats": {
+            "total_duration": 47.40312120200019,
+            "print_duration": 39.10042034700018
+          }
+        },
+        1355.099141199
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:27.363Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 52.41249066700016
+          },
+          "toolhead": {
+            "estimated_print_time": 7.0124664
+          },
+          "print_stats": {
+            "total_duration": 52.41370622600016,
+            "print_duration": 44.11100537100015
+          }
+        },
+        1360.109726223
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:32.377Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 57.42671397800018
+          },
+          "toolhead": {
+            "estimated_print_time": 7.59908465
+          },
+          "print_stats": {
+            "total_duration": 57.42792953700018,
+            "print_duration": 49.12522868200017
+          }
+        },
+        1365.123949534
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:37.391Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 62.44047553700011
+          },
+          "toolhead": {
+            "estimated_print_time": 8.1863901
+          },
+          "print_stats": {
+            "total_duration": 62.44169109600011,
+            "print_duration": 54.1389902410001
+          }
+        },
+        1370.137711093
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:42.405Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 67.4551377790001
+          },
+          "toolhead": {
+            "estimated_print_time": 8.7732214
+          },
+          "print_stats": {
+            "total_duration": 67.4563533380001,
+            "print_duration": 59.15365248300009
+          }
+        },
+        1375.152373335
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:47.417Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 72.46639985900015
+          },
+          "toolhead": {
+            "estimated_print_time": 9.3535616
+          },
+          "print_stats": {
+            "total_duration": 72.46761541800015,
+            "print_duration": 64.16491456300014
+          }
+        },
+        1380.163635415
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:52.429Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 77.47835162500019
+          },
+          "toolhead": {
+            "estimated_print_time": 9.93247695
+          },
+          "print_stats": {
+            "total_duration": 77.47956718400019,
+            "print_duration": 69.17686632900018
+          }
+        },
+        1385.175587181
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:55:57.438Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 82.48771267500001
+          },
+          "toolhead": {
+            "estimated_print_time": 10.5118167
+          },
+          "print_stats": {
+            "total_duration": 82.48892823400001,
+            "print_duration": 74.186227379
+          }
+        },
+        1390.184948231
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:02.448Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 87.49799672100016
+          },
+          "toolhead": {
+            "estimated_print_time": 11.0932604
+          },
+          "print_stats": {
+            "total_duration": 87.49921228000017,
+            "print_duration": 79.19651142500015
+          }
+        },
+        1395.195232277
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:07.463Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 92.51237121000008
+          },
+          "toolhead": {
+            "estimated_print_time": 11.6756204
+          },
+          "print_stats": {
+            "total_duration": 92.51358676900009,
+            "print_duration": 84.21088591400007
+          }
+        },
+        1400.209606766
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:12.477Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 97.52692846900004
+          },
+          "toolhead": {
+            "estimated_print_time": 12.257073
+          },
+          "print_stats": {
+            "total_duration": 97.52814402800004,
+            "print_duration": 89.22544317300003
+          }
+        },
+        1405.224164025
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:17.490Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 102.53985073400008
+          },
+          "toolhead": {
+            "estimated_print_time": 12.8367794
+          },
+          "print_stats": {
+            "total_duration": 102.54106629300009,
+            "print_duration": 94.23836543800007
+          }
+        },
+        1410.23708629
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:22.504Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 107.55331336100016
+          },
+          "toolhead": {
+            "estimated_print_time": 13.4165226
+          },
+          "print_stats": {
+            "total_duration": 107.55452892000017,
+            "print_duration": 99.25182806500015
+          }
+        },
+        1415.250548917
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:27.517Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 112.56681736500013
+          },
+          "toolhead": {
+            "estimated_print_time": 13.9980692
+          },
+          "print_stats": {
+            "total_duration": 112.56803292400014,
+            "print_duration": 104.26533206900012
+          }
+        },
+        1420.264052921
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:32.528Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 117.57791637100013
+          },
+          "toolhead": {
+            "estimated_print_time": 14.581945
+          },
+          "print_stats": {
+            "total_duration": 117.57913193000013,
+            "print_duration": 109.27643107500012
+          }
+        },
+        1425.275151927
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:37.540Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 122.5902462040001
+          },
+          "toolhead": {
+            "estimated_print_time": 15.1670813
+          },
+          "print_stats": {
+            "total_duration": 122.5914617630001,
+            "print_duration": 114.28876090800009
+          }
+        },
+        1430.28748176
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:42.552Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 127.60244348800006
+          },
+          "toolhead": {
+            "estimated_print_time": 15.75270965
+          },
+          "print_stats": {
+            "total_duration": 127.60365904700006,
+            "print_duration": 119.30095819200005
+          }
+        },
+        1435.299679044
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:47.564Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 132.6141102680001
+          },
+          "toolhead": {
+            "estimated_print_time": 16.3391051
+          },
+          "print_stats": {
+            "total_duration": 132.6153258270001,
+            "print_duration": 124.3126249720001
+          }
+        },
+        1440.311345824
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:52.579Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 137.62912120700003
+          },
+          "toolhead": {
+            "estimated_print_time": 16.9265754
+          },
+          "print_stats": {
+            "total_duration": 137.63033676600003,
+            "print_duration": 129.32763591100002
+          }
+        },
+        1445.326356763
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:56:57.593Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 142.643385029
+          },
+          "toolhead": {
+            "estimated_print_time": 17.51418895
+          },
+          "print_stats": {
+            "total_duration": 142.644600588,
+            "print_duration": 134.341899733
+          }
+        },
+        1450.340620585
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:02.606Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 147.65601208800013
+          },
+          "toolhead": {
+            "estimated_print_time": 18.1020887
+          },
+          "print_stats": {
+            "total_duration": 147.65722764700013,
+            "print_duration": 139.35452679200012
+          }
+        },
+        1455.353247644
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:07.619Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 152.6685648680002
+          },
+          "toolhead": {
+            "estimated_print_time": 18.69054485
+          },
+          "print_stats": {
+            "total_duration": 152.6697804270002,
+            "print_duration": 144.3670795720002
+          }
+        },
+        1460.365800424
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:12.630Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 157.67971163000016
+          },
+          "toolhead": {
+            "estimated_print_time": 19.2789088
+          },
+          "print_stats": {
+            "total_duration": 157.68092718900016,
+            "print_duration": 149.37822633400015
+          }
+        },
+        1465.376947186
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:17.640Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 162.68962058700004
+          },
+          "toolhead": {
+            "estimated_print_time": 19.8669954
+          },
+          "print_stats": {
+            "total_duration": 162.69083614600004,
+            "print_duration": 154.38813529100003
+          }
+        },
+        1470.386856143
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:22.652Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 167.70203851400015
+          },
+          "toolhead": {
+            "estimated_print_time": 20.4547254
+          },
+          "print_stats": {
+            "total_duration": 167.70325407300015,
+            "print_duration": 159.40055321800014
+          }
+        },
+        1475.39927407
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:27.663Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 172.713265203
+          },
+          "toolhead": {
+            "estimated_print_time": 21.0421447
+          },
+          "print_stats": {
+            "total_duration": 172.714480762,
+            "print_duration": 164.41177990699998
+          }
+        },
+        1480.410500759
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:32.675Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 177.72529798100004
+          },
+          "toolhead": {
+            "estimated_print_time": 21.6298789
+          },
+          "print_stats": {
+            "total_duration": 177.72651354000004,
+            "print_duration": 169.42381268500003
+          }
+        },
+        1485.422533537
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:37.688Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 182.7385430390002
+          },
+          "toolhead": {
+            "estimated_print_time": 22.2176232
+          },
+          "print_stats": {
+            "total_duration": 182.7397585980002,
+            "print_duration": 174.4370577430002
+          }
+        },
+        1490.435778595
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:42.699Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 187.7490694610001
+          },
+          "toolhead": {
+            "estimated_print_time": 22.8055479
+          },
+          "print_stats": {
+            "total_duration": 187.7502850200001,
+            "print_duration": 179.44758416500008
+          }
+        },
+        1495.446305017
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:47.712Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 192.76171267400014
+          },
+          "toolhead": {
+            "estimated_print_time": 23.39396285
+          },
+          "print_stats": {
+            "total_duration": 192.76292823300014,
+            "print_duration": 184.46022737800013
+          }
+        },
+        1500.45894823
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:50.423Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// M140 called with S35 ; set bed temperature"]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:52.725Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 197.7750144820002
+          },
+          "toolhead": {
+            "estimated_print_time": 23.9826967
+          },
+          "print_stats": {
+            "total_duration": 197.7762300410002,
+            "print_duration": 189.47352918600018
+          }
+        },
+        1505.472250038
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:57:57.735Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 202.78521792700008
+          },
+          "toolhead": {
+            "estimated_print_time": 24.5706328
+          },
+          "print_stats": {
+            "total_duration": 202.78643348600008,
+            "print_duration": 194.48373263100007
+          }
+        },
+        1510.482453483
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:02.747Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 207.79671689200018
+          },
+          "toolhead": {
+            "estimated_print_time": 25.1583833
+          },
+          "print_stats": {
+            "total_duration": 207.79793245100018,
+            "print_duration": 199.49523159600017
+          }
+        },
+        1515.493952448
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:07.760Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 212.81027483700018
+          },
+          "toolhead": {
+            "estimated_print_time": 25.74583695
+          },
+          "print_stats": {
+            "total_duration": 212.81149039600018,
+            "print_duration": 204.50878954100017
+          }
+        },
+        1520.507510393
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:12.773Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 217.822747445
+          },
+          "toolhead": {
+            "estimated_print_time": 26.33275395
+          },
+          "print_stats": {
+            "total_duration": 217.823963004,
+            "print_duration": 209.521262149
+          }
+        },
+        1525.519983001
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:17.781Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 222.83070609600009
+          },
+          "toolhead": {
+            "estimated_print_time": 26.9183186
+          },
+          "print_stats": {
+            "total_duration": 222.8319216550001,
+            "print_duration": 214.52922080000008
+          }
+        },
+        1530.527941652
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:22.795Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 227.84503212900017
+          },
+          "toolhead": {
+            "estimated_print_time": 27.50499425
+          },
+          "print_stats": {
+            "total_duration": 227.84624768800018,
+            "print_duration": 219.54354683300016
+          }
+        },
+        1535.542267685
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:27.807Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 232.85727947300006
+          },
+          "toolhead": {
+            "estimated_print_time": 28.09133665
+          },
+          "print_stats": {
+            "total_duration": 232.85849503200006,
+            "print_duration": 224.55579417700005
+          }
+        },
+        1540.554515029
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:32.817Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 237.86764946100016
+          },
+          "toolhead": {
+            "estimated_print_time": 28.6769792
+          },
+          "print_stats": {
+            "total_duration": 237.86886502000016,
+            "print_duration": 229.56616416500015
+          }
+        },
+        1545.564885017
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:37.828Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 242.878153742
+          },
+          "toolhead": {
+            "estimated_print_time": 29.2606797
+          },
+          "print_stats": {
+            "total_duration": 242.879369301,
+            "print_duration": 234.57666844599999
+          }
+        },
+        1550.575389298
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:42.841Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 247.8914058700002
+          },
+          "toolhead": {
+            "estimated_print_time": 29.8432155
+          },
+          "print_stats": {
+            "total_duration": 247.8926214290002,
+            "print_duration": 239.5899205740002
+          }
+        },
+        1555.588641426
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:47.855Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 252.9052474020002
+          },
+          "toolhead": {
+            "estimated_print_time": 30.42439015
+          },
+          "print_stats": {
+            "total_duration": 252.90646296100022,
+            "print_duration": 244.6037621060002
+          }
+        },
+        1560.602482958
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:52.870Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 257.920458606
+          },
+          "toolhead": {
+            "estimated_print_time": 31.00534595
+          },
+          "print_stats": {
+            "total_duration": 257.921674165,
+            "print_duration": 249.61897331
+          }
+        },
+        1565.617694162
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:58:57.884Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 262.9337075440001
+          },
+          "toolhead": {
+            "estimated_print_time": 31.5863297
+          },
+          "print_stats": {
+            "total_duration": 262.9349231030001,
+            "print_duration": 254.63222224800006
+          }
+        },
+        1570.6309431
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:02.896Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "print_time": 33.48583448211204,
+            "estimated_print_time": 32.16791185,
+            "position": [155.743, 141.203, 0.4, 57.036870000000036]
+          },
+          "print_stats": {
+            "total_duration": 267.94715174600015,
+            "print_duration": 259.64445089100013,
+            "filament_used": 57.036870000000036
+          },
+          "idle_timeout": {
+            "printing_time": 267.94593618700014
+          },
+          "gcode_move": {
+            "position": [155.743, 141.203, 0.4, 57.036870000000036],
+            "gcode_position": [155.743, 141.203, 0.4, 24.08501000000004]
+          },
+          "virtual_sdcard": {
+            "progress": 0.10610021351745057,
+            "file_position": 10634
+          }
+        },
+        1575.643171743
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:07.907Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 272.95679634700014
+          },
+          "toolhead": {
+            "estimated_print_time": 32.7497833
+          },
+          "print_stats": {
+            "total_duration": 272.95801190600014,
+            "print_duration": 264.6553110510001
+          }
+        },
+        1580.654031903
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:12.919Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 277.9690516810001
+          },
+          "toolhead": {
+            "estimated_print_time": 33.3318165
+          },
+          "print_stats": {
+            "total_duration": 277.9702672400001,
+            "print_duration": 269.6675663850001
+          }
+        },
+        1585.666287237
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:17.930Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 282.98069062900004
+          },
+          "toolhead": {
+            "estimated_print_time": 33.91274425
+          },
+          "print_stats": {
+            "total_duration": 282.98190618800004,
+            "print_duration": 274.679205333
+          }
+        },
+        1590.677926185
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:22.941Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 287.99145690700016
+          },
+          "toolhead": {
+            "estimated_print_time": 34.4941089
+          },
+          "print_stats": {
+            "total_duration": 287.99267246600016,
+            "print_duration": 279.68997161100015
+          }
+        },
+        1595.688692463
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:27.954Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 293.0038284240002
+          },
+          "toolhead": {
+            "estimated_print_time": 35.07503795
+          },
+          "print_stats": {
+            "total_duration": 293.0050439830002,
+            "print_duration": 284.70234312800017
+          }
+        },
+        1600.70106398
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:32.965Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 298.0151559750002
+          },
+          "toolhead": {
+            "estimated_print_time": 35.6560549
+          },
+          "print_stats": {
+            "total_duration": 298.0163715340002,
+            "print_duration": 289.7136706790002
+          }
+        },
+        1605.712391531
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:37.978Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 303.0286899990001
+          },
+          "toolhead": {
+            "estimated_print_time": 36.23704165
+          },
+          "print_stats": {
+            "total_duration": 303.0299055580001,
+            "print_duration": 294.7272047030001
+          }
+        },
+        1610.725925555
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:42.990Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 308.040762328
+          },
+          "toolhead": {
+            "estimated_print_time": 36.8193418
+          },
+          "print_stats": {
+            "total_duration": 308.04197788700003,
+            "print_duration": 299.739277032
+          }
+        },
+        1615.737997884
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:48.002Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "print_time": 38.59179774406484,
+            "estimated_print_time": 37.40242605,
+            "position": [159.8, 140.2, 0.6, 71.75568000000013]
+          },
+          "print_stats": {
+            "total_duration": 313.0531003840001,
+            "print_duration": 304.7503995290001,
+            "filament_used": 71.75568000000013
+          },
+          "idle_timeout": {
+            "printing_time": 313.0518848250001
+          },
+          "gcode_move": {
+            "position": [159.8, 140.2, 0.6, 71.75568000000013],
+            "gcode_position": [159.8, 140.2, 0.6, 6.011730000000057]
+          },
+          "virtual_sdcard": {
+            "progress": 0.13847704188533913,
+            "file_position": 13879
+          }
+        },
+        1620.749120381
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T10:59:53.013Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 318.0629588500001
+          },
+          "toolhead": {
+            "estimated_print_time": 37.98630565
+          },
+          "print_stats": {
+            "total_duration": 318.0641744090001,
+            "print_duration": 309.7614735540001
+          }
+        },
+        1625.760194406
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:07.046Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "result": {
+        "eventtime": 1639.792382542,
+        "status": {
+          "print_stats": {
+            "filename": "cube_orca.gcode",
+            "total_duration": 332.09636254500015,
+            "print_duration": 323.79366169000014,
+            "filament_used": 75.70761000000016,
+            "state": "printing",
+            "message": "",
+            "info": {
+              "total_layer": null,
+              "current_layer": null
+            }
+          },
+          "virtual_sdcard": {
+            "file_path": "/home/printer/printer_data/gcodes/cube_orca.gcode",
+            "progress": 0.1566559575359687,
+            "is_active": true,
+            "file_position": 15701,
+            "file_size": 100226
+          },
+          "display_status": {
+            "progress": 0.27,
+            "message": "M140 called with S35 ; set bed temperature"
+          },
+          "extruder": {
+            "temperature": 103.26,
+            "target": 0,
+            "power": 0,
+            "can_extrude": true,
+            "pressure_advance": 0.1,
+            "smooth_time": 0.01,
+            "motion_queue": null
+          },
+          "heater_bed": {
+            "temperature": 103.26,
+            "target": 0,
+            "power": 0
+          },
+          "toolhead": {
+            "homed_axes": "xyz",
+            "axis_minimum": [-15, -15, -2, 0],
+            "axis_maximum": [235, 235, 250, 0],
+            "print_time": 40.7379922928231,
+            "stalls": 0,
+            "estimated_print_time": 39.6228632,
+            "extruder": "extruder",
+            "position": [158.797, 149.73, 0.6, 75.70761000000016],
+            "max_velocity": 300,
+            "max_accel": 5000,
+            "minimum_cruise_ratio": 0.5,
+            "square_corner_velocity": 12,
+            "extra_axes": {
+              "extruder": 3
+            }
+          },
+          "webhooks": {
+            "state": "ready",
+            "state_message": "Printer is ready"
+          },
+          "idle_timeout": {
+            "state": "Printing",
+            "printing_time": 332.09514698600015,
+            "idle_timeout": 600
+          },
+          "gcode_move": {
+            "speed_factor": 1,
+            "speed": 10287.553,
+            "extrude_factor": 1,
+            "absolute_coordinates": true,
+            "absolute_extrude": false,
+            "homing_origin": [0, 0, 0, 0],
+            "position": [158.797, 149.73, 0.6, 75.70761000000016],
+            "gcode_position": [158.797, 149.73, 0.6, 9.96366000000009],
+            "axis_map": {
+              "X": 0,
+              "Y": 1,
+              "Z": 2,
+              "E": 3
+            }
+          }
+        }
+      },
+      "id": 1
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:07.546Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 332.5959883160001
+          },
+          "toolhead": {
+            "estimated_print_time": 39.6812315
+          },
+          "print_stats": {
+            "total_duration": 332.5972038750001,
+            "print_duration": 324.2945030200001
+          }
+        },
+        1640.293223872
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:10.050Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// CANCEL_PRINT called with"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:10.303Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "estimated_print_time": 40.0004547
+          },
+          "virtual_sdcard": {
+            "file_path": null,
+            "progress": 0,
+            "is_active": false,
+            "file_position": 0,
+            "file_size": 0
+          },
+          "idle_timeout": {
+            "printing_time": 335.3539256160002
+          },
+          "print_stats": {
+            "total_duration": 335.1525920380002,
+            "print_duration": 326.8498911830002,
+            "state": "cancelled"
+          }
+        },
+        1643.051161172
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:10.318Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_history_changed",
+      "params": [
+        {
+          "action": "finished",
+          "job": {
+            "end_time": 1794654010.3051028,
+            "filament_used": 76.50107000000017,
+            "filename": "cube_orca.gcode",
+            "metadata": {
+              "size": 100226,
+              "modified": 1794653671.8733332,
+              "uuid": "f53cf93c-8431-45d3-b926-f87ad10c0bb0",
+              "file_processors": [],
+              "slicer": "OrcaSlicer",
+              "slicer_version": "2.5.0-rc",
+              "gcode_start_byte": 597,
+              "gcode_end_byte": 76423,
+              "layer_count": 15,
+              "object_height": 3,
+              "estimated_time": 134,
+              "nozzle_diameter": 0.4,
+              "layer_height": 0.2,
+              "first_layer_height": 0.2,
+              "first_layer_extr_temp": 220,
+              "first_layer_bed_temp": 35,
+              "chamber_temp": 0,
+              "filament_name": "Generic PLA @System",
+              "filament_type": "PLA",
+              "filament_colors": ["#F2754E"],
+              "extruder_colors": ["#F2754E"],
+              "filament_temps": [220],
+              "referenced_tools": [],
+              "mmu_print": 1,
+              "filament_total": 331.1,
+              "filament_weight_total": 0.99,
+              "filament_weights": [0.99],
+              "printer_model": "Voron 2.4 300",
+              "printer_variant": "0.4"
+            },
+            "print_duration": 326.80142077100004,
+            "status": "cancelled",
+            "start_time": 1794653674.981262,
+            "total_duration": 335.10412162600005,
+            "auxiliary_data": [
+              {
+                "provider": "spoolman",
+                "name": "spool_ids",
+                "value": [3],
+                "description": "Spool IDs used",
+                "units": null
+              }
+            ],
+            "user": "_TRUSTED_USER_",
+            "exists": true,
+            "job_id": "000002"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:12.809Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 337.85912761500003
+          },
+          "toolhead": {
+            "estimated_print_time": 40.29060395
+          }
+        },
+        1645.556363171
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:17.823Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 342.8733203940001
+          },
+          "toolhead": {
+            "estimated_print_time": 40.87076705
+          }
+        },
+        1650.57055595
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:36.619Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "result": {
+        "eventtime": 1669.36498185,
+        "status": {
+          "print_stats": {
+            "filename": "cube_orca.gcode",
+            "total_duration": 335.1525920380002,
+            "print_duration": 326.8498911830002,
+            "filament_used": 76.50107000000017,
+            "state": "cancelled",
+            "message": "",
+            "info": {
+              "total_layer": null,
+              "current_layer": null
+            }
+          },
+          "virtual_sdcard": {
+            "file_path": null,
+            "progress": 0,
+            "is_active": false,
+            "file_position": 0,
+            "file_size": 0
+          },
+          "display_status": {
+            "progress": 0,
+            "message": "CANCEL_PRINT called with"
+          },
+          "extruder": {
+            "temperature": 103.26,
+            "target": 0,
+            "power": 0,
+            "can_extrude": true,
+            "pressure_advance": 0.1,
+            "smooth_time": 0.01,
+            "motion_queue": null
+          },
+          "heater_bed": {
+            "temperature": 103.26,
+            "target": 0,
+            "power": 0
+          },
+          "toolhead": {
+            "homed_axes": "xyz",
+            "axis_minimum": [-15, -15, -2, 0],
+            "axis_maximum": [235, 235, 250, 0],
+            "print_time": 41.08254754514101,
+            "stalls": 0,
+            "estimated_print_time": 43.06059905,
+            "extruder": "extruder",
+            "position": [158.797, 150.74, 0.6, 76.50107000000017],
+            "max_velocity": 300,
+            "max_accel": 5000,
+            "minimum_cruise_ratio": 0.5,
+            "square_corner_velocity": 12,
+            "extra_axes": {
+              "extruder": 3
+            }
+          },
+          "webhooks": {
+            "state": "ready",
+            "state_message": "Printer is ready"
+          },
+          "idle_timeout": {
+            "state": "Ready",
+            "printing_time": 0,
+            "idle_timeout": 600
+          },
+          "gcode_move": {
+            "speed_factor": 1,
+            "speed": 10287.553,
+            "extrude_factor": 1,
+            "absolute_coordinates": true,
+            "absolute_extrude": false,
+            "homing_origin": [0, 0, 0, 0],
+            "position": [158.797, 150.74, 0.6, 76.50107000000017],
+            "gcode_position": [158.797, 150.74, 0.6, 10.7571200000001],
+            "axis_map": {
+              "X": 0,
+              "Y": 1,
+              "Z": 2,
+              "E": 3
+            }
+          }
+        }
+      },
+      "id": 1
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:36.974Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_filelist_changed",
+      "params": [
+        {
+          "action": "create_file",
+          "item": {
+            "modified": 1794654036.917624,
+            "size": 42408,
+            "permissions": "rw",
+            "path": "tile_orca.gcode",
+            "root": "gcodes"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:38.872Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "estimated_print_time": 43.32408355
+          }
+        },
+        1671.619837742
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:39.995Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["File opened:tile_orca.gcode Size:42408"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:39.996Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["File selected"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:39.996Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// M190 called with S35"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:39.996Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// M109 called with S220"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:40.125Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "print_time": 43.711634000000004,
+            "estimated_print_time": 43.47045685,
+            "position": [0, 150.74, 0.6, 76.50107000000017]
+          },
+          "print_stats": {
+            "filename": "tile_orca.gcode",
+            "total_duration": 0.1284652179999739,
+            "print_duration": 0,
+            "filament_used": 0,
+            "state": "printing"
+          },
+          "idle_timeout": {
+            "state": "Printing",
+            "printing_time": 0.1274344389998987
+          },
+          "gcode_move": {
+            "position": [352.5, 150.74, 0.6, 76.50107000000017],
+            "gcode_position": [352.5, 150.74, 0.6, 10.7571200000001]
+          },
+          "virtual_sdcard": {
+            "file_path": "/home/printer/printer_data/gcodes/tile_orca.gcode",
+            "progress": 0.015067911714770798,
+            "is_active": true,
+            "file_position": 639,
+            "file_size": 42408
+          },
+          "display_status": {
+            "message": "M109 called with S220"
+          }
+        },
+        1672.872099706
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:40.133Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_history_changed",
+      "params": [
+        {
+          "action": "added",
+          "job": {
+            "end_time": null,
+            "filament_used": 0,
+            "filename": "tile_orca.gcode",
+            "metadata": {
+              "size": 42408,
+              "modified": 1794654036.917624,
+              "uuid": "1b9faf06-d2be-4b2e-9deb-780fb29871b9",
+              "file_processors": [],
+              "slicer": "OrcaSlicer",
+              "slicer_version": "2.5.0-rc",
+              "gcode_start_byte": 596,
+              "gcode_end_byte": 18610,
+              "layer_count": 3,
+              "object_height": 0.6,
+              "estimated_time": 18,
+              "nozzle_diameter": 0.4,
+              "layer_height": 0.2,
+              "first_layer_height": 0.2,
+              "first_layer_extr_temp": 220,
+              "first_layer_bed_temp": 35,
+              "chamber_temp": 0,
+              "filament_name": "Generic PLA @System",
+              "filament_type": "PLA",
+              "filament_colors": ["#F2754E"],
+              "extruder_colors": ["#F2754E"],
+              "filament_temps": [220],
+              "referenced_tools": [],
+              "mmu_print": 1,
+              "filament_total": 24.64,
+              "filament_weight_total": 0.07,
+              "filament_weights": [0.07],
+              "printer_model": "Voron 2.4 300",
+              "printer_variant": "0.4"
+            },
+            "print_duration": 0,
+            "status": "in_progress",
+            "start_time": 1794654040.1253781,
+            "total_duration": 0.1284652179999739,
+            "auxiliary_data": [
+              {
+                "provider": "spoolman",
+                "name": "spool_ids",
+                "value": [3],
+                "description": "Spool IDs used",
+                "units": null
+              }
+            ],
+            "user": "_TRUSTED_USER_",
+            "exists": true,
+            "job_id": "000003"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:44.135Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 4.137960090999968
+          },
+          "toolhead": {
+            "estimated_print_time": 43.93999475
+          },
+          "print_stats": {
+            "total_duration": 4.138990870000043
+          }
+        },
+        1676.882625358
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:48.378Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// Unknown command:\"PRINT_START\""]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:49.149Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 9.151592938000022
+          },
+          "toolhead": {
+            "estimated_print_time": 44.5268561
+          },
+          "print_stats": {
+            "total_duration": 9.152623717000097,
+            "print_duration": 1.0032018070000959
+          }
+        },
+        1681.896258205
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:54.162Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 14.16475562300002
+          },
+          "toolhead": {
+            "estimated_print_time": 45.11362275
+          },
+          "print_stats": {
+            "total_duration": 14.165786402000094,
+            "print_duration": 6.016364492000093
+          }
+        },
+        1686.90942089
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:00:59.176Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "print_time": 46.91080487486133,
+            "estimated_print_time": 45.700536,
+            "position": [145.729, 154.271, 0.2, 77.95433000000016]
+          },
+          "print_stats": {
+            "total_duration": 19.179229674999988,
+            "print_duration": 11.029807764999987,
+            "filament_used": 1.453259999999986
+          },
+          "idle_timeout": {
+            "printing_time": 19.178198895999913
+          },
+          "gcode_move": {
+            "position": [145.729, 154.271, 0.2, 77.95433000000016],
+            "gcode_position": [145.729, 154.271, 0.2, 1.453259999999986]
+          },
+          "virtual_sdcard": {
+            "progress": 0.04819845312205244,
+            "file_position": 2044
+          },
+          "display_status": {
+            "progress": 0.09
+          }
+        },
+        1691.922864163
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:04.185Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 24.187721108000005
+          },
+          "toolhead": {
+            "estimated_print_time": 46.28769315
+          },
+          "print_stats": {
+            "total_duration": 24.18875188700008,
+            "print_duration": 16.03932997700008
+          }
+        },
+        1696.932386375
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:09.198Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 29.201026461999845
+          },
+          "toolhead": {
+            "estimated_print_time": 46.87500045
+          },
+          "print_stats": {
+            "total_duration": 29.20205724099992,
+            "print_duration": 21.05263533099992
+          }
+        },
+        1701.945691729
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:14.211Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 34.21415984700002
+          },
+          "toolhead": {
+            "estimated_print_time": 47.46095265
+          },
+          "print_stats": {
+            "total_duration": 34.215190626000094,
+            "print_duration": 26.065768716000093
+          }
+        },
+        1706.958825114
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:19.225Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 39.227388249999876
+          },
+          "toolhead": {
+            "estimated_print_time": 48.04376815
+          },
+          "print_stats": {
+            "total_duration": 39.22841902899995,
+            "print_duration": 31.07899711899995
+          }
+        },
+        1711.972053517
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:24.238Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 44.24060036599985
+          },
+          "toolhead": {
+            "estimated_print_time": 48.6248046
+          },
+          "print_stats": {
+            "total_duration": 44.24163114499993,
+            "print_duration": 36.09220923499993
+          }
+        },
+        1716.985265633
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:29.250Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 49.25250382099989
+          },
+          "toolhead": {
+            "estimated_print_time": 49.1983075
+          },
+          "print_stats": {
+            "total_duration": 49.253534599999966,
+            "print_duration": 41.104112689999965
+          }
+        },
+        1721.997169088
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:34.262Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 54.26432778399999
+          },
+          "toolhead": {
+            "estimated_print_time": 49.7725212
+          },
+          "print_stats": {
+            "total_duration": 54.26535856300006,
+            "print_duration": 46.11593665300006
+          }
+        },
+        1727.008993051
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:39.275Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 59.277388786999836
+          },
+          "toolhead": {
+            "estimated_print_time": 50.3478295
+          },
+          "print_stats": {
+            "total_duration": 59.27841956599991,
+            "print_duration": 51.12899765599991
+          }
+        },
+        1732.022054054
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:44.287Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 64.2892046049999
+          },
+          "toolhead": {
+            "estimated_print_time": 50.92538745
+          },
+          "print_stats": {
+            "total_duration": 64.29023538399997,
+            "print_duration": 56.14081347399997
+          }
+        },
+        1737.033869872
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:49.299Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 69.30119260699985
+          },
+          "toolhead": {
+            "estimated_print_time": 51.50518725
+          },
+          "print_stats": {
+            "total_duration": 69.30222338599992,
+            "print_duration": 61.15280147599992
+          }
+        },
+        1742.045857874
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:54.310Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 74.31222729199999
+          },
+          "toolhead": {
+            "estimated_print_time": 52.0866372
+          },
+          "print_stats": {
+            "total_duration": 74.31325807100006,
+            "print_duration": 66.16383616100006
+          }
+        },
+        1747.056892559
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:55.772Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// M140 called with S35 ; set bed temperature"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:01:59.323Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "print_time": 54.00660161605829,
+            "estimated_print_time": 52.67020275,
+            "position": [145.936, 154.064, 0.4, 85.00038000000005],
+            "max_accel": 5000,
+            "square_corner_velocity": 7
+          },
+          "print_stats": {
+            "total_duration": 79.32679787500001,
+            "print_duration": 71.17737596500001,
+            "filament_used": 8.49930999999988
+          },
+          "idle_timeout": {
+            "printing_time": 79.32576709599994
+          },
+          "gcode_move": {
+            "speed": 4337,
+            "position": [145.936, 154.064, 0.4, 85.00038000000005],
+            "gcode_position": [145.936, 154.064, 0.4, 0.2365300000000019]
+          },
+          "virtual_sdcard": {
+            "progress": 0.12172231654404829,
+            "file_position": 5162
+          },
+          "display_status": {
+            "progress": 0.44
+          }
+        },
+        1752.070432363
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:04.336Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 84.33797851299983
+          },
+          "toolhead": {
+            "estimated_print_time": 53.2554368
+          },
+          "print_stats": {
+            "total_duration": 84.3390092919999,
+            "print_duration": 76.1895873819999
+          }
+        },
+        1757.08264378
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:09.347Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 89.34957491599994
+          },
+          "toolhead": {
+            "estimated_print_time": 53.8408616
+          },
+          "print_stats": {
+            "total_duration": 89.35060569500001,
+            "print_duration": 81.20118378500001
+          }
+        },
+        1762.094240183
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:14.360Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 94.36214196799983
+          },
+          "toolhead": {
+            "estimated_print_time": 54.4276914
+          },
+          "print_stats": {
+            "total_duration": 94.36317274699991,
+            "print_duration": 86.2137508369999
+          }
+        },
+        1767.106807235
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:19.370Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 99.37255178099986
+          },
+          "toolhead": {
+            "estimated_print_time": 55.0144528
+          },
+          "print_stats": {
+            "total_duration": 99.37358255999993,
+            "print_duration": 91.22416064999993
+          }
+        },
+        1772.117217048
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:24.383Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 104.38507361699999
+          },
+          "toolhead": {
+            "estimated_print_time": 55.6017611
+          },
+          "print_stats": {
+            "total_duration": 104.38610439600006,
+            "print_duration": 96.23668248600006
+          }
+        },
+        1777.129738884
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:29.394Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 109.39676527099982
+          },
+          "toolhead": {
+            "estimated_print_time": 56.1879874
+          },
+          "print_stats": {
+            "total_duration": 109.3977960499999,
+            "print_duration": 101.2483741399999
+          }
+        },
+        1782.141430538
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:34.405Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 114.40753776499992
+          },
+          "toolhead": {
+            "estimated_print_time": 56.77412685
+          },
+          "print_stats": {
+            "total_duration": 114.40856854399999,
+            "print_duration": 106.25914663399999
+          }
+        },
+        1787.152203032
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:39.417Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 119.41988797499994
+          },
+          "toolhead": {
+            "estimated_print_time": 57.36032625
+          },
+          "print_stats": {
+            "total_duration": 119.42091875400001,
+            "print_duration": 111.27149684400001
+          }
+        },
+        1792.164553242
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:44.430Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 124.43324133099986
+          },
+          "toolhead": {
+            "estimated_print_time": 57.9457395
+          },
+          "print_stats": {
+            "total_duration": 124.43427210999994,
+            "print_duration": 116.28485019999994
+          }
+        },
+        1797.177906598
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:49.443Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "print_time": 59.76611745182126,
+            "estimated_print_time": 58.52933295,
+            "position": [154.064, 145.936, 0.6, 93.67432000000012]
+          },
+          "print_stats": {
+            "total_duration": 129.44686916599994,
+            "print_duration": 121.29744725599994,
+            "filament_used": 17.173249999999953
+          },
+          "idle_timeout": {
+            "printing_time": 129.44583838699987
+          },
+          "gcode_move": {
+            "position": [154.064, 145.936, 0.6, 93.67432000000012],
+            "gcode_position": [154.064, 145.936, 0.6, 0.7095900000000057]
+          },
+          "virtual_sdcard": {
+            "progress": 0.22549990567817393,
+            "file_position": 9563
+          }
+        },
+        1802.190503654
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:54.456Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 134.4591702119999
+          },
+          "toolhead": {
+            "estimated_print_time": 59.1125077
+          },
+          "print_stats": {
+            "total_duration": 134.46020099099997,
+            "print_duration": 126.31077908099996
+          }
+        },
+        1807.203835479
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:02:59.470Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 139.47315417699997
+          },
+          "toolhead": {
+            "estimated_print_time": 59.6972518
+          },
+          "print_stats": {
+            "total_duration": 139.47418495600004,
+            "print_duration": 131.32476304600004
+          }
+        },
+        1812.217819444
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:04.482Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 144.4847994459999
+          },
+          "toolhead": {
+            "estimated_print_time": 60.2822628
+          },
+          "print_stats": {
+            "total_duration": 144.48583022499997,
+            "print_duration": 136.33640831499997
+          }
+        },
+        1817.229464713
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:09.495Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 149.49829705399998
+          },
+          "toolhead": {
+            "estimated_print_time": 60.86815575
+          },
+          "print_stats": {
+            "total_duration": 149.49932783300005,
+            "print_duration": 141.34990592300005
+          }
+        },
+        1822.242962321
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:14.511Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 154.51387560299986
+          },
+          "toolhead": {
+            "estimated_print_time": 61.45423325
+          },
+          "print_stats": {
+            "total_duration": 154.51490638199994,
+            "print_duration": 146.36548447199993
+          }
+        },
+        1827.25854087
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:19.523Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 159.52584716899992
+          },
+          "toolhead": {
+            "estimated_print_time": 62.03955015
+          },
+          "print_stats": {
+            "total_duration": 159.526877948,
+            "print_duration": 151.377456038
+          }
+        },
+        1832.270512436
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:24.537Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 164.54004609999993
+          },
+          "toolhead": {
+            "estimated_print_time": 62.62540175
+          },
+          "print_stats": {
+            "total_duration": 164.541076879,
+            "print_duration": 156.391654969
+          }
+        },
+        1837.284711367
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:29.548Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 169.55100611699982
+          },
+          "toolhead": {
+            "estimated_print_time": 63.2106065
+          },
+          "print_stats": {
+            "total_duration": 169.5520368959999,
+            "print_duration": 161.4026149859999
+          }
+        },
+        1842.295671384
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:32.917Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["// Unknown command:\"PRINT_END\""]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:32.919Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_gcode_response",
+      "params": ["Done printing file"]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:33.058Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "toolhead": {
+            "estimated_print_time": 63.6201853,
+            "position": [146.75, 153.931, 0.6, 100.34507000000015]
+          },
+          "print_stats": {
+            "total_duration": 172.92300612400004,
+            "print_duration": 164.77358421400004,
+            "state": "complete"
+          },
+          "idle_timeout": {
+            "printing_time": 173.06043064799997
+          },
+          "gcode_move": {
+            "speed": 6000,
+            "position": [146.75, 153.931, 0.6, 100.34507000000015],
+            "gcode_position": [146.75, 153.931, 0.6, 7.380340000000032]
+          },
+          "virtual_sdcard": {
+            "file_path": null,
+            "progress": 1,
+            "is_active": false,
+            "file_position": 42408
+          },
+          "display_status": {
+            "progress": 1
+          }
+        },
+        1845.805095915
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:33.072Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_history_changed",
+      "params": [
+        {
+          "action": "finished",
+          "job": {
+            "end_time": 1794654213.0587647,
+            "filament_used": 24.48769999999999,
+            "filename": "tile_orca.gcode",
+            "metadata": {
+              "size": 42408,
+              "modified": 1794654036.917624,
+              "uuid": "1b9faf06-d2be-4b2e-9deb-780fb29871b9",
+              "file_processors": [],
+              "slicer": "OrcaSlicer",
+              "slicer_version": "2.5.0-rc",
+              "gcode_start_byte": 596,
+              "gcode_end_byte": 18610,
+              "layer_count": 3,
+              "object_height": 0.6,
+              "estimated_time": 18,
+              "nozzle_diameter": 0.4,
+              "layer_height": 0.2,
+              "first_layer_height": 0.2,
+              "first_layer_extr_temp": 220,
+              "first_layer_bed_temp": 35,
+              "chamber_temp": 0,
+              "filament_name": "Generic PLA @System",
+              "filament_type": "PLA",
+              "filament_colors": ["#F2754E"],
+              "extruder_colors": ["#F2754E"],
+              "filament_temps": [220],
+              "referenced_tools": [],
+              "mmu_print": 1,
+              "filament_total": 24.64,
+              "filament_weight_total": 0.07,
+              "filament_weights": [0.07],
+              "printer_model": "Voron 2.4 300",
+              "printer_variant": "0.4"
+            },
+            "print_duration": 164.77358421400004,
+            "status": "completed",
+            "start_time": 1794654040.1253781,
+            "total_duration": 172.92300612400004,
+            "auxiliary_data": [
+              {
+                "provider": "spoolman",
+                "name": "spool_ids",
+                "value": [3],
+                "description": "Spool IDs used",
+                "units": null
+              }
+            ],
+            "user": "_TRUSTED_USER_",
+            "exists": true,
+            "job_id": "000003"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:34.812Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 174.81508280499997
+          },
+          "toolhead": {
+            "estimated_print_time": 63.8249645
+          }
+        },
+        1847.559748072
+      ]
+    }
+  },
+  {
+    "at": "2026-11-14T11:03:39.826Z",
+    "msg": {
+      "jsonrpc": "2.0",
+      "method": "notify_status_update",
+      "params": [
+        {
+          "idle_timeout": {
+            "printing_time": 179.82828614599998
+          },
+          "toolhead": {
+            "estimated_print_time": 64.4093907
+          }
+        },
+        1852.572951413
+      ]
+    }
+  }
+]

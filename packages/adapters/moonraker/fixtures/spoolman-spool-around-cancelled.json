@@ -1,0 +1,66 @@
+{
+  "before": {
+    "id": 3,
+    "registered": "2026-11-14T10:54:31Z",
+    "first_used": "2026-11-14T10:54:47Z",
+    "last_used": "2026-11-14T11:00:03Z",
+    "filament": {
+      "id": 3,
+      "registered": "2026-11-14T10:54:31Z",
+      "name": "PLA Spike",
+      "vendor": {
+        "id": 3,
+        "registered": "2026-11-14T10:54:31Z",
+        "name": "Spike",
+        "extra": {}
+      },
+      "material": "PLA",
+      "density": 1.24,
+      "diameter": 1.75,
+      "weight": 1000,
+      "color_hex": "29B2B2",
+      "extra": {},
+      "tags": []
+    },
+    "remaining_weight": 999.7772832739938,
+    "initial_weight": 1000,
+    "used_weight": 0.222716726006169,
+    "remaining_length": 335208.94614676444,
+    "used_length": 74.67327000000016,
+    "archived": false,
+    "extra": {},
+    "tags": []
+  },
+  "after": {
+    "id": 3,
+    "registered": "2026-11-14T10:54:31Z",
+    "first_used": "2026-11-14T10:54:47Z",
+    "last_used": "2026-11-14T11:00:08Z",
+    "filament": {
+      "id": 3,
+      "registered": "2026-11-14T10:54:31Z",
+      "name": "PLA Spike",
+      "vendor": {
+        "id": 3,
+        "registered": "2026-11-14T10:54:31Z",
+        "name": "Spike",
+        "extra": {}
+      },
+      "material": "PLA",
+      "density": 1.24,
+      "diameter": 1.75,
+      "weight": 1000,
+      "color_hex": "29B2B2",
+      "extra": {},
+      "tags": []
+    },
+    "remaining_weight": 999.7718317699711,
+    "initial_weight": 1000,
+    "used_weight": 0.22816823002888126,
+    "remaining_length": 335207.1183467644,
+    "used_length": 76.50107000000018,
+    "archived": false,
+    "extra": {},
+    "tags": []
+  }
+}

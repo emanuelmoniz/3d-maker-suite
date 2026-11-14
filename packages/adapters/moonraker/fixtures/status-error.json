@@ -1,0 +1,86 @@
+{
+  "result": {
+    "eventtime": 970.433011484,
+    "status": {
+      "print_stats": {
+        "filename": "cube_orca.gcode",
+        "total_duration": 0.00181678199999169,
+        "print_duration": 0,
+        "filament_used": 0,
+        "state": "error",
+        "message": "Must home axis first: 158.814 158.814 0.000 [-0.800]",
+        "info": {
+          "total_layer": null,
+          "current_layer": null
+        }
+      },
+      "virtual_sdcard": {
+        "file_path": "/home/printer/printer_data/gcodes/cube_orca.gcode",
+        "progress": 0.013688235705228686,
+        "is_active": false,
+        "file_position": 1371,
+        "file_size": 100159
+      },
+      "display_status": {
+        "progress": 0,
+        "message": "M109 called with S220"
+      },
+      "extruder": {
+        "temperature": 103.26,
+        "target": 0,
+        "power": 0,
+        "can_extrude": true,
+        "pressure_advance": 0.1,
+        "smooth_time": 0.01,
+        "motion_queue": null
+      },
+      "heater_bed": {
+        "temperature": 103.26,
+        "target": 0,
+        "power": 0
+      },
+      "toolhead": {
+        "homed_axes": "",
+        "axis_minimum": [-15, -15, -2, 0],
+        "axis_maximum": [235, 235, 250, 0],
+        "print_time": 72.28406340977384,
+        "stalls": 0,
+        "estimated_print_time": 90.0305216,
+        "extruder": "extruder",
+        "position": [0, 0, 0, -0.8],
+        "max_velocity": 300,
+        "max_accel": 7000,
+        "minimum_cruise_ratio": 0.5,
+        "square_corner_velocity": 12,
+        "extra_axes": {
+          "extruder": 3
+        }
+      },
+      "webhooks": {
+        "state": "shutdown",
+        "state_message": "MCU 'mcu' shutdown: Timer too close\nThis often indicates the host computer is overloaded. Check\nfor other processes consuming excessive CPU time, high swap\nusage, disk errors, overheating, unstable voltage, or\nsimilar system problems on the host computer.\nOnce the underlying issue is corrected, use the\n\"FIRMWARE_RESTART\" command to reset the firmware, reload the\nconfig, and restart the host software.\nPrinter is shutdown\n"
+      },
+      "idle_timeout": {
+        "state": "Printing",
+        "printing_time": 144.3627268099999,
+        "idle_timeout": 600
+      },
+      "gcode_move": {
+        "speed_factor": 1,
+        "speed": 21000,
+        "extrude_factor": 1,
+        "absolute_coordinates": true,
+        "absolute_extrude": false,
+        "homing_origin": [0, 0, 0, 0],
+        "position": [0, 0, 0, -0.8],
+        "gcode_position": [0, 0, 0, -0.8],
+        "axis_map": {
+          "X": 0,
+          "Y": 1,
+          "Z": 2,
+          "E": 3
+        }
+      }
+    }
+  }
+}

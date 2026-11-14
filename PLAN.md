@@ -3165,23 +3165,30 @@ Design: ADR-0015. Prints are recorded automatically from the most used printer s
 
 Wave 1: Moonraker, Bambu LAN, PrusaLink, OctoPrint, plus Spoolman two-way.
 
+Steps marked **(or Fable)** are the ones where a stronger model pays off: the design, the tracker's state logic, protocols and double-charge safety. Use Fable there while credits last, else the model listed first.
+
 ## Phase 42 - Foundations
 
 Design:
 - Snapshot: state, job file, progress, ETA, layer, temperatures, slots (material, colour, RFID or spool id). In memory only, pushed over SSE.
-- New alert kinds join the kind catalog (5.1.0, ADR-0016) with their permission.
-- The job tracker emits an `ExternalPrint`; the existing upsert, dedupe and review do the rest. History sources backfill.
-- Review policy `never` · `unmatched` · `always`: global → integration → printer, most specific wins.
+- New alert kinds join the kind catalog (5.1.0, ADR-0016) with their permission: `print_finished`, `print_failed` and `printer_offline` (Step 3b), `filament_review` (Step 6).
+- The job tracker emits an `ExternalPrint`; the existing upsert and dedupe write it. History sources backfill.
+- **A print recorded automatically is written when it ends, never held back** (PrusaLink and OctoPrint keep no history to offer it again). What is still open waits in **Filament to review**. Bambu Cloud's automatic sync follows the same rule from Step 6; Review and import by hand stays.
+- Which spool, the first that answers: the printer's own spool id or RFID → the slot's loaded spool → a sure material + colour match (today's `matchPrint`) → Filament to review.
+- Review policy `never` · `unmatched` · `always` (in the UI: Never · When unsure · Always): global → source → printer, most specific wins. Unsure = no spool, a guess among several, a loaded spool that contradicts what the printer reported, or estimated grams.
 - No printer control.
 
-### [ ] Step 1 - Printer spikes and ADR-0015  **[plan mode]**
-**Model:** Opus · **Effort:** High
+### [x] Step 1 - Printer spikes and ADR-0015  **[plan mode]**
+**Model:** Opus (or Fable) · **Effort:** High
 **Scope:** The five spikes listed in `docs/adr/0015-multi-brand-print-tracking.md`:
-- real payloads from Moonraker, PrusaLink, Bambu LAN (and what needs Developer mode) and OctoPrint, saved as fixtures
+- real payloads from Moonraker, PrusaLink, Bambu LAN (what needs Developer mode, and whether status can be read while the printer stays on the cloud) and OctoPrint, saved as fixtures
 - slicer totals in job file headers (OrcaSlicer, PrusaSlicer, Bambu Studio)
 - the dedupe tolerance between Bambu Cloud and Bambu LAN
 - discovery (mDNS, SSDP): in 6.0.0 or later
 - a connector relaying a LAN printer to a VPS hub
+- which printers report the grams really used when a print is cancelled or fails
+
+Also decide the integration kind of a printer added by host or IP: `local` is a slicer folder on the server today (`INTEGRATION_KINDS`).
 
 Record the evidence in the ADR, adjust the decisions it changes, and set the status to Accepted.
 **Done when:** every spike has evidence and fixtures are committed; the ADR is approved.
@@ -3191,10 +3198,11 @@ Do Step 1 of the 6.0.0 plan in PLAN.md. Report each spike with evidence before c
 ```
 
 ### [ ] Step 2 - Printer status capability and job tracker  **[plan mode]**
-**Model:** Opus · **Effort:** High
+**Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - `PrinterStatusSource` in `packages/core/src/integrations`, the snapshot zod schema, a `printerStatus` capability, `docs/architecture.md`.
-- The job tracker in core: pure, state in and prints out. Covers a print first seen half-way (recorded and flagged for review), a restart during a print, cancel and failure.
+- The job tracker in core: pure, state in and prints out. Covers a print first seen half-way (recorded with an estimated duration, its slots unsure), a restart during a print, cancel and failure.
+- `externalPrintSchema` gains, per slot, the spool the printer named (RFID or the source's spool id) and whether its grams are estimated.
 - Matching sources of one printer by serial, and deduping prints by start time within the Step 1 tolerance.
 - The mock adapter gets a status source for dev and e2e.
 
@@ -3207,7 +3215,7 @@ Do Step 2 of the 6.0.0 plan in PLAN.md. Show me the snapshot schema and the trac
 ### [ ] Step 3 - Live status on the dashboard
 **Model:** Opus · **Effort:** Medium
 **Scope:**
-- Server: a runner per enabled status source (poll faster while printing, slower when idle), the in-memory store, the tracker wired to the existing print import.
+- Server: a runner per enabled status source (poll faster while printing, slower when idle), the in-memory store, the tracker wired to the existing print import. A print is written when it ends: its project is linked by title (`linkPrints`) or left empty, and a slot without a sure spool waits in Filament to review.
 - `GET /api/printers/status/events` (SSE, permissions per ADR-0012) and a snapshot endpoint.
 - Web: a printer card on the dashboard and printer page: state, progress, ETA, temperatures, slots, offline. i18n `printers:status.*`, keyboard and screen reader friendly, both themes.
 
@@ -3217,16 +3225,30 @@ Do Step 2 of the 6.0.0 plan in PLAN.md. Show me the snapshot schema and the trac
 Do Step 3 of the 6.0.0 plan in PLAN.md. Use frontend-design for the printer card.
 ```
 
+### [ ] Step 3b - Printer event alerts
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `print_finished` (success) and `print_failed` (error): event kinds, one per print, raised by the tracker, linking to the print. A cancelled print raises none, and neither does a print that came in by history backfill. Permission: `prints` read.
+- `printer_offline` (warning): a condition kind, raised when a printer stops answering **during a print** for longer than a threshold, resolved when it answers again. A printer that is off while idle raises nothing. Permission: `printers` read.
+- The kind catalog, role defaults and per-user delivery as ADR-0016; i18n; `docs/alerts.md`.
+
+**Done when:** the mock printer's finished print raises `print_finished` once and a failed one `print_failed`; a cancelled and a backfilled print raise none; `printer_offline` raises during a print and resolves; a user without the permission sees none; tests and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3b of the 6.0.0 plan in PLAN.md.
+```
+
 ### [ ] Step 4 - Grams from the job file and the project plate
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - When the printer doesn't report grams: read the slicer totals from the job file's header (G-code or 3MF, the formats from Step 1), else use the slice result of the project plate the print matched, else leave the slot for review.
-- The print shows where its grams came from.
+- A cancelled or failed print whose printer doesn't report the grams really used (Step 1 says which): the file's or the plate's total × the progress it reached, marked estimated.
+- Migration: a usage keeps where its grams came from (`printer` · `file` · `plate`) and whether they are estimated. The print shows both.
 
-**Done when:** each fallback has a test with a real header; tests pass.
+**Done when:** each fallback has a test with a real header; a print cancelled at 40% gets 40% of the header's grams, marked estimated; tests pass.
 **Prompt:**
 ```
-Do Step 4 of the 6.0.0 plan in PLAN.md.
+Do Step 4 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 ```
 
 ### [ ] Step 5 - Loaded spool per printer slot  **[plan mode]**
@@ -3234,32 +3256,61 @@ Do Step 4 of the 6.0.0 plan in PLAN.md.
 **Scope:**
 - Migration: the spool loaded in each printer slot (or toolhead).
 - Printer page: set, change and clear the loaded spool per slot; the spool page shows where it is loaded.
-- New prints charge the loaded spool when the printer can't say which spool it used. RFID and Spoolman come first.
+- New prints charge the loaded spool when the printer can't say which spool it used. The order: the printer's own spool id or RFID (Spoolman's active spool too), the loaded spool, then today's material + colour match (`matchPrint`).
+- A loaded spool whose material differs from what the printer reported for the slot isn't sure: nothing is charged and the slot waits in Filament to review.
 
-**Done when:** a print on a printer with a loaded spool charges it without review; tests and e2e pass.
+**Done when:** a print on a printer with a loaded spool charges it without review; a loaded PLA spool on a slot the printer reports as PETG waits for review; tests and e2e pass.
 **Prompt:**
 ```
 Do Step 5 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 6 - Review policy  **[plan mode]**
-**Model:** Sonnet · **Effort:** Medium
+### [ ] Step 6 - Review policy: server  **[plan mode]**
+**Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
-- `never` · `unmatched` · `always`: a global setting, an override per integration and per printer (migration).
-- `always` sends every new print to the review queue even when the spool matched; `never` leaves unmatched slots unassigned and raises no review alert.
-- Settings UI in Integrations (global and per integration) and on the printer page. i18n.
+- Migration: `print_filament_usages.suggestedSpoolId` (nullable; a deleted spool clears it), `sync_policies.reviewPolicy` and `printers.reviewPolicy` (null = follow the level above), the global `printReview` preference (default `unmatched`).
+- Core, pure: the level that applies (`printer ?? source ?? global`) and what happens to a slot under it:
 
-**Done when:** each level overrides the one above it in tests; e2e passes.
+  | Slot | `never` | `unmatched` | `always` |
+  |---|---|---|---|
+  | Sure spool, real grams | charged | charged | waits, spool suggested |
+  | Sure spool, estimated grams | charged | waits, spool suggested | waits, spool suggested |
+  | A guess among several, or a loaded spool that contradicts the printer | not tracked (`dismissed`) | waits, guess suggested | waits, guess suggested |
+  | No spool | not tracked (`dismissed`) | waits | waits |
+
+  A suggestion charges nothing until a person accepts it; picking another spool charges only that one.
+- Every automatic source follows it, Bambu Cloud too: an automatic prints run records every new print instead of holding it back for a spool or a project. Its project is linked by title (`linkPrints`) or left empty. `sync_pending` no longer counts prints of automatic runs, and the cursor's "oldest print left" goes. Prints held when the update is installed come in with the next run. Review and import by hand doesn't change.
+- `rematch()` follows the policy: under `always` it only refreshes the suggestion.
+- Filament to review API: the row's suggestion and its estimated mark; assign takes corrected grams; a bulk "accept suggestions" (each row its own, through the single assign).
+- Alert `filament_review`: a condition kind with the count of waiting slots, linking to the queue, resolved when it is empty. Permission: the one the queue's assign needs.
+- Hand-logged prints, file imports and a confirmed Review and import are not touched by the policy.
+
+**Done when:** the table above is a test, one case per cell; each level overrides the one above it; a Bambu Cloud automatic run records a print with no spool and no matching project, and its slot waits; under `always` no spool changes until the suggestion is accepted, and replacing a wrong one charges only the picked spool; the alert raises and resolves; tests pass.
 **Prompt:**
 ```
 Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
+Show me the policy × slot function and its tests first.
 ```
 
-### [x] Step 7 - Docs, push & v6.0.0-alpha.1
+### [ ] Step 6b - Review policy: settings and the queue
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `docs/printers.md`: live status, how prints are recorded, grams and spools, the review policy.
-- CHANGELOG, version `6.0.0-alpha.1`.
+- Prints settings → General: the global level (Never · When unsure · Always). Prints settings → Sources: each line's Edit gets "Use the default" or a level. The printer form: the same. Each place shows the level in effect and where it comes from.
+- Filament to review: a suggested spool is preselected with Accept; estimated grams carry a mark and can be corrected in the row; the bar gets "Accept suggestions".
+- Prints list: a filter for prints with no project yet, if the project filter can't show them.
+- i18n. `docs/bambu-cloud.md` and `docs/import.md`: automatic prints are recorded at once.
+
+**Done when:** e2e at phone and desktop width: a printer's level beats the global one, a suggestion is accepted, estimated grams are corrected; `pnpm i18n:check` and tests pass.
+**Prompt:**
+```
+Do Step 6b of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 7 - Docs, push & v6.0.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `docs/printers.md`: live status, how prints are recorded, grams and spools, the review policy, the printer alerts.
+- CHANGELOG, version `6.0.0-alpha.1`. It names the change for Bambu Cloud users: automatic prints are no longer held back for review.
 - Commit, push `dev`, tag on `dev`. Check the run and the pre-release.
 
 **Done when:** tags pushed; workflow green; docs match the app.
@@ -3281,8 +3332,8 @@ Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets 
 Do Step 8 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [x] Step 9 - Bambu LAN
-**Model:** Opus · **Effort:** High
+### [ ] Step 9 - Bambu LAN
+**Model:** Opus (or Fable) · **Effort:** High
 **Scope:** MQTT over TLS with the access code (new dependency `mqtt`, see ADR-0015); status from the push reports; AMS RFID → spool; matched by serial with a Bambu Cloud integration of the same printer, which then only gives history. Setup docs say what to switch on (LAN mode, Developer mode).
 **Done when:** a cloud + LAN printer records each print once; tests pass.
 **Prompt:**
@@ -3309,7 +3360,7 @@ Do Step 11 of the 6.0.0 plan in PLAN.md.
 ```
 
 ### [ ] Step 12 - Spoolman two-way  **[plan mode]**
-**Model:** Opus · **Effort:** High
+**Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - A Spoolman integration: import spools (the usual review and merge), read the active spool, write usage back after each print.
 - A spool has no profile (ADR-0020): a Spoolman spool maps to brand, material, name, colour hex and colour name, and a write back finds or creates its Spoolman filament by those.
@@ -3338,7 +3389,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 ## Phase 44 - Hub
 
 ### [ ] Step 14 - Connector printer bridge  **[plan mode]**
-**Model:** Opus · **Effort:** High
+**Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - A new fixed connector operation: relay status and history for the printer hosts the hub assigns to that device. It never sends commands to a printer.
 - Hub management: assign a printer integration to a device; the status runner reads it through the connector.
@@ -3356,7 +3407,8 @@ Do Step 14 of the 6.0.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A Klipper printer, a Bambu printer (LAN, and LAN + cloud), a Prusa printer, an OctoPrint printer, Spoolman.
-- A full print, a cancelled and a failed print, the app restarted during a print, each review policy, loaded spools, a hub with a connector bridge.
+- A full print, a cancelled and a failed print (estimated grams where the printer reports none), the app restarted during a print, each review policy, loaded spools, a hub with a connector bridge.
+- The finished and failed alerts on a phone (ntfy or email), a printer unplugged during a print, a Bambu Cloud print whose title matches no project.
 
 Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
 **Done when:** every scenario worked; fixes released.
@@ -3385,6 +3437,10 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 - Camera snapshots and timelapses.
 - Capturing slicer uploads for printers with no network.
 - Telemetry history.
+- Holding an automatic print back until it is reviewed (removed in Step 6): it is recorded at once and its filament waits in Filament to review.
+- Charging a spool before its review under `always`: a wrong pick would need correction entries in the spool's history.
+- The review policy for hand-logged prints and file imports.
+- Alerts for a printer that is off while idle, and for print progress (first layer, a percentage).
 
 ---
 

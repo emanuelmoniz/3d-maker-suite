@@ -1,0 +1,16 @@
+{
+  "result": {
+    "state": "ready",
+    "state_message": "Printer is ready",
+    "hostname": "25533e3d5d25",
+    "klipper_path": "/home/printer/klipper",
+    "python_path": "/home/printer/python-env/bin/python",
+    "process_id": 31,
+    "user_id": 1000,
+    "group_id": 1000,
+    "log_file": "/home/printer/printer_data/logs/klippy.log",
+    "config_file": "/home/printer/printer_data/config/printer.cfg",
+    "software_version": "282db76",
+    "cpu_info": "4 core simulated"
+  }
+}

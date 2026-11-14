@@ -1,0 +1,111 @@
+{
+  "result": {
+    "count": 2,
+    "jobs": [
+      {
+        "job_id": "000002",
+        "user": "_TRUSTED_USER_",
+        "filename": "cube_orca.gcode",
+        "status": "cancelled",
+        "start_time": 1794653674.981262,
+        "end_time": 1794654010.3051028,
+        "print_duration": 326.80142077100004,
+        "total_duration": 335.10412162600005,
+        "filament_used": 76.50107000000017,
+        "metadata": {
+          "size": 100226,
+          "modified": 1794653671.8733332,
+          "uuid": "f53cf93c-8431-45d3-b926-f87ad10c0bb0",
+          "file_processors": [],
+          "slicer": "OrcaSlicer",
+          "slicer_version": "2.5.0-rc",
+          "gcode_start_byte": 597,
+          "gcode_end_byte": 76423,
+          "layer_count": 15,
+          "object_height": 3,
+          "estimated_time": 134,
+          "nozzle_diameter": 0.4,
+          "layer_height": 0.2,
+          "first_layer_height": 0.2,
+          "first_layer_extr_temp": 220,
+          "first_layer_bed_temp": 35,
+          "chamber_temp": 0,
+          "filament_name": "Generic PLA @System",
+          "filament_type": "PLA",
+          "filament_colors": ["#F2754E"],
+          "extruder_colors": ["#F2754E"],
+          "filament_temps": [220],
+          "referenced_tools": [],
+          "mmu_print": 1,
+          "filament_total": 331.1,
+          "filament_weight_total": 0.99,
+          "filament_weights": [0.99],
+          "printer_model": "Voron 2.4 300",
+          "printer_variant": "0.4"
+        },
+        "auxiliary_data": [
+          {
+            "provider": "spoolman",
+            "name": "spool_ids",
+            "value": [3],
+            "description": "Spool IDs used",
+            "units": null
+          }
+        ],
+        "exists": true
+      },
+      {
+        "job_id": "000001",
+        "user": "_TRUSTED_USER_",
+        "filename": "cube_orca.gcode",
+        "status": "error",
+        "start_time": 1794624591.1289349,
+        "end_time": 1794624591.1358871,
+        "print_duration": 0,
+        "total_duration": 0.00181678199999169,
+        "filament_used": 0,
+        "metadata": {
+          "size": 100159,
+          "modified": 1794624588.00655,
+          "uuid": "920deb8f-9fc7-4bfa-a814-78d8a6e99b80",
+          "file_processors": [],
+          "slicer": "OrcaSlicer",
+          "slicer_version": "2.5.0-rc",
+          "gcode_start_byte": 597,
+          "gcode_end_byte": 76356,
+          "layer_count": 15,
+          "object_height": 3,
+          "estimated_time": 134,
+          "nozzle_diameter": 0.4,
+          "layer_height": 0.2,
+          "first_layer_height": 0.2,
+          "first_layer_extr_temp": 220,
+          "first_layer_bed_temp": 35,
+          "chamber_temp": 0,
+          "filament_name": "Generic PLA @System",
+          "filament_type": "PLA",
+          "filament_colors": ["#F2754E"],
+          "extruder_colors": ["#F2754E"],
+          "filament_temps": [220],
+          "referenced_tools": [],
+          "mmu_print": 1,
+          "filament_total": 331.1,
+          "filament_weight_total": 0.99,
+          "filament_weights": [0.99],
+          "printer_model": "Voron 2.4 300",
+          "printer_variant": "0.4"
+        },
+        "auxiliary_data": [
+          {
+            "provider": "spoolman",
+            "name": "spool_ids",
+            "value": [1],
+            "description": "Spool IDs used",
+            "units": null
+          }
+        ],
+        "exists": false
+      }
+    ]
+  }
+}
