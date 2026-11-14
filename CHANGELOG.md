@@ -4,6 +4,15 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [5.6.2] - 2026-11-14
+
+Lists everything since 5.6.1. No migration.
+
+### Changed
+- **Use slicer as server worker off** removes the machine's slicer installs from Integrations, after a confirmation (as Remove there: a slicer the hub installed on it is uninstalled, what they imported stays), so it can't be set up as a worker while off. Before, its existing installs stayed
+- A machine's page: **Sync sources configurations**, as in Integrations, is at the foot of the Slicers catalog card (with **Catalog sources**) and of the Projects card (with **Projects sources**), each while one of that card's switches is on, in place of one shared card
+- The Slicers catalog card no longer has a hint under its switches
+
 ## [5.6.1] - 2026-11-14
 
 Lists everything since 5.6.0. Migration 0126 adds a machine's Use slicer as server worker switch (on for machines that are slice workers already) and its Slicers catalog switches (on). Updating keeps all data.
