@@ -1,6 +1,6 @@
 # Printer spikes (Plan 6.0.0 Step 1)
 
-Input for ADR-0015. Code: this folder on branch `spike/printers`, not merged. Fixtures: on `dev`, in `packages/adapters/<moonraker|octoprint|prusalink>/fixtures` and `packages/3mf/fixtures/job-headers`, each with a `SOURCE.md`.
+Input for ADR-0015. Code: this folder on branch `spike/printers`, not merged. Fixtures: on `dev`, in `packages/adapters/<moonraker|octoprint|prusalink>/fixtures`, `packages/adapters/bambu/fixtures/lan` and `packages/3mf/fixtures/job-headers`, each with a `SOURCE.md`.
 
 Run 2026-11-14 on Windows 11 Pro, Node 24.19.0, Docker Desktop 29.9.2. Raw captures are not in git (the Bambu ones hold the serial and the IP); `fixtures.mjs` writes the scrubbed fixtures.
 
@@ -9,7 +9,7 @@ Run 2026-11-14 on Windows 11 Pro, Node 24.19.0, Docker Desktop 29.9.2. Raw captu
 | Moonraker API 1.5.0, Klipper `282db76` | `virtual-klipper-printer` image + Spoolman 0.27.1 | real software, simulated printer |
 | OctoPrint 1.11.8 | official image, virtual printer plugin | real software, simulated printer |
 | PrusaLink | Home Assistant's test payloads (XL, firmware 6.1.2), Prusa's OpenAPI spec and firmware source | **no** |
-| Bambu LAN | an A1 (`N2S`), firmware 01.09.00.00, cloud-connected | discovery and ports only; **MQTT, files and the two test prints are still open** (they need the access code) |
+| Bambu LAN | an A1 (`N2S`) with AMS Lite, firmware 01.09.00.00, on the cloud, LAN Only and Developer mode off | yes: MQTT, FTPS, a finished and a cancelled print |
 | Slicers | OrcaSlicer 2.5.0-rc, PrusaSlicer 2.9.7, Bambu Studio 02.09.01.70 | yes |
 
 ## Setup
@@ -59,8 +59,20 @@ Port 7912 held a real Spoolman on this PC; the spike's own runs on 7913 and noth
 - Nothing reports the filament a stopped job used.
 
 ### Bambu LAN
-- Found: TLS 1.2 on 8883 with a certificate whose CN is the serial, signed by "BBL CA" (valid 2024-12-11 → 2034-12-09); ports 990 (FTPS) and 6000 open; 80 and 322 closed.
-- **Open:** the MQTT report, `get_version`, `pushall`, FTPS, both with the printer on the cloud and Developer mode off. Bambu's blog (2025-01-20) says Developer mode "leave[s] the MQTT channel, live stream, and FTP open" and doesn't say what works without it.
+- **Works with the printer on the cloud and Developer mode off:** MQTT over TLS 1.2 on 8883 (user , the access code; certificate CN = serial, signed by "BBL CA", valid 2024-12-11 → 2034-12-09), subscribe to , and the read requests  and . FTPS on 990 with the same sign-in lists and downloads. Ports 80 and 322 are closed, 6000 (camera) is open.
+- **The access code:** on the A1 the screen shows it under LAN Only Mode (guides disagree on whether the mode must be on). It is also in Bambu Studio's  () and in the cloud's printer list (). What Developer mode adds is control; Bambu's blog (2025-01-20) says it "leave[s] the MQTT channel, live stream, and FTP open". Not tested here: LAN Only or Developer mode on, and other models.
+- A full status is 4.9 KB (65 keys); after it the printer sends what changed about every 2 s, 134 B on average. A 20 min print was 108 KB.
+- The cloud's start command is echoed:  with , , , .
+- States  →  →  →  · . A cancel is  with  (). The ending message has no file name and no ids.
+- Slots: per AMS tray , , , , , .  stayed 100 on all four through both prints.
+- No grams. The job's 3MF is in  (only the printed plate, 532 KB in 3.5 s); its  has  per filament, and  gives the slot.
+- **Another client's answers are broadcast too:** when Bambu Studio connected,  (the code in clear) and  arrived on the report topic. An adapter must never log raw messages.
+
+| Cancelled at | Printer said | Really extruded (summed from the job's G-code) | File total ×  | File total × layer |
+|---|---|---|---|---|
+| layer 6 of 45 |  40 | 15.9% = 0.69 g of 4.35 g | 1.74 g | 0.58 g |
+
+ is time with the preparation in it: 29% before the first layer. The cloud's own record of the cancel gave 1.41 g (our adapter scales by time).
 
 ## 2. Slicer totals in job files
 | Slicer | Where | Keys |
@@ -77,10 +89,17 @@ Reading the file:
 | Moonraker | not needed: `GET /server/files/metadata` has `filament_weight_total`, `filament_weights`, `filament_type`, `filament_colors`; history jobs carry it | `GET /server/files/gcodes/<file>` honours `Range` (206) |
 | OctoPrint | `GET /downloads/files/local/<path>` | `Range` works (206): the last 64 KB covers Orca and PrusaSlicer |
 | PrusaLink | `refs.download` (`/usb/<name>`) | not confirmed; a `.bgcode` has its totals in the first KB, so the read can stop there |
-| Bambu | FTPS on 990 | open |
+| Bambu | FTPS on 990, `/cache/<gcode_file>` | a read from the start can be cut; a read from an offset is refused ("Couldn't use REST"), and a 3MF's index is at its end: the whole file |
 
 ## 3. Dedupe tolerance, Bambu Cloud vs LAN
-Open: needs the MQTT capture of two prints.
+The cloud's task id (our ) is the LAN's , in both prints.  is  for them.
+
+| | Cloud  |  | Echo seen |  |  | End: cloud / LAN |
+|---|---|---|---|---|---|---|
+| Finished | 11:25:04 | the same second | +2.7 s | +4.7 s | +19.8 s | 11:45:00 / +3.9 s |
+| Cancelled | 11:49:26 | the same second | +2.3 s | +4.4 s | +13.3 s | 11:55:53 / +2.5 s |
+
+Two prints only. In the 222 prints already synced from the cloud the two closest starts are 106 s apart.
 
 ## 4. Discovery
 - **Bambu SSDP, hands-on:** a `NOTIFY` every 10 s to `239.255.255.250` on UDP **2021 and 1990** (the `HOST` header says 1900). It carries `Location` (IP), `USN` (serial), `DevModel` (`N2S`), `DevName`, `DevVersion`, `DevConnect` (`cloud`), `DevBind`, `Devseclink`. A passive `node:dgram` listener reads it, no dependency. `M-SEARCH` gets no answer.

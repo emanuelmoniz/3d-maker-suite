@@ -116,6 +116,66 @@ if (work && existsSync(work)) {
   }
 }
 
+// --- Bambu LAN (A1, AMS Lite): MQTT report topic and SSDP --------------------------------------
+if (existsSync(join(raw, "bambu", "mqtt.ndjson"))) {
+  const to = dest("packages/adapters/bambu/fixtures/lan");
+  // Identifiers are replaced by stable fakes, so two fields that held the same id still match.
+  const fakes = new Map();
+  const fake = (kind, v, make) => {
+    if (!fakes.has(`${kind}:${v}`)) fakes.set(`${kind}:${v}`, make([...fakes.keys()].filter((k) => k.startsWith(`${kind}:`)).length + 1));
+    return fakes.get(`${kind}:${v}`);
+  };
+  const ids = new Set(["task_id", "subtask_id", "project_id", "job_id", "profile_id", "design_id", "model_id"]);
+  const scrub = (v, key) => {
+    if (Array.isArray(v)) return v.map((x) => scrub(x, key));
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x, k)]));
+    if (key === "sn" || key === "dev_id") return fake("sn", v, (n) => `00M00A00000000${n}`);
+    if (key === "tag_uid" && !/^0+$/.test(v)) return fake("tag", v, (n) => `${String(n).padStart(8, "A")}00000100`);
+    if (key === "tray_uuid" && !/^0+$/.test(v)) return fake("uuid", v, (n) => String(n).padStart(32, "B"));
+    if (key === "chip_id") return fake("chip", v, (n) => String(n).padStart(31, "c"));
+    if (ids.has(key) && String(v) !== "0") {
+      const f = fake("id", String(v), (n) => String(100000000 + n));
+      return typeof v === "number" ? Number(f) : f;
+    }
+    if (key === "subtask_name" && v) return "test-print";
+    if (key === "gcode_file" && v) return "test-print.3mf";
+    if (key === "url") return "https://example.invalid/test-print.3mf";
+    if (key === "md5") return "0".repeat(32);
+    if (key === "ip" && typeof v === "number") return 0;
+    return v;
+  };
+  // `system` answers carry the access code and `security` ones the printer's certificate: never kept.
+  const all = ndjson(join(raw, "bambu", "mqtt.ndjson")).filter(({ msg }) => !msg.system && !msg.security);
+  const out = (name, data) => {
+    write(to, name, scrub(data));
+    written.push(join(to, name));
+  };
+  out("version.json", all.find(({ msg }) => msg.info?.command === "get_version").msg);
+  out("pushall-idle.json", all.find(({ msg }) => msg.print?.gcode_state === "IDLE" && Object.keys(msg.print).length > 40).msg);
+  // One file per print: from the cloud's `project_file` command to the first message after the end.
+  // Kept: what a job tracker reads; pure temperature, fan and Wi-Fi changes are dropped.
+  const job = ["gcode_state", "mc_percent", "mc_remaining_time", "layer_num", "total_layer_num", "task_id", "subtask_name", "gcode_file", "print_error", "print_type", "ams", "stg_cur", "mc_print_stage", "fail_reason"];
+  const starts = all.flatMap(({ msg }, i) => (msg.print?.command === "project_file" ? [i] : []));
+  starts.forEach((start, n) => {
+    const next = starts[n + 1] ?? all.length;
+    let ended = 0;
+    const seq = all.slice(start, next).filter(({ msg }) => {
+      const p = msg.print;
+      if (!p || ended > 3) return false;
+      if (ended || ["FINISH", "FAILED", "IDLE"].includes(p.gcode_state)) ended++;
+      return p.command !== "push_status" || job.some((k) => k in p);
+    });
+    const end = seq.findLast(({ msg }) => msg.print.gcode_state)?.msg.print.gcode_state.toLowerCase();
+    out(`print-${n + 1}-${end}.json`, seq);
+  });
+  if (existsSync(join(raw, "ssdp.json"))) {
+    const serial = /^USN: *(.*)$/m.exec(readJson(join(raw, "ssdp.json"))[0].text)[1].trim();
+    const text = readJson(join(raw, "ssdp.json"))[0].text.replaceAll(serial, "00M00A000000001").replace(/Location: .*/, "Location: 192.0.2.10").replace(/DevName\.bambu\.com: .*/, "DevName.bambu.com: Printer");
+    writeFileSync(join(to, "ssdp-notify.txt"), text);
+    written.push(join(to, "ssdp-notify.txt"));
+  }
+}
+
 // Nothing secret may survive.
 if (envFile && existsSync(envFile)) {
   const secrets = readFileSync(envFile, "utf8").split(/\r?\n/).map((l) => l.slice(l.indexOf("=") + 1).trim()).filter((v) => v.length >= 6);
