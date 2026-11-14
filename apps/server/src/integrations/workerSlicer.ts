@@ -135,7 +135,11 @@ export function createWorkerSlicers(
           workerConfigSchema.safeParse(r.config).data?.deviceId === deviceId,
       );
     if (on === device.sliceWorker) return;
-    db.update(devices).set({ sliceWorker: on }).where(eq(devices.id, deviceId)).run();
+    // Set up as a worker in Integrations: its machine page's Use slicer as server worker is on.
+    db.update(devices)
+      .set({ sliceWorker: on, ...(on && { useAsWorker: true }) })
+      .where(eq(devices.id, deviceId))
+      .run();
     channel.publish(deviceId, { type: "device.worker", on });
   };
 

@@ -138,11 +138,14 @@ export function CatalogSources() {
     if (!m.libraries.includes(library)) m.libraries.push(library);
     machines.set(id, m);
   };
+  // The hub's slicer stays listed whatever its switch: its folder is the catalog.
   for (const lib of libraries)
     for (const m of lib.machines)
       if (isSource(lib, { deviceId: m.deviceId })) add(m.deviceId, m.name, lib.library);
+  // Its Slicers catalog Share to server switch (the machine page): off, it shares nothing here.
   for (const d of devices)
-    for (const l of d.libraries) if (l.reported || l.send) add(d.id, d.name, l.library);
+    if (d.shareCatalog)
+      for (const l of d.libraries) if (l.reported || l.send) add(d.id, d.name, l.library);
   const receivers = receiversOf(libraries, list);
   const zipLibs = admin ? zips : [];
   if (!server.length && !accounts.length && !machines.size && !receivers.length && !zipLibs.length)

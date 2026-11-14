@@ -55,6 +55,8 @@ export function receiversOf(libraries: LibrarySources[], list: Integration[]): R
       if (i.kind === "local" && i.presetLibrary === lib.library)
         server.slicers.push({ lib, integration: i });
     for (const m of lib.machines) {
+      // Its Slicers catalog Receive from server switch (the machine page): off, it isn't listed.
+      if (!m.receiveCatalog) continue;
       const r = machines.get(m.deviceId) ?? {
         id: m.deviceId,
         name: m.name,

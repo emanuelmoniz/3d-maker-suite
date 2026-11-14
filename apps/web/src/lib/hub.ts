@@ -93,6 +93,25 @@ export function useDeviceActions() {
       }) => api("PATCH", `/api/hub/devices/${id}`, patch),
       onSuccess: refresh,
     }),
+    /** Use slicer as server worker, and the Slicers catalog Receive and Share switches. */
+    slicers: useMutation({
+      mutationFn: ({
+        id,
+        ...patch
+      }: {
+        id: string;
+        useAsWorker?: boolean;
+        receiveCatalog?: boolean;
+        shareCatalog?: boolean;
+      }) => api("PATCH", `/api/hub/devices/${id}`, patch),
+      // Integrations and the Catalog and Presets Sources tabs list machines by them.
+      onSuccess: () =>
+        Promise.all([
+          refresh(),
+          qc.invalidateQueries({ queryKey: ["presets", "devices"] }),
+          qc.invalidateQueries({ queryKey: ["catalog-sources"] }),
+        ]),
+    }),
     /** A machine's shared folders (ADR-0021): add (POST), pause or resume (PATCH), remove. */
     folders: useMutation({
       mutationFn: ({

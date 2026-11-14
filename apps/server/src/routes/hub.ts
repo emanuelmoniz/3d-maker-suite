@@ -152,6 +152,9 @@ export const hubRoutes =
           sync: devices.syncState,
           slicers: devices.slicers,
           sliceWorker: devices.sliceWorker,
+          useAsWorker: devices.useAsWorker,
+          receiveCatalog: devices.receiveCatalog,
+          shareCatalog: devices.shareCatalog,
           presets: devices.presetLibraries,
           receiveProjects: devices.receiveProjects,
           shareProjects: devices.shareProjects,
@@ -274,11 +277,15 @@ export const hubRoutes =
         },
       },
       async (req, reply) => {
-        const { name, receiveProjects, shareProjects } = req.body;
+        const { name, receiveProjects, shareProjects, useAsWorker, receiveCatalog, shareCatalog } =
+          req.body;
         const row = machineGuard(db, req.user, req.params.id);
-        if (name !== undefined) machineGuard(db, req.user, row.id, "manage");
+        if (name !== undefined || useAsWorker !== undefined)
+          machineGuard(db, req.user, row.id, "manage");
         if (receiveProjects !== undefined || shareProjects !== undefined)
           machineGuard(db, req.user, row.id, "projects");
+        if (receiveCatalog !== undefined || shareCatalog !== undefined)
+          machineGuard(db, req.user, row.id, "catalog");
         if (
           shareProjects !== undefined &&
           shareProjects !== row.shareProjects &&
@@ -296,6 +303,25 @@ export const hubRoutes =
           channel.publish(row.id, { type: "device.renamed", name });
         if (receiveProjects !== undefined && receiveProjects !== row.receiveProjects)
           channel.publish(row.id, { type: "roots.changed" });
+        // Slicers catalog off: its slicers' lines that way go off too, as from Catalog → Sources.
+        const stopReceive = receiveCatalog === false && row.receiveCatalog;
+        const stopShare = shareCatalog === false && row.shareCatalog;
+        if (stopReceive || stopShare) {
+          for (const [library, old] of Object.entries(row.presetLibraries)) {
+            // Fresh each time: it saves every library from the row it's given.
+            const now = db.select().from(devices).where(eq(devices.id, row.id)).get() ?? row;
+            await setPresetLibrary(db, channel, now, library, {
+              ...old,
+              system: stopReceive ? { ...old.system, receive: false } : old.system,
+              user: {
+                ...old.user,
+                ...(stopReceive && { receive: false }),
+                ...(stopShare && { share: false }),
+              },
+            });
+          }
+          if (stopReceive) void catalogs.tell().catch(() => {});
+        }
         return reply.status(204).send(null);
       },
     );

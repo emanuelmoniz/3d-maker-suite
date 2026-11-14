@@ -129,6 +129,11 @@ export const librarySourcesSchema = z.object({
       outdated: z.boolean(),
       /** It reports the slicer installed: it is offered as the hub's slicer once set up (ADR-0022). */
       slicer: z.boolean(),
+      /** Its Use slicer as server worker switch: only then offered in Integrations. */
+      useAsWorker: z.boolean(),
+      /** Its Slicers catalog switches: off = not a receiver / not a sharer on Catalog → Sources. */
+      receiveCatalog: z.boolean(),
+      shareCatalog: z.boolean(),
       receive: z.boolean(),
       /** What it last reported of Receive catalog; null = off, or it hasn't yet. */
       install: catalogInstallSlicerSchema.nullable(),

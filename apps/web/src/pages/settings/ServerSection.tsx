@@ -146,16 +146,13 @@ export function StartAtLogin() {
   if (!login.data?.supported) return null;
   return (
     <div>
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={login.data.enabled}
-          disabled={setLogin.isPending}
-          onChange={(e) => setLogin.mutate(e.target.checked)}
-        />
-        {t("settings:server.startAtLogin")}
-      </label>
-      <p className="mt-1 text-muted">{t("settings:server.startAtLoginHint")}</p>
+      <Switch
+        label={t("settings:server.startAtLogin")}
+        checked={login.data.enabled}
+        disabled={setLogin.isPending}
+        onChange={(e) => setLogin.mutate(e.target.checked)}
+      />
+      <p className="text-muted">{t("settings:server.startAtLoginHint")}</p>
       {setLogin.isError && (
         <p role="alert" className="text-bad">
           {t("settings:saveError")}

@@ -214,14 +214,17 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
 
   await row.getByRole("link", { name: "Laptop" }).click();
   const deviceId = page.url().split("/").pop();
-  // No slicer on it yet: only the way to install one.
-  const slicers = page.getByRole("region", { name: "Slicers" });
-  await expect(
-    slicers.getByRole("link", {
-      name: "Install or manage a slicer on this machine in Integrations",
-    }),
-  ).toBeVisible();
-  await expect(slicers.getByRole("region", { name: "Sync sources configurations" })).toHaveCount(0);
+  // No slicer on it yet. Integrations offers it only once it's a server worker.
+  const slicers = page.getByRole("region", { name: "Slicers", exact: true });
+  const install = slicers.getByRole("link", {
+    name: "Install or manage a slicer on this machine in Integrations",
+  });
+  await expect(install).toHaveCount(0);
+  const worker = slicers.getByRole("switch", { name: "Use slicer as server worker" });
+  await worker.click({ force: true });
+  await expect(worker).toBeChecked();
+  await expect(install).toBeVisible();
+  await expect(page.getByRole("region", { name: "Slicers catalog" })).toHaveCount(0);
   // Its slicer is installed from the slicer type's card in Integrations (ADR-0022): none found on
   // it, so the hub installs one.
   await page.goto("/integrations");
@@ -233,11 +236,12 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   // settings → Sources (ADR-0023).
   await page.goto(`/hub/devices/${deviceId}`);
   await expect(slicers.getByText("Bambu Studio", { exact: true })).toBeVisible();
-  await expect(slicers.getByRole("switch")).toHaveCount(0);
+  await expect(slicers.getByRole("switch")).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Slicers catalog" })).toBeVisible();
   await expect(
-    slicers
-      .getByRole("region", { name: "Sync sources configurations" })
-      .getByRole("link", { name: "Catalog" }),
+    page
+      .getByRole("region", { name: "Edit Catalog/Projects sources configurations" })
+      .getByRole("link", { name: "Catalog sources" }),
   ).toHaveAttribute("href", `/catalog/settings/sources#machine-${deviceId}`);
   // Once per machine, from the API too.
   const again = await page.request.post("/api/integrations", {
@@ -305,13 +309,13 @@ test("hub: a machine's own user sees its slicers and edits only what their switc
   await expect(page.getByRole("heading", { name: "Ben PC" })).toBeVisible();
   // Its slicer is listed with no switches: System and User presets are theirs to change on Catalog
   // settings → Sources (ADR-0023). Projects and the actions are not.
-  const slicers = page.getByRole("region", { name: "Slicers" });
+  const slicers = page.getByRole("region", { name: "Slicers", exact: true });
   await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
   await expect(slicers.getByRole("switch")).toHaveCount(0);
   await expect(
-    slicers
-      .getByRole("region", { name: "Sync sources configurations" })
-      .getByRole("link", { name: "Catalog" }),
+    page
+      .getByRole("region", { name: "Edit Catalog/Projects sources configurations" })
+      .getByRole("link", { name: "Catalog sources" }),
   ).toBeVisible();
   await expect(page.getByRole("switch", { name: "Receive from server" })).toHaveCount(0);
   await expect(page.getByText("Receive from server: on")).toBeVisible();

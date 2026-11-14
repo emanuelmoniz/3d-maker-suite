@@ -949,6 +949,19 @@ describe("hub events", () => {
     expect(
       (await mine("PATCH", `/api/hub/devices/${deviceId}`, { receiveProjects: false })).statusCode,
     ).toBe(204);
+
+    // Slicers catalog: the catalog section's; Share to server off turns its slicers' Share off.
+    const device = `/api/hub/devices/${deviceId}`;
+    expect((await mine("PATCH", device, { shareCatalog: false })).statusCode).toBe(403);
+    grant({ "machine.catalog": true, catalog: "write" });
+    expect((await mine("PATCH", device, { shareCatalog: false })).statusCode).toBe(204);
+    const row = () => db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get();
+    expect(row()?.shareCatalog).toBe(false);
+    expect(row()?.presetLibraries["bambu-studio"]?.user.share).toBe(false);
+    // Use slicer as server worker is Hub management's, as the name.
+    expect((await mine("PATCH", device, { useAsWorker: true })).statusCode).toBe(403);
+    expect((await send("PATCH", device, { useAsWorker: true })).statusCode).toBe(204);
+    expect(row()?.useAsWorker).toBe(true);
   });
 
   it("a machine's install is offered as it is; the hub's slicer receives no catalog", async () => {

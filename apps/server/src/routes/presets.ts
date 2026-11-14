@@ -132,6 +132,8 @@ export const presetsRoutes =
               online: channel.online(d.id),
               // As `connector_outdated`: its removals are only shown, and it receives no deletes.
               outdated: !!d.connectorVersion && d.connectorVersion !== VERSION,
+              receiveCatalog: d.receiveCatalog,
+              shareCatalog: d.shareCatalog,
               libraries: libs.map((library) => {
                 const s = d.presetLibraries[library];
                 return {

@@ -213,9 +213,14 @@ function HubSlicer({
       config: { deviceId, source: found ? "installed" : "managed" },
     });
   };
-  const offered = (lib?.machines ?? []).filter((m) => m.slicer && !withRow.has(m.deviceId));
+  // Only a machine with Use slicer as server worker on is offered; one set up already stays.
+  const offered = (lib?.machines ?? []).filter(
+    (m) => m.slicer && m.useAsWorker && !withRow.has(m.deviceId),
+  );
   const more = worker
-    ? devices.filter((d) => !withRow.has(d.id) && !offered.some((m) => m.deviceId === d.id))
+    ? devices.filter(
+        (d) => d.useAsWorker && !withRow.has(d.id) && !offered.some((m) => m.deviceId === d.id),
+      )
     : [];
   const error = pick.error ?? create.error;
   const code = error instanceof ApiError && error.code ? PICK_ERRORS[error.code] : undefined;

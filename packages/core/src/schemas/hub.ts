@@ -170,6 +170,11 @@ export const deviceSchema = z.object({
   slicers: z.array(deviceSlicerSchema),
   /** A worker integration slices on it (ADR-0014): set by adding and removing those. */
   sliceWorker: z.boolean(),
+  /** Use slicer as server worker: only then is it offered in Integrations. */
+  useAsWorker: z.boolean(),
+  /** Slicers catalog: Receive from server, Share to server (off = not a source that way). */
+  receiveCatalog: z.boolean(),
+  shareCatalog: z.boolean(),
   /** Per slicer library, its machine page's switches (ADR-0021). */
   presets: z.record(z.string(), devicePresetLibrarySchema),
   /** Per slicer library: whether its install there is the hub's slicer (ADR-0022). */
@@ -192,6 +197,9 @@ export const deviceUpdateSchema = z
     name,
     receiveProjects: z.boolean(),
     shareProjects: z.boolean(),
+    useAsWorker: z.boolean(),
+    receiveCatalog: z.boolean(),
+    shareCatalog: z.boolean(),
   })
   .partial()
   .strict();

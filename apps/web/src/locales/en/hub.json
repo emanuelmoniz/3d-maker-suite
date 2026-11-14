@@ -209,6 +209,16 @@
     "errors": {
       "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first."
     },
-    "installInIntegrations": "Install or manage a slicer on this machine in Integrations"
+    "installInIntegrations": "Install or manage a slicer on this machine in Integrations",
+    "useAsWorker": "Use slicer as server worker",
+    "catalog": "Slicers catalog",
+    "receiveCatalog": "Receive from server",
+    "shareCatalog": "Share to server",
+    "receiveCatalogOf": "Receive the slicers catalog from the server",
+    "shareCatalogOf": "Share the slicers catalog to the server",
+    "catalogHint": "Off, this machine isn't listed that way in Catalog sources, and its slicers' lines there go off.",
+    "editSources": "Edit Catalog/Projects sources configurations",
+    "catalogSources": "Catalog sources",
+    "projectSources": "Project sources"
   }
 }

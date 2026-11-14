@@ -235,12 +235,12 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   // settings → Sources, where they are.
   await signInAs("ana@example.com");
   await page.goto(`/hub/devices/${id}`);
-  const slicers = page.getByRole("region", { name: "Slicers" });
+  const slicers = page.getByRole("region", { name: "Slicers", exact: true });
   await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
-  await expect(slicers.getByRole("switch")).toHaveCount(0);
-  await slicers
-    .getByRole("region", { name: "Sync sources configurations" })
-    .getByRole("link", { name: "Catalog" })
+  await expect(slicers.getByRole("switch", { name: "Use slicer as server worker" })).toBeVisible();
+  await page
+    .getByRole("region", { name: "Edit Catalog/Projects sources configurations" })
+    .getByRole("link", { name: "Catalog sources" })
     .click();
   await expect(page).toHaveURL(new RegExp(`/catalog/settings/sources#machine-${id}$`));
   await expect(

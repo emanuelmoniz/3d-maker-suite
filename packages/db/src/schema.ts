@@ -1253,6 +1253,14 @@ export const devices = sqliteTable(
     slicers: text({ mode: "json" }).$type<DeviceSlicer[]>().notNull().default([]),
     /** Worker integrations may slice on it (ADR-0014). */
     sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
+    /** Use slicer as server worker: only then is it offered in Integrations (worker installs). */
+    useAsWorker: integer({ mode: "boolean" }).notNull().default(false),
+    /**
+     * Slicers catalog Receive from server and Share to server: off = it isn't a catalog source in
+     * that direction, and its slicers' lines in it are off.
+     */
+    receiveCatalog: integer({ mode: "boolean" }).notNull().default(true),
+    shareCatalog: integer({ mode: "boolean" }).notNull().default(true),
     /**
      * Per slicer library (ADR-0021): Catalog and Presets, Receive and Share each, the preset kinds,
      * and when a shared preset was last stored.

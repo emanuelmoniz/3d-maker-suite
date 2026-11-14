@@ -366,14 +366,20 @@ function SlicerLine({ device: d, library }: { device: Device; library: string })
   );
 }
 
+/** The slicers it reports and the hub's downloads: local or managed installs. */
+const librariesOf = (d: Device) => [
+  ...new Set([...d.slicers.map((s) => s.id), ...Object.keys(d.libraries)]),
+];
+
 /**
- * The slicers on the machine: the ones it reports and the hub's downloads. Each one's System and
- * User presets are set up on Catalog settings → Sources, where the machine is listed (ADR-0023).
+ * The slicers on the machine: the ones it reports and the hub's downloads. Use slicer as server
+ * worker offers it in Integrations, where a slicer is installed or set up on it (ADR-0022).
  */
 function Slicers({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const may = useMay(d);
-  const libraries = [...new Set([...d.slicers.map((s) => s.id), ...Object.keys(d.libraries)])];
+  const { slicers } = useDeviceActions();
+  const libraries = librariesOf(d);
   return (
     <Section title={t("hub:machine.slicers")}>
       {libraries.length > 0 && (
@@ -383,16 +389,79 @@ function Slicers({ device: d }: { device: Device }) {
           ))}
         </ul>
       )}
-      {/* A slicer is installed on a machine from its card in Integrations. */}
-      {may.integrations && (
+      <Setting
+        edit={may.manage}
+        label={t("hub:machine.useAsWorker")}
+        name={t("hub:machine.useAsWorker")}
+        checked={d.useAsWorker}
+        busy={slicers.isPending}
+        onChange={(on) => slicers.mutate({ id: d.id, useAsWorker: on })}
+      />
+      {/* A slicer is installed on a worker machine from its card in Integrations. */}
+      {d.useAsWorker && may.integrations && (
         <p>
           <Link to="/integrations" className={textLink}>
             {t("hub:machine.installInIntegrations")}
           </Link>
         </p>
       )}
-      {libraries.length > 0 && <SyncSources types={["machinePresets"]} hash={`machine-${d.id}`} />}
+      <Alert error={slicers.error} />
     </Section>
+  );
+}
+
+/**
+ * Slicers catalog, where the machine has a slicer: Receive from server and Share to server, as
+ * Projects'. Off, it isn't that kind of source on Catalog settings → Sources.
+ */
+function SlicersCatalog({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const edit = useMay(d).edit("catalog");
+  const { slicers } = useDeviceActions();
+  if (!librariesOf(d).length) return null;
+  return (
+    <Section title={t("hub:machine.catalog")}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Setting
+          edit={edit}
+          label={t("hub:machine.receiveCatalog")}
+          name={t("hub:machine.receiveCatalogOf")}
+          checked={d.receiveCatalog}
+          busy={slicers.isPending}
+          onChange={(on) => slicers.mutate({ id: d.id, receiveCatalog: on })}
+        />
+        <Setting
+          edit={edit}
+          label={t("hub:machine.shareCatalog")}
+          name={t("hub:machine.shareCatalogOf")}
+          checked={d.shareCatalog}
+          busy={slicers.isPending}
+          onChange={(on) => slicers.mutate({ id: d.id, shareCatalog: on })}
+        />
+      </div>
+      <p className="text-muted">{t("hub:machine.catalogHint")}</p>
+      <Alert error={slicers.error} />
+    </Section>
+  );
+}
+
+/** One card to the Sources tabs this machine is a source on: a catalog or project switch is on. */
+function EditSources({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const catalog = librariesOf(d).length > 0 && (d.receiveCatalog || d.shareCatalog);
+  const projects = d.receiveProjects || d.shareProjects;
+  if (!catalog && !projects) return null;
+  return (
+    <SyncSources
+      card
+      types={[...(catalog ? ["machinePresets"] : []), ...(projects ? ["projects"] : [])]}
+      hash={`machine-${d.id}`}
+      title={t("hub:machine.editSources")}
+      labels={{
+        catalog: t("hub:machine.catalogSources"),
+        projects: t("hub:machine.projectSources"),
+      }}
+    />
   );
 }
 
@@ -402,7 +471,7 @@ function Projects({ device: d }: { device: Device }) {
   const edit = may.edit("projects");
   const { projects } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
-  // Its picks and shared folders are set on the Sources tab: the Sync sources button below.
+  // Its picks and shared folders are set on the Sources tab: Project sources, in Edit sources.
   const line = "flex flex-wrap items-center gap-x-4 gap-y-1";
   return (
     <Section title={t("hub:machine.projects")}>
@@ -445,7 +514,6 @@ function Projects({ device: d }: { device: Device }) {
         )}
       </div>
       <Alert error={projects.error} />
-      <SyncSources types={["projects"]} hash={`machine-${d.id}`} />
       <ConfirmDialog
         open={confirm}
         title={t("hub:machine.stopReceivingTitle", { name: d.name })}
@@ -607,7 +675,9 @@ export function MachinePage() {
               edit={!!rights && mayEditMachine(rights, me?.id, device, "connection")}
             />
             <Slicers device={device} />
+            <SlicersCatalog device={device} />
             <Projects device={device} />
+            <EditSources device={device} />
           </div>
         </div>
       )}

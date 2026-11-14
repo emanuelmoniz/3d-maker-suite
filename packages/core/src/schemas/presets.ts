@@ -159,6 +159,9 @@ export const presetDeviceSchema = z.object({
   online: z.boolean(),
   /** Its connector is older than the hub: its removals are only shown, and it receives no deletes. */
   outdated: z.boolean(),
+  /** Its Slicers catalog switches (the machine page): off = not listed that way on Sources. */
+  receiveCatalog: z.boolean(),
+  shareCatalog: z.boolean(),
   libraries: z.array(presetDeviceLibrarySchema),
 });
 

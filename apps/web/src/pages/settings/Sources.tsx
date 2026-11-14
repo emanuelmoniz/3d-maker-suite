@@ -45,7 +45,22 @@ const moduleOf = (type: string): SettingsModule | undefined =>
  * Sync sources configurations: a button per Sources tab that `types` feed, which the viewer may
  * open. A source's lines are set up there (ADR-0021), not on its card.
  */
-export function SyncSources({ types, hash }: { types: readonly string[]; hash?: string }) {
+export function SyncSources({
+  types,
+  hash,
+  title,
+  labels,
+  card,
+}: {
+  types: readonly string[];
+  hash?: string;
+  /** Instead of "Sync sources configurations" (a machine's page names its own). */
+  title?: string;
+  /** A button's label per module, instead of the module's name. */
+  labels?: Partial<Record<SettingsModule, string>>;
+  /** A card of its own (titled `title`), not a part at the foot of another. */
+  card?: boolean;
+}) {
   const { t } = useTranslation();
   const heading = useId();
   const may: Record<(typeof SOURCE_MODULES)[number], boolean> = {
@@ -58,23 +73,28 @@ export function SyncSources({ types, hash }: { types: readonly string[]; hash?: 
   const wanted = new Set(types.map(moduleOf));
   const modules = SOURCE_MODULES.filter((m) => wanted.has(m) && may[m]);
   if (!modules.length) return null;
+  const buttons = (
+    <div className="flex flex-wrap gap-2">
+      {modules.map((m) => (
+        <Link
+          key={m}
+          to={`/${m}/settings/sources` as LinkProps["to"]}
+          hash={hash}
+          className="inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
+        >
+          {labels?.[m] ?? t(`nav:items.${m}.label`)}
+        </Link>
+      ))}
+    </div>
+  );
+  const name = title ?? t("common:syncSources");
+  if (card) return <Section title={name}>{buttons}</Section>;
   return (
     <section aria-labelledby={heading} className="mt-4 grid gap-2 border-t border-border pt-4">
       <h3 id={heading} className="font-semibold">
-        {t("common:syncSources")}
+        {name}
       </h3>
-      <div className="flex flex-wrap gap-2">
-        {modules.map((m) => (
-          <Link
-            key={m}
-            to={`/${m}/settings/sources` as LinkProps["to"]}
-            hash={hash}
-            className="inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
-          >
-            {t(`nav:items.${m}.label`)}
-          </Link>
-        ))}
-      </div>
+      {buttons}
     </section>
   );
 }
