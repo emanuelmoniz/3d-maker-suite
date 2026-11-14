@@ -4,6 +4,23 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [5.6.1] - 2026-11-14
+
+Lists everything since 5.6.0. Migration 0126 adds a machine's Use slicer as server worker switch (on for machines that are slice workers already) and its Slicers catalog switches (on). Updating keeps all data.
+
+### Added
+- **Use slicer as server worker** on a machine's page (Slicers card, Hub management): Integrations offers a machine for a slicer install only while it's on, and the link to install or manage a slicer there shows only then. Setting a machine up as a worker in Integrations turns it on ([docs/hub.md](docs/hub.md))
+- **Slicers catalog** card on a machine's page, while it has a slicer (found, or installed by the hub): **Receive from server** and **Share to server**, as Projects'. Off, the machine isn't listed that way on Catalog → Settings → Sources, and its slicers' lines in that direction go off
+
+### Changed
+- A machine's page has one **Edit Catalog/Projects sources configurations** card, shown while one of its Receive or Share switches is on, with **Catalog sources** and **Project sources** buttons, in place of a Sync sources configurations part in the Slicers and Projects cards
+- **Start at login** (Settings → General) is a switch, not a checkbox
+- A failed Bambu Cloud request logs why (for example `ENOTFOUND`), not only "TypeError"
+
+### Fixed
+- **"Printers from Bambu Cloud could not sync" after the PC wakes from sleep.** The overdue sync ran the moment the PC woke, before its network was back. Scheduled syncs now wait 2 minutes after a sleep
+- The Bambu Cloud account photo never showed, and each page load logged a 404: Bambu's server sends it as `image/jpg`, which wasn't accepted
+
 ## [5.6.0] - 2026-11-13
 
 Stable release of 5.6.0. Lists everything since 5.5.0. Back up before updating. Migrations 0122 (Open in slicer rights), 0123 (check-out locks, cleared on upgrade), 0124 (rescan schedule) and 0125 (usage corrections) apply as described below. Updating keeps all data.
