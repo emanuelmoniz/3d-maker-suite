@@ -3201,9 +3201,10 @@ Do Step 1 of the 6.0.0 plan in PLAN.md. Report each spike with evidence before c
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - `PrinterStatusSource` in `packages/core/src/integrations`, the snapshot zod schema, a `printerStatus` capability, `docs/architecture.md`.
-- The job tracker in core: pure, state in and prints out. Covers a print first seen half-way (recorded with an estimated duration, its slots unsure), a restart during a print, cancel and failure.
+- The job tracker in core: pure, state in and prints out. Covers a print first seen half-way (recorded with an estimated duration, its slots unsure), a restart during a print, cancel and failure. It keeps a job's file and ids from its first snapshots (the one that ends a job often has neither), and two end events for one job (OctoPrint's cancel) are one print.
 - `externalPrintSchema` gains, per slot, the spool the printer named (RFID or the source's spool id) and whether its grams are estimated.
-- Matching sources of one printer by serial, and deduping prints by start time within the Step 1 tolerance.
+- Matching sources of one printer by serial, and deduping prints by the other source's print id when the printer names it (Bambu LAN carries the cloud's task id), else by start time within 60 seconds (ADR-0015).
+- Integration kind `host` in `INTEGRATION_KINDS` (an address and a key). The checks that read "not `cloud`" as "a slicer install" (about 20, server and web) go through one helper, so a `host` source is enabled, synced and listed on the Sources tabs as an account is. i18n for the kind and its location.
 - The mock adapter gets a status source for dev and e2e.
 
 **Done when:** the tracker turns every fixture sequence into the expected prints; tests pass.
@@ -3241,11 +3242,11 @@ Do Step 3b of the 6.0.0 plan in PLAN.md.
 ### [ ] Step 4 - Grams from the job file and the project plate
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- When the printer doesn't report grams: read the slicer totals from the job file's header (G-code or 3MF, the formats from Step 1), else use the slice result of the project plate the print matched, else leave the slot for review.
-- A cancelled or failed print whose printer doesn't report the grams really used (Step 1 says which): the file's or the plate's total × the progress it reached, marked estimated.
+- When the printer doesn't report grams: read the slicer totals from the job file (the formats in `packages/3mf/fixtures/job-headers`: OrcaSlicer and PrusaSlicer write them at the end of the G-code, a `.bgcode` in its Printer metadata block, Bambu Studio in the 3MF's `slice_info.config` with the slot), else use the slice result of the project plate the print matched, else leave the slot for review.
+- A cancelled or failed print whose printer doesn't report the grams really used (all but Moonraker, ADR-0015): the file's or the plate's total × the share of the material it reached, marked estimated. The share is the layer reached over the layer count when the printer's percent counts time (Bambu: 40% shown when 16% was extruded); the percent only where nothing better exists.
 - Migration: a usage keeps where its grams came from (`printer` · `file` · `plate`) and whether they are estimated. The print shows both.
 
-**Done when:** each fallback has a test with a real header; a print cancelled at 40% gets 40% of the header's grams, marked estimated; tests pass.
+**Done when:** each fallback has a test with a real file from the fixtures; a print cancelled on layer 6 of 45 while its printer said 40% gets 6/45 of the file's grams, marked estimated; tests pass.
 **Prompt:**
 ```
 Do Step 4 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
@@ -3321,12 +3322,12 @@ Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 
 ## Phase 43 - Adapters
 
-Each adapter: a `local` package in `packages/adapters/<id>`, config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP.
+Each adapter: a `host` package in `packages/adapters/<id>` (its Step 1 fixtures are already in `fixtures/` there), config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP. An adapter never logs a raw printer message.
 
 ### [ ] Step 8 - Moonraker
 **Model:** Opus · **Effort:** Medium
-**Scope:** Status; history backfill (`server/history`); grams from Moonraker's metadata; the Spoolman active spool when Moonraker has one; API key optional.
-**Done when:** fixtures from Step 1 import as the expected prints; tests pass.
+**Scope:** Status; history backfill (`server/history`); grams from the history job: the file's totals per tool, and the length really extruded for a cancelled or failed job (real grams, not estimated); the Spoolman spool a job names, which also marks the job as already reported to Spoolman by Moonraker (Step 12); layers from the file's metadata when the status has none; API key optional.
+**Done when:** fixtures from Step 1 import as the expected prints, the cancelled one with 0.23 of 0.99 g; tests pass.
 **Prompt:**
 ```
 Do Step 8 of the 6.0.0 plan in PLAN.md.
@@ -3334,8 +3335,15 @@ Do Step 8 of the 6.0.0 plan in PLAN.md.
 
 ### [ ] Step 9 - Bambu LAN
 **Model:** Opus (or Fable) · **Effort:** High
-**Scope:** MQTT over TLS with the access code (new dependency `mqtt`, see ADR-0015); status from the push reports; AMS RFID → spool; matched by serial with a Bambu Cloud integration of the same printer, which then only gives history. Setup docs say what to switch on (LAN mode, Developer mode).
-**Done when:** a cloud + LAN printer records each print once; tests pass.
+**Scope:**
+- MQTT over TLS with the access code (new dependency `mqtt`, see ADR-0015); status from the push reports (a full one on `pushall`, then only what changed); AMS RFID → spool. Reading needs no Developer mode and works while the printer is on the cloud (A1, Step 1).
+- Grams from the job's 3MF on the printer, over FTPS (`/cache/<gcode_file>`, the whole file, once per print); the slot of each filament from the start command's `ams_mapping`. A cancel is `FAILED` with `print_error` `0x0300400C`.
+- Matched by serial with a Bambu Cloud integration of the same printer, which then only gives history; the cloud's task id on the LAN feed dedupes. **It also works alone**, with no Bambu Cloud integration and a printer that isn't on the cloud.
+- The printer's broadcast (SSDP, `node:dgram`) finds it and follows it by serial when its IP changes; the host field stays for servers it doesn't reach.
+- Setup docs: where the access code is, and that LAN Only and Developer mode aren't needed.
+- Hands-on on the A1, not covered by Step 1: LAN Only mode on, and a print started over LAN.
+
+**Done when:** a cloud + LAN printer records each print once; a printer with no cloud integration records its prints; the LAN Only check is done on the real printer; tests pass.
 **Prompt:**
 ```
 Do Step 9 of the 6.0.0 plan in PLAN.md.
@@ -3343,8 +3351,8 @@ Do Step 9 of the 6.0.0 plan in PLAN.md.
 
 ### [ ] Step 10 - PrusaLink
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Status and job over the local API (digest auth); grams from the job file's header.
-**Done when:** fixtures import as the expected prints; tests pass.
+**Scope:** Status and job over the local API (digest auth); grams from the job file through its download link (the API sends no file metadata on the MK4, XL and MINI; a `.bgcode` has its totals in the first KB). Step 1 had no Prusa printer: the fixtures are payloads others published, so a real printer (a tester's) confirms the adapter before 6.0.0, and the docs say so until then.
+**Done when:** fixtures import as the expected prints; tests pass; the check on a real printer is done or named as open in the CHANGELOG.
 **Prompt:**
 ```
 Do Step 10 of the 6.0.0 plan in PLAN.md.
@@ -3352,8 +3360,8 @@ Do Step 10 of the 6.0.0 plan in PLAN.md.
 
 ### [ ] Step 11 - OctoPrint
 **Model:** Sonnet · **Effort:** Medium
-**Scope:** Status and job (API key); grams from the job file's header or OctoPrint's analysis.
-**Done when:** fixtures import as the expected prints; tests pass.
+**Scope:** Status and job through the push socket (API key, Node's `WebSocket`): the REST job looks the same after a cancel as before a print. A cancel's `PrintCancelled` and `PrintFailed` are one cancelled print. Grams from the job file's totals, read with a ranged download (OctoPrint's own analysis has length and volume, no grams).
+**Done when:** the fixture sequence imports as one finished and one cancelled print; tests pass.
 **Prompt:**
 ```
 Do Step 11 of the 6.0.0 plan in PLAN.md.
@@ -3364,9 +3372,10 @@ Do Step 11 of the 6.0.0 plan in PLAN.md.
 **Scope:**
 - A Spoolman integration: import spools (the usual review and merge), read the active spool, write usage back after each print.
 - A spool has no profile (ADR-0020): a Spoolman spool maps to brand, material, name, colour hex and colour name, and a write back finds or creates its Spoolman filament by those.
-- Each write carries an idempotency key (print id + slot); retries and re-imports never charge twice. A print that came from Moonraker's own Spoolman link isn't written back.
+- Each write carries an idempotency key (print id + slot); retries and re-imports never charge twice.
+- The app's own spool is always charged, with or without Spoolman. A job that Moonraker itself reported to Spoolman (the job names its Spoolman spool, Step 8) isn't written back; every other print is, also one from a Moonraker that doesn't report to Spoolman.
 
-**Done when:** a print charges the Spoolman spool exactly once across retries and restarts; tests pass.
+**Done when:** a print charges the Spoolman spool exactly once across retries and restarts; a Moonraker job that names its spool is charged in the app and not written back, one that doesn't is written back; without a Spoolman integration the app's spool is still charged; tests pass.
 **Prompt:**
 ```
 Do Step 12 of the 6.0.0 plan in PLAN.md. Show me how double charging is prevented first.
@@ -3394,8 +3403,9 @@ Then push dev, push the tag and confirm the pre-release is published.
 - A new fixed connector operation: relay status and history for the printer hosts the hub assigns to that device. It never sends commands to a printer.
 - Hub management: assign a printer integration to a device; the status runner reads it through the connector.
 - Offline device: the printer shows offline; history backfills when it's back.
+- The connector keeps the end of a job until the hub has it, not only the latest status: a print that ends while the hub is away isn't lost on a printer without history (PrusaLink, OctoPrint, Bambu LAN alone).
 
-**Done when:** a VPS hub shows live status and records prints of a LAN printer through a connector; tests run a real connector against a test hub.
+**Done when:** a VPS hub shows live status and records prints of a LAN printer through a connector; a print that ended while the hub was down is recorded when it is back; tests run a real connector against a test hub.
 **Prompt:**
 ```
 Do Step 14 of the 6.0.0 plan in PLAN.md.
