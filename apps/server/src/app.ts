@@ -62,7 +62,7 @@ import { healthRoutes } from "./routes/health.ts";
 import { hubRoutes } from "./routes/hub.ts";
 import { hubDeviceRoutes } from "./routes/hubDevice.ts";
 import { importRoutes } from "./routes/import.ts";
-import { integrationsRoutes } from "./routes/integrations.ts";
+import { integrationsRoutes, removeWorkersOf } from "./routes/integrations.ts";
 import { logsRoutes } from "./routes/logs.ts";
 import { maintenanceRoutes } from "./routes/maintenance.ts";
 import { ordersRoutes } from "./routes/orders.ts";
@@ -267,6 +267,8 @@ export async function buildApp(
       () => hubFiles.versionsUsage(),
       deviceCatalog,
       opts.adapters ?? [],
+      // Called on a request, once `workers` and `installer` (set up below) exist.
+      (deviceId) => removeWorkersOf(db, syncer, installer, workers, deviceId),
     ),
     { prefix: "/api/hub" },
   );

@@ -379,6 +379,7 @@ function Slicers({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const may = useMay(d);
   const { slicers } = useDeviceActions();
+  const [confirm, setConfirm] = useState(false);
   const libraries = librariesOf(d);
   return (
     <Section title={t("hub:machine.slicers")}>
@@ -395,7 +396,10 @@ function Slicers({ device: d }: { device: Device }) {
         name={t("hub:machine.useAsWorker")}
         checked={d.useAsWorker}
         busy={slicers.isPending}
-        onChange={(on) => slicers.mutate({ id: d.id, useAsWorker: on })}
+        // Off removes its installs in Integrations: asked first while it has one.
+        onChange={(on) =>
+          on || !d.sliceWorker ? slicers.mutate({ id: d.id, useAsWorker: on }) : setConfirm(true)
+        }
       />
       {/* A slicer is installed on a worker machine from its card in Integrations. */}
       {d.useAsWorker && may.integrations && (
@@ -406,6 +410,17 @@ function Slicers({ device: d }: { device: Device }) {
         </p>
       )}
       <Alert error={slicers.error} />
+      <ConfirmDialog
+        open={confirm}
+        destructive
+        title={t("hub:machine.stopWorkerTitle", { name: d.name })}
+        description={t("hub:machine.stopWorkerBody")}
+        confirmLabel={t("hub:machine.stopWorker")}
+        onCancel={() => setConfirm(false)}
+        onConfirm={() =>
+          slicers.mutate({ id: d.id, useAsWorker: false }, { onSettled: () => setConfirm(false) })
+        }
+      />
     </Section>
   );
 }
@@ -439,29 +454,15 @@ function SlicersCatalog({ device: d }: { device: Device }) {
           onChange={(on) => slicers.mutate({ id: d.id, shareCatalog: on })}
         />
       </div>
-      <p className="text-muted">{t("hub:machine.catalogHint")}</p>
       <Alert error={slicers.error} />
+      {(d.receiveCatalog || d.shareCatalog) && (
+        <SyncSources
+          types={["machinePresets"]}
+          hash={`machine-${d.id}`}
+          labels={{ catalog: t("hub:machine.catalogSources") }}
+        />
+      )}
     </Section>
-  );
-}
-
-/** One card to the Sources tabs this machine is a source on: a catalog or project switch is on. */
-function EditSources({ device: d }: { device: Device }) {
-  const { t } = useTranslation();
-  const catalog = librariesOf(d).length > 0 && (d.receiveCatalog || d.shareCatalog);
-  const projects = d.receiveProjects || d.shareProjects;
-  if (!catalog && !projects) return null;
-  return (
-    <SyncSources
-      card
-      types={[...(catalog ? ["machinePresets"] : []), ...(projects ? ["projects"] : [])]}
-      hash={`machine-${d.id}`}
-      title={t("hub:machine.editSources")}
-      labels={{
-        catalog: t("hub:machine.catalogSources"),
-        projects: t("hub:machine.projectSources"),
-      }}
-    />
   );
 }
 
@@ -471,7 +472,7 @@ function Projects({ device: d }: { device: Device }) {
   const edit = may.edit("projects");
   const { projects } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
-  // Its picks and shared folders are set on the Sources tab: Project sources, in Edit sources.
+  // Its picks and shared folders are set on the Sources tab: the Projects sources button below.
   const line = "flex flex-wrap items-center gap-x-4 gap-y-1";
   return (
     <Section title={t("hub:machine.projects")}>
@@ -514,6 +515,13 @@ function Projects({ device: d }: { device: Device }) {
         )}
       </div>
       <Alert error={projects.error} />
+      {(d.receiveProjects || d.shareProjects) && (
+        <SyncSources
+          types={["projects"]}
+          hash={`machine-${d.id}`}
+          labels={{ projects: t("hub:machine.projectSources") }}
+        />
+      )}
       <ConfirmDialog
         open={confirm}
         title={t("hub:machine.stopReceivingTitle", { name: d.name })}
@@ -677,7 +685,6 @@ export function MachinePage() {
             <Slicers device={device} />
             <SlicersCatalog device={device} />
             <Projects device={device} />
-            <EditSources device={device} />
           </div>
         </div>
       )}

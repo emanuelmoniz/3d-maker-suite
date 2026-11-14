@@ -239,7 +239,7 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
   await expect(slicers.getByRole("switch", { name: "Use slicer as server worker" })).toBeVisible();
   await page
-    .getByRole("region", { name: "Edit Catalog/Projects sources configurations" })
+    .getByRole("region", { name: "Sync sources configurations" })
     .getByRole("link", { name: "Catalog sources" })
     .click();
   await expect(page).toHaveURL(new RegExp(`/catalog/settings/sources#machine-${id}$`));

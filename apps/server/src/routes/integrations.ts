@@ -69,6 +69,42 @@ const notFound = { 404: apiErrorSchema };
 const LOGIN_TTL_MS = 10 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 60 * 1000;
 
+/**
+ * Removes an integration and the slicer that goes with a server or worker one (Remove in
+ * Integrations, and a machine's Use slicer as server worker turned off). 409 while it syncs.
+ */
+export async function removeIntegration(
+  db: Db,
+  syncer: Syncer,
+  installer: SlicerInstaller,
+  workers: WorkerSlicers,
+  row: typeof integrations.$inferSelect,
+) {
+  if (syncer.running.has(row.id)) throw new HttpError(409, "sync_running", "A sync is running");
+  if (workers.isWorker(row.id)) await workers.remove(row.id, false);
+  installer.remove(row.id, false);
+  db.delete(integrations).where(eq(integrations.id, row.id)).run();
+  syncer.dropAvatar(row.id);
+  const kind = syncer.adapters.find((a) => a.id === row.adapterId)?.kind;
+  const deviceId = workerDeviceId(kind, row.config);
+  if (deviceId) workers.syncWorker(deviceId);
+}
+
+/** Removes every worker integration that slices on a device (its Use slicer as server worker off). */
+export async function removeWorkersOf(
+  db: Db,
+  syncer: Syncer,
+  installer: SlicerInstaller,
+  workers: WorkerSlicers,
+  deviceId: string,
+) {
+  for (const row of db.select().from(integrations).all()) {
+    const kind = syncer.adapters.find((a) => a.id === row.adapterId)?.kind;
+    if (workerDeviceId(kind, row.config) === deviceId)
+      await removeIntegration(db, syncer, installer, workers, row);
+  }
+}
+
 export const integrationsRoutes =
   (
     db: Db,
@@ -417,17 +453,7 @@ export const integrationsRoutes =
       "/:id",
       { schema: { params, response: { 204: z.null(), ...notFound } } },
       async (req, reply) => {
-        const row = get(req.params.id);
-        if (syncer.running.has(req.params.id))
-          throw new HttpError(409, "sync_running", "A sync is running");
-        // A server or worker integration's slicer goes with it.
-        if (workers.isWorker(req.params.id)) await workers.remove(req.params.id, false);
-        installer.remove(req.params.id, false);
-        db.delete(integrations).where(eq(integrations.id, req.params.id)).run();
-        syncer.dropAvatar(req.params.id);
-        const kind = syncer.adapters.find((a) => a.id === row.adapterId)?.kind;
-        const deviceId = workerDeviceId(kind, row.config);
-        if (deviceId) workers.syncWorker(deviceId);
+        await removeIntegration(db, syncer, installer, workers, get(req.params.id));
         return reply.status(204).send(null);
       },
     );

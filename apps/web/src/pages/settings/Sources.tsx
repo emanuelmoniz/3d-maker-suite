@@ -48,18 +48,12 @@ const moduleOf = (type: string): SettingsModule | undefined =>
 export function SyncSources({
   types,
   hash,
-  title,
   labels,
-  card,
 }: {
   types: readonly string[];
   hash?: string;
-  /** Instead of "Sync sources configurations" (a machine's page names its own). */
-  title?: string;
   /** A button's label per module, instead of the module's name. */
   labels?: Partial<Record<SettingsModule, string>>;
-  /** A card of its own (titled `title`), not a part at the foot of another. */
-  card?: boolean;
 }) {
   const { t } = useTranslation();
   const heading = useId();
@@ -87,12 +81,10 @@ export function SyncSources({
       ))}
     </div>
   );
-  const name = title ?? t("common:syncSources");
-  if (card) return <Section title={name}>{buttons}</Section>;
   return (
     <section aria-labelledby={heading} className="mt-4 grid gap-2 border-t border-border pt-4">
       <h3 id={heading} className="font-semibold">
-        {name}
+        {t("common:syncSources")}
       </h3>
       {buttons}
     </section>

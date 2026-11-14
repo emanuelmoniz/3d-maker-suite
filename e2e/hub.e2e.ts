@@ -240,7 +240,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(page.getByRole("region", { name: "Slicers catalog" })).toBeVisible();
   await expect(
     page
-      .getByRole("region", { name: "Edit Catalog/Projects sources configurations" })
+      .getByRole("region", { name: "Sync sources configurations" })
       .getByRole("link", { name: "Catalog sources" }),
   ).toHaveAttribute("href", `/catalog/settings/sources#machine-${deviceId}`);
   // Once per machine, from the API too.
@@ -248,6 +248,18 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
     data: { adapterId: "bambu-studio-worker", config: { deviceId, source: "managed" } },
   });
   expect((await again.json()).error.code).toBe("slicer_exists");
+  // Use slicer as server worker off, confirmed: its install leaves Integrations.
+  await worker.click({ force: true });
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: "Stop using Laptop as a server worker?" })
+    .getByRole("button", { name: "Stop using as worker" })
+    .click();
+  await expect(worker).not.toBeChecked();
+  await expect(install).toHaveCount(0);
+  await page.goto("/integrations");
+  await expect(card.getByRole("heading", { name: "Laptop", level: 4 })).toHaveCount(0);
+  await page.goto(`/hub/devices/${deviceId}`);
   await actions.getByRole("button", { name: "Revoke" }).click();
   await page
     .getByRole("dialog")
@@ -314,7 +326,7 @@ test("hub: a machine's own user sees its slicers and edits only what their switc
   await expect(slicers.getByRole("switch")).toHaveCount(0);
   await expect(
     page
-      .getByRole("region", { name: "Edit Catalog/Projects sources configurations" })
+      .getByRole("region", { name: "Sync sources configurations" })
       .getByRole("link", { name: "Catalog sources" }),
   ).toBeVisible();
   await expect(page.getByRole("switch", { name: "Receive from server" })).toHaveCount(0);

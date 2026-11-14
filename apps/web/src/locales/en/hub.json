@@ -216,9 +216,10 @@
     "shareCatalog": "Share to server",
     "receiveCatalogOf": "Receive the slicers catalog from the server",
     "shareCatalogOf": "Share the slicers catalog to the server",
-    "catalogHint": "Off, this machine isn't listed that way in Catalog sources, and its slicers' lines there go off.",
-    "editSources": "Edit Catalog/Projects sources configurations",
     "catalogSources": "Catalog sources",
-    "projectSources": "Project sources"
+    "projectSources": "Projects sources",
+    "stopWorkerTitle": "Stop using {{name}} as a server worker?",
+    "stopWorkerBody": "Its slicer installs in Integrations are removed, and a slicer the hub installed on it is uninstalled. What they imported stays. Turn this on again to set them up anew.",
+    "stopWorker": "Stop using as worker"
   }
 }

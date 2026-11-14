@@ -105,6 +105,8 @@ export const hubRoutes =
       "connected" | "connectedInstall" | "confirmInstall" | "tell"
     > = noCatalog,
     adapters: IntegrationAdapter[] = [],
+    /** Use slicer as server worker off: its worker integrations (and their slicers) go. */
+    dropWorkers: (deviceId: string) => Promise<void> = async () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
@@ -286,6 +288,8 @@ export const hubRoutes =
           machineGuard(db, req.user, row.id, "projects");
         if (receiveCatalog !== undefined || shareCatalog !== undefined)
           machineGuard(db, req.user, row.id, "catalog");
+        // First, so a removal that fails (a sync running) leaves the switch on.
+        if (useAsWorker === false) await dropWorkers(row.id);
         if (
           shareProjects !== undefined &&
           shareProjects !== row.shareProjects &&

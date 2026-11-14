@@ -962,6 +962,17 @@ describe("hub events", () => {
     expect((await mine("PATCH", device, { useAsWorker: true })).statusCode).toBe(403);
     expect((await send("PATCH", device, { useAsWorker: true })).statusCode).toBe(204);
     expect(row()?.useAsWorker).toBe(true);
+    // Off: its worker installs leave Integrations, so it can't be set up as one.
+    const worker = db
+      .insert(schema.integrations)
+      .values({ adapterId: "bambu-studio-worker", config: { deviceId, source: "installed" } })
+      .returning()
+      .get();
+    expect((await send("PATCH", device, { useAsWorker: false })).statusCode).toBe(204);
+    expect(
+      db.select().from(schema.integrations).where(eq(schema.integrations.id, worker.id)).get(),
+    ).toBeUndefined();
+    expect(row()?.useAsWorker).toBe(false);
   });
 
   it("a machine's install is offered as it is; the hub's slicer receives no catalog", async () => {

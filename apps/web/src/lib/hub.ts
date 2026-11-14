@@ -104,10 +104,12 @@ export function useDeviceActions() {
         receiveCatalog?: boolean;
         shareCatalog?: boolean;
       }) => api("PATCH", `/api/hub/devices/${id}`, patch),
-      // Integrations and the Catalog and Presets Sources tabs list machines by them.
+      // Integrations and the Catalog and Presets Sources tabs list machines by them; worker off
+      // removes its installs from Integrations.
       onSuccess: () =>
         Promise.all([
           refresh(),
+          qc.invalidateQueries({ queryKey: ["integrations"] }),
           qc.invalidateQueries({ queryKey: ["presets", "devices"] }),
           qc.invalidateQueries({ queryKey: ["catalog-sources"] }),
         ]),
