@@ -59,20 +59,20 @@ Port 7912 held a real Spoolman on this PC; the spike's own runs on 7913 and noth
 - Nothing reports the filament a stopped job used.
 
 ### Bambu LAN
-- **Works with the printer on the cloud and Developer mode off:** MQTT over TLS 1.2 on 8883 (user , the access code; certificate CN = serial, signed by "BBL CA", valid 2024-12-11 → 2034-12-09), subscribe to , and the read requests  and . FTPS on 990 with the same sign-in lists and downloads. Ports 80 and 322 are closed, 6000 (camera) is open.
-- **The access code:** on the A1 the screen shows it under LAN Only Mode (guides disagree on whether the mode must be on). It is also in Bambu Studio's  () and in the cloud's printer list (). What Developer mode adds is control; Bambu's blog (2025-01-20) says it "leave[s] the MQTT channel, live stream, and FTP open". Not tested here: LAN Only or Developer mode on, and other models.
+- **Works with the printer on the cloud and Developer mode off:** MQTT over TLS 1.2 on 8883 (user `bblp`, the access code; certificate CN = serial, signed by "BBL CA", valid 2024-12-11 → 2034-12-09), subscribe to `device/<serial>/report`, and the read requests `get_version` and `pushall`. FTPS on 990 with the same sign-in lists and downloads. Ports 80 and 322 are closed, 6000 (camera) is open.
+- **The access code:** on the A1 the screen shows it under LAN Only Mode (guides disagree on whether the mode must be on). It is also in Bambu Studio's `BambuStudio.conf` (`access_code`) and in the cloud's printer list (`dev_access_code`). Bambu's blog (2025-01-20) says Developer mode "leave[s] the MQTT channel, live stream, and FTP open". Not tested here: LAN Only or Developer mode on, and other models.
 - A full status is 4.9 KB (65 keys); after it the printer sends what changed about every 2 s, 134 B on average. A 20 min print was 108 KB.
-- The cloud's start command is echoed:  with , , , .
-- States  →  →  →  · . A cancel is  with  (). The ending message has no file name and no ids.
-- Slots: per AMS tray , , , , , .  stayed 100 on all four through both prints.
-- No grams. The job's 3MF is in  (only the printed plate, 532 KB in 3.5 s); its  has  per filament, and  gives the slot.
-- **Another client's answers are broadcast too:** when Bambu Studio connected,  (the code in clear) and  arrived on the report topic. An adapter must never log raw messages.
+- The cloud's start command is echoed: `project_file` with `task_id`, `plate_idx`, `ams_mapping`, `timestamp`.
+- States `IDLE` → `PREPARE` → `RUNNING` → `FINISH` · `FAILED`. A cancel is `FAILED` with `print_error: 50348044` (`0x0300400C`). The ending message has no file name and no ids.
+- Slots: per AMS tray `tray_type`, `tray_color`, `tag_uid`, `tray_uuid`, `tray_weight`, `remain`. `remain` stayed 100 on all four through both prints.
+- No grams. The job's 3MF is in `/cache/<gcode_file>` (only the printed plate, 532 KB in 3.5 s); its `slice_info.config` has `used_g` per filament, and `ams_mapping` gives the slot.
+- **Another client's answers are broadcast too:** when Bambu Studio connected, `system: get_access_code` (the code in clear) and `security: app_cert_install` arrived on the report topic. An adapter must never log raw messages.
 
-| Cancelled at | Printer said | Really extruded (summed from the job's G-code) | File total ×  | File total × layer |
+| Cancelled at | Printer said | Really extruded (summed from the job's G-code) | File total × `mc_percent` | File total × layer |
 |---|---|---|---|---|
-| layer 6 of 45 |  40 | 15.9% = 0.69 g of 4.35 g | 1.74 g | 0.58 g |
+| layer 6 of 45 | `mc_percent` 40 | 15.9% = 0.69 g of 4.35 g | 1.74 g | 0.58 g |
 
- is time with the preparation in it: 29% before the first layer. The cloud's own record of the cancel gave 1.41 g (our adapter scales by time).
+`mc_percent` is time with the preparation in it: 29% before the first layer. The cloud's own record of the cancel became 1.41 g in our app (the cloud adapter scales the sliced weight by time).
 
 ## 2. Slicer totals in job files
 | Slicer | Where | Keys |
@@ -92,9 +92,9 @@ Reading the file:
 | Bambu | FTPS on 990, `/cache/<gcode_file>` | a read from the start can be cut; a read from an offset is refused ("Couldn't use REST"), and a 3MF's index is at its end: the whole file |
 
 ## 3. Dedupe tolerance, Bambu Cloud vs LAN
-The cloud's task id (our ) is the LAN's , in both prints.  is  for them.
+The cloud's task id (our `externalId`) is the LAN's `task_id`, in both prints. `print_type` is `cloud` for them.
 
-| | Cloud  |  | Echo seen |  |  | End: cloud / LAN |
+| | Cloud `startTime` | `project_file.timestamp` | Echo seen | `PREPARE` | `RUNNING` | End: cloud / LAN |
 |---|---|---|---|---|---|---|
 | Finished | 11:25:04 | the same second | +2.7 s | +4.7 s | +19.8 s | 11:45:00 / +3.9 s |
 | Cancelled | 11:49:26 | the same second | +2.3 s | +4.4 s | +13.3 s | 11:55:53 / +2.5 s |
