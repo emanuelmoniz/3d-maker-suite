@@ -1,0 +1,35 @@
+# Printer spikes (Plan 6.0.0 Step 1). Real server software, simulated printers.
+# `hub` sits on its own network: it can't reach the printers, only the connector stand-in can.
+name: printer-spike
+services:
+  moonraker:
+    image: ghcr.io/mainsail-crew/virtual-klipper-printer:latest
+    ports: ["7125:7125"]
+    volumes: ["printer_data:/home/printer/printer_data"]
+    tmpfs:
+      - /tmp:noexec
+      - /home/printer/printer_data/comms:noexec
+    networks: [printers]
+  spoolman:
+    image: ghcr.io/donkie/spoolman:latest
+    ports: ["7913:8000"] # 7912 may be a real Spoolman: never point the spike at it
+    networks: [printers]
+  octoprint:
+    image: octoprint/octoprint:latest
+    ports: ["5000:80"]
+    volumes: ["octoprint:/octoprint"]
+    networks: [printers]
+  hub:
+    image: node:22-alpine
+    working_dir: /spike
+    volumes: ["./:/spike:ro"]
+    command: ["node", "relay-hub.mjs"]
+    ports: ["8099:8080"]
+    networks: [hubnet]
+    profiles: [relay]
+networks:
+  printers:
+  hubnet:
+volumes:
+  printer_data:
+  octoprint:
