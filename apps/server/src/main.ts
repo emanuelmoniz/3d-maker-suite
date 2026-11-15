@@ -36,6 +36,7 @@ const app = await buildApp(db, true, config.dataDir, {
   logRetentionSchedule: "0 * * * *",
   updateCheckSchedule: "0 9 * * *",
   watchProjects: true,
+  printerStatus: true,
   access: { host: config.host, password: config.password, allowedHosts: config.allowedHosts },
   trustProxy: config.trustProxy,
   setupToken,

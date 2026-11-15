@@ -52,15 +52,20 @@ const LIVE_GRAMS = 12;
 const LIVE_LAYERS = 50;
 
 /**
- * The fake printer's status at `now`, the same print every ten minutes: idle for one, heating for
- * one, printing for seven, then finished for one. It takes 12 g from slot 0, the filament of the
- * fake history's prints.
+ * The fake printer's status at `now`, the same print every `cycleSec` (ten minutes): idle for the
+ * first tenth, heating for the next, printing for seven, then finished for the last. It takes 12 g
+ * from slot 0, the filament of the fake history's prints.
  */
-export function liveStatus(now = Date.now()): PrinterSnapshot {
-  const t = Math.floor(now / 1000) % LIVE_CYCLE_SEC;
+export function liveStatus(now = Date.now(), cycleSec = LIVE_CYCLE_SEC): PrinterSnapshot {
+  const t = Math.floor(now / 1000) % cycleSec;
   const cycle = Math.floor(now / 1000) - t;
-  const done = Math.min(1, Math.max(0, (t - 120) / 420));
-  const printing = t >= 120 && t < 540;
+  const [heat, print, end] = [0.1, 0.2, 0.9].map((f) => Math.round(cycleSec * f)) as [
+    number,
+    number,
+    number,
+  ];
+  const done = Math.min(1, Math.max(0, (t - print) / (end - print)));
+  const printing = t >= print && t < end;
   const snap = (
     state: PrinterSnapshot["state"],
     job?: PrinterSnapshot["job"],
@@ -70,10 +75,10 @@ export function liveStatus(now = Date.now()): PrinterSnapshot {
     state,
     job,
     temperatures: {
-      nozzle: t < 60 ? 25 : printing ? 220 : 120,
-      nozzleTarget: printing || (t >= 60 && t < 120) ? 220 : 0,
-      bed: t < 60 ? 25 : 60,
-      bedTarget: t >= 60 && t < 540 ? 60 : 0,
+      nozzle: t < heat ? 25 : printing ? 220 : 120,
+      nozzleTarget: printing || (t >= heat && t < print) ? 220 : 0,
+      bed: t < heat ? 25 : 60,
+      bedTarget: t >= heat && t < end ? 60 : 0,
     },
     slots: [
       {
@@ -81,23 +86,42 @@ export function liveStatus(now = Date.now()): PrinterSnapshot {
         material: "PLA",
         colorHex: "#ff8800",
         active: printing,
-        ...(t >= 60 && { gramsUsed: Math.round(LIVE_GRAMS * done * 100) / 100 }),
+        ...(t >= heat && { gramsUsed: Math.round(LIVE_GRAMS * done * 100) / 100 }),
       },
     ],
   });
-  if (t < 60) return snap("idle");
+  if (t < heat) return snap("idle");
   const job = {
     id: `live-${cycle}`,
     file: "mock-live.gcode",
     title: "Mock live print",
-    startedAt: new Date((cycle + 60) * 1000).toISOString(),
-    elapsedSec: Math.min(t, 540) - 60,
+    startedAt: new Date((cycle + heat) * 1000).toISOString(),
+    elapsedSec: Math.min(t, end) - heat,
     progress: Math.round(done * 100),
-    etaSec: Math.max(0, 540 - t),
+    etaSec: Math.max(0, end - t),
     layer: Math.floor(done * LIVE_LAYERS),
     totalLayers: LIVE_LAYERS,
   };
-  return snap(t < 120 ? "preparing" : printing ? "printing" : "finished", job);
+  return snap(t < print ? "preparing" : printing ? "printing" : "finished", job);
+}
+
+/**
+ * The live loop as a source reads it: a print's end that fell between two reads is returned first,
+ * as `PrinterStatusSource` asks.
+ */
+export function liveSource(cycleSec: number) {
+  let last: string | undefined;
+  let ended: string | undefined;
+  return (now = Date.now()) => {
+    let s = liveStatus(now, cycleSec);
+    if (last && last !== s.job?.id && ended !== last) {
+      const start = Number(last.slice("live-".length));
+      s = liveStatus((start + cycleSec * 0.95) * 1000, cycleSec);
+    }
+    last = s.job?.id ?? last;
+    if (s.state === "finished") ended = s.job?.id;
+    return s;
+  };
 }
 
 export const PAGE_SIZE = 2;
@@ -132,7 +156,11 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
     id: "mock",
     kind: "cloud",
     capabilities: ["printers", "prints", "spools", "slice", "printerStatus"],
-    configSchema: z.object({ label: z.string().optional() }),
+    configSchema: z.object({
+      label: z.string().optional(),
+      // The live print's loop; short in e2e, so a print ends while the test waits.
+      liveCycleSec: z.number().int().min(20).max(3600).optional(),
+    }),
     // No real program runs; the integration still needs a `slicerPath` that exists (any file).
     slicer: {
       slice: async (_program, _configDir, req) => {
@@ -143,7 +171,8 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
     },
     secretsSchema: z.object({ token: z.string().min(1) }),
     create: ({ config, secrets }) => {
-      const { label } = config as { label?: string };
+      const { label, liveCycleSec } = config as { label?: string; liveCycleSec?: number };
+      const live = liveSource(liveCycleSec ?? LIVE_CYCLE_SEC);
       const check = async () => {
         if (state.fail) throw new IntegrationError(state.fail);
         if (!(await secrets.get("token"))) throw new IntegrationError("auth_required");
@@ -185,7 +214,7 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
         status: {
           readStatus: async () => {
             await check();
-            return state.status ?? [liveStatus()];
+            return state.status ?? [live()];
           },
         },
         spools: {

@@ -17,6 +17,7 @@ import {
   formatNumber,
 } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { usePrinterStatus } from "../../lib/printerStatus.ts";
 import {
   photoUrl,
   printerName,
@@ -29,6 +30,7 @@ import {
 import { Comments } from "./Comments.tsx";
 import { useCostInfo } from "./CostFields.tsx";
 import { PrinterAccessories } from "./PrinterAccessories.tsx";
+import { PrinterStatusCard } from "./PrinterStatusCard.tsx";
 import { StateBadge } from "./StateBadge.tsx";
 import { UsageDialog } from "./UsageDialog.tsx";
 
@@ -115,6 +117,7 @@ export function PrinterDetailPage() {
   const costInfo = useCostInfo(printer, "printer");
   const usage = useUsage(`/api/printers/${id}`).data;
   const [correcting, setCorrecting] = useState(false);
+  const live = usePrinterStatus().data?.find((s) => s.printerId === id);
 
   if (isError)
     return (
@@ -174,6 +177,7 @@ export function PrinterDetailPage() {
       )}
 
       <div className="grid gap-4">
+        {live && <PrinterStatusCard status={live} name={printerName(t, printer)} />}
         <section className="grid gap-5 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[14rem_1fr] sm:p-5">
           <Photo
             src={photo}

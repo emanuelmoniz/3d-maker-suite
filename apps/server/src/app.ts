@@ -24,8 +24,16 @@ import { HttpError } from "./errors.ts";
 import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
+import { createPrinterStatus, type PrinterStatusRunner } from "./integrations/printerStatus.ts";
 import { createServerPresets } from "./integrations/serverPresets.ts";
 import { createSyncer } from "./integrations/sync.ts";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    printerStatus: PrinterStatusRunner;
+  }
+}
+
 import { createWorkerSlicers } from "./integrations/workerSlicer.ts";
 import { authGuard } from "./lib/auth.ts";
 import { createHubChannel } from "./lib/hubChannel.ts";
@@ -69,6 +77,7 @@ import { ordersRoutes } from "./routes/orders.ts";
 import { preferencesRoutes } from "./routes/preferences.ts";
 import { presetFileRoutes } from "./routes/presetFile.ts";
 import { presetsRoutes } from "./routes/presets.ts";
+import { printerStatusRoutes } from "./routes/printerStatus.ts";
 import { printersRoutes } from "./routes/printers.ts";
 import { printsRoutes } from "./routes/prints.ts";
 import { projectFilesRoutes } from "./routes/projectFiles.ts";
@@ -128,6 +137,8 @@ export async function buildApp(
     logRetentionSchedule?: string;
     /** Watch the project folders and scan once at startup (off in tests). */
     watchProjects?: boolean;
+    /** Read the printers' live status on its own (off in tests: `app.printerStatus.pollAll`). */
+    printerStatus?: boolean;
     /** Bind address and optional password, checked while no users exist (off in tests). */
     access?: { host: string; password?: string; allowedHosts?: string[] };
     /** Fastify `trustProxy` (`APP_TRUST_PROXY`): `req.ip` is then the client behind the proxy. */
@@ -365,6 +376,18 @@ export async function buildApp(
     if (readPreferences(db).hubEnabled) linkLibraries(db, dataDir, syncer.adapters);
   });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
+  // What the printers are doing now; a print the tracker sees end is recorded (ADR-0015).
+  const printerStatus = createPrinterStatus(
+    db,
+    syncer,
+    syncer.adapters,
+    logFor("integrations"),
+    !!opts.printerStatus,
+  );
+  app.decorate("printerStatus", printerStatus);
+  if (opts.printerStatus) app.addHook("onReady", async () => printerStatus.start());
+  app.addHook("onClose", async () => printerStatus.close());
+  await app.register(printerStatusRoutes(printerStatus), { prefix: "/api/printers/status" });
   const projectsLog = logFor("projects");
   const sliceQueue = createSliceQueue(projectsLog);
   await app.register(costsRoutes(db, dataDir, syncer.adapters, sliceQueue), {

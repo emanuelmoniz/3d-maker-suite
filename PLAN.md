@@ -3213,7 +3213,7 @@ Do Step 1 of the 6.0.0 plan in PLAN.md. Report each spike with evidence before c
 Do Step 2 of the 6.0.0 plan in PLAN.md. Show me the snapshot schema and the tracker's states first.
 ```
 
-### [ ] Step 3 - Live status on the dashboard
+### [x] Step 3 - Live status on the dashboard
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Server: a runner per enabled status source (poll faster while printing, slower when idle), the in-memory store, the tracker wired to the existing print import. A print is written when it ends: its project is linked by title (`linkPrints`) or left empty, and a slot without a sure spool waits in Filament to review.

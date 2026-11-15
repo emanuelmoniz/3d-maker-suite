@@ -173,6 +173,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   logMaxEntries: 10_000,
   updateChannel: "stable",
   dashboardLayout: [
+    widget("printerStatus"),
     widget("statCard", { metric: "prints" }),
     widget("statCard", { metric: "successRate" }),
     widget("statCard", { metric: "cost" }),

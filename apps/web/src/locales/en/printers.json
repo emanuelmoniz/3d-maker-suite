@@ -227,5 +227,28 @@
       "nozzle": "Nozzle diameter (mm)",
       "layer": "Layer height (mm)"
     }
+  },
+  "status": {
+    "states": {
+      "offline": "Offline",
+      "idle": "Idle",
+      "preparing": "Preparing",
+      "printing": "Printing",
+      "paused": "Paused",
+      "finished": "Finished",
+      "cancelled": "Cancelled",
+      "error": "Failed"
+    },
+    "progress": "Print progress",
+    "layer": "Layer {{layer}} of {{total}}",
+    "eta": "{{left}} left, done at {{time}}",
+    "nozzle": "Nozzle",
+    "bed": "Bed",
+    "chamber": "Chamber",
+    "temperature": "{{now}} / {{target}}",
+    "slots": "Filament",
+    "unknownMaterial": "Unknown",
+    "feeding": "(in use)",
+    "offlineHint": "Not answering. Its last print is kept until it is back."
   }
 }

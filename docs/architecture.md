@@ -276,6 +276,12 @@ A source with the `printerStatus` capability says what each printer is doing now
 - A job that is gone with no end state is emitted with `endSeen: false`, as a success if it had reached 100% and as failed otherwise.
 - Offline during a job keeps the job. With the stored state, a restart during a print does too.
 
+**Runner** (`apps/server/src/integrations/printerStatus.ts`): one poll loop per working source with `printerStatus` on, every 3 s while a printer is preparing, printing or paused, else every 15 s. It looks for sources switched on, off or set up anew every 10 s. A printer missing from a read, or a source that fails, is `offline`. The tracker's state per printer is stored in `settings` (`printerTrackers`) when a job starts or ends, so a restart during a print still records it.
+
+**A print the tracker sees end is written at once** (`Syncer.recordPrint`), through the same review as a sync, never held back: its project is the one its title names (`linkPrints`) or none, and a slot without a sure spool waits in Filament to review. Only printers you have count: a source's printer that isn't imported yet has no status and no prints.
+
+**API:** `GET /api/printers/status` lists every printer's latest snapshot by printer id; `GET /api/printers/status/events` is an SSE stream that sends the same list again whenever something besides the read time changes. Both need `printers` read.
+
 One printer can have several sources. `printerOfSource` finds the printer by its own source key, else by serial. `samePrint` finds the print another source already recorded: by the id either side names, else by a start within 60 seconds (`packages/core/src/services/printSources.ts`).
 
 ### Adding a vendor

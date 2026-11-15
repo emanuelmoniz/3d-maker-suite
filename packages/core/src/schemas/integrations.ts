@@ -138,6 +138,13 @@ export const printerSnapshotSchema = z.object({
     .default([]),
 });
 
+/** A printer's live status as the API sends it: which printer, from which source. */
+export const printerStatusSchema = z.object({
+  printerId: id,
+  integrationId: id,
+  snapshot: printerSnapshotSchema,
+});
+
 /** `config` and `secrets` are checked against the adapter's own schemas by the server. */
 export const integrationInputSchema = z.object({
   adapterId: z.string().min(1),
@@ -371,6 +378,7 @@ export const testResultSchema = z.union([
 export type ExternalPrinter = z.infer<typeof externalPrinterSchema>;
 export type ExternalPrint = z.infer<typeof externalPrintSchema>;
 export type PrinterSnapshot = z.infer<typeof printerSnapshotSchema>;
+export type PrinterStatus = z.infer<typeof printerStatusSchema>;
 export type IntegrationInput = z.input<typeof integrationInputSchema>;
 export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;

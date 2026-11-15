@@ -101,6 +101,7 @@
       "name": "Demo data (mock)",
       "fields": {
         "label": "Label",
+        "liveCycleSec": "Live print loop (seconds)",
         "token": "Token"
       }
     },

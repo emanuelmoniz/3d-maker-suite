@@ -23,6 +23,7 @@ import {
   type MergePolicy,
   matchPrint,
   mergeOf,
+  NO_PROJECT,
   REVIEWED_TYPES,
   type ReviewedType,
   SLICER_PRESET_TYPES,
@@ -37,6 +38,7 @@ import {
   type SyncType,
   spoolFilament,
   type TestResult,
+  type TrackedPrint,
   USER_PRESET_ENTITY,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -1142,9 +1144,55 @@ export function createSyncer(
     return created;
   }
 
+  /**
+   * A print the job tracker saw end (ADR-0015): written at once, never held back for a person. Its
+   * project is the one its title names, else none; a slot without a sure spool waits in Filament to
+   * review. False when nothing was written: it is there already, or its printer isn't imported.
+   */
+  function recordPrint(id: string, tracked: TrackedPrint) {
+    const p = externalPrintSchema.safeParse(tracked.print);
+    if (!p.success) {
+      log.warn({ integrationId: id, issues: p.error.issues }, "invalid print from the job tracker");
+      return false;
+    }
+    const from = { kind: "integration" as const, integrationId: id };
+    // Only what is sure: a spool guessed among several is left out, and its slot waits for a person.
+    const rows = printRows(db, id, [p.data]).map(({ raw: { unsure, ...raw }, ...r }) => ({
+      ...r,
+      raw: { ...raw, ...Object.fromEntries(((unsure ?? []) as string[]).map((k) => [k, null])) },
+    }));
+    const read: Stored = { entity: "prints", ignoredHeaders: [], from, rows };
+    const stored = policyOf(db, id, "prints").trackUsage ? read : untracked(read);
+    const decisions = review.preview(stored).rows.flatMap((r) => {
+      if (r.status !== "new" || r.action !== "create") return [];
+      const refs = Object.fromEntries(
+        Object.entries(r.refs ?? {}).flatMap(([k, v]) => (v ? [[k, v]] : [])),
+      );
+      // The review asks a print's project of a person; none is an answer it takes.
+      return [{ row: r.row, action: "create" as const, refs: { project: NO_PROJECT, ...refs } }];
+    });
+    if (!decisions.length) {
+      log.debug({ integrationId: id }, "tracked print not written: known, or its printer isn't");
+      return false;
+    }
+    const { created } = review.write(stored, decisions, "overwrite", null);
+    // No project here isn't a choice: a project named like it later still gets it (`linkPrints`).
+    db.update(prints)
+      .set({ noProject: false })
+      .where(and(eq(prints.integrationId, id), eq(prints.externalId, p.data.externalId)))
+      .run();
+    linkPrints(db);
+    return created > 0;
+  }
+
+  /** The source of a working integration, for its printers' live status; one per caller. */
+  const statusSource = (id: string, signal: AbortSignal) => instanceFor(rowOf(id), signal).status;
+
   return {
     run,
     runAll,
+    recordPrint,
+    statusSource,
     checkCatalogs,
     checkUserPresets,
     checkFreed,

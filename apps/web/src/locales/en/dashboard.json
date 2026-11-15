@@ -16,6 +16,7 @@
   "spoolsNone": "No spools are running low.",
   "printsNone": "No prints logged yet.",
   "widgets": {
+    "printerStatus": "Live status",
     "statCard": "Stat",
     "seriesChart": "Chart over time",
     "printerStates": "Printers",
@@ -29,8 +30,10 @@
     "limit": "Rows shown"
   },
   "periods": {
+    "30": "Last 30 days",
     "month": "This month",
-    "week": "Last 7 days",
-    "30": "Last 30 days"
-  }
+    "week": "Last 7 days"
+  },
+  "printerStatusNone": "No printer reports what it is doing yet.",
+  "printerStatusAdd": "Connect one in Integrations"
 }

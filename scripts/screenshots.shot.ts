@@ -49,7 +49,8 @@ test("README screenshots", async ({ page, app }) => {
   );
   const mock = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
-    config: { label: "Workshop" },
+    // A one-minute live print loop, so the dashboard shows one printing.
+    config: { label: "Workshop", liveCycleSec: 60 },
     secrets: { token: "workshop" },
   });
   // Reads the account's name and email for its card.
@@ -96,6 +97,8 @@ test("README screenshots", async ({ page, app }) => {
     installedAt: new Date().toISOString(),
   });
   await app.api("POST", "/api/accessories", { name: "Spare hotend 0.6", type: "Hotend" });
+  // After the seeded printers, so they keep their numbers. Its live status is on the dashboard.
+  await app.api("POST", `/api/integrations/${mock.id}/sync`, { type: "printers" });
 
   const others = [
     await app.api<{ id: string }>("POST", "/api/projects", { name: "Desk organizer" }),
@@ -181,6 +184,13 @@ test("README screenshots", async ({ page, app }) => {
     await page.waitForLoadState("networkidle");
     await expect(page.locator("main")).toBeVisible();
     if (name === "project") await page.waitForTimeout(2000); // the 3D view fits its camera after it loads
+    // The mock printer, part-way through its print (the server looks for live sources every 10 s).
+    if (name === "dashboard")
+      await expect(page.getByRole("progressbar", { name: "Print progress" })).toHaveAttribute(
+        "aria-valuetext",
+        /^Layer (2[0-9]|3[0-9]) of 50$/,
+        { timeout: 90_000 },
+      );
     await page.screenshot({ path: `${IMAGES}/${name}.png` });
   }
 
