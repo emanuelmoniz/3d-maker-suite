@@ -1,6 +1,7 @@
 import {
   type Integration,
   isAction,
+  isSlicerKind,
   type LibrarySources,
   SYNC_RUN_STATUSES,
   SYNC_TRIGGERS,
@@ -117,8 +118,8 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
   const adapterName = useAdapterName();
   const admin = useCan("integrations.manage");
   // No rows: a slicer type that only installs on machines so far.
-  const slicer = !rows.length || rows.some((i) => i.kind !== "cloud");
-  const here = rows.filter((i) => i.kind !== "worker" && i.kind !== "cloud");
+  const slicer = !rows.length || rows.some((i) => isSlicerKind(i.kind));
+  const here = rows.filter((i) => i.kind !== "worker" && isSlicerKind(i.kind));
   // A slicer type: it has a hub's slicer (a mock source or an API has none).
   const adapters = (useAdapters().data ?? []).filter((a) => a.libraryId === library);
   const type = adapters.length > 0;

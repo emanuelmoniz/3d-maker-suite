@@ -192,7 +192,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
     const printerId = printerOf.get(p.printerExternalId)?.id;
     const slots = p.filaments
       .slice(0, PRINT_MAX_SLOTS)
-      .map((f) => ({ ...f, startedAt: p.startedAt }));
+      .map((f) => ({ ...f, grams: f.grams ?? 0, startedAt: p.startedAt }));
     const matches = matchPrint(slots, active, (slot) =>
       history.before(printerId, slot, p.startedAt),
     );
@@ -228,7 +228,9 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
         if (pick?.label && !pick.sure) unsure.push(key.spool);
         // Shown in the review only; the slot keeps what was reported in `reported`.
         slots[key.filament] = [f.material, f.colorHex].filter(Boolean).join(" ") || null;
-        slots[key.grams] = f.grams;
+        // ponytail: a slot whose printer reports no grams counts as 0 until the job file or the
+        // plate fills it in (Plan 6.0.0 Step 4); every source so far sends them.
+        slots[key.grams] = f.grams ?? 0;
       }
       return {
         source: `${integrationId}:${p.externalId}`,

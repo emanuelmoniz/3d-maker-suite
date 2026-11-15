@@ -3,6 +3,7 @@ import {
   defaultPolicy,
   type Integration,
   isCatalogType,
+  isSlicerKind,
   type SyncPolicy,
   type SyncRun,
 } from "@3d-maker-suite/core";
@@ -213,7 +214,7 @@ export function PolicyLines({
   if (!rows.length) return null;
   const name = (type: LineType) => t(CAPS[type]);
   // An account's types run on a schedule; a slicer's follow its files (ADR-0019).
-  const files = i.kind !== "cloud";
+  const files = isSlicerKind(i.kind);
   const mode = (type: LineType) => (files ? defaultPolicy(type).mode : accountMode(type));
   const failed = patch.isError || sync.isError || sync.data?.status === "error";
   const edited = rows.find((p) => p.type === editing);

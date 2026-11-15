@@ -16,6 +16,7 @@ import {
   type IntegrationErrorCode,
   type IntegrationInstance,
   isAction,
+  isSlicerKind,
   isUserPresetType,
   type LibrarySpool,
   librarySpoolSchema,
@@ -857,7 +858,8 @@ export function createSyncer(
       // An account's preset: its copy for slicing goes with the row, held or not.
       const row = rowOf(id);
       const [, library, name] = /^([^:]*):user\/(.+)$/.exec(source) ?? [];
-      const cloud = adapters.find((a) => a.id === row.adapterId)?.kind === "cloud";
+      const adapter = adapters.find((a) => a.id === row.adapterId);
+      const cloud = !!adapter && !isSlicerKind(adapter.kind);
       if (cloud && isUserPresetType(type) && library && name)
         deleteCloudCopy(db, dataDir, adapters, row, type, library, name);
     }
@@ -1074,7 +1076,7 @@ export function createSyncer(
         type === "printers" ||
         type === "spools" ||
         type === "prints" ||
-        (isUserPresetType(type) && adapter.kind === "cloud")
+        (isUserPresetType(type) && !isSlicerKind(adapter.kind))
           ? instanceFor(row, signal)
           : undefined;
       return await offered(row, type, instance, range, signal, true);

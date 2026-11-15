@@ -9,6 +9,7 @@
   "noTasks": "An admin can let you sync or review an integration's data here.",
   "kinds": {
     "cloud": "Cloud",
+    "host": "Network",
     "local": "Local",
     "server": "Server",
     "worker": "Worker"
@@ -17,6 +18,7 @@
   "nameOnDevice": "{{name}} ({{device}})",
   "locations": {
     "cloud": "Account",
+    "host": "Network address",
     "local": "This server",
     "server": "This server",
     "worker": "Workstation"
@@ -159,10 +161,12 @@
     "userMachinePresets": "Printer user presets",
     "userProcessPresets": "Process user presets",
     "userFilamentPresets": "Filament user presets",
-    "slice": "Use as slicer"
+    "slice": "Use as slicer",
+    "printerStatus": "Live status"
   },
   "actionHints": {
-    "slice": "When active, this integration can be used for slicing projects."
+    "slice": "When active, this integration can be used for slicing projects.",
+    "printerStatus": "When active, the app follows what the printer is doing and records each print when it ends."
   },
   "catalog": {
     "chooseBrands": "Choose brands",

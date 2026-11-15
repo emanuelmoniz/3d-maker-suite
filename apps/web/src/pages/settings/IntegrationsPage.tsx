@@ -1,4 +1,4 @@
-import { INTEGRATION_KINDS } from "@3d-maker-suite/core";
+import { INTEGRATION_KINDS, isSlicerKind } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plug, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -70,7 +70,7 @@ export function IntegrationsPage() {
             {libraries.map((lib) => {
               const of = rows.filter((i) => libraryOf(i) === lib);
               // An API's accounts (ADR-0021); a slicer's places.
-              return of.length && of.every((i) => i.kind === "cloud") ? (
+              return of.length && of.every((i) => !isSlicerKind(i.kind)) ? (
                 <AccountsCard key={lib} adapterId={lib} rows={of} />
               ) : (
                 <LibraryCard key={lib} library={lib} rows={of} />

@@ -113,13 +113,13 @@ These live in `packages/core/src/integrations`. Only `printers` and `printHistor
 
 - Adapters **return DTOs and never touch the database.** Core validates the DTOs with zod and upserts them by `(integrationId, externalId)`.
 - Each capability is an optional property on the instance. An adapter implements only what its vendor supports.
-- An adapter is one source: `kind: 'cloud'` is an account, `kind: 'local'` a folder and program on the server's disk. A vendor with both ships two adapters (Bambu Cloud and Bambu Studio). The kind says where data comes from, not which types: `capabilities` lists those. A cloud source is usable once signed in, a local one once its folder is found on the server; otherwise the hub shows it as not available.
+- An adapter is one source: `kind: 'cloud'` is an account, `kind: 'host'` an address on the network and its key (a printer, ADR-0015), `kind: 'local'` a folder and program on the server's disk. A vendor with several ships one adapter each (Bambu Cloud and Bambu Studio). The kind says where data comes from, not which types: `capabilities` lists those. A cloud source is usable once signed in, a local one once its folder is found on the server; otherwise the hub shows it as not available. `isSlicerKind` tells a slicer install (`local`, `server`, `worker`) from an account (`cloud`, `host`): only an account is enabled, synced and listed on the Sources tabs.
 - The DTO types below are the `z.infer` shapes of zod schemas in `packages/core/src/schemas`.
 
 ```ts
 interface IntegrationAdapter {
   id: string;                    // 'bambu-cloud'; UI name is the i18n key `integrations:adapters.<id>.name`
-  kind: 'cloud' | 'local';
+  kind: 'cloud' | 'host' | 'local' | 'server' | 'worker';
   capabilities: Capability[];    // only what this source really provides
   configSchema: ZodObject;       // non-secret settings
   secretsSchema: ZodObject;      // fields encrypted at rest (ADR-0005)
@@ -144,6 +144,7 @@ interface IntegrationInstance {
   test(): Promise<{ ok: true } | { ok: false; code: IntegrationErrorCode }>;
   printers?: PrinterInventorySource;
   printHistory?: PrintHistorySource;
+  status?: PrinterStatusSource;
   filaments?: FilamentLibrarySource;
   projects?: ProjectSource;
   slicer?: SlicerLauncher;
@@ -160,6 +161,10 @@ interface PrinterInventorySource {
 interface PrintHistorySource {
   listPrints(q: { since?: string; until?: string; cursor?: string }):
     Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
+}
+
+interface PrinterStatusSource {  // the `printerStatus` capability; read-only, no printer control
+  readStatus(): Promise<PrinterSnapshot[]>;  // one per printer; one that doesn't answer is `offline`
 }
 
 interface FilamentLibrarySource {
@@ -189,8 +194,29 @@ type ExternalPrinter = {
 type ExternalPrint = {
   externalId: string; printerExternalId: string; title: string; startedAt: string;
   durationSec?: number; outcome: PrintOutcome; failureReason?: string;
-  filaments: { slot?: number; material?: string; colorHex?: string; grams: number }[];
+  filaments: {
+    slot?: number; material?: string; colorHex?: string;
+    grams?: number;            // unset: the printer doesn't say
+    gramsEstimated?: boolean;
+    rfid?: string; spoolId?: string;  // the spool the printer named
+  }[];
   sourceUrl?: string;  // shown, never fetched by core
+  peerId?: string;     // its externalId in another source of the same printer
+};
+
+type PrinterSnapshot = {
+  printerExternalId: string; at: string;
+  state: 'offline' | 'idle' | 'preparing' | 'printing' | 'paused' | 'finished' | 'cancelled' | 'error';
+  job?: {                      // each field only when the printer says
+    id?: string; peerId?: string; file?: string; title?: string; plate?: number;
+    startedAt?: string; elapsedSec?: number; progress?: number; etaSec?: number;
+    layer?: number; totalLayers?: number; slots?: number[]; failureReason?: string;
+  };
+  temperatures?: { nozzle?: number; nozzleTarget?: number; bed?: number; bedTarget?: number; chamber?: number };
+  slots: {
+    slot: number; material?: string; colorHex?: string; rfid?: string; spoolId?: string;
+    active?: boolean; gramsUsed?: number;
+  }[];
 };
 
 type ExternalFilamentPreset = {
@@ -230,6 +256,27 @@ sequenceDiagram
 - **Imported prints** need their printer to be imported by the same integration first; otherwise they are skipped. Filament usages are stored with grams and slot only (spool/preset matching: Step 13).
 - **Sync log:** `sync_runs` keeps the last 100 runs per integration (trigger, result, error code, created/skipped counts).
 - **Deleting an integration** keeps the imported rows (`integrationId` becomes null) and drops its credentials and sync log.
+
+### Printer status and the job tracker
+
+A source with the `printerStatus` capability says what each printer is doing now (ADR-0015). A snapshot is always whole: an adapter whose printer sends only what changed merges it itself. Snapshots are kept in memory only.
+
+`track(state, snapshot)` in `packages/core/src/services/jobTracker.ts` turns them into prints. It is pure and holds one small JSON state per printer:
+
+| Phase | Meaning |
+|---|---|
+| `unknown` | Not watching: nothing seen yet, or the printer went offline with no job. |
+| `idle` | Watching and no job runs. The printer may still show a job that ended. |
+| `active` | A job is preparing, printing or paused. |
+
+- A print is emitted once, when an `active` job reaches `finished`, `cancelled` or `error`. An end state with no job watched is an old job and is never recorded, so two end events for one job are one print.
+- The job keeps its file, ids, title, plate and slots from the first snapshots that had them, and the highest progress, layer and elapsed time. The snapshot that ends a job often has none of them.
+- Two snapshots are different jobs only when both name an id and they differ, or (without two ids) both name a file and they differ.
+- A job first seen while already printing is `partial`: its start is a guess and a slot may be missing.
+- A job that is gone with no end state is emitted with `endSeen: false`, as a success if it had reached 100% and as failed otherwise.
+- Offline during a job keeps the job. With the stored state, a restart during a print does too.
+
+One printer can have several sources. `printerOfSource` finds the printer by its own source key, else by serial. `samePrint` finds the print another source already recorded: by the id either side names, else by a start within 60 seconds (`packages/core/src/services/printSources.ts`).
 
 ### Adding a vendor
 

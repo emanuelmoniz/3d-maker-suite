@@ -6,6 +6,7 @@ import {
   type Integration,
   isAction,
   isCatalogType,
+  isSlicerKind,
   isUserPresetType,
   type NewSpoolField,
   REVIEWED_TYPES,
@@ -77,6 +78,7 @@ const USER_SCOPE_HINTS: Record<SyncScope, string> = {
 };
 const ACTION_HINTS: Record<(typeof ACTIONS)[number], string> = {
   slice: "integrations:actionHints.slice",
+  printerStatus: "integrations:actionHints.printerStatus",
 };
 const MERGES: Record<SyncMerge, string> = {
   overwrite: "integrations:policies.merges.overwrite",
@@ -282,7 +284,7 @@ export function PolicyFields({
   const accounts = !!useMe();
   const name = t(CAPS[p.type]);
   // A slicer's cards read files: a change in them runs the type, so it has no schedule (ADR-0019).
-  const files = i.kind !== "cloud";
+  const files = isSlicerKind(i.kind);
   const options = (map: Record<string, string>) =>
     Object.entries(map).map(([value, key]) => ({ value, label: t(key) }));
   const type = p.type;

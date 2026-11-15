@@ -3197,7 +3197,7 @@ Record the evidence in the ADR, adjust the decisions it changes, and set the sta
 Do Step 1 of the 6.0.0 plan in PLAN.md. Report each spike with evidence before changing the ADR.
 ```
 
-### [ ] Step 2 - Printer status capability and job tracker  **[plan mode]**
+### [x] Step 2 - Printer status capability and job tracker  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - `PrinterStatusSource` in `packages/core/src/integrations`, the snapshot zod schema, a `printerStatus` capability, `docs/architecture.md`.

@@ -608,6 +608,7 @@ describe("sync by type and date range", () => {
       ["prints", true],
       ["spools", false],
       ["slice", false],
+      ["printerStatus", false],
     ]);
   });
 
@@ -895,12 +896,12 @@ describe("capabilities", () => {
 
   it("are what the adapter supports, switched on and set up", async () => {
     const { id } = await create();
-    // `slice` also needs a slicer program.
-    expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
+    // `slice` also needs a slicer program; a printer's status is on like any switch.
+    expect(await caps(id)).toEqual(["printers", "prints", "spools", "printerStatus"]);
     const adapters = await get("/api/integrations/adapters");
     expect(adapters[0]).toMatchObject({
       id: "mock",
-      capabilities: ["printers", "prints", "spools", "slice"],
+      capabilities: ["printers", "prints", "spools", "slice", "printerStatus"],
     });
 
     // Until changed, every type follows its default policy; spools start untracked on a new one.
@@ -932,9 +933,14 @@ describe("capabilities", () => {
         merge: "review",
       },
       { type: "slice", mode: "manual", frequency: "1d", ...defaults },
+      { type: "printerStatus", mode: "manual", frequency: "1d", ...defaults },
     ]);
     const patched = (await setPolicy(id, "prints", { mode: "off" })).json();
-    expect(patched.capabilities).toEqual(["printers", "spools"]);
+    expect(patched.capabilities).toEqual(["printers", "spools", "printerStatus"]);
+    // A printer's status is a switch: on or off, never scheduled.
+    expect((await setPolicy(id, "printerStatus", { mode: "auto" })).statusCode).toBe(400);
+    const off = (await setPolicy(id, "printerStatus", { mode: "off" })).json();
+    expect(off.capabilities).toEqual(["printers", "spools"]);
     expect(patched.policies[1]).toMatchObject({ type: "prints", mode: "off", frequency: "1h" });
     await send("PATCH", `/api/integrations/${id}`, { enabled: false });
     expect(await caps(id)).toEqual([]);
@@ -948,7 +954,7 @@ describe("capabilities", () => {
   it("keep the setting of integrations added before spools started off", async () => {
     const { id } = await create();
     db.delete(schema.syncPolicies).where(eq(schema.syncPolicies.integrationId, id)).run();
-    expect(await caps(id)).toEqual(["printers", "prints", "spools"]);
+    expect(await caps(id)).toEqual(["printers", "prints", "spools", "printerStatus"]);
     const spools = (await get(`/api/integrations/${id}`)).policies[2];
     expect(spools).toMatchObject({ type: "spools", mode: "manual", trackUsage: true });
     await setPolicy(id, "spools", { trackUsage: false });
@@ -1033,6 +1039,23 @@ describe("capabilities", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("a host source (an address and a key) works as an account does, not as a slicer install", async () => {
+    // The mock under another kind: a printer reached by its address (ADR-0015).
+    const host: IntegrationAdapter = { ...mockAdapter(state), id: "host", kind: "host" };
+    app = await buildApp(db, false, "", { adapters: [host] });
+    const created = (
+      await send("POST", "/api/integrations", { adapterId: "host", secrets: { token: "key" } })
+    ).json();
+    // Not "ok"/"unavailable" as an install is, and it has an account block for its Sources tab.
+    expect(created).toMatchObject({ kind: "host", status: "new" });
+    expect(created.account).not.toBeNull();
+    expect(created.capabilities).toContain("printers");
+    expect(await syncType(created.id, "printers")).toMatchObject({ status: "ok", created: 1 });
+    // Switched off it does nothing; a slicer install keeps working.
+    const off = await send("PATCH", `/api/integrations/${created.id}`, { enabled: false });
+    expect(off.json().capabilities).toEqual([]);
   });
 
   it("sync skips switched-off features", async () => {

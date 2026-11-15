@@ -6,7 +6,7 @@ import {
   defaultPolicy,
   type FilamentLibrary,
   type IntegrationAdapter,
-  isAction,
+  isSlicerKind,
   SLICER_FILE_TYPES,
   SLICER_ZIP_TYPES,
   workerConfigSchema,
@@ -114,15 +114,16 @@ export const workerDevice = (db: Db, row: Row) => {
  * its Enabled switch only says whether it can be the hub's slicer (`slicerOptions`).
  */
 export const working = (row: Pick<Row, "enabled">, adapter?: Pick<IntegrationAdapter, "kind">) =>
-  row.enabled || (!!adapter && adapter.kind !== "cloud");
+  row.enabled || (!!adapter && isSlicerKind(adapter.kind));
 
 /** Supported by the adapter, working, and what it needs is set up; any install's slice. */
 function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[] {
   if (!adapter || !working(row, adapter)) return [];
-  // A cloud source needs its sign-in and a local one its folder; an action needs the program
+  // An account needs its sign-in and a slicer install its folder; an action needs the program
   // itself, and slicing the source too (its presets).
-  const source =
-    adapter.kind === "cloud" ? !adapter.login || !!row.secrets : !!slicerConfigDir(row, adapter);
+  const source = isSlicerKind(adapter.kind)
+    ? !!slicerConfigDir(row, adapter)
+    : !adapter.login || !!row.secrets;
   const program = row.slicerPath?.trim();
   // A worker's program is on its device (ADR-0014), while that device is a slice worker. Offline,
   // it still counts: its slices wait for it.
@@ -132,7 +133,8 @@ function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[]
   return adapter.capabilities.filter(
     (c) =>
       policyOf(db, row.id, c).mode !== "off" &&
-      (isAction(c) ? slicerApp && source : source || readsLibrary(db, adapter)),
+      // Only slicing needs the program; a printer's status is a switch on its source.
+      (c === "slice" ? slicerApp && source : source || readsLibrary(db, adapter)),
   );
 }
 
@@ -204,7 +206,7 @@ export function activeCapabilities(db: Db, adapters: IntegrationAdapter[], row: 
  * with no slicer installed yet, or a worker with no presets or no slicer on its device yet.
  */
 export const unavailable = (row: Row, adapter: IntegrationAdapter) =>
-  (adapter.kind !== "cloud" && !!adapter.library && !slicerConfigDir(row, adapter)) ||
+  (isSlicerKind(adapter.kind) && !!adapter.library && !slicerConfigDir(row, adapter)) ||
   (adapter.kind === "worker" && !row.slicerPath);
 
 /** Every integration that can do `cap` right now, oldest first. */

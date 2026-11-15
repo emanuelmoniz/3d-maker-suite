@@ -14,6 +14,7 @@ import {
   integrationSchema,
   isAction,
   isCatalogType,
+  isSlicerKind,
   isUserPresetType,
   type LoginInput,
   type LoginResult,
@@ -142,9 +143,11 @@ export const integrationsRoutes =
       const { catalogFingerprint: _, presetState: __, ...row } = rest;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
       const profile = accountConfigOf(config);
-      // A local (or server) source never syncs: it's there or it isn't.
+      // A slicer install never syncs: it's there or it isn't.
       const local =
-        adapter?.kind !== "cloud" && adapter && (unavailable(full, adapter) ? "unavailable" : "ok");
+        adapter &&
+        isSlicerKind(adapter.kind) &&
+        (unavailable(full, adapter) ? "unavailable" : "ok");
       return {
         ...row,
         ...(admin && {
@@ -158,7 +161,7 @@ export const integrationsRoutes =
         presetLibrary: adapter ? presetLibrary(adapter) : null,
         deviceName: adapter?.kind === "worker" ? (workerDevice(db, full)?.name ?? null) : null,
         account:
-          adapter?.kind === "cloud"
+          adapter && !isSlicerKind(adapter.kind)
             ? {
                 email: profile.email ?? null,
                 name: profile.name ?? null,
@@ -223,7 +226,7 @@ export const integrationsRoutes =
       deviceId: string | undefined,
       except?: string,
     ) => {
-      if (adapter.kind === "cloud") return;
+      if (!isSlicerKind(adapter.kind)) return;
       const library = presetLibrary(adapter);
       const twice = db
         .select()
@@ -231,7 +234,7 @@ export const integrationsRoutes =
         .all()
         .some((r) => {
           const a = syncer.adapters.find((x) => x.id === r.adapterId);
-          if (r.id === except || !a || a.kind === "cloud" || presetLibrary(a) !== library)
+          if (r.id === except || !a || !isSlicerKind(a.kind) || presetLibrary(a) !== library)
             return false;
           return adapter.kind === "worker"
             ? workerDeviceId(a.kind, r.config) === deviceId
@@ -293,7 +296,7 @@ export const integrationsRoutes =
               })
               .run();
           // An account's user presets are read when you ask, like migration 0102's (ADR-0019).
-          if (adapter.kind === "cloud")
+          if (!isSlicerKind(adapter.kind))
             for (const type of adapter.capabilities.filter(isUserPresetType))
               db.insert(syncPolicies)
                 .values({

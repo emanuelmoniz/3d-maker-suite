@@ -9,6 +9,7 @@ import {
   isUserPresetType,
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
+  PRINTER_STATES,
   SYNC_LEFT_REASONS,
   SYNC_LOG_EVENTS,
   SYNC_RUN_STATUSES,
@@ -53,11 +54,88 @@ export const externalPrintSchema = z.object({
       slot: z.number().int().nonnegative().optional(),
       material: z.string().optional(),
       colorHex: hexColor.optional(),
-      grams: z.number().nonnegative(),
+      /** Unset: the printer doesn't say; the job file or the project plate does (ADR-0015). */
+      grams: z.number().nonnegative().optional(),
+      /** Not measured: a total scaled by how far a stopped print got. */
+      gramsEstimated: z.boolean().optional(),
+      /** The spool the printer named: the tag it read, or the source's own spool id (Spoolman's). */
+      rfid: z.string().min(1).optional(),
+      spoolId: z.string().min(1).optional(),
     }),
   ),
   /** Design page (e.g. MakerWorld). A plain string: stored and shown, never fetched. */
   sourceUrl: z.string().optional(),
+  /**
+   * This print's `externalId` in another source of the same printer, when the printer names it
+   * (Bambu LAN carries the cloud's task id): the two are one print.
+   */
+  peerId: z.string().min(1).optional(),
+});
+
+/**
+ * What one printer is doing now (ADR-0015). Always whole: a source that sends only what changed
+ * merges it itself. Kept in memory only.
+ */
+export const printerSnapshotSchema = z.object({
+  /** As `listPrinters` names it. */
+  printerExternalId: z.string().min(1),
+  /** When the source read it. */
+  at: isoDate,
+  state: z.enum(PRINTER_STATES),
+  /** Each field only when the printer says; the snapshot that ends a job often has no file or id. */
+  job: z
+    .object({
+      /** The source's own id of this job: two ids that differ are two jobs. */
+      id: z.string().min(1),
+      /** As `externalPrintSchema.peerId`. */
+      peerId: z.string().min(1),
+      /** As the printer names it; the job file's header has the grams. */
+      file: z.string().min(1),
+      title: z.string().min(1),
+      /** 1-based plate of the project file. */
+      plate: z.number().int().positive(),
+      /** The printer's own start time. */
+      startedAt: isoDate,
+      elapsedSec: z.number().int().nonnegative(),
+      /** The printer's percent: often of the time, not of the material. */
+      progress: z.number().min(0).max(100),
+      etaSec: z.number().int().nonnegative(),
+      layer: z.number().int().nonnegative(),
+      totalLayers: z.number().int().positive(),
+      /** The slots the job uses, when the printer says so up front (Bambu's AMS mapping). */
+      slots: z.array(z.number().int().nonnegative()),
+      /** Why it ended in `error`, in the printer's words. */
+      failureReason: z.string().min(1),
+    })
+    .partial()
+    .optional(),
+  /** °C. */
+  temperatures: z
+    .object({
+      nozzle: z.number(),
+      nozzleTarget: z.number(),
+      bed: z.number(),
+      bedTarget: z.number(),
+      chamber: z.number(),
+    })
+    .partial()
+    .optional(),
+  /** Numbered as a print's filaments; a printer with one extruder and no spool holder has slot 0. */
+  slots: z
+    .array(
+      z.object({
+        slot: z.number().int().nonnegative(),
+        material: z.string().optional(),
+        colorHex: hexColor.optional(),
+        rfid: z.string().min(1).optional(),
+        spoolId: z.string().min(1).optional(),
+        /** Feeding the nozzle now. */
+        active: z.boolean().optional(),
+        /** What this job took from the slot so far, when the printer measures it (Moonraker). */
+        gramsUsed: z.number().nonnegative().optional(),
+      }),
+    )
+    .default([]),
 });
 
 /** `config` and `secrets` are checked against the adapter's own schemas by the server. */
@@ -292,6 +370,7 @@ export const testResultSchema = z.union([
 
 export type ExternalPrinter = z.infer<typeof externalPrinterSchema>;
 export type ExternalPrint = z.infer<typeof externalPrintSchema>;
+export type PrinterSnapshot = z.infer<typeof printerSnapshotSchema>;
 export type IntegrationInput = z.input<typeof integrationInputSchema>;
 export type IntegrationPatch = z.infer<typeof integrationPatchSchema>;
 export type AdapterInfo = z.infer<typeof adapterInfoSchema>;

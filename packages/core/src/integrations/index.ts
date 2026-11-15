@@ -7,7 +7,12 @@ import type {
 } from "../schemas/enums.ts";
 import type { LibraryPreset, LibrarySpool } from "../schemas/filament.ts";
 import type { DesktopSlicer } from "../schemas/hub.ts";
-import type { ExternalPrint, ExternalPrinter, TestResult } from "../schemas/integrations.ts";
+import type {
+  ExternalPrint,
+  ExternalPrinter,
+  PrinterSnapshot,
+  TestResult,
+} from "../schemas/integrations.ts";
 import type { PresetSetting, SlicerPresetKind } from "../schemas/presets.ts";
 import type { SlicerCatalog } from "../schemas/slicerCatalog.ts";
 
@@ -17,7 +22,7 @@ import type { SlicerCatalog } from "../schemas/slicerCatalog.ts";
 export interface IntegrationAdapter {
   /** e.g. "bambu-cloud". The UI name is the i18n key `integrations:adapters.<id>.name`. */
   id: string;
-  /** An account (`cloud`) or a folder and program on the server (`local`). */
+  /** An account (`cloud`), an address on the network (`host`) or a slicer install (`isSlicerKind`). */
   kind: IntegrationKind;
   /**
    * Only what this source really provides. A cloud one is usable once signed in, a local one once
@@ -82,6 +87,7 @@ export interface IntegrationInstance {
   test(): Promise<TestResult>;
   printers?: PrinterInventorySource;
   printHistory?: PrintHistorySource;
+  status?: PrinterStatusSource;
   spools?: SpoolInventorySource;
   userPresets?: UserPresetSource;
   /** Who the account is, for its card. Read at sign-in and on each sync; a failure keeps the last. */
@@ -129,6 +135,21 @@ export interface PrintHistorySource {
     until?: string;
     cursor?: string;
   }): Promise<{ items: ExternalPrint[]; nextCursor?: string }>;
+}
+
+/**
+ * What each printer is doing now (ADR-0015). The server asks every few seconds and the job tracker
+ * turns what it sees into prints; needs the `printerStatus` capability. Read-only: nothing here
+ * controls a printer.
+ */
+export interface PrinterStatusSource {
+  /**
+   * One snapshot per printer. A printer that doesn't answer is `offline`, not an error; throw only
+   * when the source itself fails (a wrong key). A source the printer pushes to keeps its connection
+   * and returns the latest; an end state (`finished`, `cancelled`, `error`) must be returned at
+   * least once, also when the printer is idle again before the next read.
+   */
+  readStatus(): Promise<PrinterSnapshot[]>;
 }
 
 /** Your spools as the vendor's account keeps them (e.g. Bambu's filament manager). */

@@ -5,6 +5,7 @@ import {
   IntegrationError,
   type IntegrationErrorCode,
   type LibrarySpool,
+  type PrinterSnapshot,
   type SliceRequest,
   type SliceResult,
 } from "@3d-maker-suite/core";
@@ -17,6 +18,8 @@ export type MockState = {
   printers: ExternalPrinter[];
   prints: ExternalPrint[];
   spools?: LibrarySpool[];
+  /** What the printers are doing now; unset = `liveStatus`, a print that loops with the clock. */
+  status?: PrinterSnapshot[];
   /** Every call throws this code. */
   fail?: IntegrationErrorCode;
   /** The fake slicer fails with this text. */
@@ -42,6 +45,59 @@ export function fakeSlice(req: SliceRequest): SliceResult {
     weightGrams: filaments.reduce((g, f) => g + f.grams, 0),
     filaments,
   };
+}
+
+export const LIVE_CYCLE_SEC = 600;
+const LIVE_GRAMS = 12;
+const LIVE_LAYERS = 50;
+
+/**
+ * The fake printer's status at `now`, the same print every ten minutes: idle for one, heating for
+ * one, printing for seven, then finished for one. It takes 12 g from slot 0, the filament of the
+ * fake history's prints.
+ */
+export function liveStatus(now = Date.now()): PrinterSnapshot {
+  const t = Math.floor(now / 1000) % LIVE_CYCLE_SEC;
+  const cycle = Math.floor(now / 1000) - t;
+  const done = Math.min(1, Math.max(0, (t - 120) / 420));
+  const printing = t >= 120 && t < 540;
+  const snap = (
+    state: PrinterSnapshot["state"],
+    job?: PrinterSnapshot["job"],
+  ): PrinterSnapshot => ({
+    printerExternalId: "mock-1",
+    at: new Date(now).toISOString(),
+    state,
+    job,
+    temperatures: {
+      nozzle: t < 60 ? 25 : printing ? 220 : 120,
+      nozzleTarget: printing || (t >= 60 && t < 120) ? 220 : 0,
+      bed: t < 60 ? 25 : 60,
+      bedTarget: t >= 60 && t < 540 ? 60 : 0,
+    },
+    slots: [
+      {
+        slot: 0,
+        material: "PLA",
+        colorHex: "#ff8800",
+        active: printing,
+        ...(t >= 60 && { gramsUsed: Math.round(LIVE_GRAMS * done * 100) / 100 }),
+      },
+    ],
+  });
+  if (t < 60) return snap("idle");
+  const job = {
+    id: `live-${cycle}`,
+    file: "mock-live.gcode",
+    title: "Mock live print",
+    startedAt: new Date((cycle + 60) * 1000).toISOString(),
+    elapsedSec: Math.min(t, 540) - 60,
+    progress: Math.round(done * 100),
+    etaSec: Math.max(0, 540 - t),
+    layer: Math.floor(done * LIVE_LAYERS),
+    totalLayers: LIVE_LAYERS,
+  };
+  return snap(t < 120 ? "preparing" : printing ? "printing" : "finished", job);
 }
 
 export const PAGE_SIZE = 2;
@@ -75,7 +131,7 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
   return {
     id: "mock",
     kind: "cloud",
-    capabilities: ["printers", "prints", "spools", "slice"],
+    capabilities: ["printers", "prints", "spools", "slice", "printerStatus"],
     configSchema: z.object({ label: z.string().optional() }),
     // No real program runs; the integration still needs a `slicerPath` that exists (any file).
     slicer: {
@@ -124,6 +180,12 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
               items: all.slice(start, end),
               nextCursor: end < all.length ? String(end) : undefined,
             };
+          },
+        },
+        status: {
+          readStatus: async () => {
+            await check();
+            return state.status ?? [liveStatus()];
           },
         },
         spools: {

@@ -8,6 +8,7 @@ import {
   type Integration,
   type IntegrationInput,
   type IntegrationPatch,
+  isSlicerKind,
   type LoginRequest,
   type LoginResult,
   pickSlicer,
@@ -80,11 +81,11 @@ const ACCOUNT_TYPES = ["printers", "prints", "spools"] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 /** A task that lives on a Sources tab, not on the Integrations page. */
 export const onSources = (i: Pick<Integration, "kind">, type: string) =>
-  i.kind === "cloud" && (ACCOUNT_TYPES as readonly string[]).includes(type);
+  !isSlicerKind(i.kind) && (ACCOUNT_TYPES as readonly string[]).includes(type);
 
 /** An enabled account that has `type` has its line on that type's Sources tab. */
 export const feeds = (i: Integration, type: AccountType) =>
-  i.kind === "cloud" && i.enabled && i.policies.some((p) => p.type === type);
+  !isSlicerKind(i.kind) && i.enabled && i.policies.some((p) => p.type === type);
 
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>

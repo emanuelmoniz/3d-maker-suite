@@ -142,16 +142,44 @@ export const NEW_SPOOL_FIELD = ["import", "unset", "review"] as const;
  * Where an integration's data comes from: an account, or a folder and program on the server's
  * disk. It says nothing about which types it has; the adapter's capabilities do.
  */
-/** `server`: a slicer the app downloads and runs itself (ADR-0013). */
-export const INTEGRATION_KINDS = ["cloud", "local", "server", "worker"] as const;
+/**
+ * `server`: a slicer the app downloads and runs itself (ADR-0013). `host`: an address on the
+ * network and its key (a printer, Spoolman; ADR-0015).
+ */
+export const INTEGRATION_KINDS = ["cloud", "host", "local", "server", "worker"] as const;
+/**
+ * A slicer install: a folder and program on the server or a workstation. The other kinds (`cloud`,
+ * `host`) are accounts: enabled, synced and listed on the Sources tabs.
+ */
+export const isSlicerKind = (kind: (typeof INTEGRATION_KINDS)[number]) =>
+  kind === "local" || kind === "server" || kind === "worker";
 /**
  * What an integration can do: the data types it provides, plus the `slice`
  * action. The adapter declares only what it really has, the user sets each one's sync policy
  * (or `off`).
  */
-export const CAPABILITIES = [...SYNC_TYPES, "slice"] as const;
-/** Actions are only on (`manual`) or `off`, and need the slicer program. */
-export const ACTIONS = ["slice"] as const;
+export const CAPABILITIES = [...SYNC_TYPES, "slice", "printerStatus"] as const;
+/**
+ * Not synced: only on (`manual`) or `off`. `slice` needs the slicer program; `printerStatus` is a
+ * printer's live status, which also records its prints (ADR-0015).
+ */
+export const ACTIONS = ["slice", "printerStatus"] as const;
+/**
+ * What a printer is doing, whatever its brand calls it (ADR-0015). `offline`: the source can't
+ * reach it. `preparing`: a job exists and nothing is extruded yet. `paused` also when it waits for
+ * a person. `finished`, `cancelled` and `error`: the printer still shows the job that ended
+ * (`error` without a job: the printer itself is in fault).
+ */
+export const PRINTER_STATES = [
+  "offline",
+  "idle",
+  "preparing",
+  "printing",
+  "paused",
+  "finished",
+  "cancelled",
+  "error",
+] as const;
 export const isAction = (c: string): c is (typeof ACTIONS)[number] =>
   (ACTIONS as readonly string[]).includes(c);
 
@@ -179,3 +207,4 @@ export type SyncScope = (typeof SYNC_SCOPES)[number];
 export type SyncMerge = (typeof SYNC_MERGES)[number];
 export type NewSpoolField = (typeof NEW_SPOOL_FIELD)[number];
 export type Capability = (typeof CAPABILITIES)[number];
+export type PrinterState = (typeof PRINTER_STATES)[number];

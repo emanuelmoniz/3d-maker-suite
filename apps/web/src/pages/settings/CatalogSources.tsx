@@ -1,5 +1,6 @@
 import {
   type Integration,
+  isSlicerKind,
   type LibrarySources,
   mayEditMachine,
   type PresetDevice,
@@ -112,7 +113,7 @@ export function CatalogSources() {
     // A worker's own folder holds a zip's copy for its machine: its lines are on the machine's card.
     const rows = [
       ...serverRows(lib, list),
-      ...routed.filter((i) => i.kind !== "cloud" && i.kind !== "worker"),
+      ...routed.filter((i) => isSlicerKind(i.kind) && i.kind !== "worker"),
     ];
     return [...new Map(rows.map((i) => [i.id, i])).values()]
       .filter(
@@ -126,7 +127,7 @@ export function CatalogSources() {
     ...new Map(
       libraries
         .flatMap((lib) => lib.routes)
-        .flatMap((r) => list.find((i) => i.id === r.integrationId && i.kind === "cloud") ?? [])
+        .flatMap((r) => list.find((i) => i.id === r.integrationId && !isSlicerKind(i.kind)) ?? [])
         .map((i) => [i.id, i]),
     ).values(),
   ];
@@ -393,7 +394,7 @@ function ShareSlicer({
   // Its user lines import what it sends: its own install's row, else the slicer's other route.
   const importer =
     routes.find((i) => i.kind === "worker" && i.deviceName === d?.name) ??
-    routes.find((i) => i.kind !== "cloud");
+    routes.find((i) => isSlicerKind(i.kind));
   const user = l ? LINES.filter((type) => !SYSTEM.includes(type)) : [];
   const send = (type: LineType) => {
     const k = KIND_OF[type];
