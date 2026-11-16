@@ -250,5 +250,16 @@
     "unknownMaterial": "Unknown",
     "feeding": "(in use)",
     "offlineHint": "Not answering. Its last print is kept until it is back."
+  },
+  "loaded": {
+    "title": "Loaded spools",
+    "description": "A new print on a slot uses up the spool loaded in it. If the printer reports another material for the slot, the print waits in Filament to review.",
+    "slot": "Slot {{slot}}",
+    "pick": "Spool in {{slot}}",
+    "none": "Nothing loaded",
+    "clear": "Clear",
+    "clearSlot": "Clear {{slot}}",
+    "addSlot": "Another slot",
+    "error": "That didn't work. Try again."
   }
 }

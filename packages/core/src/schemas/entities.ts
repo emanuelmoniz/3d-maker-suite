@@ -457,6 +457,10 @@ export const spoolSchema = z.object({
   /** Low-weight alert; null = the default (`lowSpoolGrams`, on). */
   lowGrams: grams.nullable(),
   lowAlert: z.boolean().nullable(),
+  /** The printer slot it sits in (`PUT /printers/:id/slots`): new prints there charge it. Read only. */
+  loadedPrinterId: id.nullable(),
+  loadedSlot: z.number().int().nonnegative().nullable(),
+  loadedAt: isoDate.nullable(),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });

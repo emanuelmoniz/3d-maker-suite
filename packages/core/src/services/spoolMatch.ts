@@ -92,15 +92,31 @@ export function matchSpool(
  * `matchSpool` for every slot of one print. A spool goes to one slot only. Two slots of the same
  * material + colour are two spools (the AMS switched to a second roll when the first ran out), so
  * none of them is sure. `recent` gives the printer's recent spools for a slot (its AMS position).
+ * A slot's `loaded` spool comes first (ADR-0015), when it is one of `spools`: sure, unless the
+ * printer reported another material for the slot or it can't hold the grams; then nothing is
+ * picked and a person checks it.
  */
 export function matchPrint(
   slots: (SlotToMatch & { slot?: number | null })[],
   spools: SpoolCandidate[],
   recent: (slot: number | null | undefined) => string[] = () => [],
+  loaded: (slot: number | null | undefined) => string | undefined = () => undefined,
 ): SpoolMatch[] {
-  const taken = new Set<string>();
+  // ponytail: the printer's own spool id / RFID would come before the loaded spool; no spool
+  // stores one yet (Spoolman's ids arrive with its two-way sync).
+  const loadedOf = (s: { slot?: number | null }) => {
+    const id = loaded(s.slot);
+    return id ? spools.find((c) => c.id === id) : undefined;
+  };
+  const taken = new Set(slots.flatMap((s) => loadedOf(s)?.id ?? []));
   const key = (s: SlotToMatch) => `${s.material?.toLowerCase()}|${s.colorHex?.toLowerCase()}`;
   return slots.map((s, i) => {
+    const l = loadedOf(s);
+    if (l)
+      return (!s.material || same(l.material, s.material)) &&
+        (l.remainingGrams == null || l.remainingGrams >= s.grams)
+        ? { id: l.id, sure: true }
+        : { id: null, sure: false };
     const m = matchSpool(
       s,
       spools.filter((c) => !taken.has(c.id)),

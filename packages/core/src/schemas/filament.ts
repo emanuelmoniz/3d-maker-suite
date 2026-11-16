@@ -4,9 +4,11 @@ import {
   filamentBrandSchema,
   filamentMaterialSchema,
   filamentPresetSchema,
+  id,
   spoolSchema,
 } from "./entities.ts";
 import { SPOOL_STATUSES } from "./enums.ts";
+import { PRINT_MAX_SLOTS } from "./import.ts";
 import type { ColumnFilter } from "./list.ts";
 
 // Filament brands and materials. Fields the user edits; `PATCH` takes any subset, plus `archived`.
@@ -84,6 +86,16 @@ export const spoolAdjustSchema = z.object({
   note: z.string().min(1).nullable().optional(),
 });
 
+/** Put a spool in a printer slot (numbered as a print's filaments), or empty it with `null`. */
+export const spoolLoadSchema = z.object({
+  slot: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(PRINT_MAX_SLOTS - 1),
+  spoolId: id.nullable(),
+});
+
 export const filamentPresetSortFields = [
   "brand",
   "material",
@@ -123,6 +135,7 @@ export type FilamentMaterialPatch = z.infer<typeof filamentMaterialPatchSchema>;
 export type SpoolInput = z.infer<typeof spoolInputSchema>;
 export type SpoolPatch = z.infer<typeof spoolPatchSchema>;
 export type SpoolAdjust = z.infer<typeof spoolAdjustSchema>;
+export type SpoolLoad = z.infer<typeof spoolLoadSchema>;
 
 /** A filament preset read from a slicer's local library (Bambu Studio, ...). */
 export const libraryPresetSchema = filamentPresetSchema

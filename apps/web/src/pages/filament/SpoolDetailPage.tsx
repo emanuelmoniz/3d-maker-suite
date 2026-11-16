@@ -7,10 +7,12 @@ import { Button } from "../../components/Button.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
+import { textLink } from "../../lib/cx.ts";
 import { spoolName, useSpool } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { printerName, usePrinter } from "../../lib/printers.ts";
 import { usePrints } from "../../lib/prints.ts";
 import { useTagsEnabled, useTagsOf } from "../../lib/tags.ts";
 import { PrintsTable } from "../prints/PrintsPage.tsx";
@@ -29,6 +31,18 @@ export function Info({ label, children }: { label: string; children: ReactNode }
 
 export const linkButton =
   "inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2";
+
+/** The printer slot the spool sits in, linking to the printer. */
+function LoadedIn({ printerId, slot }: { printerId: string; slot: number }) {
+  const { t } = useTranslation();
+  const printer = usePrinter(printerId).data;
+  if (!printer) return null;
+  return (
+    <Link to="/printers/$id" params={{ id: printerId }} className={textLink}>
+      {t("filament:detail.loadedIn", { printer: printerName(t, printer), slot: slot + 1 })}
+    </Link>
+  );
+}
 
 /** The projects and prints that took filament from this spool, as the main lists show them. */
 function SpoolUse({ spoolId }: { spoolId: string }) {
@@ -149,6 +163,13 @@ export function SpoolDetailPage() {
             {spool.pricePaid === null ? none : formatCurrency(spool.pricePaid / 100, currency)}
           </Info>
           <Info label={t("filament:spools.location")}>{spool.location ?? none}</Info>
+          <Info label={t("filament:detail.loaded")}>
+            {spool.loadedPrinterId ? (
+              <LoadedIn printerId={spool.loadedPrinterId} slot={spool.loadedSlot ?? 0} />
+            ) : (
+              none
+            )}
+          </Info>
           <Info label={t("filament:spools.purchasedAt")}>
             {spool.purchasedAt ? formatDate(spool.purchasedAt) : none}
           </Info>

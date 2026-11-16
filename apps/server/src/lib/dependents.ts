@@ -211,7 +211,8 @@ export const ITEMS = {
       listed(MAINTENANCE_TYPE, maintenanceTypes.appliesToPrinterIds),
     ],
     goes: [printerComments.printerId, usageCorrections.printerId],
-    clears: [plates.printerId],
+    // A spool loaded in it is just no longer loaded (FK `set null`).
+    clears: [plates.printerId, spools.loadedPrinterId],
     tag: "printer",
     alerts: alertTasks.printer,
     image: "photoPath",

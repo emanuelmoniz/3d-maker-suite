@@ -83,6 +83,7 @@ import {
   activeSpools,
   type LibraryType,
   libraryRows,
+  loadedSpools,
   printerRows,
   printRows,
   spoolHistory,
@@ -1001,11 +1002,14 @@ export function createSyncer(
     const active = activeSpools(db).map((s) => ({ ...s }));
     const byId = new Map(active.map((s) => [s.id, s]));
     const history = spoolHistory(db);
+    // A slot whose loaded spool contradicts the printer stays for a person, not matched by colour.
+    const loaded = loadedSpools(db);
     const waiting = db
       .select({
         usage: printFilamentUsages,
         title: prints.title,
         startedAt: prints.startedAt,
+        durationSec: prints.durationSec,
         printerId: prints.printerId,
       })
       .from(printFilamentUsages)
@@ -1021,7 +1025,7 @@ export function createSyncer(
       for (const rows of byPrint.values()) {
         const first = rows[0];
         if (!first) continue;
-        const { title, startedAt, printerId } = first;
+        const { title, startedAt, durationSec, printerId } = first;
         const slots = rows.map(({ usage: u }) => ({
           material: u.material ?? undefined,
           colorHex: u.colorHex ?? undefined,
@@ -1029,8 +1033,11 @@ export function createSyncer(
           slot: u.slot,
           startedAt,
         }));
-        const matches = matchPrint(slots, active, (slot) =>
-          history.before(printerId, slot, startedAt),
+        const matches = matchPrint(
+          slots,
+          active,
+          (slot) => history.before(printerId, slot, startedAt),
+          loaded(printerId ?? undefined, startedAt, durationSec),
         );
         for (const [i, { usage: u }] of rows.entries()) {
           const m = matches[i];

@@ -634,12 +634,18 @@ export const spools = sqliteTable(
     // Low-weight alert; null = the default (`lowSpoolGrams`, on).
     lowGrams: real(),
     lowAlert: integer({ mode: "boolean" }),
+    // The printer slot it sits in (ADR-0015): a new print on that slot charges it. On the spool, so
+    // it is in one place at a time. `loadedAt` keeps older prints from being charged to it.
+    loadedPrinterId: text().references(() => printers.id, { onDelete: "set null" }),
+    loadedSlot: integer(),
+    loadedAt: text(),
     archivedAt: text(),
     ...timestamps,
   },
   (t) => [
     index("spools_brand_idx").on(t.brandId),
     index("spools_material_idx").on(t.materialId),
+    uniqueIndex("spools_loaded_uq").on(t.loadedPrinterId, t.loadedSlot),
     uniqueIndex("spools_source_uq").on(t.sourceSpool),
     uniqueIndex("spools_number_uq").on(t.number),
     check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),

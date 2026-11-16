@@ -191,6 +191,104 @@ describe("prints from the job tracker", () => {
   });
 });
 
+describe("the spool loaded in a slot", () => {
+  const printerId = () => db.select().from(schema.printers).get()?.id ?? "";
+  const load = (slot: number, spoolId: string | null) =>
+    app.inject({
+      method: "PUT",
+      url: `/api/printers/${printerId()}/slots`,
+      payload: { slot, spoolId },
+    });
+  const placeOf = async (id: string) => {
+    const s = (await app.inject(`/api/filament/spools/${id}`)).json();
+    return [s.loadedPrinterId, s.loadedSlot];
+  };
+  const print = (material = "PLA") =>
+    reads(
+      [snap(0, { state: "idle", job: undefined })],
+      [
+        snap(10, {
+          slots: [{ slot: 0, material, colorHex: "#ff8800", active: true, gramsUsed: 4 }],
+        }),
+      ],
+      [snap(70, { state: "finished" })],
+    );
+
+  it("is set, moved, replaced and cleared; an archived spool leaves its slot", async () => {
+    const [a, b] = [await spool("#ff8800"), await spool("#0000ff")];
+    expect((await load(0, a.id)).statusCode).toBe(204);
+    expect(await placeOf(a.id)).toEqual([printerId(), 0]);
+    // Moved to another slot: one place at a time.
+    await load(2, a.id);
+    expect(await placeOf(a.id)).toEqual([printerId(), 2]);
+    // Another spool in its slot takes it out.
+    await load(2, b.id);
+    expect(await placeOf(a.id)).toEqual([null, null]);
+    await load(2, null);
+    expect(await placeOf(b.id)).toEqual([null, null]);
+    await load(1, b.id);
+    await app.inject({
+      method: "PATCH",
+      url: `/api/filament/spools/${b.id}`,
+      payload: { archived: true },
+    });
+    expect(await placeOf(b.id)).toEqual([null, null]);
+    expect((await load(1, b.id)).statusCode).toBe(400);
+  });
+
+  it("a print on that slot charges it, though another spool of its colour fits too", async () => {
+    const [, loaded] = [await spool("#ff8800"), await spool("#ff8800")];
+    await load(0, loaded.id);
+    // Loaded before the print ended.
+    db.update(schema.spools)
+      .set({ loadedAt: at(30) })
+      .where(eq(schema.spools.id, loaded.id))
+      .run();
+    await print();
+    expect(usagesOf(tracked()[0]?.id ?? "")).toMatchObject([{ spoolId: loaded.id, grams: 4 }]);
+  });
+
+  it("isn't charged for a print that ended before it was loaded", async () => {
+    const [, loaded] = [await spool("#ff8800"), await spool("#ff8800")];
+    await load(0, loaded.id);
+    await print();
+    // Loaded now, after the print: two spools fit, a guess.
+    expect(usagesOf(tracked()[0]?.id ?? "")).toMatchObject([{ spoolId: null }]);
+  });
+
+  it("a PLA spool on a slot the printer reports as PETG waits for review, after a sync too", async () => {
+    const loaded = await spool("#ff8800");
+    const petg = (
+      await app.inject({
+        method: "POST",
+        url: "/api/filament-materials",
+        payload: { name: "PETG" },
+      })
+    ).json();
+    // A PETG spool of the colour would be a sure match; the loaded spool says otherwise.
+    await app.inject({
+      method: "POST",
+      url: "/api/filament/spools",
+      payload: { materialId: petg.id, colorHex: "#ff8800", initialGrams: 1000 },
+    });
+    await load(0, loaded.id);
+    db.update(schema.spools)
+      .set({ loadedAt: at(0) })
+      .where(eq(schema.spools.id, loaded.id))
+      .run();
+    await print("PETG");
+    const id = tracked()[0]?.id ?? "";
+    expect(usagesOf(id)).toMatchObject([{ spoolId: null, material: "PETG" }]);
+    // A prints sync matches what waits again: still nothing for this slot.
+    await app.inject({
+      method: "POST",
+      url: `/api/integrations/${integrationId}/sync`,
+      payload: { type: "prints" },
+    });
+    expect(usagesOf(id)).toMatchObject([{ spoolId: null }]);
+  });
+});
+
 describe("printer alerts", () => {
   // The setup sync raised its own.
   const mine = () =>

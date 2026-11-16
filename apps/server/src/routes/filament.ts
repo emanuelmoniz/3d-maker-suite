@@ -231,7 +231,12 @@ export const filamentRoutes =
         db.transaction((tx) => {
           const row = tx
             .update(spools)
-            .set({ ...fields, archivedAt: archivedAtOf(archived) })
+            .set({
+              ...fields,
+              archivedAt: archivedAtOf(archived),
+              // An archived spool leaves its printer slot.
+              ...(archived && { loadedPrinterId: null, loadedSlot: null, loadedAt: null }),
+            })
             .where(eq(spools.id, req.params.id))
             .returning()
             .get();

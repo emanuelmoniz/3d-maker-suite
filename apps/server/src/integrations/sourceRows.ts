@@ -123,6 +123,30 @@ export const activeSpools = (db: Db) =>
     .where(and(isNull(spools.archivedAt), ne(spools.status, "empty")))
     .all();
 
+/**
+ * The spool loaded in a printer slot for a print, for `matchPrint`: loaded before the print ended,
+ * so an older print synced later isn't charged to it, and one running while you set it is.
+ */
+export function loadedSpools(db: Db) {
+  const rows = db
+    .select({
+      id: spools.id,
+      printerId: spools.loadedPrinterId,
+      slot: spools.loadedSlot,
+      at: spools.loadedAt,
+    })
+    .from(spools)
+    .where(isNotNull(spools.loadedPrinterId))
+    .all();
+  return (printerId: string | undefined, startedAt: string, durationSec?: number | null) => {
+    const end = Date.parse(startedAt) + (durationSec ?? 0) * 1000;
+    return (slot: number | null | undefined) =>
+      rows.find(
+        (r) => r.printerId === printerId && r.slot === slot && !!r.at && Date.parse(r.at) <= end,
+      )?.id;
+  };
+}
+
 type Use = { printerId: string; slot: number | null; startedAt: string; spoolId: string };
 
 /**
@@ -185,6 +209,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
   const active = activeSpools(db).map((s) => ({ ...s }));
   const byId = new Map(active.map((s) => [s.id, s]));
   const history = spoolHistory(db);
+  const loaded = loadedSpools(db);
   const fresh = items.filter((p) => !known.has(p.externalId));
   // Oldest first, so a print follows the spools picked for the ones before it.
   const picked = new Map<string, { label: string | null; sure: boolean }[]>();
@@ -193,8 +218,11 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
     const slots = p.filaments
       .slice(0, PRINT_MAX_SLOTS)
       .map((f) => ({ ...f, grams: f.grams ?? 0, startedAt: p.startedAt }));
-    const matches = matchPrint(slots, active, (slot) =>
-      history.before(printerId, slot, p.startedAt),
+    const matches = matchPrint(
+      slots,
+      active,
+      (slot) => history.before(printerId, slot, p.startedAt),
+      loaded(printerId, p.startedAt, p.durationSec),
     );
     picked.set(
       p.externalId,

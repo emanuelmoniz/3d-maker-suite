@@ -3252,7 +3252,7 @@ Do Step 3b of the 6.0.0 plan in PLAN.md.
 Do Step 4 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 5 - Loaded spool per printer slot  **[plan mode]**
+### [x] Step 5 - Loaded spool per printer slot  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Migration: the spool loaded in each printer slot (or toolhead).

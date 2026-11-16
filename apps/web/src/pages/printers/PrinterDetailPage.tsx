@@ -29,6 +29,7 @@ import {
 } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
 import { useCostInfo } from "./CostFields.tsx";
+import { LoadedSpools } from "./LoadedSpools.tsx";
 import { PrinterAccessories } from "./PrinterAccessories.tsx";
 import { PrinterStatusCard } from "./PrinterStatusCard.tsx";
 import { StateBadge } from "./StateBadge.tsx";
@@ -266,6 +267,8 @@ export function PrinterDetailPage() {
             </div>
           )}
         </section>
+
+        {!archived && <LoadedSpools printerId={id} live={live} />}
 
         <PrinterAccessories printerId={id} />
 

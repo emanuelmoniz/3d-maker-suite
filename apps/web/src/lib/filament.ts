@@ -4,6 +4,7 @@ import {
   type Spool,
   type SpoolAdjust,
   type SpoolInput,
+  type SpoolLoad,
   type SpoolPatch,
   type SpoolWeightEntry,
   spoolFilament,
@@ -73,6 +74,10 @@ export const useAdjustSpool = () =>
       note: v.note,
     }),
   );
+
+/** Put a spool in a printer slot, or empty it (`spoolId: null`). */
+export const useLoadSpool = (printerId: string) =>
+  useInvalidating((v: SpoolLoad) => api("PUT", `/api/printers/${printerId}/slots`, v));
 
 export const filamentLabel = (p?: FilamentPreset) =>
   p ? p.name || [p.brand, p.material].filter(Boolean).join(" ") : "";

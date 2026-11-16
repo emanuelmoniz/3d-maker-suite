@@ -16,6 +16,7 @@ import {
   printerSchema,
   printerSortFields,
   printStatsSchema,
+  spoolLoadSchema,
   summarizePrints,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -39,8 +40,15 @@ import { printerUsageColumns, usageRoutes } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
-const { printers, printerComments, printerModels, processPresets, prints, accessoryInstalls } =
-  schema;
+const {
+  printers,
+  printerComments,
+  printerModels,
+  processPresets,
+  prints,
+  accessoryInstalls,
+  spools,
+} = schema;
 const { machinePresets } = schema;
 type PrinterRecord = typeof printers.$inferSelect;
 const params = z.object({ id: z.uuid() });
@@ -232,6 +240,48 @@ export const printersRoutes =
           .where(and(eq(prints.printerId, printer.id), dateRange(prints.startedAt, req.query)))
           .all();
         return summarizePrints(rows, printer.powerW);
+      },
+    );
+
+    // The spool in a slot (ADR-0015): new prints there charge it. Loading a spool takes it out of
+    // the slot it was in; `null` empties the slot.
+    app.put(
+      "/:id/slots",
+      {
+        schema: {
+          params,
+          body: spoolLoadSchema,
+          response: { 204: z.null(), 400: apiErrorSchema, ...notFound },
+        },
+      },
+      async (req, reply) => {
+        const printer = get(req.params.id);
+        const { slot, spoolId } = req.body;
+        const inSlot = and(eq(spools.loadedPrinterId, printer.id), eq(spools.loadedSlot, slot));
+        const there = db.select({ id: spools.id }).from(spools).where(inSlot).get();
+        // Already there: keeps its `loadedAt`, so prints since then still charge it.
+        if (there?.id === spoolId) return reply.status(204).send(null);
+        if (spoolId) {
+          const s = db.select().from(spools).where(eq(spools.id, spoolId)).get();
+          if (!s || s.archivedAt)
+            throw new HttpError(400, "invalid_reference", "Unknown or archived spool");
+        }
+        db.transaction((tx) => {
+          tx.update(spools)
+            .set({ loadedPrinterId: null, loadedSlot: null, loadedAt: null })
+            .where(inSlot)
+            .run();
+          if (spoolId)
+            tx.update(spools)
+              .set({
+                loadedPrinterId: printer.id,
+                loadedSlot: slot,
+                loadedAt: new Date().toISOString(),
+              })
+              .where(eq(spools.id, spoolId))
+              .run();
+        });
+        return reply.status(204).send(null);
       },
     );
 

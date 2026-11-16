@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures.ts";
+import { pick, seedSpool } from "./helpers.ts";
 
 // Plan 6.0.0 Step 3: the mock printer prints in a loop (here every 20 s); its card on the
 // dashboard and printer page shows it live, and each print it finishes lands in Prints.
@@ -38,6 +39,37 @@ test("the mock printer shows live and its print lands when it ends", async ({ pa
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/printers\/[0-9a-f-]+$/);
   await expect(page.getByRole("article", { name: "01-Mock printer" })).toBeVisible();
+});
+
+// Plan 6.0.0 Step 5: a red PLA spool loaded in slot 1 is charged for the mock's orange PLA print.
+test("a spool loaded in a slot is charged for the next print there", async ({ page, app }) => {
+  test.setTimeout(90_000);
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    config: { liveCycleSec: 20 },
+    secrets: { token: "t" },
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  const spool = await seedSpool(app.api);
+  const spoolOf = () =>
+    app.api<{ remainingGrams: number; loadedSlot: number | null }>(
+      "GET",
+      `/api/filament/spools/${spool.id}`,
+    );
+  const [printer] = (await app.api<{ items: { id: string }[] }>("GET", "/api/printers")).items;
+
+  await page.goto(`/printers/${printer?.id}`);
+  await pick(page.getByRole("combobox", { name: "Spool in Slot 1" }), 1);
+  await expect.poll(async () => (await spoolOf()).loadedSlot).toBe(0);
+  await expect
+    .poll(async () => (await spoolOf()).remainingGrams, { timeout: 60_000 })
+    .toBeLessThan(1000);
+
+  // The spool page says where it is, and links back.
+  await page.goto(`/filament/spools/${spool.id}`);
+  await page.getByRole("link", { name: "01-Mock printer · slot 1" }).click();
+  await page.getByRole("button", { name: "Clear Slot 1" }).click();
+  await expect.poll(async () => (await spoolOf()).loadedSlot).toBeNull();
 });
 
 test("without a live source the dashboard says where to connect one", async ({ page }) => {
