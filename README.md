@@ -87,6 +87,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Install and first run | [docs/install.md](docs/install.md) |
 | Settings and environment variables | [docs/configuration.md](docs/configuration.md) |
 | Bambu Cloud setup | [docs/bambu-cloud.md](docs/bambu-cloud.md) |
+| Klipper printers (Moonraker) setup | [docs/moonraker.md](docs/moonraker.md) |
 | Project folders: structure, depths, Docker | [docs/projects.md](docs/projects.md) |
 | Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
 | Printers, usage and maintenance | [docs/printers.md](docs/printers.md) |

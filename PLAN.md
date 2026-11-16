@@ -3324,7 +3324,7 @@ Do Step 7 of the 6.0.0 plan in PLAN.md. Then push dev, push the tag and confirm 
 
 Each adapter: a `host` package in `packages/adapters/<id>` (its Step 1 fixtures are already in `fixtures/` there), config and secrets schemas, status (and history where it exists), the recorded fixtures as tests, i18n names, a setup page in the docs. Added by host or IP. An adapter never logs a raw printer message.
 
-### [ ] Step 8 - Moonraker
+### [x] Step 8 - Moonraker
 **Model:** Opus · **Effort:** Medium
 **Scope:** Status; history backfill (`server/history`); grams from the history job: the file's totals per tool, and the length really extruded for a cancelled or failed job (real grams, not estimated); the Spoolman spool a job names, which also marks the job as already reported to Spoolman by Moonraker (Step 12); layers from the file's metadata when the status has none; API key optional.
 **Done when:** fixtures from Step 1 import as the expected prints, the cancelled one with 0.23 of 0.99 g; tests pass.

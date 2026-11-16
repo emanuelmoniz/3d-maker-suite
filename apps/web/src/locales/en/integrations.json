@@ -117,6 +117,16 @@
         }
       }
     },
+    "moonraker": {
+      "name": "Moonraker (Klipper)",
+      "fields": {
+        "host": "Address (IP or host name, with :7125 when Mainsail or Fluidd isn't on port 80)",
+        "name": "Printer name",
+        "brand": "Brand",
+        "model": "Model",
+        "apiKey": "API key (only if Moonraker asks for one)"
+      }
+    },
     "bambu-studio": {
       "name": "Bambu Studio"
     },

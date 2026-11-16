@@ -40,7 +40,7 @@ Without `REAL_DB`, `release.test.ts` runs on made-up rows (as in CI) and `real-d
 
 An adapter is a vendor package in `packages/adapters/<vendor>`. It implements interfaces from `packages/core/src/integrations`.
 
-1. Create the package (copy `packages/adapters/mock` as a starting point). Export an `IntegrationAdapter` with `id`, `kind`, `capabilities`, `configSchema` and `secretsSchema`, plus `login` and `create` for an account (`kind: "cloud"`) or `library` for a slicer folder (`kind: "local"`). A vendor with both ships two adapters.
+1. Create the package (copy `packages/adapters/mock` as a starting point). Export an `IntegrationAdapter` with `id`, `kind`, `capabilities`, `configSchema` and `secretsSchema`, plus `login` and `create` for an account (`kind: "cloud"`), `create` for a printer on the network (`kind: "host"`, e.g. `packages/adapters/moonraker`) or `library` for a slicer folder (`kind: "local"`). A vendor with both ships two adapters.
 2. Declare and implement only the capabilities the source really has. Return DTOs; never touch the database.
 3. Validate every vendor response with zod. Map failures to `IntegrationErrorCode`, so the UI can show a message.
 4. Add `"@3d-maker-suite/adapter-<vendor>": "workspace:*"` to `apps/server/package.json`, then register it in `apps/server/src/integrations/registry.ts`. That file is the only place that imports adapters.

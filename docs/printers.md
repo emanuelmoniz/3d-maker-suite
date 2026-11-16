@@ -10,7 +10,7 @@ When the numbers are off, for example a printer bought used, prints made before 
 
 A printer whose source reports live status shows a card on the dashboard and on its page: state (idle, preparing, printing, paused, finished, cancelled, error, offline), progress, time left, layer, temperatures and the filament slots. It updates by itself, every 3 seconds while the printer prepares, prints or is paused and every 15 seconds otherwise. Status is read-only: the app never controls a printer. You see a printer's status if you can see the printer.
 
-Which printers report status depends on the source. This release has the foundation and a simulated printer for trying it out; the sources for real printer systems (Moonraker, Bambu LAN, PrusaLink, OctoPrint) arrive in the next 6.0.0 pre-releases, each with its own setup page.
+Which printers report status depends on the source: Klipper printers through [Moonraker](moonraker.md). Bambu LAN, PrusaLink and OctoPrint arrive in the next 6.0.0 pre-releases, each with its own setup page.
 
 ## How prints are recorded
 

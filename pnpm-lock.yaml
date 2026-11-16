@@ -224,6 +224,9 @@ importers:
       '@3d-maker-suite/adapter-mock':
         specifier: workspace:*
         version: link:../../packages/adapters/mock
+      '@3d-maker-suite/adapter-moonraker':
+        specifier: workspace:*
+        version: link:../../packages/adapters/moonraker
       '@3d-maker-suite/adapter-orca':
         specifier: workspace:*
         version: link:../../packages/adapters/orca
@@ -391,6 +394,15 @@ importers:
         version: 4.6.5
 
   packages/adapters/mock:
+    dependencies:
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/adapters/moonraker:
     dependencies:
       '@3d-maker-suite/core':
         specifier: workspace:*

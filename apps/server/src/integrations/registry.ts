@@ -5,6 +5,7 @@ import {
   bambuStudioWorkerAdapter,
 } from "@3d-maker-suite/adapter-bambu";
 import { mockAdapter } from "@3d-maker-suite/adapter-mock";
+import { moonrakerAdapter } from "@3d-maker-suite/adapter-moonraker";
 import {
   orcaSlicerAdapter,
   orcaSlicerServerAdapter,
@@ -16,6 +17,7 @@ import type { IntegrationAdapter } from "@3d-maker-suite/core";
 // Adding a vendor = add its package to apps/server/package.json and one entry here.
 export const adapters = (opts: { mock: boolean }): IntegrationAdapter[] => [
   bambuCloudAdapter(),
+  moonrakerAdapter(),
   bambuStudioAdapter(),
   orcaSlicerAdapter(),
   bambuStudioServerAdapter(),
