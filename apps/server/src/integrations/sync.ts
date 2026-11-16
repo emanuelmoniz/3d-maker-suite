@@ -8,6 +8,8 @@ import {
   type ExternalPrinter,
   externalPrinterSchema,
   externalPrintSchema,
+  fillGrams,
+  type GramTotal,
   type ImportApplyDecision,
   type ImportGone,
   type ImportPreviewRow,
@@ -56,7 +58,7 @@ import { deleteItem } from "../lib/dependents.ts";
 import { success } from "../lib/logSink.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { bookOrLink } from "../lib/prints.ts";
-import { linkPrints } from "../projects/linkPrints.ts";
+import { linkPrints, projectMatcher } from "../projects/linkPrints.ts";
 import { avatar, dropAvatar } from "./avatar.ts";
 import {
   activeCapabilities,
@@ -209,6 +211,26 @@ export function isDue(
  * it does with a change to a row you have follow the type's `scope` and `merge`; prints are
  * insert-only.
  */
+/**
+ * The slice result of the project plate a print names: the project its title matches
+ * (`projectMatcher`), the print's plate, or the only sliced one. Undefined when none is sure.
+ */
+export function plateTotals(db: Db, title: string, plate?: number): GramTotal[] | undefined {
+  const projectId = projectMatcher(db)(title);
+  if (!projectId) return undefined;
+  const rows = db
+    .select()
+    .from(schema.projectSlicePlates)
+    .where(eq(schema.projectSlicePlates.projectId, projectId))
+    .all()
+    .filter((r) => r.slicedFilaments && (plate == null || r.plate === plate));
+  const [row] = rows;
+  // Two files with the same plate, or no plate said and several sliced: not sure which it was.
+  if (rows.length !== 1 || !row?.slicedFilaments) return undefined;
+  // ponytail: the plate's slot n is the printer's slot n - 1, true until the AMS mapping moves it.
+  return row.slicedFilaments.map((f) => ({ slot: f.slot - 1, grams: f.grams }));
+}
+
 export function createSyncer(
   db: Db,
   adapters: IntegrationAdapter[],
@@ -1149,12 +1171,28 @@ export function createSyncer(
    * project is the one its title names, else none; a slot without a sure spool waits in Filament to
    * review. False when nothing was written: it is there already, or its printer isn't imported.
    */
-  function recordPrint(id: string, tracked: TrackedPrint) {
-    const p = externalPrintSchema.safeParse(tracked.print);
-    if (!p.success) {
-      log.warn({ integrationId: id, issues: p.error.issues }, "invalid print from the job tracker");
+  function recordPrint(
+    id: string,
+    tracked: TrackedPrint,
+    /** The job file's slicer totals (`readJobTotals`), when the caller could read the file. */
+    file?: GramTotal[],
+  ) {
+    const parsed = externalPrintSchema.safeParse(tracked.print);
+    if (!parsed.success) {
+      log.warn(
+        { integrationId: id, issues: parsed.error.issues },
+        "invalid print from the job tracker",
+      );
       return false;
     }
+    // Grams the printer didn't report: the file's totals, else the plate of the project it names.
+    const p = {
+      ...parsed,
+      data: fillGrams(parsed.data, tracked.job, {
+        file,
+        plate: plateTotals(db, parsed.data.title, parsed.data.plate),
+      }),
+    };
     const from = { kind: "integration" as const, integrationId: id };
     // Only what is sure: a spool guessed among several is left out, and its slot waits for a person.
     const rows = printRows(db, id, [p.data]).map(({ raw: { unsure, ...raw }, ...r }) => ({

@@ -108,6 +108,12 @@
     "project": "Project",
     "source": "Design page",
     "waiting": "Waiting for review",
-    "untracked": "Not tracked"
+    "untracked": "Not tracked",
+    "estimated": "estimated",
+    "gramsFrom": {
+      "printer": "from the printer",
+      "file": "from the job file",
+      "plate": "from the project plate"
+    }
   }
 }

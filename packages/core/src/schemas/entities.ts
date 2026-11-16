@@ -6,6 +6,7 @@ import {
   CAPABILITIES,
   COMMENT_STATUSES,
   ENERGY_SOURCES,
+  GRAMS_SOURCES,
   INTEGRATION_ERROR_CODES,
   INTEGRATION_KINDS,
   INTEGRATION_STATUSES,
@@ -530,6 +531,10 @@ export const printFilamentUsageSchema = z.object({
   colorHex: hexColor.nullable(),
   /** The user chose not to track this filament (review queue). */
   dismissed: z.boolean(),
+  /** Where the grams came from; null = typed by hand or imported from a file. */
+  gramsSource: z.enum(GRAMS_SOURCES).nullable(),
+  /** Not measured: a total scaled by how far a stopped print got. */
+  gramsEstimated: z.boolean(),
 });
 
 export const tagSchema = z.object({ id, name: z.string().min(1), color: hexColor, ...timestamps });

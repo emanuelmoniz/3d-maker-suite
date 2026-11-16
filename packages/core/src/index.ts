@@ -36,6 +36,7 @@ export * from "./services/duration.ts";
 export * from "./services/import.ts";
 export * from "./services/importBulk.ts";
 export * from "./services/importMatch.ts";
+export * from "./services/jobGrams.ts";
 export * from "./services/jobTracker.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/managedSlicer.ts";

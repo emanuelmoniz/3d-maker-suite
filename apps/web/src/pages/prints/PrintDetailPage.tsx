@@ -76,7 +76,15 @@ function Usage({ u }: { u: PrintDetail["usages"][number] }) {
           </span>
         </span>
       )}
-      <span className="tabular-nums">{formatWeight(u.grams)}</span>
+      <span className="tabular-nums">
+        {u.gramsEstimated && (
+          <span className="mr-1 text-muted">{t("prints:detail.estimated")}</span>
+        )}
+        {formatWeight(u.grams)}
+        {u.gramsSource && (
+          <span className="ml-2 text-muted">{t(`prints:detail.gramsFrom.${u.gramsSource}`)}</span>
+        )}
+      </span>
     </li>
   );
 }

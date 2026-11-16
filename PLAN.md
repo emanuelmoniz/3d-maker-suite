@@ -3239,7 +3239,7 @@ Do Step 3 of the 6.0.0 plan in PLAN.md. Use frontend-design for the printer card
 Do Step 3b of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 4 - Grams from the job file and the project plate
+### [x] Step 4 - Grams from the job file and the project plate
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - When the printer doesn't report grams: read the slicer totals from the job file (the formats in `packages/3mf/fixtures/job-headers`: OrcaSlicer and PrusaSlicer write them at the end of the G-code, a `.bgcode` in its Printer metadata block, Bambu Studio in the 3MF's `slice_info.config` with the slot), else use the slice result of the project plate the print matched, else leave the slot for review.

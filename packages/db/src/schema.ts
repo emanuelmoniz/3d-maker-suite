@@ -14,6 +14,7 @@ import {
   type DeviceSlicer,
   type DeviceSyncState,
   ENERGY_SOURCES,
+  GRAMS_SOURCES,
   IMPORT_SOURCES,
   INTEGRATION_ERROR_CODES,
   LOG_LEVELS,
@@ -901,6 +902,10 @@ export const printFilamentUsages = sqliteTable(
     material: text(),
     colorHex: text(),
     dismissed: integer({ mode: "boolean" }).notNull().default(false),
+    /** Where the grams came from; null = typed by hand or imported from a file. */
+    gramsSource: text({ enum: GRAMS_SOURCES }),
+    /** Not measured: a total scaled by how far a stopped print got. */
+    gramsEstimated: integer({ mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     index("print_filament_usages_print_idx").on(t.printId),

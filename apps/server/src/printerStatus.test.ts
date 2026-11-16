@@ -1,14 +1,17 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readJobTotals } from "@3d-maker-suite/3mf";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import type { PrinterSnapshot, PrinterStatus } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { loadKey } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { buildApp } from "./app.ts";
+import { createSyncer } from "./integrations/sync.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -264,4 +267,88 @@ it("sends every printer's status over SSE, again when one changes", async () => 
   await reads([snap(5)], [snap(6, { state: "paused" })]);
   expect((await next())[0]?.snapshot).toMatchObject({ state: "paused", at: at(6) });
   await reader.cancel();
+});
+
+describe("grams the printer didn't report (ADR-0015)", () => {
+  const job = (name: string) =>
+    new Uint8Array(
+      readFileSync(new URL(`../../../packages/3mf/fixtures/job-headers/${name}`, import.meta.url)),
+    );
+  const record = (
+    outcome: "success" | "cancelled",
+    progress: { layer?: number; totalLayers?: number; progress?: number },
+    file?: Awaited<ReturnType<typeof readJobTotals>>,
+    title = "benchy",
+    plate?: number,
+  ) => {
+    const syncer = createSyncer(db, [mockAdapter(state)], loadKey(dataDir), app.log, dataDir);
+    syncer.recordPrint(
+      integrationId,
+      {
+        print: {
+          externalId: "j9",
+          printerExternalId: "mock-1",
+          title,
+          ...(plate && { plate }),
+          startedAt: at(0),
+          outcome,
+          filaments: [{ slot: 0, material: "PLA", colorHex: "#ff8800" }],
+        },
+        partial: false,
+        endSeen: true,
+        job: progress,
+      },
+      file,
+    );
+    const [print] = db.select().from(schema.prints).where(eq(schema.prints.externalId, "j9")).all();
+    return usagesOf(print?.id ?? "");
+  };
+
+  it("a file's totals from the fixtures; none for a slicer that wrote none", async () => {
+    for (const [name, grams] of [
+      ["orcaslicer-klipper.gcode", 0.99],
+      ["prusaslicer-klipper.gcode", 1.2],
+      ["prusaslicer.bgcode", 1.2],
+    ] as const) {
+      const [u] = record("success", {}, await readJobTotals(job(name)), `t-${name}`);
+      expect(u).toMatchObject({ grams, gramsSource: "file", gramsEstimated: false });
+      db.delete(schema.printFilamentUsages).run();
+      db.delete(schema.prints).run();
+    }
+  });
+
+  it("a print cancelled on layer 6 of 45 at 40% gets 6/45 of the file's grams, estimated", async () => {
+    const totals = [{ slot: 0, grams: 4.35 }];
+    const [u] = record("cancelled", { layer: 6, totalLayers: 45, progress: 40 }, totals);
+    expect(u).toMatchObject({ grams: 0.58, gramsSource: "file", gramsEstimated: true });
+  });
+
+  it("the project plate answers when there is no file, and says it is the plate", async () => {
+    const project = db
+      .insert(schema.projects)
+      .values({
+        number: 7,
+        name: "Benchy",
+        meta: { files: [{ path: "benchy.3mf", kind: "model", size: 1 }] },
+      })
+      .returning()
+      .get();
+    db.insert(schema.projectSlicePlates)
+      .values({
+        projectId: project.id,
+        file: "benchy.3mf",
+        plate: 1,
+        fileSize: 1,
+        fileMtimeMs: 1,
+        fileSha256: "x",
+        slicedFilaments: [{ slot: 1, grams: 8, material: "PLA" }],
+      })
+      .run();
+    const [u] = record("cancelled", { layer: 15, totalLayers: 30 });
+    expect(u).toMatchObject({ grams: 4, gramsSource: "plate", gramsEstimated: true });
+  });
+
+  it("nothing to go on: the slot is left as before", () => {
+    expect(record("success", {})).toEqual([]);
+  });
 });

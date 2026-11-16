@@ -4,6 +4,8 @@ export const SLICER_PRESET_KINDS = ["machine", "process", "filament"] as const;
 export const ORIGINS = ["manual", "integration"] as const;
 export const PRINT_OUTCOMES = ["success", "failed", "cancelled"] as const;
 export const ENERGY_SOURCES = ["estimated", "measured"] as const;
+/** Where a usage's grams came from (ADR-0015): the printer, the job file's totals, the project plate. */
+export const GRAMS_SOURCES = ["printer", "file", "plate"] as const;
 // The kind is the message; severity, module and task say how bad and what raised it (ADR-0008).
 export const ALERT_KINDS = [
   "maintenance_due",
@@ -189,6 +191,7 @@ export const isAction = (c: string): c is (typeof ACTIONS)[number] =>
 export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
 export type EnergySource = (typeof ENERGY_SOURCES)[number];
+export type GramsSource = (typeof GRAMS_SOURCES)[number];
 export type AlertKind = (typeof ALERT_KINDS)[number];
 export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
 export type AlertModule = (typeof ALERT_MODULES)[number];

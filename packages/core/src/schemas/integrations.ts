@@ -3,6 +3,7 @@ import { id, isoDate, syncPolicySchema } from "./entities.ts";
 import {
   CAPABILITIES,
   type Capability,
+  GRAMS_SOURCES,
   INTEGRATION_ERROR_CODES,
   INTEGRATION_KINDS,
   isCatalogType,
@@ -58,6 +59,8 @@ export const externalPrintSchema = z.object({
       grams: z.number().nonnegative().optional(),
       /** Not measured: a total scaled by how far a stopped print got. */
       gramsEstimated: z.boolean().optional(),
+      /** Set with `grams`; unset means the printer's own. `fillGrams` sets `file` and `plate`. */
+      gramsSource: z.enum(GRAMS_SOURCES).optional(),
       /** The spool the printer named: the tag it read, or the source's own spool id (Spoolman's). */
       rfid: z.string().min(1).optional(),
       spoolId: z.string().min(1).optional(),

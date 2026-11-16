@@ -1,4 +1,5 @@
 import {
+  type GramsSource,
   type ImportCell,
   type ImportErrorCode,
   type ImportTarget,
@@ -185,7 +186,13 @@ function projectFor(db: Db, cell: ImportCell | undefined): string | null {
 }
 
 /** What an integration reported for a slot; kept on a slot left for the review queue. */
-type Reported = { slot?: number | null; material?: string; colorHex?: string };
+type Reported = {
+  slot?: number | null;
+  material?: string;
+  colorHex?: string;
+  gramsSource?: GramsSource | null;
+  gramsEstimated?: boolean;
+};
 const reportedOf = (row: WriteRow | undefined) => (row?.raw.reported ?? []) as Reported[];
 
 /**
@@ -219,6 +226,8 @@ function useFilament(
       slot: said.slot ?? null,
       material: said.material ?? null,
       colorHex: said.colorHex?.toLowerCase() ?? null,
+      gramsSource: said.gramsSource ?? null,
+      gramsEstimated: said.gramsEstimated ?? false,
     };
     if (spoolId) booked.push({ spoolId, grams, ...as });
     else if (v[key.spool] || v[key.filament] || said)

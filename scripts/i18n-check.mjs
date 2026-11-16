@@ -36,7 +36,7 @@ for (const f of [...all, ...files("packages/core/src")].filter((f) => /\.tsx?$/.
 }
 
 // Looked up by id at runtime (`integrations:adapters.<id>.*`, `filament:library.sources.<id>`), so a new adapter only adds keys.
-const dynamic = ["integrations.adapters.", "filament.library.sources."];
+const dynamic = ["integrations.adapters.", "filament.library.sources.", "prints.detail.gramsFrom."];
 for (const k of defined) if (dynamic.some((p) => k.startsWith(p))) used.add(k);
 
 const missing = [...used].filter((k) => !defined.has(k));

@@ -1,5 +1,6 @@
 import {
   estimateDurationSec,
+  type GramsSource,
   gramsPerHour,
   type PrintUsageInput,
   usableOn,
@@ -110,7 +111,12 @@ export const syncUsages = (
   printId: string,
   title: string,
   /** `material` / `colorHex`: what an import reported for the slot, kept on the row. */
-  next: (PrintUsageInput & { material?: string | null; colorHex?: string | null })[],
+  next: (PrintUsageInput & {
+    material?: string | null;
+    colorHex?: string | null;
+    gramsSource?: GramsSource | null;
+    gramsEstimated?: boolean;
+  })[],
   ledger = true,
 ) => {
   const old = tx
@@ -151,6 +157,8 @@ export const syncUsages = (
           slot: u.slot ?? null,
           material: u.material ?? null,
           colorHex: u.colorHex ?? null,
+          gramsSource: u.gramsSource ?? null,
+          gramsEstimated: u.gramsEstimated ?? false,
         })),
       )
       .run();
