@@ -38,6 +38,7 @@ import {
   type SyncRun,
   type SyncTrigger,
   type SyncType,
+  slotOutcome,
   spoolFilament,
   type TestResult,
   type TrackedPrint,
@@ -86,6 +87,7 @@ import {
   loadedSpools,
   printerRows,
   printRows,
+  reviewLevels,
   spoolHistory,
   spoolRows,
 } from "./sourceRows.ts";
@@ -327,8 +329,8 @@ export function createSyncer(
   /**
    * One run syncs one type. A `from`/`to` range (prints only) re-reads that window instead of
    * continuing from the cursor, and never moves it. Reviewed types apply what `pick` decided, or
-   * without one only the rows that need no decision; the rest is counted as pending. Prints are
-   * reviewed too: one whose filament matches no single spool waits for a person.
+   * without one only the rows that need no decision; the rest is counted as pending. Prints with
+   * no `pick` are automatic: every new one is written (`writeAutomatic`), and nothing is pending.
    */
   async function run(
     id: string,
@@ -350,7 +352,6 @@ export function createSyncer(
     let pending = 0;
     // A slicer's presets gone from it: set by a run nobody confirmed (ADR-0019).
     let gone: ImportGone[] | undefined;
-    let oldestLeft: string | undefined;
     let errorCode: IntegrationErrorCode | null = null;
     const runLog = log.child({ integrationId: id });
     // What the run did, for its alert. Codes and row names only; raw errors go to `runLog`.
@@ -379,22 +380,21 @@ export function createSyncer(
         if (cloud) await placeCloudPresets(db, dataDir, adapters, row, cloud, note);
         // A run with nobody watching writes changes the way the type's `merge` says; under
         // `review` it writes none (they wait), so the policy only matters for new rows.
-        const done = review.write(
-          stored,
-          pick?.decisions ?? autoDecisions(review.preview(stored).rows),
-          pick?.policy ?? runPolicy(type, policyOf(db, id, type).merge),
-          pick?.backup ?? null,
-        );
+        const done =
+          type === "prints" && !pick
+            ? writeAutomatic(stored)
+            : review.write(
+                stored,
+                pick?.decisions ?? autoDecisions(review.preview(stored).rows),
+                pick?.policy ?? runPolicy(type, policyOf(db, id, type).merge),
+                pick?.backup ?? null,
+              );
         ({ created, updated, pending } = done);
         for (const w of done.written) note({ event: w.event, ...labelOf(w.values) });
         for (const r of done.invalid) note({ event: "invalid", ...labelOf(r.values) });
         for (const r of done.left) note(leftEntry(r));
         // The sync log counts what was there already; rows left for review are not "skipped".
         skipped = Math.max(0, done.skipped - pending);
-        // The next run starts at the oldest print left for review, so it is offered again.
-        oldestLeft = done.left
-          .map((r) => String(r.values.startedAt))
-          .reduce<string | undefined>((a, b) => (a && a < b ? a : b), undefined);
         // No run follows until the slicer's files change: what a review left out stays out, or its
         // alert would never close.
         if (pick && slicerFileType(adapter, type)) pending = 0;
@@ -413,17 +413,8 @@ export function createSyncer(
 
       // Only a sync (scheduled or "Sync now") of prints without a range moves the cursor on. A
       // past-range run must not make the next one skip prints, and a confirmed review is an import,
-      // not a sync: a print skipped there still comes in with the next sync. Any run moves it back
-      // to a print it left for review, so the next run and "since the last sync" offer it again.
-      const was = policyOf(db, id, "prints").cursor;
-      const cursor =
-        type !== "prints"
-          ? null
-          : !ranged && !pick
-            ? (oldestLeft ?? startedAt)
-            : was && oldestLeft && Date.parse(oldestLeft) < Date.parse(was)
-              ? oldestLeft
-              : null;
+      // not a sync: a print skipped there still comes in with the next sync (inside its overlap).
+      const cursor = type === "prints" && !ranged && !pick ? startedAt : null;
       const done = {
         pending,
         ...(!pick && { lastRunAt: startedAt }),
@@ -994,8 +985,10 @@ export function createSyncer(
   }
 
   /**
-   * Slots an earlier run left for the review queue get their spool once `matchPrint` is sure of
-   * one; a guess among several stays for a person.
+   * Slots waiting in the review queue are matched again, under their print's review level
+   * (ADR-0015): one to charge gets its spool, one that waits gets today's suggestion. It never
+   * discards: under `never` a slot that already waits stays for a person. A print no source
+   * recorded (a file import) keeps the old rule: charged once `matchPrint` is sure.
    */
   function rematch() {
     // Copies: the weights follow the bookings below.
@@ -1011,6 +1004,7 @@ export function createSyncer(
         startedAt: prints.startedAt,
         durationSec: prints.durationSec,
         printerId: prints.printerId,
+        integrationId: prints.integrationId,
       })
       .from(printFilamentUsages)
       .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
@@ -1021,11 +1015,17 @@ export function createSyncer(
     const byPrint = new Map<string, typeof waiting>();
     for (const w of waiting)
       byPrint.set(w.usage.printId, [...(byPrint.get(w.usage.printId) ?? []), w]);
+    const levels = new Map<string, ReturnType<typeof reviewLevels>>();
+    const levelOf = (integrationId: string | null, printerId: string | null) => {
+      if (!integrationId) return "unmatched";
+      if (!levels.has(integrationId)) levels.set(integrationId, reviewLevels(db, integrationId));
+      return levels.get(integrationId)?.(printerId) ?? "unmatched";
+    };
     db.transaction((tx) => {
       for (const rows of byPrint.values()) {
         const first = rows[0];
         if (!first) continue;
-        const { title, startedAt, durationSec, printerId } = first;
+        const { title, startedAt, durationSec, printerId, integrationId } = first;
         const slots = rows.map(({ usage: u }) => ({
           material: u.material ?? undefined,
           colorHex: u.colorHex ?? undefined,
@@ -1041,14 +1041,24 @@ export function createSyncer(
         );
         for (const [i, { usage: u }] of rows.entries()) {
           const m = matches[i];
-          const spool = m?.sure ? byId.get(m.id ?? "") : undefined;
-          if (!spool || !bookOrLink(tx, spool, u.grams, title, startedAt)) continue;
-          if (spool.remainingGrams != null) spool.remainingGrams -= u.grams;
-          tx.update(printFilamentUsages)
-            .set({ spoolId: spool.id })
-            .where(eq(printFilamentUsages.id, u.id))
-            .run();
-          history.add({ printerId, slot: u.slot, startedAt, spoolId: spool.id });
+          const outcome = slotOutcome(levelOf(integrationId, printerId), {
+            spoolId: (m?.id && byId.get(m.id)?.id) || null,
+            sure: !!m?.sure,
+            grams: u.grams <= 0 ? "none" : u.gramsEstimated ? "estimated" : "real",
+          });
+          const spool = outcome.action === "charge" ? byId.get(outcome.spoolId) : undefined;
+          if (spool && bookOrLink(tx, spool, u.grams, title, startedAt)) {
+            if (spool.remainingGrams != null) spool.remainingGrams -= u.grams;
+            tx.update(printFilamentUsages)
+              .set({ spoolId: spool.id, suggestedSpoolId: null })
+              .where(eq(printFilamentUsages.id, u.id))
+              .run();
+            history.add({ printerId, slot: u.slot, startedAt, spoolId: spool.id });
+          } else if (outcome.action === "wait" && outcome.suggestedSpoolId !== u.suggestedSpoolId)
+            tx.update(printFilamentUsages)
+              .set({ suggestedSpoolId: outcome.suggestedSpoolId })
+              .where(eq(printFilamentUsages.id, u.id))
+              .run();
         }
       }
     });
@@ -1075,7 +1085,8 @@ export function createSyncer(
     }
     if (type === "prints") {
       const items = instance ? await readPrints(row.id, instance, range, signal, review) : [];
-      const rows = printRows(db, row.id, items);
+      // Read for a review: a person decides. Else the rows are automatic and follow the level.
+      const rows = printRows(db, row.id, items, review ? undefined : reviewLevels(db, row.id));
       const kept = range.from || range.to ? { from: range.from, to: range.to } : undefined;
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
@@ -1201,13 +1212,23 @@ export function createSyncer(
       }),
     };
     const from = { kind: "integration" as const, integrationId: id };
-    // Only what is sure: a spool guessed among several is left out, and its slot waits for a person.
-    const rows = printRows(db, id, [p.data]).map(({ raw: { unsure, ...raw }, ...r }) => ({
-      ...r,
-      raw: { ...raw, ...Object.fromEntries(((unsure ?? []) as string[]).map((k) => [k, null])) },
-    }));
+    const rows = printRows(db, id, [p.data], reviewLevels(db, id));
     const read: Stored = { entity: "prints", ignoredHeaders: [], from, rows };
     const stored = policyOf(db, id, "prints").trackUsage ? read : untracked(read);
+    const { created } = writeAutomatic(stored);
+    if (!created)
+      log.debug({ integrationId: id }, "tracked print not written: known, or its printer isn't");
+    linkPrints(db);
+    return created > 0;
+  }
+
+  /**
+   * Prints nobody reviews (a run, the job tracker) are written at once, never held back (ADR-0015).
+   * Their slots already follow the review level (`printRows` with levels); the project is the one
+   * the title names, else none, and that isn't a choice (`printImport.create`): a project named
+   * like it later still gets the print (`linkPrints`).
+   */
+  function writeAutomatic(stored: Stored) {
     const decisions = review.preview(stored).rows.flatMap((r) => {
       if (r.status !== "new" || r.action !== "create") return [];
       const refs = Object.fromEntries(
@@ -1216,18 +1237,7 @@ export function createSyncer(
       // The review asks a print's project of a person; none is an answer it takes.
       return [{ row: r.row, action: "create" as const, refs: { project: NO_PROJECT, ...refs } }];
     });
-    if (!decisions.length) {
-      log.debug({ integrationId: id }, "tracked print not written: known, or its printer isn't");
-      return false;
-    }
-    const { created } = review.write(stored, decisions, "overwrite", null);
-    // No project here isn't a choice: a project named like it later still gets it (`linkPrints`).
-    db.update(prints)
-      .set({ noProject: false })
-      .where(and(eq(prints.integrationId, id), eq(prints.externalId, p.data.externalId)))
-      .run();
-    linkPrints(db);
-    return created > 0;
+    return review.write(stored, decisions, "overwrite", null);
   }
 
   /** The source of a working integration, for its printers' live status; one per caller. */

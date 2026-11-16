@@ -212,7 +212,7 @@ const keys = (need: Need, ...names: string[]) => names.map((k) => [k, need] as c
 const KEYS: Record<string, Need> = Object.fromEntries([
   ...keys(at("printers", "manage"), "defaultPrinterId", "printerStates"),
   ...keys(at("projects", "manage"), "projectScanMaxFiles", "viewerMaxMb", "projectUploadMaxMb"),
-  ...keys(at("prints", "manage"), "gramsPerHour", "failureReasons"),
+  ...keys(at("prints", "manage"), "gramsPerHour", "failureReasons", "printReview"),
   ...keys(
     at("costs", "manage"),
     "currency",

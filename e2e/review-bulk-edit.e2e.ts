@@ -215,7 +215,6 @@ test("a field set by another is read-only", async ({ page, app }) => {
     policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
-  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
   await seedSpool(app.api);
   await page.goto(`/import/integration/${id}/prints`);
   const form = await openBulkEdit(page);
@@ -377,7 +376,6 @@ test("prints: Project and Spool from the form reach the server", async ({ page, 
     policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
-  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
   const spool = await seedSpool(app.api);
   await page.goto(`/import/integration/${id}/prints`);
   const form = await openBulkEdit(page);

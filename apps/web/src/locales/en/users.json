@@ -243,7 +243,8 @@
       "preset_held": "Slicer preset deletes held",
       "print_finished": "Print finished",
       "print_failed": "Print failed",
-      "printer_offline": "Printer offline during a print"
+      "printer_offline": "Printer offline during a print",
+      "filament_review": "Filament waiting for a spool"
     }
   },
   "delivery": {

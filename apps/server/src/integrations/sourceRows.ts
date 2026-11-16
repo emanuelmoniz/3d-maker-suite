@@ -7,13 +7,17 @@ import {
   type NewSpoolField,
   PRINT_MAX_SLOTS,
   printSlotKeys,
+  reviewPolicyOf,
   type SLICER_ZIP_TYPES,
+  slotOutcome,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
 import { presetName, presetNames, printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
+import { readPreferences } from "../lib/preferences.ts";
+import { policyOf } from "./capabilities.ts";
 import { catalogName } from "./imports.ts";
 
 const { brands, printerModels, printers, printFilamentUsages, prints, spools } = schema;
@@ -147,6 +151,24 @@ export function loadedSpools(db: Db) {
   };
 }
 
+/**
+ * The review level of a printer's automatic prints from one source (ADR-0015): the printer's own,
+ * else the source's (its `prints` policy), else the global one.
+ */
+export function reviewLevels(db: Db, integrationId: string | null) {
+  const global = readPreferences(db).printReview;
+  const source = integrationId ? policyOf(db, integrationId, "prints").reviewPolicy : null;
+  const own = new Map(
+    db
+      .select({ id: printers.id, level: printers.reviewPolicy })
+      .from(printers)
+      .all()
+      .map((p) => [p.id, p.level]),
+  );
+  return (printerId: string | null | undefined) =>
+    reviewPolicyOf({ printer: own.get(printerId ?? ""), source, global });
+}
+
 type Use = { printerId: string; slot: number | null; startedAt: string; spoolId: string };
 
 /**
@@ -185,8 +207,17 @@ export function spoolHistory(db: Db) {
  * (the review skips them; a person may update one). A new print's slot names the spool
  * `matchPrint` picks; one picked from several is listed in `unsure`, and one with no spool stays
  * empty. Either holds the print for a person. The source key is `<integrationId>:<externalId>`.
+ *
+ * With `levels` the prints are automatic (a run nobody reviews, the job tracker): each new slot
+ * follows its review level (`slotOutcome`). Only a spool to charge is named; a slot that waits or
+ * isn't tracked says so in `reported`, and nothing is `unsure`.
  */
-export function printRows(db: Db, integrationId: string, items: ExternalPrint[]): StoredRow[] {
+export function printRows(
+  db: Db,
+  integrationId: string,
+  items: ExternalPrint[],
+  levels?: ReturnType<typeof reviewLevels>,
+): StoredRow[] {
   const mine = and(eq(printers.integrationId, integrationId), isNotNull(printers.externalId));
   const printerOf = new Map(
     db
@@ -212,7 +243,13 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
   const loaded = loadedSpools(db);
   const fresh = items.filter((p) => !known.has(p.externalId));
   // Oldest first, so a print follows the spools picked for the ones before it.
-  const picked = new Map<string, { label: string | null; sure: boolean }[]>();
+  type Picked = {
+    label: string | null;
+    sure: boolean;
+    /** An automatic slot that isn't charged: what it waits with, or that it isn't tracked. */
+    held?: { suggestedSpoolId: string | null; dismissed: boolean };
+  };
+  const picked = new Map<string, Picked[]>();
   for (const p of [...fresh].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
     const printerId = printerOf.get(p.printerExternalId)?.id;
     const slots = p.filaments
@@ -226,10 +263,27 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
     );
     picked.set(
       p.externalId,
-      matches.map((m, i) => {
+      matches.map((m, i): Picked => {
         const spool = byId.get(m.id ?? "");
         const f = slots[i];
-        if (!spool || !f) return { label: null, sure: false };
+        if (!f) return { label: null, sure: false };
+        const outcome =
+          levels &&
+          slotOutcome(levels(printerId), {
+            spoolId: spool?.id ?? null,
+            sure: m.sure,
+            grams: p.filaments[i]?.grams == null ? "none" : f.gramsEstimated ? "estimated" : "real",
+          });
+        const held =
+          outcome && outcome.action !== "charge"
+            ? {
+                suggestedSpoolId: outcome.action === "wait" ? outcome.suggestedSpoolId : null,
+                dismissed: outcome.action === "dismiss",
+              }
+            : undefined;
+        // Not tracked: it takes nothing from the spool, now or in the prints that follow.
+        if (!spool || held?.dismissed) return { label: null, sure: false, held };
+        // A suggestion counts like a pick here: later prints see what it would leave.
         if (spool.remainingGrams != null) spool.remainingGrams -= f.grams;
         if (printerId)
           history.add({
@@ -238,7 +292,7 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
             startedAt: p.startedAt,
             spoolId: spool.id,
           });
-        return { label: spool.label, sure: m.sure };
+        return held ? { label: null, sure: false, held } : { label: spool.label, sure: m.sure };
       }),
     );
   }
@@ -272,14 +326,17 @@ export function printRows(db: Db, integrationId: string, items: ExternalPrint[])
           ...slots,
           plate: p.plate ?? null,
           sourceUrl: p.sourceUrl ?? null,
-          reported: own.slice(0, PRINT_MAX_SLOTS).map((f) => ({
+          reported: own.slice(0, PRINT_MAX_SLOTS).map((f, i) => ({
             slot: f.slot ?? null,
             material: f.material,
             colorHex: f.colorHex,
             gramsSource: f.grams == null ? null : (f.gramsSource ?? "printer"),
             gramsEstimated: f.gramsEstimated ?? false,
+            ...picked.get(p.externalId)?.[i]?.held,
           })),
           ...(unsure.length && { unsure }),
+          // Nobody chose "no project" for it (`printImport.create`).
+          ...(levels && { automatic: true }),
         },
       };
     }),

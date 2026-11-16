@@ -192,6 +192,9 @@ type Reported = {
   colorHex?: string;
   gramsSource?: GramsSource | null;
   gramsEstimated?: boolean;
+  /** An automatic print's slot that isn't charged (ADR-0015): what it waits with, or not tracked. */
+  suggestedSpoolId?: string | null;
+  dismissed?: boolean;
 };
 const reportedOf = (row: WriteRow | undefined) => (row?.raw.reported ?? []) as Reported[];
 
@@ -244,6 +247,8 @@ function useFilament(
         grams,
         material: str(v[key.filament]) ?? str(v[key.spool]),
         ...as,
+        suggestedSpoolId: said?.suggestedSpoolId ?? null,
+        dismissed: said?.dismissed ?? false,
       });
   }
   // "no": the spools are already up to date, so only the print's own rows are written.
@@ -485,7 +490,10 @@ export const printImport = {
     const durationSec = estimated ? estimatedDuration(db, printerId, grams) : given;
     const outcome = str(v.outcome) as PrintInput["outcome"];
     const source = src && sourceOf(src);
-    const noProject = src?.refs?.project === NO_PROJECT;
+    const none = src?.refs?.project === NO_PROJECT;
+    // An automatic print without a project wasn't given none by a person: a project named like
+    // it later still gets it (`linkPrints`).
+    const noProject = none && src?.raw.automatic !== true;
     const row = db
       .insert(prints)
       .values({
@@ -499,7 +507,7 @@ export const printImport = {
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),
         printerId,
         machinePresetId: printerMachine(db, printerId),
-        projectId: noProject ? null : (src?.refs?.project ?? projectFor(db, v.project)),
+        projectId: none ? null : (src?.refs?.project ?? projectFor(db, v.project)),
         noProject,
         title: str(v.title) ?? "",
         startedAt: new Date(str(v.startedAt) ?? "").toISOString(),
@@ -568,12 +576,14 @@ export const printImport = {
                 slot: printFilamentUsages.slot,
                 material: printFilamentUsages.material,
                 colorHex: printFilamentUsages.colorHex,
+                suggestedSpoolId: printFilamentUsages.suggestedSpoolId,
+                dismissed: printFilamentUsages.dismissed,
               })
               .from(printFilamentUsages)
               .where(eq(printFilamentUsages.printId, cur.id))
               .all()
               .map((u) => ({
-                slot: u.slot,
+                ...u,
                 material: u.material ?? undefined,
                 colorHex: u.colorHex ?? undefined,
               })),

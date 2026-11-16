@@ -6,7 +6,6 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import {
   addRoots,
-  editLine,
   filamentOf,
   gotoIntegrations,
   hasHorizontalScroll,
@@ -357,7 +356,7 @@ test("estimated duration: button fills it, list shows ~, a real value clears it"
   await expect(page.getByText("2h")).toBeVisible();
 });
 
-test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle removes it", async ({
+test("filament_review alert: raised by an automatic run, opens the queue, resolves when it is empty", async ({
   page,
   app,
 }) => {
@@ -365,7 +364,7 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
     adapterId: "mock",
     secrets: { token: "t" },
   });
-  // No spool matches the mock prints' orange PLA, so an automatic run leaves them for review.
+  // No spool matches the mock prints' orange PLA: the run records them and their slots wait.
   await app.api("PATCH", `/api/integrations/${id}`, {
     policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
   });
@@ -373,22 +372,22 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
 
   await page.goto("/alerts");
-  const row = page
-    .getByRole("listitem")
-    .filter({ hasText: "waiting for your review" })
-    .or(page.getByRole("listitem").filter({ hasText: "wait for your review" }));
+  const text = "3 filament slots wait for a spool";
+  const row = page.getByRole("listitem").filter({ hasText: text });
   await expect(row).toHaveCount(1);
-  // The list has no Review button: it is on the alert.
-  await expect(row.getByRole("link", { name: "Review", exact: true })).toHaveCount(0);
+  // One alert for the whole queue, and no print is left for a review.
+  await expect(page.getByRole("listitem").filter({ hasText: "for your review" })).toHaveCount(0);
   await row.getByRole("link").click();
-  await page.getByRole("link", { name: "Review", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/import/integration/${id}/prints(\\?waiting=1)?$`));
+  await page.getByRole("link", { name: text }).click();
+  await expect(page).toHaveURL(/\/prints\/review/);
 
-  const edit = await editLine(page, "prints", "Print history");
-  const toggle = edit.getByLabel("Alert on Review: Print history");
-  await toggle.click();
-  await expect(toggle).not.toBeChecked();
-  await edit.getByRole("button", { name: "Save" }).click();
+  const queue = await app.api<{ items: { usageId: string }[] }>(
+    "GET",
+    "/api/prints/filament-review",
+  );
+  await app.api("POST", "/api/prints/filament-review/dismiss", {
+    usageIds: queue.items.map((i) => i.usageId),
+  });
   await expect
     .poll(async () => {
       const list = await app.api<{ items?: { kind: string }[] } | { kind: string }[]>(
@@ -396,7 +395,7 @@ test("sync_pending alert: raised by an auto sync, Review opens the queue, toggle
         "/api/alerts",
       );
       const items = Array.isArray(list) ? list : (list.items ?? []);
-      return items.filter((a) => a.kind === "sync_pending").length;
+      return items.filter((a) => a.kind === "filament_review").length;
     })
     .toBe(0);
 });

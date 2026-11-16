@@ -110,7 +110,7 @@ describe("matchPrint", () => {
     );
   });
 
-  it("takes a slot's loaded spool for sure, unless the printer reported another material", () => {
+  it("takes a slot's loaded spool for sure; as a guess when the printer reported another material", () => {
     const loaded = (s: number | null | undefined) => (s === 0 ? "b" : undefined);
     const two = [spool("a"), spool("b")];
     // Two of one colour would be a guess; the loaded one is sure, and no other slot takes it (the
@@ -130,10 +130,10 @@ describe("matchPrint", () => {
     expect(
       matchPrint([{ grams: 5, startedAt: slot.startedAt, slot: 0 }], two, () => [], loaded),
     ).toEqual([sure("b")]);
-    // A PLA spool on a slot the printer calls PETG: nothing, and no colour match either.
+    // A PLA spool on a slot the printer calls PETG: only a guess, and no colour match instead.
     const petg = [spool("b"), spool("c", { material: "PETG" })];
     expect(matchPrint([{ ...slot, material: "PETG", slot: 0 }], petg, () => [], loaded)).toEqual([
-      guess(null),
+      guess("b"),
     ]);
     // Too little left on it: a person checks the weight.
     expect(

@@ -150,8 +150,8 @@ describe("prints from the job tracker", () => {
   });
 
   it("is never held back: no project, no sure spool, its slot waits in Filament to review", async () => {
-    // Two spools fit: a guess, so nobody's spool is charged.
-    await spool("#ff8800");
+    // Two spools fit: a guess, so nobody's spool is charged; the oldest is only suggested.
+    const oldest = await spool("#ff8800");
     await spool("#ff8800");
     await reads(
       [snap(0, { state: "idle", job: undefined })],
@@ -160,7 +160,9 @@ describe("prints from the job tracker", () => {
     );
     const [print] = tracked();
     expect(print).toMatchObject({ outcome: "cancelled", projectId: null, noProject: false });
-    expect(usagesOf(print?.id ?? "")).toMatchObject([{ spoolId: null, grams: 4 }]);
+    expect(usagesOf(print?.id ?? "")).toMatchObject([
+      { spoolId: null, grams: 4, suggestedSpoolId: oldest.id, dismissed: false },
+    ]);
   });
 
   it("its project is the one its title names", async () => {
@@ -278,14 +280,16 @@ describe("the spool loaded in a slot", () => {
       .run();
     await print("PETG");
     const id = tracked()[0]?.id ?? "";
-    expect(usagesOf(id)).toMatchObject([{ spoolId: null, material: "PETG" }]);
-    // A prints sync matches what waits again: still nothing for this slot.
+    // The loaded spool is only the suggestion.
+    const waits = { spoolId: null, material: "PETG", suggestedSpoolId: loaded.id };
+    expect(usagesOf(id)).toMatchObject([waits]);
+    // A prints sync matches what waits again: still nothing charged for this slot.
     await app.inject({
       method: "POST",
       url: `/api/integrations/${integrationId}/sync`,
       payload: { type: "prints" },
     });
-    expect(usagesOf(id)).toMatchObject([{ spoolId: null }]);
+    expect(usagesOf(id)).toMatchObject([waits]);
   });
 });
 
@@ -447,9 +451,24 @@ describe("grams the printer didn't report (ADR-0015)", () => {
   });
 
   it("nothing to go on: the slot waits in Filament to review at 0 g, never booked", async () => {
-    await spool("#ff8800");
+    const s = await spool("#ff8800");
     expect(record("success", {})).toMatchObject([
-      { spoolId: null, grams: 0, slot: 0, gramsSource: null },
+      { spoolId: null, grams: 0, slot: 0, gramsSource: null, suggestedSpoolId: s.id },
+    ]);
+  });
+
+  it("estimated grams wait with the spool suggested; under the printer's `never` they are charged", async () => {
+    const s = await spool("#ff8800");
+    const totals = [{ slot: 0, grams: 4.35 }];
+    const cut = { layer: 6, totalLayers: 45, progress: 40 };
+    expect(record("cancelled", cut, totals)).toMatchObject([
+      { spoolId: null, suggestedSpoolId: s.id, gramsEstimated: true, dismissed: false },
+    ]);
+    db.delete(schema.printFilamentUsages).run();
+    db.delete(schema.prints).run();
+    db.update(schema.printers).set({ reviewPolicy: "never" }).run();
+    expect(record("cancelled", cut, totals)).toMatchObject([
+      { spoolId: s.id, suggestedSpoolId: null, gramsEstimated: true },
     ]);
   });
 });

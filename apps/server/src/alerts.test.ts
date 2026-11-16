@@ -558,7 +558,18 @@ describe("alerts", () => {
 
   it("a pending review shows the rows the last run left, without secrets", async () => {
     const dataDir = mkdtempSync(join(tmpdir(), "alerts-"));
-    app = await buildApp(db, false, dataDir, { adapters: [mockAdapter(fixture())] });
+    const state = fixture();
+    const spool = {
+      spoolId: "1",
+      filament: { brand: "Acme", material: "PLA", name: "A" },
+      colorHex: "#ff0000",
+      initialGrams: 1000,
+      remainingGrams: 250,
+      emptyWeightGrams: null,
+      status: "in_use" as const,
+    };
+    state.spools = [spool];
+    app = await buildApp(db, false, dataDir, { adapters: [mockAdapter(state)] });
     try {
       const { id } = (
         await send("POST", "/api/integrations", {
@@ -566,9 +577,13 @@ describe("alerts", () => {
           secrets: { token: "tk_secret_42" },
         })
       ).json();
-      // No spool fits the mock's filament, so its prints wait for a pick.
-      await send("POST", `/api/integrations/${id}/sync`, { type: "printers" });
-      await send("POST", `/api/integrations/${id}/sync`, { type: "prints" });
+      await send("PATCH", `/api/integrations/${id}`, {
+        policies: [{ type: "spools", mode: "auto", trackUsage: true }],
+      });
+      // The vendor's new weight for a spool you have waits for a look (prints never wait: ADR-0015).
+      await send("POST", `/api/integrations/${id}/sync`, { type: "spools" });
+      state.spools = [{ ...spool, remainingGrams: 100 }];
+      await send("POST", `/api/integrations/${id}/sync`, { type: "spools" });
       await evaluate();
       const pending = (await list()).find((a: { kind: string }) => a.kind === "sync_pending");
       expect(pending).toMatchObject({ severity: "warning", hasDetail: true });
@@ -576,7 +591,7 @@ describe("alerts", () => {
       expect(res.body).not.toContain("tk_secret_42");
       const { log } = res.json().detail;
       expect(log.length).toBe(pending.context.count);
-      expect(log[0]).toMatchObject({ event: "left", label: "Mock print 1", reason: "pick" });
+      expect(log[0]).toMatchObject({ event: "left", label: expect.stringContaining("Acme") });
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }

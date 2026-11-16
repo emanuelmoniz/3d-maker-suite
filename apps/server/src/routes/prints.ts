@@ -141,8 +141,12 @@ export const printsRoutes =
       isNull(printFilamentUsages.spoolId),
       eq(printFilamentUsages.dismissed, false),
     );
-    /** One waiting slot onto a spool, through the ledger. Throws the refusal the single assign gives. */
-    const assignOne = (usageId: string, spoolId: string) => {
+    /**
+     * One waiting slot onto a spool, through the ledger: the only place a suggestion turns into a
+     * charge. `grams` are the slot's as a person corrected them. Throws the refusal the single
+     * assign gives.
+     */
+    const assignOne = (usageId: string, spoolId: string, grams?: number) => {
       const row = db
         .select({ usage: printFilamentUsages, title: prints.title, startedAt: prints.startedAt })
         .from(printFilamentUsages)
@@ -154,10 +158,20 @@ export const printsRoutes =
         const spool = tx.select().from(spools).where(eq(spools.id, spoolId)).get();
         if (!spool || spool.archivedAt)
           throw new HttpError(400, "invalid_spool", "Spool not found");
-        if (!bookOrLink(tx, spool, row.usage.grams, row.title, row.startedAt))
-          throw shortOf(tx, spool.id, row.title, row.usage.grams);
+        const take = grams ?? row.usage.grams;
+        if (!bookOrLink(tx, spool, take, row.title, row.startedAt))
+          throw shortOf(tx, spool.id, row.title, take);
         tx.update(printFilamentUsages)
-          .set({ spoolId: spool.id })
+          .set({
+            spoolId: spool.id,
+            suggestedSpoolId: null,
+            // Grams a person typed are theirs: no longer the source's, nor an estimate.
+            ...(take !== row.usage.grams && {
+              grams: take,
+              gramsSource: null,
+              gramsEstimated: false,
+            }),
+          })
           .where(eq(printFilamentUsages.id, row.usage.id))
           .run();
       });
@@ -192,9 +206,16 @@ export const printsRoutes =
             grams: printFilamentUsages.grams,
             material: printFilamentUsages.material,
             colorHex: printFilamentUsages.colorHex,
+            gramsEstimated: printFilamentUsages.gramsEstimated,
+            // Only while it can be assigned: an archived spool is no suggestion.
+            suggestedSpoolId: spools.id,
           })
           .from(printFilamentUsages)
           .innerJoin(prints, eq(prints.id, printFilamentUsages.printId))
+          .leftJoin(
+            spools,
+            and(eq(spools.id, printFilamentUsages.suggestedSpoolId), isNull(spools.archivedAt)),
+          )
           .where(where)
           .orderBy(
             orderBy(
@@ -231,7 +252,7 @@ export const printsRoutes =
         },
       },
       async (req, reply) => {
-        assignOne(req.params.usageId, req.body.spoolId);
+        assignOne(req.params.usageId, req.body.spoolId, req.body.grams);
         return reply.status(204).send(null);
       },
     );
@@ -260,13 +281,45 @@ export const printsRoutes =
       },
     );
 
+    // "Accept suggestions": each row onto its own suggested spool, through the single assign.
+    app.post(
+      "/filament-review/accept",
+      { schema: { body: reviewDismissSchema, response: { 200: bulkResultSchema } } },
+      async (req): Promise<BulkResult> => {
+        const ids = [...new Set(req.body.usageIds)];
+        const suggested = new Map(
+          db
+            .select({ id: printFilamentUsages.id, spoolId: printFilamentUsages.suggestedSpoolId })
+            .from(printFilamentUsages)
+            .where(and(inArray(printFilamentUsages.id, ids), waiting))
+            .all()
+            .map((u) => [u.id, u.spoolId]),
+        );
+        const result: BulkResult = { done: [], blocked: [] };
+        for (const id of ids) {
+          try {
+            const spoolId = suggested.get(id);
+            if (spoolId === undefined)
+              throw new HttpError(404, "not_found", "Nothing to review here");
+            if (!spoolId) throw new HttpError(400, "no_suggestion", "No spool is suggested for it");
+            assignOne(id, spoolId);
+            result.done.push(id);
+          } catch (e) {
+            if (!(e instanceof HttpError)) throw e;
+            result.blocked.push({ id, code: e.code, message: e.message });
+          }
+        }
+        return result;
+      },
+    );
+
     // "Don't track this": the grams stay on the print, no spool changes.
     app.post(
       "/filament-review/dismiss",
       { schema: { body: reviewDismissSchema, response: { 204: z.null() } } },
       async (req, reply) => {
         db.update(printFilamentUsages)
-          .set({ dismissed: true })
+          .set({ dismissed: true, suggestedSpoolId: null })
           .where(and(inArray(printFilamentUsages.id, req.body.usageIds), waiting))
           .run();
         return reply.status(204).send(null);

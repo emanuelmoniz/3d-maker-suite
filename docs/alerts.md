@@ -12,6 +12,7 @@ Each kind of alert needs a permission, and a user never gets a kind whose permis
 | Spool low, no price, no open date | Filament (read) |
 | Warranty ending, printer offline during a print | Printers (read) |
 | Print finished, print failed | Prints (read) |
+| Filament to review | Prints (write) |
 | Sync waiting for review | Review syncs |
 | Sync done, sync failed | Sync integrations |
 | Slice setup changed, slice failed | Projects (read), and the project visible |
@@ -34,6 +35,10 @@ For printers with live status (see [printers.md](printers.md)):
 - **Printer offline** is a condition alert: it opens when a printer stops answering during a print for more than 2 minutes, and resolves when it answers again. A printer that is off while idle raises nothing.
 
 All three are In app by default; Admin gets them as Notify.
+
+## Filament to review
+
+Prints recorded automatically are never held back. A filament slot whose spool or grams aren't sure waits in **Filament to review** instead, and **Filament to review** is one condition alert with the number of slots waiting. It links to the queue and resolves when the queue is empty. In app by default; Admin gets it as Notify.
 
 ## Delivery per user
 

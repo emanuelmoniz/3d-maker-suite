@@ -26,10 +26,12 @@ export const printerInputSchema = printerSchema
     includeMaintenanceCost: true,
     countInCosts: true,
     processPresetId: true,
+    reviewPolicy: true,
   })
   .partial({
     machinePresetId: true,
     processPresetId: true,
+    reviewPolicy: true,
     number: true,
     serial: true,
     nozzleDiameterMm: true,

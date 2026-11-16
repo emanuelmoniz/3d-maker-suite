@@ -12,7 +12,20 @@ import {
   type SyncType,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
 import { accountsOn, alertVisible } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
@@ -33,6 +46,7 @@ const {
   maintenanceTypes,
   spools,
   printers,
+  printFilamentUsages,
   roles,
   slicerPresets,
   syncPolicies,
@@ -251,6 +265,24 @@ function conditions(db: Db, now: Date, offline: string[]): Found {
       context: { name: printerTitle(p) },
     });
   }
+  // Slots of recorded prints that wait for a spool (Filament to review): one alert with their
+  // count, open until the queue is empty.
+  const waiting =
+    db
+      .select({ n: count() })
+      .from(printFilamentUsages)
+      .where(and(isNull(printFilamentUsages.spoolId), eq(printFilamentUsages.dismissed, false)))
+      .get()?.n ?? 0;
+  if (waiting)
+    add({
+      kind: "filament_review",
+      severity: "warning",
+      module: "filament",
+      task: "filament-review",
+      entityType: "filament_review",
+      entityId: "queue",
+      context: { count: waiting },
+    });
   // A connector that opened its stream to this hub (since it started on this version) and is still
   // on another version: its update failed, or it can't update itself (not an installed build).
   if (prefs.hubEnabled)
@@ -390,6 +422,8 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return { title: "Print failed", body: `${c.title} on ${c.printer}` };
     case "printer_offline":
       return { title: "Printer offline", body: `${c.name} stopped answering during a print` };
+    case "filament_review":
+      return { title: "Filament to review", body: `${c.count} filament slots wait for a spool` };
     case "preset_held":
       return {
         title: "Slicer preset deletes held",

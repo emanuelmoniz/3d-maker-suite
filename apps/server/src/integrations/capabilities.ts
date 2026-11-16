@@ -36,6 +36,7 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       goneInUse: [] as string[],
       alertSeverities: null,
       trackUsage: true,
+      reviewPolicy: null,
       newWeight: "import" as const,
       newOpenedAt: "unset" as const,
       atMinute: null,

@@ -211,12 +211,13 @@ describe("integrations", () => {
     await spool();
     const [first, second] = state.prints as [ExternalPrint, ExternalPrint];
     first.title = "benchy_plate_2";
-    second.title = "box"; // two projects have a box.3mf: it waits for a person to pick one
-    expect(await sync(id)).toMatchObject({ pending: 1 });
+    second.title = "box"; // two projects have a box.3mf: recorded without one, never held back
+    expect(await sync(id)).toMatchObject({ pending: 0 });
     const row = (p: ExternalPrint) =>
       db.select().from(schema.prints).where(eq(schema.prints.externalId, p.externalId)).get();
     expect(row(first)).toMatchObject({ projectId: boat.id, plate: null });
-    expect(row(second)).toBeUndefined();
+    // Nobody chose "no project": linking by title may still give it one.
+    expect(row(second)).toMatchObject({ projectId: null, noProject: false });
 
     for (const p of state.prints) p.startedAt = new Date().toISOString();
     first.plate = 2;
@@ -278,9 +279,11 @@ describe("integrations", () => {
     expect(row(b)).toMatchObject({ title: "my codenames", projectId: null });
     expect(row(c)?.projectId).toBe(rack.id);
 
-    // A new print of a model two projects have waits for a person to pick one.
-    state.prints.push({ ...b, externalId: "job-8", startedAt: new Date().toISOString() });
-    expect(await syncType(id, "prints")).toMatchObject({ created: 0, pending: 1 });
+    // A new print of a model two projects have is recorded without a project.
+    const eight = { ...b, externalId: "job-8", startedAt: new Date().toISOString() };
+    state.prints.push(eight);
+    expect(await syncType(id, "prints")).toMatchObject({ created: 1, pending: 0 });
+    expect(row(eight)).toMatchObject({ projectId: null, noProject: false });
   });
 
   it("records failures as an error code and raises one sync_error per failing streak", async () => {
@@ -630,29 +633,26 @@ describe("sync by type and date range", () => {
     expect(watermark()).toBeNull();
   });
 
-  it("a range run that leaves a print for review moves the cursor back to it, never on", async () => {
+  it("a range run records a print whose slot waits, and leaves the cursor alone", async () => {
     const { id } = await create();
     await spool();
     await sync(id);
     const synced = watermark();
-    // No spool of its colour, so it waits; it started before the last sync.
+    // No spool of its colour, so its slot waits; it started before the last sync.
     const startedAt = new Date(Date.UTC(2026, 0, 2, 12)).toISOString();
     const filaments = firstPrint().filaments.map((f) => ({ ...f, colorHex: "#00ff00" }));
     state.prints.push({ ...firstPrint(), externalId: "job-9", startedAt, filaments });
     expect(await syncWith(id, { type: "prints", from: day(2), to: day(2, true) })).toMatchObject({
-      pending: 1,
+      created: 1,
+      pending: 0,
     });
-    const at = (iso: unknown) => Date.parse(String(iso));
-    expect(at(synced)).toBeGreaterThan(at(startedAt));
-    expect(at(watermark())).toBe(at(startedAt));
-    // "Since the last sync" offers it again.
-    const p = await printsReview(id);
-    expect(p.rows.filter((r) => r.status === "new").map((r) => at(r.values.startedAt))).toEqual([
-      at(startedAt),
+    expect(watermark()).toBe(synced);
+    expect((await get("/api/prints/filament-review")).items).toMatchObject([
+      { colorHex: "#00ff00", suggestedSpoolId: null },
     ]);
-    // A range run that leaves nothing doesn't move it on.
-    await syncWith(id, { type: "prints", from: day(1), to: day(1, true) });
-    expect(at(watermark())).toBe(at(startedAt));
+    // Nothing is left to offer "since the last sync".
+    const p = await printsReview(id);
+    expect(p.rows.filter((r) => r.status === "new")).toEqual([]);
   });
 
   it("a confirmed review isn't a sync: a print skipped there comes with the next sync", async () => {
@@ -708,12 +708,9 @@ describe("sync by type and date range", () => {
     expect(again.targets.map((x) => x.values.filament)).toEqual(["PLA #ff8800", "PLA #ff8800"]);
   });
 
-  it("holds unmatched prints from a run; the review suggests a spool per slot and books the pick", async () => {
+  it("the review suggests a spool per slot and books the pick", async () => {
     const { id } = await create();
     await syncWith(id, { type: "printers" });
-    // Nobody watching and no spool: nothing is imported, all of it waits.
-    expect(await syncWith(id, { type: "prints" })).toMatchObject({ created: 0, pending: 3 });
-    expect(printCount()).toBe(0);
 
     const match = await spool();
     const other = await spool("#000000");
@@ -910,6 +907,7 @@ describe("capabilities", () => {
       pending: 0,
       alertSeverities: null,
       trackUsage: true,
+      reviewPolicy: null,
       scope: "all",
       merge: "keepEdits",
       newWeight: "import",
@@ -1182,8 +1180,12 @@ describe("filament matching of imported prints", () => {
     const { id } = await create();
     return { id, run: await sync(id) };
   };
-  /** Imports every print the review holds, as the user confirming the review screen. */
-  const importHeld = async (id: string) => review.confirm(await printsReview(id));
+  const printsPolicy = async (id: string) => (await get(`/api/integrations/${id}`)).policies[1];
+  const accept = async (usageIds: string[]) =>
+    (await send("POST", "/api/prints/filament-review/accept", { usageIds })).json();
+  const ids = (items: { usageId: string }[]) => items.map((i) => i.usageId);
+  const suggested = async () =>
+    (await queue()).map((i: { suggestedSpoolId: string | null }) => i.suggestedSpoolId);
 
   it("books a unique type + colour match through the ledger, once", async () => {
     const s = await spool();
@@ -1204,45 +1206,52 @@ describe("filament matching of imported prints", () => {
     expect(await left(s.id)).toBe(1000 - 60);
   });
 
-  it("holds prints picked from several spools of one colour, and keeps the cursor at them", async () => {
+  it("records prints picked from several spools of one colour; their slots wait with the guess", async () => {
     const a = await spool();
     const b = await spool();
     const { id, run } = await syncNow();
-    expect(run).toMatchObject({ created: 1, pending: 3 }); // the printer only
-    expect(printCount()).toBe(0);
+    expect(run).toMatchObject({ created: 4, pending: 0 }); // the printer and its three prints
+    expect(printCount()).toBe(3);
     expect(await left(a.id)).toBe(1000);
     expect(await left(b.id)).toBe(1000);
-    // To the second, as the review reads the start.
-    expect(Date.parse(watermark() ?? "")).toBe(
-      Math.floor(Date.parse(state.prints[0]?.startedAt ?? "") / 1000) * 1000,
-    );
-    expect((await get(`/api/integrations/${id}`)).policies[1]).toMatchObject({ pending: 3 });
+    // Nothing is held back, so the cursor is the run's start.
+    expect(watermark()).toBe(run.startedAt);
+    expect(await printsPolicy(id)).toMatchObject({ pending: 0 });
 
-    // The review suggests the oldest, to be checked; confirming books it.
-    const p = await printsReview(id);
-    expect(p.rows.map((r) => [r.refs?.spool, r.refsUnsure, r.auto])).toEqual([
-      [a.id, ["spool"], "wait"],
-      [a.id, ["spool"], "wait"],
-      [a.id, ["spool"], "wait"],
-    ]);
-    expect((await review.confirm(p)).json()).toMatchObject({ created: 3 });
+    // Each slot waits with the oldest spool suggested, to be checked; accepting books it.
+    expect(await suggested()).toEqual([a.id, a.id, a.id]);
+    const all = ids(await queue());
+    expect(await accept(all)).toMatchObject({ done: all, blocked: [] });
     expect(await queue()).toEqual([]);
     expect(await left(a.id)).toBe(1000 - 60);
     expect(await left(b.id)).toBe(1000);
   });
 
-  it("holds a print with no spool of its colour, and queues its slot when imported", async () => {
+  it("records a print with no spool and no matching project; its slot waits", async () => {
     await spool("#00ff00");
-    const { id, run } = await syncNow();
-    expect(run).toMatchObject({ pending: 3 });
-    const p = await printsReview(id);
-    expect(p.rows.map((r) => [r.values.spool ?? null, r.values.filament, r.auto])).toEqual([
-      [null, "PLA #ff8800", "wait"],
-      [null, "PLA #ff8800", "wait"],
-      [null, "PLA #ff8800", "wait"],
-    ]);
-    expect((await review.confirm(p)).json()).toMatchObject({ created: 3 });
-    expect(await queue()).toHaveLength(3);
+    firstPrint().title = "No project is named like this";
+    const { run } = await syncNow();
+    expect(run).toMatchObject({ created: 4, pending: 0 });
+    const print = db
+      .select()
+      .from(schema.prints)
+      .where(eq(schema.prints.externalId, firstPrint().externalId))
+      .get();
+    expect(print).toMatchObject({ projectId: null, noProject: false });
+    const items = await queue();
+    expect(items).toHaveLength(3);
+    const item = items.find((i: { printId: string }) => i.printId === print?.id);
+    expect(item).toMatchObject({
+      material: "PLA",
+      colorHex: "#ff8800",
+      suggestedSpoolId: null,
+      gramsEstimated: false,
+    });
+    // Nothing to accept without a suggestion.
+    expect(await accept([item.usageId])).toMatchObject({
+      done: [],
+      blocked: [{ id: item.usageId, code: "no_suggestion" }],
+    });
   });
 
   it("only links the spools when the policy says not to track usage", async () => {
@@ -1261,7 +1270,9 @@ describe("filament matching of imported prints", () => {
   it("a review row ticked off saves its print and leaves the weight alone", async () => {
     const a = await spool();
     await spool();
-    const { id } = await syncNow();
+    later();
+    const { id } = await create();
+    await syncType(id, "printers");
     const p = await printsReview(id);
     const res = await send("POST", "/api/import/prints/apply", {
       uploadId: p.uploadId,
@@ -1279,17 +1290,18 @@ describe("filament matching of imported prints", () => {
     expect(await queue()).toEqual([]);
   });
 
-  it("holds a print that doesn't fit what the only matching spool has left", async () => {
+  it("a print that doesn't fit what the only matching spool has left waits with no suggestion", async () => {
     const s = await spool("#ff8800", 25); // jobs use 10, 20 and 30 g
     const { run } = await syncNow();
-    expect(run).toMatchObject({ pending: 2 });
-    expect(printCount()).toBe(1);
+    expect(run).toMatchObject({ pending: 0 });
+    expect(printCount()).toBe(3);
     expect(await left(s.id)).toBe(15);
+    expect((await queue()).map((i: { grams: number }) => i.grams)).toEqual([30, 20]);
+    expect(await suggested()).toEqual([null, null]);
   });
 
   it("matches waiting slots again once a single spool fits, never on a guess", async () => {
     const { id } = await syncNow();
-    await importHeld(id);
     expect(await queue()).toHaveLength(3);
     const a = await spool();
     const b = await spool();
@@ -1307,25 +1319,26 @@ describe("filament matching of imported prints", () => {
     // Both in use, so the oldest would be the first one entered (a): only the history says b.
     await send("PATCH", `/api/filament/spools/${a.id}`, { status: "in_use" });
     const { id } = await syncNow();
-    const p = await printsReview(id);
-    await review.confirm(p, p.rows, { refs: { spool: b.id } });
+    // A guess (a) waits in each slot; a person says it was b.
+    await send("POST", "/api/prints/filament-review/assign", {
+      usageIds: ids(await queue()),
+      spoolId: b.id,
+    });
+    expect(await left(a.id)).toBe(1000);
     expect(await left(b.id)).toBe(1000 - 60);
     state.prints.push({
       ...firstPrint(),
       externalId: "job-9",
       startedAt: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
     });
-    // Still a guess, so held for a person.
-    expect(await sync(id)).toMatchObject({ created: 0, pending: 1 });
-    const next = await printsReview(id);
-    const fresh = next.rows.filter((r) => r.status === "new");
-    expect(fresh.map((r) => [r.refs?.spool, r.refsUnsure])).toEqual([[b.id, ["spool"]]]);
+    // Still a guess, so its slot waits: with the spool the printer used last.
+    expect(await sync(id)).toMatchObject({ created: 1, pending: 0 });
+    expect(await suggested()).toEqual([b.id]);
   });
 
   it("assigns from the queue (ledger) or dismisses, and edits keep waiting slots", async () => {
     const a = await spool("#00ff00"); // no match: every slot waits
-    const { id } = await syncNow();
-    await importHeld(id);
+    await syncNow();
     const [first, second, third] = await queue();
     expect(first.grams).toBe(30); // newest print first
 
@@ -1358,8 +1371,7 @@ describe("filament matching of imported prints", () => {
   });
 
   it("refuses to assign more than the spool holds", async () => {
-    const { id } = await syncNow();
-    await importHeld(id);
+    await syncNow();
     const small = await spool("#123456", 1);
     const [item] = await queue();
     const res = await send("POST", `/api/prints/filament-review/${item.usageId}/assign`, {
@@ -1372,13 +1384,180 @@ describe("filament matching of imported prints", () => {
     expect(await queue()).toHaveLength(3);
   });
 
+  describe("review policy (ADR-0015)", () => {
+    const setGlobal = (printReview: string) => send("PATCH", "/api/preferences", { printReview });
+    const setPrinter = (reviewPolicy: string | null) =>
+      send("PATCH", `/api/printers/${db.select().from(schema.printers).get()?.id}`, {
+        reviewPolicy,
+      });
+    /** The vendor's prints one at a time: the first `n` are there. */
+    const oneByOne = () => {
+      later();
+      const all = [...state.prints];
+      return (n: number) => {
+        state.prints = all.slice(0, n);
+      };
+    };
+    const usages = async () =>
+      (await get("/api/prints?sort=startedAt")).items.map((p: { usages: object[] }) => p.usages[0]);
+
+    it("each level overrides the one above it: printer, then source, then global", async () => {
+      const s = await spool();
+      const upTo = oneByOne();
+      const { id } = await create();
+      await syncType(id, "printers");
+      // Global `always`: the sure spool is only suggested.
+      await setGlobal("always");
+      upTo(1);
+      await syncType(id, "prints");
+      expect(await left(s.id)).toBe(1000);
+      expect(await suggested()).toEqual([s.id]);
+      // The source says `unmatched`: the new print is charged, and the one waiting follows it.
+      await setPolicy(id, "prints", { reviewPolicy: "unmatched" });
+      expect(await printsPolicy(id)).toMatchObject({ reviewPolicy: "unmatched" });
+      upTo(2);
+      await syncType(id, "prints");
+      expect(await left(s.id)).toBe(1000 - 30);
+      expect(await queue()).toEqual([]);
+      // The printer says `always`: it beats its source.
+      expect((await setPrinter("always")).json()).toMatchObject({ reviewPolicy: "always" });
+      upTo(3);
+      await syncType(id, "prints");
+      expect(await left(s.id)).toBe(1000 - 30);
+      expect(await suggested()).toEqual([s.id]);
+      // Back to "use the default": the source's level again.
+      await setPrinter(null);
+      await syncType(id, "prints");
+      expect(await left(s.id)).toBe(1000 - 60);
+      expect(await queue()).toEqual([]);
+      expect(
+        (await send("PATCH", "/api/preferences", { printReview: "sometimes" })).statusCode,
+      ).toBe(400);
+    });
+
+    it("`never`: a guess and no spool are not tracked and nothing waits", async () => {
+      await setGlobal("never");
+      const [a, b] = [await spool(), await spool()]; // two of one colour: a guess
+      const { run } = await syncNow();
+      expect(run).toMatchObject({ created: 4, pending: 0 });
+      expect(await queue()).toEqual([]);
+      expect([await left(a.id), await left(b.id)]).toEqual([1000, 1000]);
+      const not = { spoolId: null, dismissed: true, suggestedSpoolId: null };
+      expect(await usages()).toMatchObject([not, not, not]);
+    });
+
+    it("estimated grams wait under `unmatched`, corrected in the assign; `never` charges them", async () => {
+      const s = await spool();
+      for (const p of state.prints)
+        p.filaments = p.filaments.map((f) => ({ ...f, gramsEstimated: true }));
+      const upTo = oneByOne();
+      upTo(1);
+      const { id } = await create();
+      await sync(id);
+      expect(await left(s.id)).toBe(1000);
+      const [item] = await queue();
+      expect(item).toMatchObject({ grams: 10, gramsEstimated: true, suggestedSpoolId: s.id });
+      // A person weighed what was used: those grams are booked, and are no estimate any more.
+      const assign = (grams: number) =>
+        send("POST", `/api/prints/filament-review/${item.usageId}/assign`, {
+          spoolId: s.id,
+          grams,
+        });
+      expect((await assign(0)).statusCode).toBe(400);
+      expect((await assign(7.5)).statusCode).toBe(204);
+      expect(await left(s.id)).toBe(992.5);
+      expect(await usages()).toMatchObject([
+        { spoolId: s.id, grams: 7.5, gramsEstimated: false, gramsSource: null },
+      ]);
+
+      await setGlobal("never");
+      upTo(3);
+      await sync(id);
+      expect(await queue()).toEqual([]);
+      expect(await left(s.id)).toBe(992.5 - 50);
+    });
+
+    it("`always`: no spool changes until a suggestion is accepted; another spool charges only that one", async () => {
+      await setGlobal("always");
+      const s = await spool();
+      const other = await spool("#00ff00");
+      const prints = async (id: string) =>
+        (await get(`/api/filament/spools/${id}/history`)).filter(
+          (e: { kind: string }) => e.kind === "print",
+        );
+      const { id } = await syncNow();
+      expect(await suggested()).toEqual([s.id, s.id, s.id]);
+      // Another run changes nothing: `rematch` only refreshes suggestions.
+      await sync(id);
+      expect(await suggested()).toEqual([s.id, s.id, s.id]);
+      expect(await left(s.id)).toBe(1000);
+      expect(await prints(s.id)).toEqual([]);
+
+      const [first, second] = await queue(); // 30 g, 20 g
+      expect(await accept([first.usageId])).toMatchObject({ done: [first.usageId], blocked: [] });
+      expect(await left(s.id)).toBe(970);
+      // The suggestion was wrong: the spool picked is the only one charged.
+      await send("POST", `/api/prints/filament-review/${second.usageId}/assign`, {
+        spoolId: other.id,
+      });
+      expect([await left(s.id), await left(other.id)]).toEqual([970, 980]);
+      expect(await prints(s.id)).toHaveLength(1);
+      expect(await prints(other.id)).toHaveLength(1);
+      // Accepted once: a second accept finds nothing waiting.
+      expect(await accept([first.usageId])).toMatchObject({
+        done: [],
+        blocked: [{ id: first.usageId, code: "not_found" }],
+      });
+    });
+
+    it("a suggestion follows the spools: refreshed by a run, cleared when its spool goes", async () => {
+      await setGlobal("always");
+      const { id } = await syncNow(); // no spool yet
+      expect(await suggested()).toEqual([null, null, null]);
+      const s = await spool();
+      await sync(id);
+      expect(await suggested()).toEqual([s.id, s.id, s.id]);
+      expect(await left(s.id)).toBe(1000);
+      // An archived spool can't be assigned, so it is no suggestion; a deleted one clears it.
+      await send("PATCH", `/api/filament/spools/${s.id}`, { archived: true });
+      expect(await suggested()).toEqual([null, null, null]);
+      expect((await send("DELETE", `/api/filament/spools/${s.id}`)).statusCode).toBe(204);
+      expect(
+        db
+          .select()
+          .from(schema.printFilamentUsages)
+          .all()
+          .map((u) => u.suggestedSpoolId),
+      ).toEqual([null, null, null]);
+    });
+
+    it("filament_review: one alert with the count of waiting slots, resolved when the queue is empty", async () => {
+      const open = async () => {
+        await send("POST", "/api/alerts/evaluate");
+        return (await get("/api/alerts")).filter(
+          (a: { kind: string }) => a.kind === "filament_review",
+        );
+      };
+      expect(await open()).toEqual([]);
+      await syncNow(); // no spool: three slots wait
+      expect(await open()).toMatchObject([
+        { severity: "warning", module: "filament", context: { count: 3 } },
+      ]);
+      const [first, ...rest] = ids(await queue());
+      await send("POST", "/api/prints/filament-review/dismiss", { usageIds: [first] });
+      expect(await open()).toMatchObject([{ context: { count: 2 } }]);
+      const s = await spool("#123456");
+      await send("POST", "/api/prints/filament-review/assign", { usageIds: rest, spoolId: s.id });
+      expect(await open()).toEqual([]);
+    });
+  });
+
   describe("bulk assign", () => {
     const bulk = async (usageIds: string[], spoolId: string) =>
       (await send("POST", "/api/prints/filament-review/assign", { usageIds, spoolId })).json();
 
     it("books the free rows and reports the one the spool is short for", async () => {
-      const { id } = await syncNow();
-      await importHeld(id);
+      await syncNow();
       const items = await queue(); // 30, 20, 10 g
       const s = await spool("#123456", 45);
       const res = await bulk(
@@ -1393,8 +1572,7 @@ describe("filament matching of imported prints", () => {
     });
 
     it("refuses a spool opened after the print, here and in the single assign", async () => {
-      const { id } = await syncNow();
-      await importHeld(id);
+      await syncNow();
       const items = await queue();
       const s = await spool("#123456");
       const opened = await send("PATCH", `/api/filament/spools/${s.id}`, {
@@ -1414,8 +1592,7 @@ describe("filament matching of imported prints", () => {
     });
 
     it("reports a row that is already handled, and counts a repeated id once", async () => {
-      const { id } = await syncNow();
-      await importHeld(id);
+      await syncNow();
       const [first, second] = await queue();
       const s = await spool("#123456");
       await send("POST", "/api/prints/filament-review/dismiss", { usageIds: [second.usageId] });
@@ -1426,8 +1603,7 @@ describe("filament matching of imported prints", () => {
     });
 
     it("blocks every row for an unknown spool", async () => {
-      const { id } = await syncNow();
-      await importHeld(id);
+      await syncNow();
       const [first] = await queue();
       const res = await bulk([first.usageId], crypto.randomUUID());
       expect(res).toMatchObject({

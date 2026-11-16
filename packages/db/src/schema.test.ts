@@ -874,8 +874,9 @@ describe("migration 0088", () => {
       spool_no_price: "off",
       spool_no_open_date: "off",
     });
-    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's, and 0127's three printer kinds.
-    expect(Object.keys(off.admin ?? {})).toHaveLength(21);
+    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's, 0127's three printer kinds
+    // and 0130's filament_review.
+    expect(Object.keys(off.admin ?? {})).toHaveLength(22);
     expect([off.editor, off.viewer, off.nf]).toEqual([{}, {}, {}]);
 
     const on = kinds({ price: true, openDate: true });
@@ -1234,6 +1235,46 @@ describe("migration 0090", () => {
     expect(now.select().from(s.alertStates).all()).toEqual([
       expect.objectContaining({ alertId: "a", readAt: "r", notifiedAt: { email: "n" } }),
     ]);
+  });
+});
+
+describe("migration 0130", () => {
+  it("rebuilds alerts for filament_review, keeps alert states, and the Admin role notifies it", () => {
+    const now = migrateAcross(129, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      run(
+        `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
+      );
+      run(
+        "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'printer_offline', 'warning', 'printers', 't', 'printer', 'p', 'x')",
+      );
+      run(
+        `insert into alert_states (alert_id, user_id, read_at, updated_at, notified_at) values ('a', 'u', 'r', 'x', '{"email":"n"}')`,
+      );
+    });
+    expect(now.select().from(s.alertStates).all()).toEqual([
+      expect.objectContaining({ alertId: "a", readAt: "r", notifiedAt: { email: "n" } }),
+    ]);
+    const kinds = Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn, r.alertKinds.filament_review]),
+    );
+    expect(kinds).toEqual({ admin: "notify", editor: undefined, viewer: undefined });
+    now
+      .insert(s.alerts)
+      .values({
+        kind: "filament_review",
+        severity: "warning",
+        module: "filament",
+        task: "filament-review",
+        entityType: "filament_review",
+        entityId: "queue",
+      })
+      .run();
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });
 

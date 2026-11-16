@@ -24,21 +24,7 @@ test("print review: sort and filter the queue, an empty result keeps the table",
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
 
-  // The auto run holds the prints for review; importing them leaves their filament in the queue.
-  await seedProject(app.api);
-  await page.goto(`/import/integration/${id}/prints`);
-  const form = await openBulkEdit(page);
-  await pick(form.getByRole("combobox", { name: "Project", exact: true }), "Set a value");
-  // 0 is "No project", 1 the project.
-  await pick(form.getByRole("combobox", { name: "Value for Project" }), 1);
-  await form.getByRole("button", { name: "Apply", exact: true }).click();
-  await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: /^Import \d+ rows?$/ })
-    .click();
-  await expect(page.getByText(/^Import finished/)).toBeVisible();
-
+  // The run records the prints at once: no spool is theirs, so their filament waits in the queue.
   await page.goto("/prints/review");
   const rows = page.getByRole("region", { name: /./ }).getByRole("row");
   await expect(rows).toHaveCount(4); // header + the three mock prints (10, 20 and 30 g)
@@ -55,7 +41,7 @@ test("print review: sort and filter the queue, an empty result keeps the table",
   await expect(rows).toHaveCount(4);
 });
 
-test("print review: held prints can be imported with no project (calibration prints)", async ({
+test("print review: prints can be imported with no project (calibration prints)", async ({
   page,
   app,
 }) => {
@@ -67,10 +53,9 @@ test("print review: held prints can be imported with no project (calibration pri
     policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
-  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
   await seedProject(app.api);
 
-  // No project matches their titles, so the run held them: each one asks for a project.
+  // Reviewed by hand, before any run: no project matches their titles, so each asks for one.
   await page.goto(`/import/integration/${id}/prints`);
   await expect(page.getByText("Pick a project, or No project").first()).toBeVisible();
   const form = await openBulkEdit(page);
@@ -154,18 +139,6 @@ test("print review: select all, assign one spool and report the rows it can't ta
   });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
-  await seedProject(app.api);
-  await page.goto(`/import/integration/${id}/prints`);
-  const form = await openBulkEdit(page);
-  await pick(form.getByRole("combobox", { name: "Project", exact: true }), "Set a value");
-  await pick(form.getByRole("combobox", { name: "Value for Project" }), 1);
-  await form.getByRole("button", { name: "Apply", exact: true }).click();
-  await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: /^Import \d+ rows?$/ })
-    .click();
-  await expect(page.getByText(/^Import finished/)).toBeVisible();
   await seedSpool(app.api, 15); // takes the 10 g slot, not the 20 and 30 g ones
 
   await page.goto("/prints/review");

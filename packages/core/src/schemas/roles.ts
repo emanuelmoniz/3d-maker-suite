@@ -310,6 +310,12 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
     condition: true,
     default: "app",
   },
+  // What the queue's assign needs.
+  filament_review: {
+    needs: (p) => hasLevel(p, "prints", "write"),
+    condition: true,
+    default: "app",
+  },
 };
 
 const subscription = z.enum(ALERT_SUBSCRIPTIONS);

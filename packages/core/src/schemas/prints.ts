@@ -98,12 +98,21 @@ export const filamentReviewItemSchema = z.object({
   grams: z.number().nonnegative(),
   material: z.string().nullable(),
   colorHex: z.string().nullable(),
+  /** Not measured: a person may correct them in the assign. */
+  gramsEstimated: z.boolean(),
+  /** The spool the match suggests, while it is one that can be assigned. */
+  suggestedSpoolId: id.nullable(),
 });
-export const reviewAssignSchema = z.object({ spoolId: id });
+/** `grams`: the slot's grams as a person corrected them; left out = as recorded. */
+export const reviewAssignSchema = z.object({
+  spoolId: id,
+  grams: z.number().positive().optional(),
+});
 export const reviewBulkAssignSchema = z.object({
   usageIds: z.array(id).min(1).max(500),
   spoolId: id,
 });
+/** Also the body of "accept suggestions": each row takes its own suggested spool. */
 export const reviewDismissSchema = z.object({ usageIds: z.array(id).min(1).max(500) });
 
 export type FilamentReviewItem = z.infer<typeof filamentReviewItemSchema>;

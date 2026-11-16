@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UPDATE_CHANNELS } from "./enums.ts";
+import { REVIEW_POLICIES, UPDATE_CHANNELS } from "./enums.ts";
 import { DEVICE_SYNC_MODES } from "./hub.ts";
 import { LOG_LEVELS, LOG_MODULES } from "./logs.ts";
 
@@ -44,6 +44,8 @@ const shape = {
   printerLifetimeHours: z.number().nonnegative(),
   /** Pace for estimating a duration when no print of yours has both grams and a duration. */
   gramsPerHour: z.number().positive(),
+  /** Review level of prints recorded automatically (ADR-0015); a source or a printer can set its own. */
+  printReview: z.enum(REVIEW_POLICIES),
   /** Spread past maintenance spend over printer runtime and add it to the cost. Per-printer override. */
   includeMaintenanceCost: z.boolean(),
   /** Off: printers add no wear or maintenance (their accessories still can). Per-printer override. */
@@ -128,6 +130,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   energyCostPerKwh: 0.25,
   printerLifetimeHours: 0,
   gramsPerHour: 15,
+  printReview: "unmatched",
   includeMaintenanceCost: false,
   printerCountInCosts: true,
   accessoryLifetimeHours: 0,

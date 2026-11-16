@@ -93,8 +93,8 @@ export function matchSpool(
  * material + colour are two spools (the AMS switched to a second roll when the first ran out), so
  * none of them is sure. `recent` gives the printer's recent spools for a slot (its AMS position).
  * A slot's `loaded` spool comes first (ADR-0015), when it is one of `spools`: sure, unless the
- * printer reported another material for the slot or it can't hold the grams; then nothing is
- * picked and a person checks it.
+ * printer reported another material for the slot (then it is only a guess a person checks) or it
+ * can't hold the grams (then nothing is picked).
  */
 export function matchPrint(
   slots: (SlotToMatch & { slot?: number | null })[],
@@ -113,9 +113,8 @@ export function matchPrint(
   return slots.map((s, i) => {
     const l = loadedOf(s);
     if (l)
-      return (!s.material || same(l.material, s.material)) &&
-        (l.remainingGrams == null || l.remainingGrams >= s.grams)
-        ? { id: l.id, sure: true }
+      return l.remainingGrams == null || l.remainingGrams >= s.grams
+        ? { id: l.id, sure: !s.material || same(l.material, s.material) }
         : { id: null, sure: false };
     const m = matchSpool(
       s,

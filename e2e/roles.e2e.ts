@@ -43,7 +43,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     secrets: { token: "t" },
   });
   await post(page, `/api/integrations/${integration.id}/sync`, { type: "printers" });
-  // No spool matches the mock prints, so the (auto) prints sync leaves them for review.
+  // No spool matches the mock prints, so their filament waits in the queue.
   await post(page, `/api/integrations/${integration.id}/sync`, { type: "prints" });
 
   const side = page.getByRole("complementary");
@@ -180,15 +180,12 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   // The page may already have added its default filter to the address.
   await expect(page).toHaveURL(/\/filament(\?|$)/);
 
-  // The same from the alerts: Review on the waiting prints, Open sources on the sync.
+  // The same from the alerts: the waiting filament opens its queue, Open sources the sync.
   await page.goto("/alerts");
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: /wait(ing)? for your review/ })
-    .getByRole("link")
-    .click();
-  await page.getByRole("link", { name: "Review", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/import/integration/${integration.id}/prints`));
+  const waiting = /filament slots? waits? for a spool/;
+  await page.getByRole("listitem").filter({ hasText: waiting }).getByRole("link").click();
+  await page.getByRole("link", { name: waiting }).click();
+  await expect(page).toHaveURL(/\/prints\/review/);
   await page.goto("/alerts");
   await page.getByRole("link", { name: /^Printers from .* synced$/ }).click();
   await page.getByRole("link", { name: "Open sources" }).click();

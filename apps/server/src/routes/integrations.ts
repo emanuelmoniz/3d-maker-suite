@@ -174,7 +174,7 @@ export const integrationsRoutes =
           const p = policyOf(db, row.id, type);
           const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = p;
           const { scope, merge, newWeight, newOpenedAt, atMinute, atHour, atWeekday, atDay } = p;
-          const { editorSync, editorReview } = p;
+          const { editorSync, editorReview, reviewPolicy } = p;
           return {
             type,
             mode,
@@ -183,6 +183,7 @@ export const integrationsRoutes =
             pending,
             alertSeverities,
             trackUsage,
+            reviewPolicy,
             scope,
             merge,
             newWeight,

@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
-import { hasHorizontalScroll, openBulkEdit, pick, seedSpool } from "./helpers.ts";
+import { hasHorizontalScroll, pick, seedSpool } from "./helpers.ts";
 
 const EDITOR = "00000000-0000-4000-8000-000000000002";
 
@@ -48,23 +48,9 @@ test("a write user on a phone assigns a spool in the filament queue", async ({ p
   await app.api("PATCH", `/api/integrations/${id}`, {
     policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
   });
+  // Recorded at once; no spool is theirs, so their filament waits in the queue.
   await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
   await seedSpool(app.api, 15);
-  await page.goto(`/import/integration/${id}/prints`);
-  // Import them with no project: they wait in the filament queue.
-  const form = await openBulkEdit(page);
-  await pick(form.getByRole("combobox", { name: "Project", exact: true }), "Set a value");
-  await pick(
-    form.getByRole("combobox", { name: "Value for Project" }),
-    "No project (e.g. a calibration print)",
-  );
-  await form.getByRole("button", { name: "Apply", exact: true }).click();
-  await page.getByRole("button", { name: /^Import \d+ rows?$/ }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: /^Import \d+ rows?$/ })
-    .click();
-  await expect(page.getByText(/^Import finished/)).toBeVisible();
 
   await page.request.post("/api/auth/setup", {
     data: { displayName: "Ana", email: "ana@example.com", password: "correct horse" },

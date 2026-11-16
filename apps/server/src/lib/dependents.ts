@@ -267,6 +267,8 @@ export const ITEMS = {
     uses: [through(PRINT, usages.spoolId, usages.printId)],
     // The ledger is append-only (its FK restricts), except when its whole spool goes.
     goes: [spoolWeightEntries.spoolId],
+    // A slot waiting with it as its suggestion just waits without one (FK `set null`).
+    clears: [usages.suggestedSpoolId],
     tag: "spool",
     alerts: alertTasks.spool,
     source: (_, row) => row.sourceSpool as string | null,

@@ -6,6 +6,11 @@ export const PRINT_OUTCOMES = ["success", "failed", "cancelled"] as const;
 export const ENERGY_SOURCES = ["estimated", "measured"] as const;
 /** Where a usage's grams came from (ADR-0015): the printer, the job file's totals, the project plate. */
 export const GRAMS_SOURCES = ["printer", "file", "plate"] as const;
+/**
+ * When a slot of a print recorded automatically waits for a person (ADR-0015): never, when its
+ * spool or grams aren't sure, or always. In the UI: Never · When unsure · Always.
+ */
+export const REVIEW_POLICIES = ["never", "unmatched", "always"] as const;
 // The kind is the message; severity, module and task say how bad and what raised it (ADR-0008).
 export const ALERT_KINDS = [
   "maintenance_due",
@@ -29,6 +34,7 @@ export const ALERT_KINDS = [
   "print_finished",
   "print_failed",
   "printer_offline",
+  "filament_review",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
 // Who gets a kind (ADR-0016): not at all, in the app, or in the app and on their channels.
@@ -192,6 +198,7 @@ export type Origin = (typeof ORIGINS)[number];
 export type PrintOutcome = (typeof PRINT_OUTCOMES)[number];
 export type EnergySource = (typeof ENERGY_SOURCES)[number];
 export type GramsSource = (typeof GRAMS_SOURCES)[number];
+export type ReviewPolicy = (typeof REVIEW_POLICIES)[number];
 export type AlertKind = (typeof ALERT_KINDS)[number];
 export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
 export type AlertModule = (typeof ALERT_MODULES)[number];

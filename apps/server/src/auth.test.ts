@@ -1028,8 +1028,8 @@ describe("who gets which alert (ADR-0016)", () => {
   // Written out, like MATRIX: sync kinds also need the policy flags (off by default).
   const GETS: Record<RoleBuiltIn, AlertKind[]> = {
     admin: ALERT_KINDS.filter((k) => !OPT_IN.includes(k)),
-    // presets write (ADR-0017, ADR-0021).
-    editor: [...BASIC, "preset_conflict", "preset_skipped", "preset_held"],
+    // presets write (ADR-0017, ADR-0021), and prints write for the review queue.
+    editor: [...BASIC, "preset_conflict", "preset_skipped", "preset_held", "filament_review"],
     viewer: BASIC,
   };
 

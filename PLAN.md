@@ -3266,7 +3266,7 @@ Do Step 4 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Do Step 5 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 ```
 
-### [ ] Step 6 - Review policy: server  **[plan mode]**
+### [x] Step 6 - Review policy: server  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - Migration: `print_filament_usages.suggestedSpoolId` (nullable; a deleted spool clears it), `sync_policies.reviewPolicy` and `printers.reviewPolicy` (null = follow the level above), the global `printReview` preference (default `unmatched`).

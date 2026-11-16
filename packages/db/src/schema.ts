@@ -30,6 +30,7 @@ import {
   type PresetInstallSlicer,
   type PresetInstallStatus,
   type ProjectRights,
+  REVIEW_POLICIES,
   ROLE_BUILT_INS,
   ROOT_EDIT_BY,
   ROOT_RESCAN_DEFAULT,
@@ -139,6 +140,8 @@ export const syncPolicies = sqliteTable(
     alertSeverities: text({ mode: "json" }).$type<AlertSeverity[]>(),
     /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
     trackUsage: integer({ mode: "boolean" }).notNull().default(true),
+    /** Prints: this source's review level (ADR-0015); null = the global `printReview`. */
+    reviewPolicy: text({ enum: REVIEW_POLICIES }),
     /** Which rows a run takes (core's `SYNC_SCOPES`). */
     scope: text({ enum: SYNC_SCOPES }).notNull().default("all"),
     /** What a run does with a change to a row you have (`SYNC_MERGES`); default per type in core. */
@@ -359,6 +362,8 @@ export const printers = sqliteTable(
     }),
     // Its machine preset, set on its own from model and nozzle (`machinePresetFor`) unless picked.
     machinePresetId: text().references(() => machinePresets.id, { onDelete: "set null" }),
+    // Review level of its automatic prints (ADR-0015); null = its source's, else the global one.
+    reviewPolicy: text({ enum: REVIEW_POLICIES }),
     photoPath: text(),
     archivedAt: text(),
     ...imported(),
@@ -912,6 +917,8 @@ export const printFilamentUsages = sqliteTable(
     gramsSource: text({ enum: GRAMS_SOURCES }),
     /** Not measured: a total scaled by how far a stopped print got. */
     gramsEstimated: integer({ mode: "boolean" }).notNull().default(false),
+    /** While it waits: the spool the match suggests; charges nothing until a person accepts it. */
+    suggestedSpoolId: text().references(() => spools.id, { onDelete: "set null" }),
   },
   (t) => [
     index("print_filament_usages_print_idx").on(t.printId),

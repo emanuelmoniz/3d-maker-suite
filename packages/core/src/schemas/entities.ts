@@ -14,6 +14,7 @@ import {
   NEW_SPOOL_FIELD,
   ORIGINS,
   PRINT_OUTCOMES,
+  REVIEW_POLICIES,
   SLICER_PRESET_KINDS,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
@@ -55,6 +56,8 @@ export const syncPolicySchema = z.object({
   alertSeverities: z.array(z.enum(ALERT_SEVERITIES)).nullable(),
   /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
   trackUsage: z.boolean(),
+  /** Prints: this source's review level (ADR-0015); null = the global `printReview`. */
+  reviewPolicy: z.enum(REVIEW_POLICIES).nullable(),
   /** Reviewed types except prints: which rows a run takes, and what it does with a change. */
   scope: z.enum(SYNC_SCOPES),
   merge: z.enum(SYNC_MERGES),
@@ -275,6 +278,8 @@ export const printerSchema = z.object({
   processPresetId: id.nullable(),
   /** Its machine preset: picked, else set on its own from model and nozzle. */
   machinePresetId: id.nullable(),
+  /** Its review level for prints recorded automatically (ADR-0015); null = its source's, else the global one. */
+  reviewPolicy: z.enum(REVIEW_POLICIES).nullable(),
   /** Relative to the data directory. */
   photoPath: z.string().nullable(),
   archivedAt: isoDate.nullable(),
@@ -539,6 +544,8 @@ export const printFilamentUsageSchema = z.object({
   gramsSource: z.enum(GRAMS_SOURCES).nullable(),
   /** Not measured: a total scaled by how far a stopped print got. */
   gramsEstimated: z.boolean(),
+  /** While it waits: the spool the match suggests. Nothing is charged until a person accepts it. */
+  suggestedSpoolId: id.nullable(),
 });
 
 export const tagSchema = z.object({ id, name: z.string().min(1), color: hexColor, ...timestamps });
