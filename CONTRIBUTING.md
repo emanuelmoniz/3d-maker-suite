@@ -8,11 +8,14 @@ Thanks for helping. Read [docs/architecture.md](docs/architecture.md) and the AD
 pnpm install
 pnpm dev            # server + web, watch mode
 pnpm test           # unit tests (Vitest)
+pnpm test:battery   # unit tests on a laptop running on battery (see below)
 pnpm test:e2e       # Playwright
 pnpm lint           # Biome
 pnpm typecheck
 pnpm i18n:check     # missing or unused translation keys
 ```
+
+On battery a laptop slows its CPU down a lot, and the heavier tests (files, git, SQLite, the mock slicer) then miss Vitest's 5 s default timeout. `pnpm test:battery` runs the same tests with a 240 s test and hook timeout and skips wall-clock speed checks (`TEST_BATTERY=1`). Use it only on battery: `pnpm test` stays the strict run that CI does, so run it plugged in before you push. To skip a speed check of your own on battery, guard it with `if (!process.env.TEST_BATTERY)`; a polling helper with its own deadline should wait the full 240 s when `TEST_BATTERY` is set.
 
 Database changes go through Drizzle migrations only: `pnpm db:generate`, then `pnpm db:migrate`. Never edit a migration that was already applied.
 

@@ -43,6 +43,7 @@ docs/              ADRs (docs/adr), user docs
 - `pnpm dev` - server + web in watch mode
 - `pnpm start` - production build, one command for end users
 - `pnpm test` / `pnpm test:e2e`
+- `pnpm test:battery` - unit tests on a laptop on battery: 240s timeouts, speed checks skipped
 - `pnpm screenshots` - regenerates `docs/images/*.png` for the README (not part of e2e or CI)
 - `pnpm lint` / `pnpm format`
 - `pnpm db:generate` / `pnpm db:migrate`
@@ -51,6 +52,7 @@ docs/              ADRs (docs/adr), user docs
 ## Workflow
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.
 - **Never read `BACKLOG.md`** unless the user asks; it's the user's private notes (gitignored).
+- **Before running the unit test suite, check whether the PC is on battery**, and if it is, run `pnpm test:battery` instead of `pnpm test` (also for `vitest run <files>`: add `--mode battery`). Windows: `(Get-CimInstance Win32_Battery).BatteryStatus` is `1` (no battery = plugged in); macOS: `pmset -g batt` says `Battery Power`; Linux: `/sys/class/power_supply/A*/online` is `0`. Say in the summary that the run was on battery; a battery run doesn't replace a plugged-in `pnpm test` before a release.
 - Finish a step = tests pass, lint passes, `pnpm i18n:check` passes, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
 - Release checklist (CONTRIBUTING.md#releases): CHANGELOG entry (it becomes the GitHub release notes via `scripts/release-notes.mjs`, so every release, pre-releases included, must list all changes since the last release), the same version in root, `apps/*` and `packages/*` `package.json`, `Version X.Y.Z.` on README's Status line, docs that name features or versions. `pnpm version:check` must pass before tagging. Never tag while README or docs still show the old version.
 - Versioning: stay on 4.x until 5.0.0 (the hub, an agreed major; see PLAN.md), then on 5.x; one plan = one release, minor bump if it adds features, patch if fixes only (major only for an agreed breaking change). Keep root, `apps/*` and `packages/*` versions in sync; `apps/connector` too, because a connector updates to its hub's version.

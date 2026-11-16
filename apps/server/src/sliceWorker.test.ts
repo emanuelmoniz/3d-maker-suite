@@ -340,7 +340,7 @@ it("slices on the hub's slicer, whatever install of its type a plate picks; offl
     await send("PUT", `/api/projects/${projectId}/slicing`, { plates: [plate] });
     const slicing = async () => (await send("GET", `/api/projects/${projectId}/slicing`)).json();
     const until = async (ok: (s: { plates: { job: string | null }[] }) => boolean) => {
-      for (let i = 0; i < 200; i++) {
+      for (let i = 0; i < (process.env.TEST_BATTERY ? 4_000 : 200); i++) {
         const s = await slicing();
         if (ok(s)) return s;
         await new Promise((r) => setTimeout(r, 20));

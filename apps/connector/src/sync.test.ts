@@ -23,7 +23,12 @@ import { openStore } from "./state.ts";
 import { folderName, type HubSync } from "./sync.ts";
 
 const until = async (ok: () => boolean | Promise<boolean>, ms = 20_000) => {
-  for (const end = Date.now() + ms; !(await ok()); await new Promise((r) => setTimeout(r, 50)))
+  // On battery (`pnpm test:battery`) the vitest timeout is 240s; wait as long.
+  for (
+    const end = Date.now() + (process.env.TEST_BATTERY ? 240_000 : ms);
+    !(await ok());
+    await new Promise((r) => setTimeout(r, 50))
+  )
     if (Date.now() > end) throw new Error("timed out");
 };
 const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : undefined);
