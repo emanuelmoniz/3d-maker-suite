@@ -29,6 +29,9 @@ const KIND_LABELS: Record<AlertKind, string> = {
   preset_conflict: "users:alerts.kinds.preset_conflict",
   preset_skipped: "users:alerts.kinds.preset_skipped",
   preset_held: "users:alerts.kinds.preset_held",
+  print_finished: "users:alerts.kinds.print_finished",
+  print_failed: "users:alerts.kinds.print_failed",
+  printer_offline: "users:alerts.kinds.printer_offline",
 };
 const SUB_LABELS: Record<AlertSubscription, string> = {
   off: "users:alerts.sub.off",

@@ -215,6 +215,9 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         { name: c.name },
       ),
     preset_held: () => t("alerts:kinds.preset_held", { name: c.name, count: Number(c.count) }),
+    print_finished: () => t("alerts:kinds.print_finished", { title: c.title, printer: c.printer }),
+    print_failed: () => t("alerts:kinds.print_failed", { title: c.title, printer: c.printer }),
+    printer_offline: () => t("alerts:kinds.printer_offline", { name: c.name }),
   }[a.kind]();
   if (inList)
     return (
@@ -236,7 +239,15 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
           {text}
         </Link>
       );
+    case "print_finished":
+    case "print_failed":
+      return (
+        <Link to="/prints/$id" params={{ id: a.entityId }} className={textLink}>
+          {text}
+        </Link>
+      );
     case "warranty_ending":
+    case "printer_offline":
       return (
         <Link to="/printers/$id" params={{ id: a.entityId }} className={textLink}>
           {text}
@@ -453,6 +464,9 @@ const KIND_NAMES: Record<AlertKind, string> = {
   preset_conflict: "alerts:kindNames.preset_conflict",
   preset_skipped: "alerts:kindNames.preset_skipped",
   preset_held: "alerts:kindNames.preset_held",
+  print_finished: "alerts:kindNames.print_finished",
+  print_failed: "alerts:kindNames.print_failed",
+  printer_offline: "alerts:kindNames.printer_offline",
 };
 const STATUS: Record<AlertStatus, string> = {
   snoozed: "alerts:status.snoozed",

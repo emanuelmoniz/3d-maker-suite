@@ -303,6 +303,13 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
     default: "app",
   },
   preset_held: { needs: (p) => hasLevel(p, "catalog", "write"), condition: true, default: "app" },
+  print_finished: { needs: (p) => hasLevel(p, "prints", "read"), condition: false, default: "app" },
+  print_failed: { needs: (p) => hasLevel(p, "prints", "read"), condition: false, default: "app" },
+  printer_offline: {
+    needs: (p) => hasLevel(p, "printers", "read"),
+    condition: true,
+    default: "app",
+  },
 };
 
 const subscription = z.enum(ALERT_SUBSCRIPTIONS);

@@ -64,6 +64,9 @@ const ONE_SHOT = new Set<AlertKind>([
   // Raised by the preset library, keyed by the preset's content (integrations/presetLibrary.ts).
   "preset_conflict",
   "preset_skipped",
+  // Raised by the printer status runner once per tracked print, keyed by the print (integrations/printerStatus.ts).
+  "print_finished",
+  "print_failed",
 ]);
 
 /**
@@ -116,7 +119,7 @@ type Found = Map<string, Raised>;
 export const raise = (db: Db, a: Raised) => db.insert(alerts).values(a).onConflictDoNothing().run();
 
 /** Everything that is wrong right now, keyed like the alerts table's open-row unique index. */
-function conditions(db: Db, now: Date): Found {
+function conditions(db: Db, now: Date, offline: string[]): Found {
   const prefs = readPreferences(db);
   const found: Found = new Map();
   const add = (a: Raised) => found.set(`${a.kind}|${a.entityType}|${a.entityId}`, a);
@@ -232,6 +235,20 @@ function conditions(db: Db, now: Date): Found {
       // `adapterId`: the web shows the adapter's name.
       context: { integrationId, adapterId: p.adapterId, type, count: pending },
       ...(run && left.length && { detail: { runId: run.id, log: left } }),
+    });
+  }
+  // A printer that stopped answering during a print (the runner decides how long is too long).
+  for (const id of offline) {
+    const p = db.select().from(printers).where(eq(printers.id, id)).get();
+    if (!p || p.archivedAt) continue;
+    add({
+      kind: "printer_offline",
+      severity: "warning",
+      module: "printers",
+      task: `printer:${p.id}`,
+      entityType: "printer",
+      entityId: p.id,
+      context: { name: printerTitle(p) },
     });
   }
   // A connector that opened its stream to this hub (since it started on this version) and is still
@@ -367,6 +384,12 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
         title: "Slicer preset skipped",
         body: `${c.name} from ${c.from} was not stored (${c.reason})`,
       };
+    case "print_finished":
+      return { title: "Print finished", body: `${c.title} on ${c.printer}` };
+    case "print_failed":
+      return { title: "Print failed", body: `${c.title} on ${c.printer}` };
+    case "printer_offline":
+      return { title: "Printer offline", body: `${c.name} stopped answering during a print` };
     case "preset_held":
       return {
         title: "Slicer preset deletes held",
@@ -420,9 +443,11 @@ export async function evaluateAlerts(
   /** The app's address for links in notifications; none = no links. */
   baseUrl?: string,
   now = new Date(),
+  /** Printers that stopped answering during a print (`PrinterStatusRunner.offline`). */
+  offline: string[] = [],
 ) {
   const stamp = now.toISOString();
-  const found = conditions(db, now);
+  const found = conditions(db, now, offline);
 
   db.transaction((tx) => {
     for (const a of tx.select().from(alerts).where(isNull(alerts.resolvedAt)).all()) {

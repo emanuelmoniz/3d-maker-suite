@@ -3226,7 +3226,7 @@ Do Step 2 of the 6.0.0 plan in PLAN.md. Show me the snapshot schema and the trac
 Do Step 3 of the 6.0.0 plan in PLAN.md. Use frontend-design for the printer card.
 ```
 
-### [ ] Step 3b - Printer event alerts
+### [x] Step 3b - Printer event alerts
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `print_finished` (success) and `print_failed` (error): event kinds, one per print, raised by the tracker, linking to the print. A cancelled print raises none, and neither does a print that came in by history backfill. Permission: `prints` read.

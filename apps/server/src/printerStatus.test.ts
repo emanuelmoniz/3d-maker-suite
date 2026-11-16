@@ -7,6 +7,7 @@ import type { PrinterSnapshot, PrinterStatus } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { buildApp } from "./app.ts";
 
 let db: ReturnType<typeof openDb>;
@@ -184,6 +185,66 @@ describe("prints from the job tracker", () => {
     app.printerStatus.refresh();
     await reads([snap(600, { state: "finished" })]);
     expect(tracked()[0]).toMatchObject({ startedAt: at(10), durationSec: 590 });
+  });
+});
+
+describe("printer alerts", () => {
+  // The setup sync raised its own.
+  const mine = () =>
+    db
+      .select()
+      .from(schema.alerts)
+      .all()
+      .filter((a) => a.kind.startsWith("print"));
+  const alertKinds = () => mine().map((a) => a.kind);
+  const idle = snap(0, { state: "idle", job: undefined });
+
+  it("a finished print raises print_finished once, a failed one print_failed", async () => {
+    const end = snap(70, { state: "finished" });
+    await reads([idle], [snap(10)], [end], [end], [snap(80, { state: "idle", job: undefined })]);
+    expect(alertKinds()).toEqual(["print_finished"]);
+    const [alert] = mine();
+    expect(alert).toMatchObject({
+      severity: "success",
+      entityType: "print",
+      entityId: tracked()[0]?.id,
+    });
+
+    const fail = (id: string) => snap(70, { state: "error", job: { id, failureReason: "clog" } });
+    await reads([snap(90, { job: { id: "j2", file: "b.gcode" } })], [fail("j2")]);
+    expect(alertKinds()).toEqual(["print_finished", "print_failed"]);
+  });
+
+  it("a cancelled print raises none", async () => {
+    await reads([idle], [snap(10)], [snap(70, { state: "cancelled" })]);
+    expect(tracked()).toHaveLength(1);
+    expect(alertKinds()).toEqual([]);
+  });
+
+  it("a printer silent during a print is offline after the threshold, and back when it answers", async () => {
+    await reads([idle], [snap(10)], []);
+    const printer = db.select().from(schema.printers).get();
+    expect(app.printerStatus.offline()).toEqual([]);
+    expect(app.printerStatus.offline(Date.now() + 3 * 60_000)).toEqual([printer?.id]);
+    await reads([snap(100)]);
+    expect(app.printerStatus.offline(Date.now() + 3 * 60_000)).toEqual([]);
+  });
+
+  it("a printer off while idle is never offline", async () => {
+    await reads([idle], []);
+    expect(app.printerStatus.offline(Date.now() + 3_600_000)).toEqual([]);
+  });
+
+  it("evaluate raises printer_offline for the printers given and resolves it when they answer", async () => {
+    const printer = db.select().from(schema.printers).get();
+    const log = { warn: () => {} };
+    const key = Buffer.alloc(32);
+    await evaluateAlerts(db, key, log, undefined, undefined, [printer?.id ?? ""]);
+    expect(mine()).toMatchObject([
+      { kind: "printer_offline", severity: "warning", entityId: printer?.id, resolvedAt: null },
+    ]);
+    await evaluateAlerts(db, key, log, undefined, undefined, []);
+    expect(mine()[0]?.resolvedAt).not.toBeNull();
   });
 });
 

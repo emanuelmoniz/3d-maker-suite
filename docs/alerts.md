@@ -10,7 +10,8 @@ Each kind of alert needs a permission, and a user never gets a kind whose permis
 |---|---|
 | Maintenance due | Maintenance (read) |
 | Spool low, no price, no open date | Filament (read) |
-| Warranty ending | Printers (read) |
+| Warranty ending, printer offline during a print | Printers (read) |
+| Print finished, print failed | Prints (read) |
 | Sync waiting for review | Review syncs |
 | Sync done, sync failed | Sync integrations |
 | Slice setup changed, slice failed | Projects (read), and the project visible |
@@ -25,6 +26,14 @@ A sync alert also follows the sync policy's "users with the Sync (Review) permis
 Per kind, a role sets **Off**, **In app** or **Notify** (notify also sends it by email or ntfy). In the **Roles** tab of **Users | Roles** this is the alerts card; on a user's page, **Same as role** follows the role, also when it changes later. Under **Settings → Alerts** a warning shows when no enabled user gets a condition alert (for example maintenance due).
 
 Read, snooze and dismiss are per person. A condition alert (maintenance due, low spool) resolves for everyone once the cause is fixed; an event alert (sync failed, slice failed) stays until each person dismisses it.
+
+## Printer alerts
+
+For printers with live status (see [printers.md](printers.md)):
+- **Print finished** and **Print failed** are event alerts, one per print, linking to the print. A cancelled print raises none, and neither does a print that came in by importing history.
+- **Printer offline** is a condition alert: it opens when a printer stops answering during a print for more than 2 minutes, and resolves when it answers again. A printer that is off while idle raises nothing.
+
+All three are In app by default; Admin gets them as Notify.
 
 ## Delivery per user
 

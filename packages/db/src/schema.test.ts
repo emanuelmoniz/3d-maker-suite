@@ -874,8 +874,8 @@ describe("migration 0088", () => {
       spool_no_price: "off",
       spool_no_open_date: "off",
     });
-    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's.
-    expect(Object.keys(off.admin ?? {})).toHaveLength(18);
+    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's, and 0127's three printer kinds.
+    expect(Object.keys(off.admin ?? {})).toHaveLength(21);
     expect([off.editor, off.viewer, off.nf]).toEqual([{}, {}, {}]);
 
     const on = kinds({ price: true, openDate: true });

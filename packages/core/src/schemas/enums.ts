@@ -24,6 +24,9 @@ export const ALERT_KINDS = [
   "preset_conflict",
   "preset_skipped",
   "preset_held",
+  "print_finished",
+  "print_failed",
+  "printer_offline",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;
 // Who gets a kind (ADR-0016): not at all, in the app, or in the app and on their channels.

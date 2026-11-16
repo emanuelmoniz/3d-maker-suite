@@ -4,12 +4,15 @@ import {
   type PrinterStatus,
   type PrinterStatusSource,
   printerSnapshotSchema,
+  type TrackedPrint,
   type TrackerState,
   track,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
+import { raise } from "../alerts/evaluate.ts";
+import { printerTitle } from "../lib/numbers.ts";
 import { capableRows } from "./capabilities.ts";
 import type { Syncer } from "./sync.ts";
 
@@ -20,6 +23,11 @@ import type { Syncer } from "./sync.ts";
 // ponytail: one pace for every adapter (ADR-0015: "a few seconds while printing, slower when
 // idle"). Give `PrinterStatusSource` its own if a printer can't take it.
 export const POLL_MS = { busy: 3_000, idle: 15_000 };
+/**
+ * How long a printer may stay silent during a print before it is "offline" for alerts.
+ * ponytail: fixed, make it a preference if anyone asks.
+ */
+export const OFFLINE_ALERT_MS = 2 * 60_000;
 /** How often the sources are looked up again: one switched on, off or set up anew. */
 const REFRESH_MS = 10_000;
 /** Kept between restarts; `settings` holds JSON. */
@@ -47,6 +55,8 @@ export function createPrinterStatus(
   log: FastifyBaseLogger,
   /** Polls on its own; off in tests, which call `refresh` and `pollAll`. */
   auto = false,
+  /** Called when an alert may have opened or cleared. */
+  alertsChanged: () => void = () => {},
 ) {
   const sources = new Map<string, Source>();
   /** By `<integrationId>:<printerExternalId>`. */
@@ -59,9 +69,12 @@ export function createPrinterStatus(
   const trackers = new Map<string, TrackerState>(
     Object.entries((stored ?? {}) as Record<string, TrackerState>),
   );
+  /** Printers that went silent while a job was active, by key: when it was first missed. */
+  const silentSince = new Map<string, number>();
   const listeners = new Set<(all: PrinterStatus[]) => void>();
   let refreshTimer: NodeJS.Timeout | undefined;
   let sent = "";
+  let alerted = "";
 
   const saveTrackers = () => {
     const value = Object.fromEntries(trackers);
@@ -108,12 +121,51 @@ export function createPrinterStatus(
     trackers.set(key, out.state);
     // Stored when a job starts or ends, not on every read: a restart loses only the progress since.
     if (out.state.phase !== before.phase) saveTrackers();
+    if (snapshot.state === "offline" && out.state.phase === "active")
+      silentSince.set(key, silentSince.get(key) ?? Date.parse(snapshot.at));
+    else silentSince.delete(key);
     for (const p of out.prints)
       try {
-        syncer.recordPrint(integrationId, p);
+        if (syncer.recordPrint(integrationId, p)) raisePrint(integrationId, p);
       } catch (err) {
         log.error({ err, integrationId }, "tracked print not written");
       }
+  }
+
+  /** One alert per print the tracker wrote; a cancelled one raises none, and history never gets here. */
+  function raisePrint(integrationId: string, { print }: TrackedPrint) {
+    if (print.outcome === "cancelled") return;
+    const row = db
+      .select({ id: schema.prints.id, title: schema.prints.title, printer: schema.printers })
+      .from(schema.prints)
+      .innerJoin(schema.printers, eq(schema.printers.id, schema.prints.printerId))
+      .where(
+        and(
+          eq(schema.prints.integrationId, integrationId),
+          eq(schema.prints.externalId, print.externalId),
+        ),
+      )
+      .get();
+    if (!row) return;
+    raise(db, {
+      kind: print.outcome === "success" ? "print_finished" : "print_failed",
+      severity: print.outcome === "success" ? "success" : "error",
+      module: "printers",
+      task: `print:${row.id}`,
+      entityType: "print",
+      entityId: row.id,
+      context: { title: row.title, printer: printerTitle(row.printer) },
+    });
+  }
+
+  /** Our printers (ids) that have been silent for longer than `OFFLINE_ALERT_MS` in a print. */
+  function offline(now = Date.now()): string[] {
+    const ours = new Map(
+      all().map((s) => [`${s.integrationId}:${s.snapshot.printerExternalId}`, s]),
+    );
+    return [...silentSince]
+      .filter(([, since]) => now - since >= OFFLINE_ALERT_MS)
+      .flatMap(([key]) => ours.get(key)?.printerId ?? []);
   }
 
   async function poll(id: string) {
@@ -145,6 +197,11 @@ export function createPrinterStatus(
         apply(id, { printerExternalId: ext, at, state: "offline", slots: [] });
     for (const ext of answered) src.known.add(ext);
     notify();
+    const down = offline().sort().join();
+    if (down !== alerted) {
+      alerted = down;
+      alertsChanged();
+    }
     if (!auto) return;
     const busy = [...src.known].some((ext) =>
       BUSY.has(latest.get(`${id}:${ext}`)?.snapshot.state ?? "idle"),
@@ -159,6 +216,7 @@ export function createPrinterStatus(
     src.abort.abort();
     sources.delete(id);
     for (const key of latest.keys()) if (key.startsWith(`${id}:`)) latest.delete(key);
+    for (const key of silentSince.keys()) if (key.startsWith(`${id}:`)) silentSince.delete(key);
   }
 
   /** Starts the sources that can say what their printers do and stops the ones that no longer can. */
@@ -192,6 +250,7 @@ export function createPrinterStatus(
 
   return {
     all,
+    offline,
     refresh,
     /** Reads every source once, now. */
     pollAll: () => Promise.all([...sources.keys()].map(poll)).then(() => undefined),

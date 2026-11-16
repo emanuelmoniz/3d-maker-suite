@@ -240,7 +240,10 @@
       "hub_mass_delete": "Mass delete on a device",
       "preset_conflict": "Slicer preset conflict",
       "preset_skipped": "Slicer preset skipped",
-      "preset_held": "Slicer preset deletes held"
+      "preset_held": "Slicer preset deletes held",
+      "print_finished": "Print finished",
+      "print_failed": "Print failed",
+      "printer_offline": "Printer offline during a print"
     }
   },
   "delivery": {

@@ -383,6 +383,8 @@ export async function buildApp(
     syncer.adapters,
     logFor("integrations"),
     !!opts.printerStatus,
+    // `evaluate` is defined further down; it is only called once a source has been read.
+    () => void evaluate(),
   );
   app.decorate("printerStatus", printerStatus);
   if (opts.printerStatus) app.addHook("onReady", async () => printerStatus.start());
@@ -499,7 +501,7 @@ export async function buildApp(
   const alertsLog = logFor("alerts");
   const evaluate = () =>
     (queue = queue
-      .then(() => evaluateAlerts(db, key, alertsLog, link()))
+      .then(() => evaluateAlerts(db, key, alertsLog, link(), undefined, printerStatus.offline()))
       .catch((err) => alertsLog.error({ err }, "alert check failed")));
   await app.register(alertsRoutes(db, key, evaluate, link), { prefix: "/api/alerts" });
   if (opts.alertsSchedule) {
