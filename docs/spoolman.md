@@ -22,6 +22,8 @@ On **Filament → Settings → Sources**, the Spoolman line imports your spools:
 
 A spool you already entered by hand can be linked to its Spoolman spool in the review (update it instead of importing it as new).
 
+A spool can come from one library for now. One imported from Bambu Cloud's filament manager stays linked there, and its prints aren't written to Spoolman. If you use both, import your spools from Spoolman and switch off Bambu Cloud's spools line: the AMS still finds them by their tag.
+
 Leave **Track usage** off on the spools line (the default): the app keeps its own remaining weight, and Spoolman's is what the app writes back.
 
 ## Write usage back
@@ -44,7 +46,7 @@ Spoolman's API has no idempotency key, so the app keeps one itself:
 - Every print slot has a key, the print's id and its slot. The app remembers what it last confirmed each Spoolman spool holds per key, and sends only the difference. A retry or a restart finds nothing new to send.
 - Each write sets the spool's used weight and, in the same request, a field named **3D Maker Suite** on the spool, with the grams it holds per key. So if Spoolman took a write but its answer was lost, the next try reads the field, sees the charge is there, and stops. The app adds the field to Spoolman's spool fields the first time it writes. Leave it as it is.
 
-One case isn't covered: a read and its write are a few milliseconds apart. If Moonraker reports to the same Spoolman spool in exactly that moment (that spool printing on a Klipper printer while another printer's print of it is written back), Moonraker's report is lost.
+A write reads the spool, then writes it. So that a report Moonraker sends in between is never lost, a Spoolman spool isn't written while a Klipper printer prints with it, nor in the minute after: its charges wait for the next try. This needs **Live status** on for that Moonraker; a Moonraker the app only reads by its history can't say what it prints. With several tools Moonraker doesn't say which spool each uses, so while it prints, nothing is written to Spoolman at all.
 
 ## Troubleshooting
 

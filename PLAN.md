@@ -3381,6 +3381,22 @@ Do Step 11 of the 6.0.0 plan in PLAN.md.
 Do Step 12 of the 6.0.0 plan in PLAN.md. Show me how double charging is prevented first.
 ```
 
+### [ ] Step 12b - A spool linked to several libraries  **[plan mode]**
+**Model:** Opus (or Fable) · **Effort:** High
+**Why:** today a spool keeps one link (`spools.sourceSpool`), so one imported from Bambu Cloud's filament manager can't also be a Spoolman spool, and its prints are never written back. The docs tell users to import from one library only; a user-proof app shouldn't need that.
+**Scope:**
+- A spool has one link per library (Bambu Cloud, Spoolman, later ones): `sourceSpool` and `sourceLinkedAt` move to a links table (spool, library key, linked at), with a migration that moves today's links.
+- The spool import matches and links by any of a spool's links. The same physical spool imported from a second library is suggested as the spool you have (as a hand-made one is today) and linked, never made twice.
+- Spoolman write-back covers every spool with a Spoolman link, whichever library it came from first; one with no Spoolman link is still added there on its first print.
+- One library sets a spool's remaining weight: the spools line's **Track usage**. Two lines tracking it on one spool get the same warning as prints and spools today (`doubleTracking`).
+- The spool page lists each library it comes from; unlinking one keeps the others. A printer's named spool (`spoolId`), deletes (`deleted_sources`) and the write-back's link times work per link.
+
+**Done when:** a spool imported from Bambu Cloud and linked to Spoolman is written back to Spoolman exactly once per print; re-importing from either library makes no second spool; the "one library for now" note in `docs/spoolman.md` is gone; tests pass.
+**Prompt:**
+```
+Do Step 12b of the 6.0.0 plan in PLAN.md. Show me first how a spool from two libraries is matched and linked.
+```
+
 ### [ ] Step 13 - Docs, push & v6.0.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**

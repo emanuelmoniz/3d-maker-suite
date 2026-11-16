@@ -6,6 +6,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
+import { HOST_GRACE_MS } from "./integrations/spoolPush.ts";
 
 // Spoolman two-way (6.0.0 Step 12): a print charges the Spoolman spool its app spool came from
 // exactly once, across retries, restarts, edits and re-imports (ADR-0015). Spoolman is the fake in
@@ -189,6 +190,40 @@ describe("Spoolman two-way", () => {
     });
     await app.spoolPush.run();
     expect(patches()).toEqual([]);
+  });
+
+  it("waits while Moonraker may report to the same spool, then writes", async () => {
+    const { id, vendor } = await imported();
+    await print("j1", 8);
+    // The same spool now prints on a printer whose host reports to Spoolman.
+    const printing = (state: PrinterSnapshot["state"], s: number): PrinterSnapshot => ({
+      printerExternalId: "mock-1",
+      at: at(s),
+      state,
+      job: { id: "j2", file: "cube.gcode", progress: 50 },
+      slots: [{ ...slot, spoolId: `spoolman:${vendor.id}`, chargedAtSource: true, active: true }],
+    });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      state.status = [printing("printing", 100)];
+      await app.printerStatus.pollAll();
+      await app.spoolPush.run();
+      expect(patches()).toEqual([]);
+      expect(await policy(id, "spoolUsage")).toMatchObject({ pending: 1 });
+      // It ended: Moonraker sends its last report; still a minute to wait.
+      state.status = [printing("finished", 200)];
+      await app.printerStatus.pollAll();
+      vi.setSystemTime(Date.now() + HOST_GRACE_MS - 1000);
+      await app.spoolPush.run();
+      expect(patches()).toEqual([]);
+      vi.setSystemTime(Date.now() + 2000);
+      await app.spoolPush.run();
+      // j1 only: j2 is Moonraker's own.
+      expect(usedIn(vendor.id)).toBe(108);
+      expect(await policy(id, "spoolUsage")).toMatchObject({ pending: 0 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a print that names no Spoolman spool is written back", async () => {

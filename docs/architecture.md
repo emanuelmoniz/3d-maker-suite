@@ -308,6 +308,7 @@ A spool library that is also a target (Spoolman, ADR-0015) gets what each print 
 - **An app spool in no library** that a print charged after the integration was added is made there, as it is now (`createSpool`).
 - **The adapter makes each write idempotent:** Spoolman has no idempotency key, so the Spoolman adapter sets the used weight and a marker field holding the grams per key in one `PATCH`, and reads the marker first. A write whose answer was lost is seen there on the retry.
 - **When:** a second after any change that went through (`kick`), after a tracked print, and on every sync tick, which also retries. What waits is the `pending` of the integration's `spoolUsage` policy.
+- **Not while its host reports:** a write reads the spool, then writes it, so a library spool a printing printer's host reports to (a live-status slot with `chargedAtSource`) waits until a minute after that print (`watch`, `HOST_GRACE_MS`). A slot with no `spoolId` holds every spool.
 
 ### Adding a vendor
 

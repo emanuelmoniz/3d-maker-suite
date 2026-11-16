@@ -2,6 +2,8 @@ import {
   defaultPolicy,
   type IntegrationAdapter,
   IntegrationError,
+  type PrinterSnapshot,
+  type PrinterStatus,
   type PushUsage,
   pushKey,
   pushTargets,
@@ -35,6 +37,14 @@ type Row = typeof schema.integrations.$inferSelect;
 const TIMEOUT_MS = 5 * 60 * 1000;
 /** A burst of changes (a bulk edit, a sync) is one run. */
 const KICK_MS = 1000;
+/**
+ * A printer's host reports to the library while it prints and once more as the print ends
+ * (Moonraker's `sync_rate` is 5 s): a spool it reports to waits this long after.
+ */
+export const HOST_GRACE_MS = 60_000;
+const BUSY = new Set<PrinterSnapshot["state"]>(["preparing", "printing", "paused"]);
+/** In `inUse`: a host reports to a spool it doesn't name (several tools); every spool waits. */
+const ANY = "*";
 
 const codeOf = (e: unknown) => (e instanceof IntegrationError ? e.code : "unknown");
 
@@ -51,6 +61,19 @@ export function createSpoolPush(
   let timer: NodeJS.Timeout | undefined;
   /** Integrations whose last run failed: logged once per outage. */
   const failing = new Set<string>();
+  /**
+   * Library spools (`<adapter>:<id>`) a printer's host reports to right now, and when each one
+   * stopped. A write is a read, then a write: one of the host's reports in between would be lost,
+   * so such a spool is never written while its host may report to it.
+   */
+  const inUse = new Set<string>();
+  const freedAt = new Map<string, number>();
+  const busy = (key: string) => {
+    const now = Date.now();
+    const recently = (k: string) =>
+      now - (freedAt.get(k) ?? Number.NEGATIVE_INFINITY) < HOST_GRACE_MS;
+    return inUse.has(key) || inUse.has(ANY) || recently(key) || recently(ANY);
+  };
 
   /** The app spools linked to this library's spools now: app spool id -> library spool id. */
   function links(prefix: string) {
@@ -268,8 +291,14 @@ export function createSpoolPush(
     const { targets, drop } = pushTargets(usages, sent, (id) => linked.get(id));
     for (const d of drop) save(row.id, { ...d, grams: 0, sent: d.sentGrams });
     let done = 0;
+    let waiting = 0;
     if (target && !error)
       for (const t of targets) {
+        // Its host may be reporting to it: a later run writes it (the sync tick, every minute).
+        if (busy(`${prefix}${t.vendorSpoolId}`)) {
+          waiting++;
+          continue;
+        }
         try {
           const { gone } = await target.writeUsage({
             spoolId: t.vendorSpoolId,
@@ -300,7 +329,28 @@ export function createSpoolPush(
     } else {
       if (failing.delete(row.id)) log.info({ integrationId: row.id }, "spool usage written again");
       if (done) log.info({ integrationId: row.id, written: done }, "spool usage written");
+      if (waiting)
+        log.debug({ integrationId: row.id, waiting }, "spool usage waits: its printer reports it");
     }
+  }
+
+  /** What the printers do now (`PrinterStatusRunner.subscribe`): which spools their hosts report. */
+  function watch(all: PrinterStatus[]) {
+    const now = Date.now();
+    const cur = new Set(
+      all.flatMap(({ snapshot: s }) =>
+        BUSY.has(s.state)
+          ? s.slots.flatMap((slot) => (slot.chargedAtSource ? [slot.spoolId ?? ANY] : []))
+          : [],
+      ),
+    );
+    for (const k of inUse) if (!cur.has(k)) freedAt.set(k, now);
+    inUse.clear();
+    for (const k of cur) {
+      inUse.add(k);
+      freedAt.delete(k);
+    }
+    for (const [k, at] of freedAt) if (now - at >= HOST_GRACE_MS) freedAt.delete(k);
   }
 
   /** Every working source that takes usage back, one after another; one run at a time. */
@@ -325,6 +375,7 @@ export function createSpoolPush(
 
   return {
     run,
+    watch,
     /** Something charged or gave back filament: a run soon. */
     kick() {
       if (!auto) return;

@@ -415,6 +415,8 @@ export async function buildApp(
     () => void evaluate(),
   );
   app.decorate("printerStatus", printerStatus);
+  // A spool a printer's host reports to (Moonraker to Spoolman) waits while it prints.
+  printerStatus.subscribe((all) => spoolPush.watch(all));
   if (opts.printerStatus) app.addHook("onReady", async () => printerStatus.start());
   app.addHook("onClose", async () => printerStatus.close());
   await app.register(printerStatusRoutes(printerStatus), { prefix: "/api/printers/status" });
