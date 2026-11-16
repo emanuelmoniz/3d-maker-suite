@@ -25,6 +25,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ReviewLevelField } from "../../components/ReviewLevelField.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { TimeInput } from "../../components/TimeInput.tsx";
 import { useMe } from "../../lib/auth.ts";
@@ -34,6 +35,7 @@ import {
   usePatchIntegration,
   type useSyncIntegration,
 } from "../../lib/integrations.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 import { CAPS } from "./integrationLabels.ts";
 
 const RANGES = {
@@ -292,6 +294,9 @@ export function PolicyFields({
   const review = isReviewed(type);
   const picked = (s: AlertSeverity) => p.alertSeverities?.includes(s) ?? true;
   const trackHint = `${detailsId}-track`;
+  const globalLevel = usePreferences().data?.values.printReview ?? "unmatched";
+  // A source with live status but no print history keeps its level on its status policy.
+  const recordsPrints = prints || (type === "printerStatus" && !i.capabilities.includes("prints"));
   const auto = p.mode === "auto";
 
   return (
@@ -422,6 +427,14 @@ export function PolicyFields({
                   </FormField>
                 )}
               </>
+            )}
+            {recordsPrints && (
+              <ReviewLevelField
+                value={p.reviewPolicy}
+                onChange={(v) => set({ reviewPolicy: v })}
+                disabled={disabled}
+                above={{ level: globalLevel, from: "common:reviewLevel.fromGlobal" }}
+              />
             )}
             {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}
             {(prints || type === "spools") && (

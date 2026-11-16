@@ -96,7 +96,12 @@
     "assignError": "Couldn't assign that spool. Check that it has enough filament left.",
     "banner_one": "{{count}} filament slot from imported prints needs a spool.",
     "banner_other": "{{count}} filament slots from imported prints need a spool.",
-    "open": "Review"
+    "open": "Review",
+    "estimatedMark": "~",
+    "estimatedTip": "Estimated: a total scaled by how far the print got. Correct it if you know the real grams.",
+    "grams": "Grams for {{title}}",
+    "accept": "Accept",
+    "acceptSuggestions": "Accept suggestions"
   },
   "delete": {
     "body": "“{{title}}” will be removed and its filament returned to the spools."

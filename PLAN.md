@@ -3293,7 +3293,7 @@ Do Step 6 of the 6.0.0 plan in PLAN.md. Back up the DB before editing schema.ts.
 Show me the policy × slot function and its tests first.
 ```
 
-### [ ] Step 6b - Review policy: settings and the queue
+### [x] Step 6b - Review policy: settings and the queue
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Prints settings → General: the global level (Never · When unsure · Always). Prints settings → Sources: each line's Edit gets "Use the default" or a level. The printer form: the same. Each place shows the level in effect and where it comes from.

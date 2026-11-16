@@ -1,4 +1,8 @@
-import { DEVICE_FOLDER_MAX_MB_LIMIT } from "@3d-maker-suite/core";
+import {
+  DEVICE_FOLDER_MAX_MB_LIMIT,
+  REVIEW_POLICIES,
+  type ReviewPolicy,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -6,6 +10,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { REVIEW_LEVEL_LABELS } from "../../components/ReviewLevelField.tsx";
 import { cardGrid, Section } from "../../components/Section.tsx";
 import { useAlertCoverage } from "../../lib/alerts.ts";
 import { useCan } from "../../lib/auth.ts";
@@ -155,6 +160,22 @@ export function PrintsConfigPage() {
                       if (next.join("|") !== v.failureReasons.join("|"))
                         commit({ failureReasons: next });
                     }}
+                  />
+                )}
+              </FormField>
+            </Section>
+            <Section title={t("common:reviewLevel.label")}>
+              <p className="text-muted">{t("common:reviewLevel.global")}</p>
+              <FormField label={t("common:reviewLevel.label")}>
+                {(p) => (
+                  <Combobox
+                    {...p}
+                    value={v.printReview}
+                    onChange={(x) => commit({ printReview: x as ReviewPolicy })}
+                    options={REVIEW_POLICIES.map((l) => ({
+                      value: l,
+                      label: t(REVIEW_LEVEL_LABELS[l]),
+                    }))}
                   />
                 )}
               </FormField>

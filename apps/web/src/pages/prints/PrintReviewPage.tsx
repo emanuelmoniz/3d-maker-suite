@@ -15,7 +15,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
-import { FormField } from "../../components/FormField.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
 import { useCan } from "../../lib/auth.ts";
@@ -25,6 +25,7 @@ import { formatDateTime, formatWeight } from "../../lib/format.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
 import {
   printName,
+  useAcceptSuggestions,
   useAssignReview,
   useBulkAssignReview,
   useDismissReview,
@@ -50,6 +51,7 @@ function ReviewBar({
   const { t } = useTranslation();
   const assign = useBulkAssignReview();
   const dismiss = useDismissReview();
+  const accept = useAcceptSuggestions();
   const [ask, setAsk] = useState<"assign" | "dismiss" | null>(null);
   const [spoolId, setSpoolId] = useState("");
   const [outcome, setOutcome] = useState<{
@@ -64,6 +66,20 @@ function ReviewBar({
       {
         onSuccess: (result) => {
           setAsk(null);
+          setOutcome(
+            result.blocked.length
+              ? { total: rows.length, names: new Map(rows.map((r) => [r.id, r.name])), result }
+              : null,
+          );
+          done(result.blocked.map((b) => b.id));
+        },
+      },
+    );
+  const runAccept = () =>
+    accept.mutate(
+      rows.map((r) => r.id),
+      {
+        onSuccess: (result) => {
           setOutcome(
             result.blocked.length
               ? { total: rows.length, names: new Map(rows.map((r) => [r.id, r.name])), result }
@@ -88,6 +104,9 @@ function ReviewBar({
   return (
     <>
       <SelectionBar count={rows.length} onClear={clear}>
+        <Button disabled={accept.isPending} onClick={runAccept}>
+          {t("prints:review.acceptSuggestions")}
+        </Button>
         <Button
           onClick={() => {
             assign.reset();
@@ -185,6 +204,14 @@ export function PrintReviewPage() {
   const dismiss = useDismissReview();
   const mayAssign = useCan("prints"); // the routes' "prints write"
   const [picked, setPicked] = useState<Record<string, string>>({});
+  // Grams a person corrected, as typed; empty = as recorded.
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  // What the row will assign: the pick, else the suggestion.
+  const spoolOf = (i: FilamentReviewItem) => picked[i.usageId] ?? i.suggestedSpoolId ?? "";
+  const gramsOf = (i: FilamentReviewItem) => {
+    const n = Number(typed[i.usageId]);
+    return typed[i.usageId] && n > 0 && n !== i.grams ? n : undefined;
+  };
   // The slot a new spool is being added for.
   const [adding, setAdding] = useState<FilamentReviewItem | null>(null);
   // Spools opened by the print's day; the reported material and colour first, then the material.
@@ -197,6 +224,14 @@ export function PrintReviewPage() {
         return { spool: s, rank: Number(material) * (color ? 2 : 1) };
       })
       .sort((a, b) => b.rank - a.rank);
+  // The suggestion is always on offer, even when the print's day would hide it.
+  const optionsWithSuggestion = (i: FilamentReviewItem) => {
+    const list = optionsFor(i);
+    const own = spools.find((s) => s.id === i.suggestedSpoolId);
+    return own && !list.some((o) => o.spool.id === own.id)
+      ? [{ spool: own, rank: 0 }, ...list]
+      : list;
+  };
 
   return (
     <>
@@ -294,7 +329,28 @@ export function PrintReviewPage() {
                 id: "grams",
                 header: t("prints:review.columns.grams"),
                 numeric: true,
-                cell: (i) => formatWeight(i.grams),
+                cell: (i) =>
+                  i.gramsEstimated ? (
+                    <span
+                      className="inline-flex items-center justify-end gap-1"
+                      title={t("prints:review.estimatedTip")}
+                    >
+                      <span aria-hidden>{t("prints:review.estimatedMark")}</span>
+                      <input
+                        type="number"
+                        min={0.1}
+                        step={0.1}
+                        className={`${inputClass} w-24 text-right`}
+                        aria-label={t("prints:review.grams", {
+                          title: printName(t, { number: i.printNumber, title: i.printTitle }),
+                        })}
+                        value={typed[i.usageId] ?? String(Math.round(i.grams * 10) / 10)}
+                        onChange={(e) => setTyped((p) => ({ ...p, [i.usageId]: e.target.value }))}
+                      />
+                    </span>
+                  ) : (
+                    formatWeight(i.grams)
+                  ),
                 sort: "grams",
                 filter: "grams",
               },
@@ -306,11 +362,11 @@ export function PrintReviewPage() {
                     aria-label={t("prints:review.pick", {
                       title: printName(t, { number: i.printNumber, title: i.printTitle }),
                     })}
-                    value={picked[i.usageId] ?? ""}
+                    value={spoolOf(i)}
                     onChange={(v) => setPicked((p) => ({ ...p, [i.usageId]: v }))}
                     options={[
                       { value: "", label: "" },
-                      ...optionsFor(i).map(({ spool }) => ({
+                      ...optionsWithSuggestion(i).map(({ spool }) => ({
                         value: spool.id,
                         label: t("prints:form.spoolOption", {
                           name: spoolName(t, spool),
@@ -328,12 +384,20 @@ export function PrintReviewPage() {
                   <span className="flex items-center justify-end gap-2">
                     <Button
                       variant="primary"
-                      disabled={!picked[i.usageId] || assign.isPending}
+                      disabled={!spoolOf(i) || assign.isPending}
                       onClick={() =>
-                        assign.mutate({ usageId: i.usageId, spoolId: picked[i.usageId] ?? "" })
+                        assign.mutate({
+                          usageId: i.usageId,
+                          spoolId: spoolOf(i),
+                          grams: gramsOf(i),
+                        })
                       }
                     >
-                      {t("prints:review.assign")}
+                      {t(
+                        i.suggestedSpoolId && spoolOf(i) === i.suggestedSpoolId
+                          ? "prints:review.accept"
+                          : "prints:review.assign",
+                      )}
                     </Button>
                     <Button onClick={() => setAdding(i)}>
                       <Plus className="size-4" aria-hidden />

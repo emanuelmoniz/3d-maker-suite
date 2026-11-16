@@ -7,6 +7,7 @@ import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { ReviewLevelField } from "../../components/ReviewLevelField.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogPicker, useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, formatNumber, isoToDateInput } from "../../lib/format.ts";
@@ -70,6 +71,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       warrantyEndsAt: date(text(f, "warrantyEndsAt")),
       warrantyNotes: orNull(text(f, "warrantyNotes")),
       processPresetId: orNull(text(f, "processPresetId")),
+      reviewPolicy: (orNull(text(f, "reviewPolicy")) as PrinterInput["reviewPolicy"]) ?? null,
       machinePresetId: orNull(text(f, "machinePresetId")),
       ...readCostFields(f),
     };
@@ -187,6 +189,11 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           />
         )}
       </FormField>
+      <ReviewLevelField
+        name="reviewPolicy"
+        value={printer?.reviewPolicy ?? null}
+        above={{ level: prefs?.printReview ?? "unmatched", from: "common:reviewLevel.fromSource" }}
+      />
       <FormField label={t("printers:form.power")} hint={t("printers:form.powerHint")}>
         {(p) => (
           <input

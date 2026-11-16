@@ -237,5 +237,19 @@
     "offline": "Offline",
     "missing": "Missing",
     "unshared": "Not shared on the device"
+  },
+  "reviewLevel": {
+    "label": "Review of automatic prints",
+    "default": "Use the default",
+    "levels": {
+      "never": "Never",
+      "unmatched": "When unsure",
+      "always": "Always"
+    },
+    "hint": "In effect: {{level}} ({{from}}). Never: a slot with no sure spool isn't tracked. When unsure: it waits in Filament to review. Always: every slot waits.",
+    "fromHere": "set here",
+    "fromGlobal": "the default in Prints settings",
+    "fromSource": "the default in Prints settings, unless its source sets its own",
+    "global": "Prints recorded automatically (a printer's history, a connected account) are written at once. This decides which of their filament slots wait in Filament to review. A source or a printer can set its own."
   }
 }

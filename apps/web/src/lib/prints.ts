@@ -70,8 +70,17 @@ export const useFilamentReview = (query: Record<string, string> = {}) =>
   useListPage<FilamentReviewItem>(["prints", "review"], "/api/prints/filament-review", query);
 
 export const useAssignReview = () =>
-  useInvalidating((v: { usageId: string; spoolId: string }) =>
-    api("POST", `/api/prints/filament-review/${v.usageId}/assign`, { spoolId: v.spoolId }),
+  useInvalidating((v: { usageId: string; spoolId: string; grams?: number }) =>
+    api("POST", `/api/prints/filament-review/${v.usageId}/assign`, {
+      spoolId: v.spoolId,
+      grams: v.grams,
+    }),
+  );
+
+/** "Accept suggestions": each slot onto its own suggested spool; the ones it couldn't do come back in `blocked`. */
+export const useAcceptSuggestions = () =>
+  useInvalidating((usageIds: string[]) =>
+    api<BulkResult>("POST", "/api/prints/filament-review/accept", { usageIds }),
   );
 
 /** One spool for many slots; the rows it couldn't take come back in `blocked`. */
