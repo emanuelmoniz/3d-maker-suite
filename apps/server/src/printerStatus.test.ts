@@ -530,3 +530,159 @@ describe("grams the printer didn't report (ADR-0015)", () => {
     ]);
   });
 });
+
+describe("one printer, two sources (ADR-0015: Bambu Cloud and Bambu LAN)", () => {
+  /** A second source of the same printer (same serial), its printers synced. */
+  const second = async () => {
+    const id = (
+      await app.inject({
+        method: "POST",
+        url: "/api/integrations",
+        payload: { adapterId: "mock", secrets: { token: "t" } },
+      })
+    ).json().id as string;
+    await app.inject({
+      method: "POST",
+      url: `/api/integrations/${id}/sync`,
+      payload: { type: "printers" },
+    });
+    return id;
+  };
+  const syncer = () => createSyncer(db, [mockAdapter(state)], loadKey(dataDir), app.log, dataDir);
+  /** A print the second source's job tracker saw end. */
+  const lan = (id: string, externalId: string, startedAt: string, peerId?: string) =>
+    syncer().recordPrint(id, {
+      print: {
+        externalId,
+        ...(peerId && { peerId }),
+        printerExternalId: "mock-1",
+        title: "benchy",
+        startedAt,
+        outcome: "success",
+        filaments: [{ slot: 0, material: "PLA", colorHex: "#ff8800", grams: 4 }],
+      },
+      partial: false,
+      endSeen: true,
+      job: {},
+    });
+  const syncPrints = (id: string) =>
+    app.inject({
+      method: "POST",
+      url: `/api/integrations/${id}/sync`,
+      payload: { type: "prints" },
+    });
+  const printsOf = () => db.select().from(schema.prints).all();
+
+  it("the second source of a serial is linked to the printer, not imported again", async () => {
+    const lanId = await second();
+    expect(db.select().from(schema.printers).all()).toHaveLength(1);
+    const [printer] = db.select().from(schema.printers).all();
+    expect(db.select().from(schema.printerSources).all()).toMatchObject([
+      { printerId: printer?.id, integrationId: lanId, externalId: "mock-1" },
+    ]);
+    // Synced again: still linked, nothing new to import.
+    await second();
+    expect(db.select().from(schema.printers).all()).toHaveLength(1);
+    // Its status shows on that printer.
+    app.printerStatus.refresh();
+    await reads([snap(0)]);
+    expect((await statuses()).map((s) => [s.printerId, s.integrationId])).toContainEqual([
+      printer?.id,
+      lanId,
+    ]);
+  });
+
+  it("each print once: the live one names the cloud's task id, whichever comes first", async () => {
+    const lanId = await second();
+    // The LAN saw job-1 end first and names the cloud's id. It joined half-way, so its start is
+    // minutes off: only the id can tell.
+    const job1 = state.prints[0];
+    if (!job1) throw new Error("fixture");
+    const late = new Date(Date.parse(job1.startedAt) + 300_000).toISOString();
+    expect(lan(lanId, "100000001", late, job1.externalId)).toBe(true);
+    await syncPrints(integrationId);
+    expect(
+      printsOf()
+        .map((p) => p.externalId)
+        .sort(),
+    ).toEqual(["100000001", "job-2", "job-3"]);
+    // The cloud had job-3 already: the LAN's copy isn't written.
+    const job3 = state.prints[2];
+    expect(lan(lanId, "100000003", job3?.startedAt ?? "", job3?.externalId)).toBe(false);
+    expect(printsOf()).toHaveLength(3);
+  });
+
+  it("a print neither names is the same print when they started within a minute", async () => {
+    const lanId = await second();
+    const job2 = state.prints[1];
+    const near = new Date(Date.parse(job2?.startedAt ?? "") - 50_000).toISOString();
+    const far = new Date(Date.parse(job2?.startedAt ?? "") - 70_000).toISOString();
+    await syncPrints(integrationId);
+    expect(lan(lanId, "local-1", near)).toBe(false);
+    expect(lan(lanId, "local-2", far)).toBe(true);
+  });
+
+  it("both sources watching the same print record it once", async () => {
+    await second();
+    app.printerStatus.refresh();
+    const end = snap(70, { state: "finished", job: { id: "j1" } });
+    await reads([snap(10)], [end], [snap(80, { state: "idle", job: undefined })]);
+    expect(tracked()).toHaveLength(1);
+  });
+});
+
+describe("a spool's tag (Bambu AMS RFID)", () => {
+  const record = (externalId: string, rfid: string, startedAt = at(0)) =>
+    createSyncer(db, [mockAdapter(state)], loadKey(dataDir), app.log, dataDir).recordPrint(
+      integrationId,
+      {
+        print: {
+          externalId,
+          printerExternalId: "mock-1",
+          title: "benchy",
+          startedAt,
+          outcome: "success",
+          filaments: [{ slot: 2, material: "PLA", colorHex: "#ff8800", grams: 5, rfid }],
+        },
+        partial: false,
+        endSeen: true,
+        job: {},
+      },
+    );
+  const printUsages = (externalId: string) =>
+    usagesOf(
+      db.select().from(schema.prints).where(eq(schema.prints.externalId, externalId)).get()?.id ??
+        "",
+    );
+  const tagOf = (id: string) =>
+    db.select().from(schema.spools).where(eq(schema.spools.id, id)).get()?.rfid;
+
+  it("is learned by the spool a sure match charged; that spool is then sure among look-alikes", async () => {
+    const first = await spool("#ff8800");
+    record("p1", "TAG-A");
+    expect(printUsages("p1")).toMatchObject([{ spoolId: first.id, rfid: "TAG-A" }]);
+    expect(tagOf(first.id)).toBe("TAG-A");
+    // A second orange spool: colour alone is a guess now, the tag isn't.
+    await spool("#ff8800");
+    record("p2", "TAG-A", at(100));
+    expect(printUsages("p2")).toMatchObject([{ spoolId: first.id }]);
+  });
+
+  it("a slot waiting for review gives its tag to the spool a person picks", async () => {
+    const a = await spool("#ff8800");
+    const b = await spool("#ff8800");
+    record("p1", "TAG-B");
+    const [waiting] = printUsages("p1");
+    expect(waiting).toMatchObject({ spoolId: null, rfid: "TAG-B" });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/prints/filament-review/${waiting?.id}/assign`,
+      payload: { spoolId: b.id },
+    });
+    expect(res.statusCode).toBeLessThan(300);
+    expect(tagOf(b.id)).toBe("TAG-B");
+    expect(tagOf(a.id)).toBeNull();
+    record("p2", "TAG-B", at(100));
+    expect(printUsages("p2")).toMatchObject([{ spoolId: b.id }]);
+  });
+});

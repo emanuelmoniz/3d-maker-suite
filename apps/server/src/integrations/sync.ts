@@ -58,7 +58,7 @@ import { clearDeleted } from "../lib/catalog.ts";
 import { deleteItem } from "../lib/dependents.ts";
 import { success } from "../lib/logSink.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { bookOrLink } from "../lib/prints.ts";
+import { bookOrLink, learnTag } from "../lib/prints.ts";
 import { linkPrints, projectMatcher } from "../projects/linkPrints.ts";
 import { avatar, dropAvatar } from "./avatar.ts";
 import {
@@ -79,6 +79,7 @@ import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
 import { mergeUserPresets, userPresetFiles } from "./presetLibrary.ts";
 import { ownRows, releaseRoute } from "./presetRoutes.ts";
+import { linkSourcePrinters } from "./printerSources.ts";
 import { secretStore } from "./secrets.ts";
 import {
   activeSpools,
@@ -1045,6 +1046,7 @@ export function createSyncer(
           grams: u.grams,
           slot: u.slot,
           startedAt,
+          rfid: u.rfid,
         }));
         const matches = matchPrint(
           slots,
@@ -1066,6 +1068,7 @@ export function createSyncer(
               .set({ spoolId: spool.id, suggestedSpoolId: null })
               .where(eq(printFilamentUsages.id, u.id))
               .run();
+            if (u.rfid) learnTag(tx, spool.id, u.rfid);
             history.add({ printerId, slot: u.slot, startedAt, spoolId: spool.id });
           } else if (outcome.action === "wait" && outcome.suggestedSpoolId !== u.suggestedSpoolId)
             tx.update(printFilamentUsages)
@@ -1089,7 +1092,13 @@ export function createSyncer(
     const from = { kind: "integration" as const, integrationId: row.id };
     if (type === "printers") {
       const items = instance ? await readPrinters(row.id, instance) : [];
-      return { entity: type, ignoredHeaders: [], from, rows: printerRows(db, row.id, items) };
+      return {
+        entity: type,
+        ignoredHeaders: [],
+        from,
+        // A printer another source of the same serial brought in is that printer, not a new one.
+        rows: printerRows(db, row.id, linkSourcePrinters(db, row.id, items)),
+      };
     }
     if (type === "spools") {
       const policy = policyOf(db, row.id, "spools");
@@ -1216,11 +1225,12 @@ export function createSyncer(
       );
       return false;
     }
-    // Grams the printer didn't report: the file's totals, else the plate of the project it names.
+    // Grams the printer didn't report: the file's totals (read here, or by the source itself),
+    // else the plate of the project it names.
     const p = {
       ...parsed,
       data: fillGrams(parsed.data, tracked.job, {
-        file,
+        file: file ?? tracked.job.totals,
         plate: plateTotals(db, parsed.data.title, parsed.data.plate),
       }),
     };

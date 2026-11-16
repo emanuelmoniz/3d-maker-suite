@@ -192,6 +192,8 @@ type Reported = {
   colorHex?: string;
   gramsSource?: GramsSource | null;
   gramsEstimated?: boolean;
+  /** The tag the printer read on the slot's spool; the spool it is charged to learns it. */
+  rfid?: string;
   /** An automatic print's slot that isn't charged (ADR-0015): what it waits with, or not tracked. */
   suggestedSpoolId?: string | null;
   dismissed?: boolean;
@@ -238,6 +240,7 @@ function useFilament(
       colorHex: said.colorHex?.toLowerCase() ?? null,
       gramsSource: said.gramsSource ?? null,
       gramsEstimated: said.gramsEstimated ?? false,
+      rfid: said.rfid ?? null,
     };
     if (spoolId) booked.push({ spoolId, grams, ...as });
     else if (v[key.spool] || v[key.filament] || said)
@@ -502,6 +505,7 @@ export const printImport = {
           ...source,
           plate: num(src.raw.plate as ImportCell),
           sourceUrl: str(src.raw.sourceUrl as ImportCell),
+          peerId: str(src.raw.peerId as ImportCell),
         }),
         // A number another print has ("import as new" of an exported row) gets the next free one.
         number: freeNumber(db, prints, numberCell(v.number)) ?? nextNumber(prints),

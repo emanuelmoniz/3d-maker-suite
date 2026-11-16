@@ -142,6 +142,28 @@ describe("matchPrint", () => {
     // Not an active spool (archived, empty): the colour match as before.
     expect(matchPrint([{ ...slot, slot: 0 }], [spool("a")], () => [], loaded)).toEqual([sure("a")]);
   });
+
+  it("takes the spool that carries the slot's tag first, before the loaded one", () => {
+    const loaded = () => "b";
+    const spools = [spool("a", { rfid: "T1" }), spool("b"), spool("c")];
+    expect(matchPrint([{ ...slot, slot: 0, rfid: "T1" }], spools, () => [], loaded)).toEqual([
+      sure("a"),
+    ]);
+    // The app's count says it can't hold the grams: still that spool, for a person to check.
+    const low = [spool("a", { rfid: "T1", remainingGrams: 10 })];
+    expect(matchPrint([{ ...slot, rfid: "T1" }], low)).toEqual([guess("a")]);
+    // A tag no spool carries yet: matched as before (a guess: two slots of one colour), and the
+    // tagged spool isn't taken by the other slot.
+    expect(
+      matchPrint(
+        [
+          { ...slot, slot: 0, rfid: "T9" },
+          { ...slot, slot: 1, rfid: "T1" },
+        ],
+        [spool("a", { rfid: "T1" }), spool("b")],
+      ),
+    ).toEqual([guess("b"), sure("a")]);
+  });
 });
 
 describe("usableOn", () => {

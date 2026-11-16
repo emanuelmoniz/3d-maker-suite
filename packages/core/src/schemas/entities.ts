@@ -466,6 +466,8 @@ export const spoolSchema = z.object({
   loadedPrinterId: id.nullable(),
   loadedSlot: z.number().int().nonnegative().nullable(),
   loadedAt: isoDate.nullable(),
+  /** The tag a printer read on it, learned when a slot with it was charged to it. Read only. */
+  rfid: z.string().nullable(),
   archivedAt: isoDate.nullable(),
   ...timestamps,
 });

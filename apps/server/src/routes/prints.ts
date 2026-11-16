@@ -39,6 +39,7 @@ import {
   bookOrLink,
   energyFor,
   estimatedDuration,
+  learnTag,
   printerMachine,
   shortOf,
   syncUsages,
@@ -174,6 +175,7 @@ export const printsRoutes =
           })
           .where(eq(printFilamentUsages.id, row.usage.id))
           .run();
+        if (row.usage.rfid) learnTag(tx, spool.id, row.usage.rfid);
       });
     };
 

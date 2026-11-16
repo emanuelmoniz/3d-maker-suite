@@ -59,7 +59,7 @@ Each one is an adapter package in `packages/adapters/<id>` (ADR-0003), configure
 - **No printer control.** Nothing pauses, stops or starts a print.
 
 ### One printer, several sources
-A Bambu printer can come from Bambu Cloud and from Bambu LAN. Sources are matched by serial. Live status comes from LAN, history from the cloud. Prints are deduped per printer: by the cloud's task id, which the LAN feed carries for a print started through the cloud, else by start time within **60 seconds**.
+A Bambu printer can come from Bambu Cloud and from Bambu LAN. Sources are matched by serial: the printer keeps the source that brought it in, and a later source of the same serial is linked to it (`printer_sources`) when its printers sync, never imported as a second printer. Live status comes from LAN, history from the cloud. Prints are deduped per printer: by the cloud's task id, which the LAN feed carries for a print started through the cloud, else by start time within **60 seconds**.
 
 **Bambu LAN works alone.** It needs no Bambu Cloud integration and no cloud-bound printer: the printer, its slots, live status and prints come from the LAN source. Without the cloud there is no history, so a print that ends while nothing watches is missed, as with PrusaLink and OctoPrint. A print started over LAN has no cloud task id; its start is when the tracker first saw it.
 
@@ -82,7 +82,7 @@ A cancelled or failed print whose printer doesn't report the grams really used g
 
 ### Which spool
 The first that answers wins:
-1. the printer says: AMS or CFS RFID, the Spoolman spool a Moonraker job names;
+1. the printer says: AMS or CFS RFID, the Spoolman spool a Moonraker job names. A spool learns its tag the first time a slot with it is charged to it (a sure match, a loaded spool, or a person's pick in the review); the latest charge wins, so a wrong pick is mended by the next;
 2. the **loaded spool per printer slot**, which the user sets on the printer page. One whose material differs from what the printer reported for the slot isn't sure;
 3. a sure material + colour match, as Bambu Cloud prints are matched today (`matchPrint`);
 4. the review queue (Filament to review): a `print_filament_usages` row with `spoolId` null, as today.

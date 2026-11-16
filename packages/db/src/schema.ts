@@ -376,6 +376,28 @@ export const printers = sqliteTable(
   ],
 );
 
+// The other sources of one printer (ADR-0015): Bambu Cloud for its history and Bambu LAN for its
+// status are one printer, matched by serial. The printer row keeps the source that brought it in;
+// a later source of the same serial is linked here instead of importing it twice.
+export const printerSources = sqliteTable(
+  "printer_sources",
+  {
+    id: id(),
+    printerId: text()
+      .notNull()
+      .references(() => printers.id, { onDelete: "cascade" }),
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    externalId: text().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("printer_sources_external_uq").on(t.integrationId, t.externalId),
+    index("printer_sources_printer_idx").on(t.printerId),
+  ],
+);
+
 // A timeline: pinned first, then newest first. `status` lets an issue note be closed out.
 export const printerComments = sqliteTable(
   "printer_comments",
@@ -644,6 +666,9 @@ export const spools = sqliteTable(
     loadedPrinterId: text().references(() => printers.id, { onDelete: "set null" }),
     loadedSlot: integer(),
     loadedAt: text(),
+    // The tag a printer read on it (Bambu AMS `tray_uuid`), learned the first time a slot with
+    // that tag is charged to it; a print naming the tag is then this spool for sure (ADR-0015).
+    rfid: text(),
     archivedAt: text(),
     ...timestamps,
   },
@@ -653,6 +678,7 @@ export const spools = sqliteTable(
     uniqueIndex("spools_loaded_uq").on(t.loadedPrinterId, t.loadedSlot),
     uniqueIndex("spools_source_uq").on(t.sourceSpool),
     uniqueIndex("spools_number_uq").on(t.number),
+    uniqueIndex("spools_rfid_uq").on(t.rfid),
     check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),
   ],
 );
@@ -877,6 +903,9 @@ export const prints = sqliteTable(
     energySource: text({ enum: ENERGY_SOURCES }),
     costSnapshot: text({ mode: "json" }),
     sourceUrl: text(),
+    // This print's externalId in another source of its printer, when the printer named it (Bambu
+    // LAN carries the cloud's task id): the other source's copy is the same print (`samePrint`).
+    peerId: text(),
     archivedAt: text(),
     ...imported(),
     ...timestamps,
@@ -919,6 +948,8 @@ export const printFilamentUsages = sqliteTable(
     gramsEstimated: integer({ mode: "boolean" }).notNull().default(false),
     /** While it waits: the spool the match suggests; charges nothing until a person accepts it. */
     suggestedSpoolId: text().references(() => spools.id, { onDelete: "set null" }),
+    /** The tag the printer read on the slot's spool; the spool it is charged to learns it. */
+    rfid: text(),
   },
   (t) => [
     index("print_filament_usages_print_idx").on(t.printId),

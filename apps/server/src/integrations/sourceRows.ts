@@ -10,15 +10,17 @@ import {
   type ReviewPolicy,
   reviewPolicyOf,
   type SLICER_ZIP_TYPES,
+  samePrint,
   slotOutcome,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
 import { presetName, presetNames, printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { catalogName } from "./imports.ts";
+import { printersOfSource } from "./printerSources.ts";
 
 const { brands, printerModels, printers, printFilamentUsages, prints, spools } = schema;
 
@@ -121,6 +123,7 @@ export const activeSpools = (db: Db) =>
       createdAt: spools.createdAt,
       initialGrams: spools.initialGrams,
       remainingGrams: spools.remainingGrams,
+      rfid: spools.rfid,
       label: spoolName,
     })
     .from(spools)
@@ -218,14 +221,18 @@ export function printRows(
   items: ExternalPrint[],
   levels?: ReturnType<typeof reviewLevels>,
 ): StoredRow[] {
-  const mine = and(eq(printers.integrationId, integrationId), isNotNull(printers.externalId));
-  const printerOf = new Map(
+  // Its own printers and those it is linked to by serial (`linkSourcePrinters`).
+  const ids = printersOfSource(db, integrationId);
+  const labels = new Map(
     db
-      .select({ externalId: printers.externalId, id: printers.id, label: printerLabel })
+      .select({ id: printers.id, label: printerLabel })
       .from(printers)
-      .where(mine)
+      .where(inArray(printers.id, [...new Set(ids.values())]))
       .all()
-      .map((p) => [p.externalId, p]),
+      .map((p) => [p.id, p.label]),
+  );
+  const printerOf = new Map(
+    [...ids].map(([ext, id]) => [ext, { id, label: labels.get(id) ?? ext }] as const),
   );
   const known = new Set(
     db
@@ -235,13 +242,43 @@ export function printRows(
       .all()
       .map((p) => p.externalId),
   );
+  // The same print from the printer's other source (ADR-0015): it is there already, so it is
+  // neither new nor an update. By the id either names, else by a start within a minute.
+  const others = db
+    .select({
+      printerId: prints.printerId,
+      externalId: prints.externalId,
+      startedAt: prints.startedAt,
+      peerId: prints.peerId,
+    })
+    .from(prints)
+    .where(
+      and(
+        inArray(prints.printerId, [...new Set(ids.values())]),
+        ne(prints.integrationId, integrationId),
+        isNotNull(prints.integrationId),
+      ),
+    )
+    .all();
+  const twin = (p: ExternalPrint) => {
+    const printerId = printerOf.get(p.printerExternalId)?.id;
+    return (
+      !!printerId &&
+      !known.has(p.externalId) &&
+      !!samePrint(
+        p,
+        others.filter((o) => o.printerId === printerId),
+      )
+    );
+  };
+  const offered = items.filter((p) => !twin(p));
   // Copies: `remainingGrams` becomes what each spool still holds once the rows before take theirs,
   // so a booking can't overdraw it.
   const active = activeSpools(db).map((s) => ({ ...s }));
   const byId = new Map(active.map((s) => [s.id, s]));
   const history = spoolHistory(db);
   const loaded = loadedSpools(db);
-  const fresh = items.filter((p) => !known.has(p.externalId));
+  const fresh = offered.filter((p) => !known.has(p.externalId));
   // Oldest first, so a print follows the spools picked for the ones before it.
   type Picked = {
     label: string | null;
@@ -254,7 +291,7 @@ export function printRows(
     const printerId = printerOf.get(p.printerExternalId)?.id;
     const slots = p.filaments
       .slice(0, PRINT_MAX_SLOTS)
-      .map((f) => ({ ...f, grams: f.grams ?? 0, startedAt: p.startedAt }));
+      .map((f) => ({ ...f, grams: f.grams ?? 0, startedAt: p.startedAt, rfid: f.rfid }));
     const matches = matchPrint(
       slots,
       active,
@@ -297,7 +334,7 @@ export function printRows(
     );
   }
   return numbered(
-    items.map(({ filaments, ...p }) => {
+    offered.map(({ filaments, ...p }) => {
       const slots: Record<string, unknown> = {};
       // Slots picked from several spools: shown for a person to check, and held by an auto run.
       const unsure: string[] = [];
@@ -326,10 +363,12 @@ export function printRows(
           ...slots,
           plate: p.plate ?? null,
           sourceUrl: p.sourceUrl ?? null,
+          ...(p.peerId && { peerId: p.peerId }),
           reported: own.slice(0, PRINT_MAX_SLOTS).map((f, i) => ({
             slot: f.slot ?? null,
             material: f.material,
             colorHex: f.colorHex,
+            ...(f.rfid && { rfid: f.rfid }),
             gramsSource: f.grams == null ? null : (f.gramsSource ?? "printer"),
             gramsEstimated: f.gramsEstimated ?? false,
             ...picked.get(p.externalId)?.[i]?.held,

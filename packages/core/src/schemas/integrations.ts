@@ -109,6 +109,16 @@ export const printerSnapshotSchema = z.object({
       slots: z.array(z.number().int().nonnegative()),
       /** Why it ended in `error`, in the printer's words. */
       failureReason: z.string().min(1),
+      /**
+       * The slicer totals of the job file, when the source reads the file itself (Bambu LAN, over
+       * FTPS); `slot` numbered as `slots`. The server reads the others (`readJobTotals`).
+       */
+      totals: z.array(
+        z.object({
+          slot: z.number().int().nonnegative().optional(),
+          grams: z.number().nonnegative(),
+        }),
+      ),
     })
     .partial()
     .optional(),

@@ -9,11 +9,12 @@ import {
   track,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { capableRows } from "./capabilities.ts";
+import { sourcePrinters } from "./printerSources.ts";
 import type { Syncer } from "./sync.ts";
 
 // Live status of every printer whose source has `printerStatus` (ADR-0015). Snapshots are kept in
@@ -84,23 +85,23 @@ export function createPrinterStatus(
       .run();
   };
 
-  /** Every printer with a status that is one of ours (imported from its source, not archived). */
+  /**
+   * Every printer with a status that is one of ours (imported from its source or linked to it by
+   * serial, not archived).
+   */
   function all(): PrinterStatus[] {
-    const ours = new Map(
+    const archived = new Set(
       db
-        .select({
-          id: schema.printers.id,
-          integrationId: schema.printers.integrationId,
-          externalId: schema.printers.externalId,
-        })
+        .select({ id: schema.printers.id })
         .from(schema.printers)
-        .where(and(isNotNull(schema.printers.externalId), isNull(schema.printers.archivedAt)))
+        .where(isNotNull(schema.printers.archivedAt))
         .all()
-        .map((p) => [`${p.integrationId}:${p.externalId}`, p.id]),
+        .map((p) => p.id),
     );
+    const ours = sourcePrinters(db);
     return [...latest].flatMap(([key, { integrationId, snapshot }]) => {
       const printerId = ours.get(key);
-      return printerId ? [{ printerId, integrationId, snapshot }] : [];
+      return printerId && !archived.has(printerId) ? [{ printerId, integrationId, snapshot }] : [];
     });
   }
 

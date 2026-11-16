@@ -1,0 +1,40 @@
+# Bambu LAN setup
+
+The Bambu LAN integration reads a Bambu Lab printer on your network: its live status, its AMS, and every print it finishes, cancels or fails, recorded the moment it ends. It works with or without [Bambu Cloud](bambu-cloud.md). It is read-only: the app never starts, pauses or stops a print, and it changes no setting on the printer.
+
+## What it needs
+
+- The printer's **access code**. It is on the printer's screen in the network settings (on the A1 and A1 mini under **Settings → LAN Only Mode**; the code shows there without switching the mode on). Bambu Studio and Bambu Handy know it too.
+- The server running the app on the **same network** as the printer, able to reach it on TCP ports 8883 (status) and 990 (the print's file).
+- **No LAN Only mode and no Developer mode.** The printer stays connected to Bambu Cloud, so Bambu Handy and printing from the cloud keep working. Checked on an A1 (firmware 01.09.00.00); a printer with LAN Only mode on, and other models, aren't checked yet.
+
+## Connect
+
+1. Open **Integrations**, press **Add** and choose **Bambu Lab printer (LAN)**.
+2. Enter the access code and the printer's **IP**, or its **serial number** (on the screen under the device info, or in Bambu Studio's device page), or both:
+   - With the IP, the app reads the serial from the printer.
+   - With the serial alone, the app finds the printer by the broadcast it sends every 10 seconds. That needs the server on the same network segment; a server in Docker on a bridged network doesn't hear it, so give it the IP.
+   - With both, the IP is where it starts, and the app follows the printer by its serial when its IP changes.
+3. Optional: a name for the printer (else the name it announces).
+4. Press **Test connection** on the new card, then sync **Printers** once and switch on **Live status**.
+
+One integration is one printer. Add one per printer. The access code is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
+
+## With Bambu Cloud, or alone
+
+- **With a Bambu Cloud account** that has the same printer, the two are **one printer** in the app, matched by serial: Bambu LAN gives the live status, Bambu Cloud the history. Each print is recorded once, whichever source sees it first: a print sent through the cloud carries the cloud's task id, and any other print is matched by its start time.
+- **Alone**, with no Bambu Cloud account or a printer that isn't on the cloud, Bambu LAN brings in the printer, its AMS, live status and prints by itself. There is no history then: a print that ends while the app isn't running is missed. Keep the app running (a server, a NAS) to catch every print.
+
+## What it reads
+
+- **Live status:** state, progress, time left, layer, nozzle and bed temperatures (and the chamber where the printer has a sensor), and every AMS slot and the spool on the back with its material, colour and RFID tag.
+- **Prints:** the title, plate, start (the cloud's own start for a cloud print) and outcome. A print stopped on the screen or in the app is **cancelled**; any other stop is **failed**, with the printer's error code (`0300-8001`), which Bambu's wiki explains.
+- **Grams:** the printer reports none. The app reads the print's 3MF from the printer once per print (a few hundred KB, a few seconds) and takes the slicer's grams per filament, on the AMS slot each filament was printed from. A cancelled or failed print gets those grams times the share of the layers it reached, marked **estimated**. When the file can't be read, the grams come from the project's plate or wait in Filament to review ([printers.md](printers.md#grams-and-spools)).
+- **Spools:** a Bambu spool's RFID tag is learned by the app's spool the first time that slot is charged to it; after that, a print from that spool charges it for sure ([printers.md](printers.md#grams-and-spools)).
+
+## Troubleshooting
+
+- **Sign-in required:** the access code is wrong, or the printer made a new one (it does when LAN Only mode is switched, and on a reset). Copy it again from the screen.
+- **Can't be reached:** check the IP on the printer's screen and that the server's machine can reach it. In Docker, use the IP and a network the printer can be reached from.
+- **Offline on the dashboard:** the printer is off or out of reach. A printer that goes away during a print raises a **Printer offline** alert.
+- **No grams on a print:** the print's file wasn't on the printer (a print started from the SD card can have it elsewhere) or couldn't be read in time; the grams then come from the project's plate, or the slot waits in Filament to review.

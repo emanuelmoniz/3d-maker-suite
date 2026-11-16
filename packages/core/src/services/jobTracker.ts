@@ -28,6 +28,8 @@ export interface TrackedJob {
   progress?: number;
   layer?: number;
   totalLayers?: number;
+  /** The job file's slicer totals, when the source read them (it may take a few snapshots). */
+  totals?: { slot?: number; grams: number }[];
   /** The slots it used, as first described; `gramsUsed` is the latest. */
   slots: Slot[];
 }
@@ -47,7 +49,7 @@ export interface TrackedPrint {
   /** False: the job was gone with no end state, so the outcome is a guess from its progress. */
   endSeen: boolean;
   /** How far it got and its file, for the grams the printer didn't report. */
-  job: Pick<TrackedJob, "file" | "progress" | "layer" | "totalLayers">;
+  job: Pick<TrackedJob, "file" | "progress" | "layer" | "totalLayers" | "totals">;
 }
 
 const OUTCOMES: Partial<Record<PrinterSnapshot["state"], PrintOutcome>> = {
@@ -99,6 +101,7 @@ function merge(job: TrackedJob, snap: PrinterSnapshot): TrackedJob {
     progress: highest(job.progress, j.progress),
     layer: highest(job.layer, j.layer),
     totalLayers: job.totalLayers ?? j.totalLayers,
+    totals: job.totals ?? j.totals,
   };
   return { ...next, slots: withSlots(next, snap) };
 }
@@ -147,7 +150,13 @@ function toPrint(
     },
     partial: job.partial,
     endSeen: end.seen,
-    job: { file: job.file, progress: job.progress, layer: job.layer, totalLayers: job.totalLayers },
+    job: {
+      file: job.file,
+      progress: job.progress,
+      layer: job.layer,
+      totalLayers: job.totalLayers,
+      ...(job.totals && { totals: job.totals }),
+    },
   };
 }
 

@@ -15,6 +15,7 @@ import {
 } from "@3d-maker-suite/core";
 import { z } from "zod";
 
+export { bambuLanAdapter } from "./lan/index.ts";
 export { bambuStudioLibrary } from "./studio.ts";
 
 import { cliSlicer } from "@3d-maker-suite/slicer-presets";

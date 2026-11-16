@@ -117,6 +117,15 @@
         }
       }
     },
+    "bambu-lan": {
+      "name": "Bambu Lab printer (LAN)",
+      "fields": {
+        "host": "Printer IP (optional when the server is on the same network)",
+        "serial": "Serial number (optional when the IP is set)",
+        "name": "Printer name",
+        "accessCode": "Access code (on the printer's screen)"
+      }
+    },
     "moonraker": {
       "name": "Moonraker (Klipper)",
       "fields": {

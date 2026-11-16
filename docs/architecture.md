@@ -282,7 +282,7 @@ A source with the `printerStatus` capability says what each printer is doing now
 
 **API:** `GET /api/printers/status` lists every printer's latest snapshot by printer id; `GET /api/printers/status/events` is an SSE stream that sends the same list again whenever something besides the read time changes. Both need `printers` read.
 
-One printer can have several sources. `printerOfSource` finds the printer by its own source key, else by serial. `samePrint` finds the print another source already recorded: by the id either side names, else by a start within 60 seconds (`packages/core/src/services/printSources.ts`).
+One printer can have several sources. `printerOfSource` finds the printer by its own source key, else by serial. The printer row keeps the source that brought it in; a later source of the same serial is linked in `printer_sources` when its printers sync (`apps/server/src/integrations/printerSources.ts`), and its prints and status land on that printer. `samePrint` finds the print another source already recorded: by the id either side names, else by a start within 60 seconds (`packages/core/src/services/printSources.ts`).
 
 ### Adding a vendor
 

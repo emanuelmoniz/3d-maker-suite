@@ -13,6 +13,8 @@ export type SpoolCandidate = {
   /** Null = not known yet: the spool can take any slot. */
   initialGrams: number | null;
   remainingGrams: number | null;
+  /** The tag a printer read on it (Bambu's AMS), learned when a slot with it was charged to it. */
+  rfid?: string | null;
 };
 
 export type SlotToMatch = {
@@ -20,6 +22,8 @@ export type SlotToMatch = {
   colorHex?: string;
   grams: number;
   startedAt: string;
+  /** The tag the printer read on the slot's spool. */
+  rfid?: string | null;
 };
 
 /** The spool picked for a slot; `sure` = the only one that fits, else a person should check it. */
@@ -92,9 +96,10 @@ export function matchSpool(
  * `matchSpool` for every slot of one print. A spool goes to one slot only. Two slots of the same
  * material + colour are two spools (the AMS switched to a second roll when the first ran out), so
  * none of them is sure. `recent` gives the printer's recent spools for a slot (its AMS position).
- * A slot's `loaded` spool comes first (ADR-0015), when it is one of `spools`: sure, unless the
- * printer reported another material for the slot (then it is only a guess a person checks) or it
- * can't hold the grams (then nothing is picked).
+ * The spool whose tag the printer read comes first (ADR-0015): sure, or only a guess when it can't
+ * hold the grams (the app's count is off; a person checks). Then a slot's `loaded` spool, when it
+ * is one of `spools`: sure, unless the printer reported another material for the slot (then it is
+ * only a guess a person checks) or it can't hold the grams (then nothing is picked).
  */
 export function matchPrint(
   slots: (SlotToMatch & { slot?: number | null })[],
@@ -102,15 +107,18 @@ export function matchPrint(
   recent: (slot: number | null | undefined) => string[] = () => [],
   loaded: (slot: number | null | undefined) => string | undefined = () => undefined,
 ): SpoolMatch[] {
-  // ponytail: the printer's own spool id / RFID would come before the loaded spool; no spool
-  // stores one yet (Spoolman's ids arrive with its two-way sync).
+  // ponytail: Spoolman's spool id would sit next to the tag; it arrives with its two-way sync.
+  const taggedOf = (s: SlotToMatch) =>
+    s.rfid ? spools.find((c) => !!c.rfid && c.rfid === s.rfid) : undefined;
   const loadedOf = (s: { slot?: number | null }) => {
     const id = loaded(s.slot);
     return id ? spools.find((c) => c.id === id) : undefined;
   };
-  const taken = new Set(slots.flatMap((s) => loadedOf(s)?.id ?? []));
+  const taken = new Set(slots.flatMap((s) => (taggedOf(s) ?? loadedOf(s))?.id ?? []));
   const key = (s: SlotToMatch) => `${s.material?.toLowerCase()}|${s.colorHex?.toLowerCase()}`;
   return slots.map((s, i) => {
+    const t = taggedOf(s);
+    if (t) return { id: t.id, sure: t.remainingGrams == null || t.remainingGrams >= s.grams };
     const l = loadedOf(s);
     if (l)
       return l.remainingGrams == null || l.remainingGrams >= s.grams

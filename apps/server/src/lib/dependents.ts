@@ -46,6 +46,7 @@ const {
   orderProjects,
   orders,
   printerComments,
+  printerSources,
   printerModels,
   printers,
   printFilamentUsages: usages,
@@ -210,7 +211,8 @@ export const ITEMS = {
       through(ACCESSORY, installs.printerId, installs.accessoryId),
       listed(MAINTENANCE_TYPE, maintenanceTypes.appliesToPrinterIds),
     ],
-    goes: [printerComments.printerId, usageCorrections.printerId],
+    // Its links to other sources of the same serial (ADR-0015) go with it.
+    goes: [printerComments.printerId, usageCorrections.printerId, printerSources.printerId],
     // A spool loaded in it is just no longer loaded (FK `set null`).
     clears: [plates.printerId, spools.loadedPrinterId],
     tag: "printer",

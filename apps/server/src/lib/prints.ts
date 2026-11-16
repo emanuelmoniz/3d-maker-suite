@@ -6,7 +6,7 @@ import {
   usableOn,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, gt, isNotNull, sum } from "drizzle-orm";
+import { and, eq, gt, isNotNull, ne, sum } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { spoolName } from "./catalog.ts";
 import { readPreferences } from "./preferences.ts";
@@ -116,6 +116,8 @@ export const syncUsages = (
     colorHex?: string | null;
     gramsSource?: GramsSource | null;
     gramsEstimated?: boolean;
+    /** The tag the printer read; unset keeps the one the slot had. */
+    rfid?: string | null;
   })[],
   ledger = true,
 ) => {
@@ -147,10 +149,16 @@ export const syncUsages = (
   tx.delete(printFilamentUsages)
     .where(and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)))
     .run();
+  // An edit form doesn't carry the tag: the slot keeps the one the printer read.
+  const tagged = next.map((u) => ({
+    ...u,
+    rfid: u.rfid ?? old.find((o) => o.slot != null && o.slot === u.slot)?.rfid ?? null,
+  }));
+  for (const u of tagged) if (u.rfid) learnTag(tx, u.spoolId, u.rfid);
   if (next.length)
     tx.insert(printFilamentUsages)
       .values(
-        next.map((u) => ({
+        tagged.map((u) => ({
           printId,
           spoolId: u.spoolId,
           grams: u.grams,
@@ -159,7 +167,21 @@ export const syncUsages = (
           colorHex: u.colorHex ?? null,
           gramsSource: u.gramsSource ?? null,
           gramsEstimated: u.gramsEstimated ?? false,
+          rfid: u.rfid,
         })),
       )
       .run();
 };
+
+/**
+ * The spool a slot with this tag was charged to carries the tag from now on (ADR-0015): the next
+ * print naming it is that spool for sure. The latest charge wins, so a wrong pick is mended by the
+ * next one.
+ */
+export function learnTag(tx: Tx, spoolId: string, rfid: string) {
+  tx.update(spools)
+    .set({ rfid: null })
+    .where(and(eq(spools.rfid, rfid), ne(spools.id, spoolId)))
+    .run();
+  tx.update(spools).set({ rfid }).where(eq(spools.id, spoolId)).run();
+}
