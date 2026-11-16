@@ -30,6 +30,15 @@ export function printerOfSource<
 }
 
 /**
+ * A print keyed by its start: the job tracker's, when the printer gave the job no id
+ * (`job.id ?? job.startedAt`). The same source's history may later name it by its real id.
+ */
+export const isStartKey = (p: { externalId: string | null; startedAt: string }) =>
+  !!p.externalId &&
+  /^\d{4}-\d{2}-\d{2}T/.test(p.externalId) &&
+  Date.parse(p.externalId) === Date.parse(p.startedAt);
+
+/**
  * The print that `print` is, among the prints the same printer has from its other sources: the
  * one either side names by id, else the one that started closest, within `SAME_PRINT_SEC`.
  */

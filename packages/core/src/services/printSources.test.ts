@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { printerOfSource, samePrint } from "./printSources.ts";
+import { isStartKey, printerOfSource, samePrint } from "./printSources.ts";
+
+describe("isStartKey", () => {
+  it("tells the tracker's start key from a printer's own id", () => {
+    const startedAt = "2026-11-14T11:00:08.000Z";
+    expect(isStartKey({ externalId: startedAt, startedAt })).toBe(true);
+    expect(isStartKey({ externalId: "2026-11-14T11:00:08Z", startedAt })).toBe(true);
+    // Moonraker's job ids, a Bambu task id, another moment.
+    expect(isStartKey({ externalId: "000003", startedAt })).toBe(false);
+    expect(isStartKey({ externalId: "583920114", startedAt })).toBe(false);
+    expect(isStartKey({ externalId: "2026-11-14T11:05:00.000Z", startedAt })).toBe(false);
+    expect(isStartKey({ externalId: null, startedAt })).toBe(false);
+  });
+});
 
 describe("printerOfSource", () => {
   const cloud = { id: "a", integrationId: "cloud", externalId: "00M00A1", serial: "00M00A1" };

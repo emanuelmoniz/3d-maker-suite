@@ -92,6 +92,7 @@
     "downloadHere": "{{name}} isn't installed on this computer: the app downloads it from the vendor's releases and slices with it on this server.",
     "machineHint": "A workstation's slicer is set up on its machine page in Hub management.",
     "taken": "Already on this server. Find it on the slicer's card.",
+    "takenSource": "Already set up: find its card on the Integrations page.",
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
     "error": "Couldn't add the integration. Check the fields.",
@@ -135,7 +136,8 @@
         "name": "Printer name",
         "brand": "Brand",
         "model": "Model",
-        "apiKey": "API key (only if Moonraker asks for one)"
+        "apiKey": "API key (only if Moonraker asks for one)",
+        "otherSpoolman": "Moonraker reports to another Spoolman than the one set up here"
       }
     },
     "octoprint": {
@@ -157,6 +159,13 @@
         "username": "User (maker unless you changed it)",
         "password": "Password (on the printer: Settings → Network → PrusaLink)",
         "apiKey": "API key (instead of the password)"
+      }
+    },
+    "spoolman": {
+      "name": "Spoolman",
+      "fields": {
+        "host": "Address (IP or host name, with :7912 or the port Spoolman runs on)",
+        "apiKey": "API key (only for a proxy in front of Spoolman)"
       }
     },
     "bambu-studio": {
@@ -205,11 +214,13 @@
     "userProcessPresets": "Process user presets",
     "userFilamentPresets": "Filament user presets",
     "slice": "Use as slicer",
-    "printerStatus": "Live status"
+    "printerStatus": "Live status",
+    "spoolUsage": "Write usage back"
   },
   "actionHints": {
     "slice": "When active, this integration can be used for slicing projects.",
-    "printerStatus": "When active, the app follows what the printer is doing and records each print when it ends."
+    "printerStatus": "When active, the app follows what the printer is doing and records each print when it ends.",
+    "spoolUsage": "When active, the filament each print takes from a spool linked to this source is written back to it, and a spool of yours that isn't there yet is added when a print uses it. A print Moonraker already reported to Spoolman isn't written again."
   },
   "catalog": {
     "chooseBrands": "Choose brands",
@@ -489,5 +500,9 @@
     "option": "{{where}}, version {{version}}",
     "noneYet": "None yet: set up an install below.",
     "installs": "Installs"
+  },
+  "actionPending": {
+    "spoolUsage_one": "{{count}} charge waiting to be written. It is tried again every minute.",
+    "spoolUsage_other": "{{count}} charges waiting to be written. They are tried again every minute."
   }
 }

@@ -1047,6 +1047,7 @@ export function createSyncer(
           slot: u.slot,
           startedAt,
           rfid: u.rfid,
+          spoolId: u.sourceSpool,
         }));
         const matches = matchPrint(
           slots,
@@ -1266,11 +1267,16 @@ export function createSyncer(
   /** The source of a working integration, for its printers' live status; one per caller. */
   const statusSource = (id: string, signal: AbortSignal) => instanceFor(rowOf(id), signal).status;
 
+  /** Where a working integration writes usage back to its spools (`spoolUsage`). */
+  const usageTarget = (id: string, signal: AbortSignal) =>
+    instanceFor(rowOf(id), signal).spoolUsage;
+
   return {
     run,
     runAll,
     recordPrint,
     statusSource,
+    usageTarget,
     checkCatalogs,
     checkUserPresets,
     checkFreed,

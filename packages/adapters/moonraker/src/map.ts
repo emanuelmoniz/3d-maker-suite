@@ -142,11 +142,27 @@ function shareUsed(used?: number | null, meta?: Metadata | null) {
   return Math.min(1, Math.max(0, used / total));
 }
 
-/** The one Spoolman spool a history job names. Several (a spool change, more tools) are unsure. */
-function spoolOf(job: HistoryJob): number | undefined {
+/** A Spoolman spool as the app's spool import keys it (the Spoolman adapter's `sourceSpool`). */
+export const spoolKey = (id: number) => `spoolman:${id}`;
+
+/** The Spoolman spools a history job names: Moonraker reported its usage to each of them. */
+function spoolsOf(job: HistoryJob): number[] {
   const ids = job.auxiliary_data?.find((a) => a.provider === "spoolman" && a.name === "spool_ids");
-  const value = z.array(z.number()).safeParse(ids?.value);
-  return value.success && value.data.length === 1 ? value.data[0] : undefined;
+  return z.array(z.number()).safeParse(ids?.value).data ?? [];
+}
+
+/**
+ * What a slot says of Spoolman: the spool when the job names one for its only tool (several, a
+ * spool change or more tools, are unsure), and that Moonraker already charged it whenever it names
+ * any. `otherSpoolman`: Moonraker reports to another Spoolman than the app's, so neither holds.
+ */
+function spoolFields(ids: number[], tools: number, otherSpoolman?: boolean) {
+  if (otherSpoolman || !ids.length) return {};
+  const [only] = ids;
+  return {
+    ...(tools === 1 && ids.length === 1 && only != null && { spoolId: spoolKey(only) }),
+    chargedAtSource: true,
+  };
 }
 
 /**
@@ -154,11 +170,11 @@ function spoolOf(job: HistoryJob): number | undefined {
  * length really extruded, against the file's totals (real grams, measured by the printer). A
  * multi-tool job's split of that length over its tools is a guess, so it is estimated.
  */
-export function toPrint(job: HistoryJob): ExternalPrint {
+export function toPrint(job: HistoryJob, otherSpoolman?: boolean): ExternalPrint {
   const outcome = OUTCOMES[job.status] ?? "failed";
   const share = outcome === "success" ? 1 : shareUsed(job.filament_used, job.metadata);
   const slots = tools(job.metadata);
-  const spool = slots.length === 1 ? spoolOf(job) : undefined;
+  const spool = spoolFields(spoolsOf(job), slots.length, otherSpoolman);
   return {
     externalId: job.job_id,
     printerExternalId: PRINTER_ID,
@@ -177,7 +193,7 @@ export function toPrint(job: HistoryJob): ExternalPrint {
         slots.length > 1 && {
           gramsEstimated: true,
         }),
-      ...(spool != null && { spoolId: String(spool) }),
+      ...spool,
     })),
   };
 }
@@ -204,8 +220,16 @@ function layers(s: Status, meta?: Metadata) {
   return { layer: totalLayers ? Math.min(layer, totalLayers) : layer, totalLayers };
 }
 
-/** A status read as a snapshot. `info` is what the adapter learnt of the job it shows. */
-export function toSnapshot(s: Status, at: string, info?: JobInfo): PrinterSnapshot {
+/**
+ * A status read as a snapshot. `info` is what the adapter learnt of the job it shows. An active
+ * Spoolman spool means Moonraker reports the job's usage to it (unless `otherSpoolman`).
+ */
+export function toSnapshot(
+  s: Status,
+  at: string,
+  info?: JobInfo,
+  otherSpoolman?: boolean,
+): PrinterSnapshot {
   const ps = s.print_stats;
   const klippy = s.webhooks?.state ?? "ready";
   let state: PrinterSnapshot["state"] = (ps && STATES[ps.state]) || "idle";
@@ -259,9 +283,14 @@ export function toSnapshot(s: Status, at: string, info?: JobInfo): PrinterSnapsh
     ...(meta && { slots: slots.map((t) => t.slot) }),
     ...(failureReason && { failureReason }),
   };
+  const spool = spoolFields(
+    ours?.spoolId != null ? [ours.spoolId] : [],
+    slots.length,
+    otherSpoolman,
+  );
   snap.slots = slots.map(({ grams, ...t }) => ({
     ...t,
-    ...(slots.length === 1 && ours?.spoolId != null && { spoolId: String(ours.spoolId) }),
+    ...spool,
     ...(slots.length === 1 && { active: running }),
     ...(grams != null && share != null && { gramsUsed: round2(grams * share) }),
   }));

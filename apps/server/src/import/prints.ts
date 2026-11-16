@@ -194,6 +194,9 @@ type Reported = {
   gramsEstimated?: boolean;
   /** The tag the printer read on the slot's spool; the spool it is charged to learns it. */
   rfid?: string;
+  /** The spool library's spool the printer named, and that its host charged it already. */
+  sourceSpool?: string;
+  chargedAtSource?: boolean;
   /** An automatic print's slot that isn't charged (ADR-0015): what it waits with, or not tracked. */
   suggestedSpoolId?: string | null;
   dismissed?: boolean;
@@ -241,6 +244,8 @@ function useFilament(
       gramsSource: said.gramsSource ?? null,
       gramsEstimated: said.gramsEstimated ?? false,
       rfid: said.rfid ?? null,
+      sourceSpool: said.sourceSpool ?? null,
+      chargedAtSource: said.chargedAtSource ?? false,
     };
     if (spoolId) booked.push({ spoolId, grams, ...as });
     else if (v[key.spool] || v[key.filament] || said)

@@ -169,12 +169,13 @@ export const isSlicerKind = (kind: (typeof INTEGRATION_KINDS)[number]) =>
  * action. The adapter declares only what it really has, the user sets each one's sync policy
  * (or `off`).
  */
-export const CAPABILITIES = [...SYNC_TYPES, "slice", "printerStatus"] as const;
+export const CAPABILITIES = [...SYNC_TYPES, "slice", "printerStatus", "spoolUsage"] as const;
 /**
  * Not synced: only on (`manual`) or `off`. `slice` needs the slicer program; `printerStatus` is a
- * printer's live status, which also records its prints (ADR-0015).
+ * printer's live status, which also records its prints (ADR-0015); `spoolUsage` writes what each
+ * print took back to the source's spools (Spoolman two-way).
  */
-export const ACTIONS = ["slice", "printerStatus"] as const;
+export const ACTIONS = ["slice", "printerStatus", "spoolUsage"] as const;
 /**
  * What a printer is doing, whatever its brand calls it (ADR-0015). `offline`: the source can't
  * reach it. `preparing`: a job exists and nothing is extruded yet. `paused` also when it waits for

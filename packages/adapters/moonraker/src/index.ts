@@ -34,6 +34,11 @@ export const moonrakerConfigSchema = z.object({
   name: z.string().trim().max(100).optional(),
   brand: z.string().trim().max(100).optional(),
   model: z.string().trim().max(100).optional(),
+  /**
+   * Moonraker's `[spoolman]` points at another Spoolman than the app's: the spool it names isn't
+   * one the app imported, and the app's Spoolman wasn't charged, so its prints are written back.
+   */
+  otherSpoolman: z.boolean().optional(),
 });
 type Config = z.infer<typeof moonrakerConfigSchema>;
 
@@ -191,7 +196,9 @@ export function moonrakerAdapter(): IntegrationAdapter {
             if (!page) return { items: [] };
             const { jobs, count } = page.result;
             return {
-              items: jobs.filter((j) => j.status !== "in_progress").map(toPrint),
+              items: jobs
+                .filter((j) => j.status !== "in_progress")
+                .map((j) => toPrint(j, config.otherSpoolman)),
               nextCursor:
                 jobs.length && start + jobs.length < count
                   ? String(start + jobs.length)
@@ -230,7 +237,7 @@ export function moonrakerAdapter(): IntegrationAdapter {
               }
             }
             wasRunning = running;
-            return [toSnapshot(status, at, info)];
+            return [toSnapshot(status, at, info, config.otherSpoolman)];
           },
         },
       };

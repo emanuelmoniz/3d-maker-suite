@@ -658,6 +658,9 @@ export const spools = sqliteTable(
     openedAt: text(),
     location: text(),
     sourceSpool: text(),
+    // When `sourceSpool` was set: prints made before it are the library spool's history, so a
+    // write-back (`spoolUsage`) starts after them. Null on spools linked before 6.0.0: all before.
+    sourceLinkedAt: text(),
     // Low-weight alert; null = the default (`lowSpoolGrams`, on).
     lowGrams: real(),
     lowAlert: integer({ mode: "boolean" }),
@@ -950,11 +953,54 @@ export const printFilamentUsages = sqliteTable(
     suggestedSpoolId: text().references(() => spools.id, { onDelete: "set null" }),
     /** The tag the printer read on the slot's spool; the spool it is charged to learns it. */
     rfid: text(),
+    /** The spool library's spool the printer named (`<adapter>:<id>`, Moonraker's Spoolman one). */
+    sourceSpool: text(),
+    /**
+     * The library already holds this slot's usage: the printer's host reported it (Moonraker to
+     * Spoolman), or a backlog import whose spools were up to date. Never written back to it.
+     */
+    chargedAtSource: integer({ mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     index("print_filament_usages_print_idx").on(t.printId),
     index("print_filament_usages_spool_idx").on(t.spoolId),
   ],
+);
+
+// Spoolman two-way (`spoolUsage`): what a spool library holds per print slot (`key`, core's
+// `pushKey`), as last confirmed. No FK to prints or spools: a deleted print still has its grams
+// given back. Only differences from these are written (core's `pushTargets`).
+export const spoolUsagePushes = sqliteTable(
+  "spool_usage_pushes",
+  {
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    key: text().notNull(),
+    /** The library's own spool id, without the `<adapter>:` prefix. */
+    vendorSpoolId: text().notNull(),
+    appSpoolId: text().notNull(),
+    sentGrams: real().notNull(),
+    updatedAt: text().notNull().$defaultFn(now).$onUpdateFn(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.integrationId, t.key, t.vendorSpoolId] }),
+    index("spool_usage_pushes_app_spool_idx").on(t.integrationId, t.appSpoolId),
+  ],
+);
+
+// The links between an app spool and a library spool a push has seen. A new one starts from what
+// the spool's prints already took (they are the library's history, not new usage).
+export const spoolUsageLinks = sqliteTable(
+  "spool_usage_links",
+  {
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    appSpoolId: text().notNull(),
+    vendorSpoolId: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.integrationId, t.appSpoolId] })],
 );
 
 export const tags = sqliteTable(

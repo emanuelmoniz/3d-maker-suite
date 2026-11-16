@@ -26,7 +26,7 @@ Automatic Bambu Cloud syncs follow the same rule: they record every new print in
 
 **Grams** come from the first source that has them: the printer, then the slicer totals in the print's file (OrcaSlicer, PrusaSlicer and Bambu Studio), then the slice result of the project plate the print matched. Where none has them, the slot waits in Filament to review. A print that was cancelled or failed gets the file's or plate's total times the share of the material it reached, and the print shows those grams as **estimated**. Each usage shows where its grams came from.
 
-**The spool** is the first that answers: the spool the printer names (its RFID tag or the source's spool id), then the spool **loaded** in that printer slot, then a sure match by material and colour.
+**The spool** is the first that answers: the spool the printer names (its RFID tag, or the Spoolman spool a Moonraker job names, when you imported it from [Spoolman](spoolman.md)), then the spool **loaded** in that printer slot, then a sure match by material and colour.
 
 A spool learns its **RFID tag** (a Bambu AMS reads it from Bambu spools) the first time a slot with that tag is charged to it: by a sure match, a loaded spool, or the spool you pick or accept in Filament to review. From then on a print that names the tag charges that spool, even when other spools of the same colour would fit. The spool's page shows its tag. If a tag ever lands on the wrong spool, pick the right one in Filament to review or on the print: the tag moves to it. **Forget tag** on the spool's page drops it; the next print charged to a spool teaches it again.
 

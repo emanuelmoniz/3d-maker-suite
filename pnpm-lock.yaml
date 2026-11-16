@@ -236,6 +236,9 @@ importers:
       '@3d-maker-suite/adapter-prusalink':
         specifier: workspace:*
         version: link:../../packages/adapters/prusalink
+      '@3d-maker-suite/adapter-spoolman':
+        specifier: workspace:*
+        version: link:../../packages/adapters/spoolman
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -452,6 +455,15 @@ importers:
       '@3d-maker-suite/3mf':
         specifier: workspace:*
         version: link:../../3mf
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/adapters/spoolman:
+    dependencies:
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../../core

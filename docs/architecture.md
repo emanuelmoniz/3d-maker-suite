@@ -145,6 +145,8 @@ interface IntegrationInstance {
   printers?: PrinterInventorySource;
   printHistory?: PrintHistorySource;
   status?: PrinterStatusSource;
+  spools?: SpoolInventorySource;
+  spoolUsage?: SpoolUsageTarget;
   filaments?: FilamentLibrarySource;
   projects?: ProjectSource;
   slicer?: SlicerLauncher;
@@ -165,6 +167,16 @@ interface PrintHistorySource {
 
 interface PrinterStatusSource {  // the `printerStatus` capability; read-only, no printer control
   readStatus(): Promise<PrinterSnapshot[]>;  // one per printer; one that doesn't answer is `offline`
+}
+
+interface SpoolInventorySource {
+  listSpools(): Promise<LibrarySpool[]>;
+}
+
+interface SpoolUsageTarget {     // the `spoolUsage` capability (Spoolman two-way)
+  // Idempotent: the spool holds `grams` for `key` (`<printId>:<slot>`) afterwards, whatever it held.
+  writeUsage(u: { spoolId: string; key: string; grams: number; sent: number }): Promise<{ gone?: boolean }>;
+  createSpool(s: SpoolToCreate): Promise<{ spoolId: string }>;  // finds the one it made before
 }
 
 interface FilamentLibrarySource {
@@ -198,7 +210,8 @@ type ExternalPrint = {
     slot?: number; material?: string; colorHex?: string;
     grams?: number;            // unset: the printer doesn't say
     gramsEstimated?: boolean;
-    rfid?: string; spoolId?: string;  // the spool the printer named
+    rfid?: string; spoolId?: string;  // the spool the printer named; spoolId as `sourceSpool` keys it
+    chargedAtSource?: boolean;        // its host charged the spool library already (Moonraker)
   }[];
   sourceUrl?: string;  // shown, never fetched by core
   peerId?: string;     // its externalId in another source of the same printer
@@ -282,7 +295,19 @@ A source with the `printerStatus` capability says what each printer is doing now
 
 **API:** `GET /api/printers/status` lists every printer's latest snapshot by printer id; `GET /api/printers/status/events` is an SSE stream that sends the same list again whenever something besides the read time changes. Both need `printers` read.
 
+A source with both live status and a history (Moonraker) can name one job twice: the tracker keys a job by its start when the printer gave it no id yet, and the history names it by its id later. `printRows` treats a start key (`isStartKey`) and an id of the same source within 60 seconds as one print: the stored one takes the real id.
+
 One printer can have several sources. `printerOfSource` finds the printer by its own source key, else by serial. The printer row keeps the source that brought it in; a later source of the same serial is linked in `printer_sources` when its printers sync (`apps/server/src/integrations/printerSources.ts`), and its prints and status land on that printer. `samePrint` finds the print another source already recorded: by the id either side names, else by a start within 60 seconds (`packages/core/src/services/printSources.ts`).
+
+### Writing usage back (`spoolUsage`)
+
+A spool library that is also a target (Spoolman, ADR-0015) gets what each print took, exactly once. Nothing is sent when a print is recorded. The runner (`apps/server/src/integrations/spoolPush.ts`) works out what each library spool should hold per print slot from `print_filament_usages`, compares it with what it last confirmed (`spool_usage_pushes`), and sends only the differences (`pushTargets` in `packages/core/src/services/spoolPush.ts`). Retries, restarts, edits and deletes all come down to the same comparison.
+
+- **Which slots:** charged ones on an app spool whose `sourceSpool` is the library's (`<adapter>:<id>`), except `chargedAtSource` ones: the printer's host reported them (Moonraker to Spoolman), or a backlog import saved them with the spools up to date.
+- **A new link** (an import, a hand-made spool linked in the review) starts from the prints made before `spools.sourceLinkedAt`: those are the library's history. A link that goes away is forgotten without a write.
+- **An app spool in no library** that a print charged after the integration was added is made there, as it is now (`createSpool`).
+- **The adapter makes each write idempotent:** Spoolman has no idempotency key, so the Spoolman adapter sets the used weight and a marker field holding the grams per key in one `PATCH`, and reads the marker first. A write whose answer was lost is seen there on the retry.
+- **When:** a second after any change that went through (`kick`), after a tracked print, and on every sync tick, which also retries. What waits is the `pending` of the integration's `spoolUsage` policy.
 
 ### Adding a vendor
 

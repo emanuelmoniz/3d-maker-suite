@@ -18,6 +18,7 @@ import {
   type SyncScope,
 } from "@3d-maker-suite/core";
 import { useNavigate } from "@tanstack/react-router";
+import { TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -81,6 +82,11 @@ const USER_SCOPE_HINTS: Record<SyncScope, string> = {
 const ACTION_HINTS: Record<(typeof ACTIONS)[number], string> = {
   slice: "integrations:actionHints.slice",
   printerStatus: "integrations:actionHints.printerStatus",
+  spoolUsage: "integrations:actionHints.spoolUsage",
+};
+// What an action left for later, when it can say.
+const ACTION_PENDING: Partial<Record<(typeof ACTIONS)[number], string>> = {
+  spoolUsage: "integrations:actionPending.spoolUsage",
 };
 const MERGES: Record<SyncMerge, string> = {
   overwrite: "integrations:policies.merges.overwrite",
@@ -170,25 +176,31 @@ function rangeFor(
 export function ActionSwitches({ integration: i }: { integration: Integration }) {
   const { t } = useTranslation();
   const patch = usePatchIntegration(i.id);
-  return i.policies.flatMap(({ type, mode }) =>
-    isAction(type)
-      ? [
-          <div key={type} className="grid gap-1">
-            <Switch
-              label={t(CAPS[type])}
-              checked={mode !== "off"}
-              disabled={patch.isPending}
-              onChange={(e) =>
-                patch.mutate({
-                  policies: [{ type, mode: e.target.checked ? "manual" : "off" }],
-                })
-              }
-            />
-            <p className="text-muted">{t(ACTION_HINTS[type])}</p>
-          </div>,
-        ]
-      : [],
-  );
+  return i.policies.flatMap(({ type, mode, pending }) => {
+    if (!isAction(type)) return [];
+    const waiting = ACTION_PENDING[type];
+    return [
+      <div key={type} className="grid gap-1">
+        <Switch
+          label={t(CAPS[type])}
+          checked={mode !== "off"}
+          disabled={patch.isPending}
+          onChange={(e) =>
+            patch.mutate({
+              policies: [{ type, mode: e.target.checked ? "manual" : "off" }],
+            })
+          }
+        />
+        <p className="text-muted">{t(ACTION_HINTS[type])}</p>
+        {waiting && mode !== "off" && pending > 0 && (
+          <p className="inline-flex items-center gap-1 text-warn">
+            <TriangleAlert aria-hidden className="size-4 shrink-0" />
+            {t(waiting, { count: pending })}
+          </p>
+        )}
+      </div>,
+    ];
+  });
 }
 
 /** "Off", "Manual", "Auto, every day at 07:30", …, in the server's time zone. */

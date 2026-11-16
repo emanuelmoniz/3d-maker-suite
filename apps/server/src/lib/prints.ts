@@ -118,6 +118,9 @@ export const syncUsages = (
     gramsEstimated?: boolean;
     /** The tag the printer read; unset keeps the one the slot had. */
     rfid?: string | null;
+    /** As `rfid`: what the printer named and whether its host charged it; unset keeps the slot's. */
+    sourceSpool?: string | null;
+    chargedAtSource?: boolean;
   })[],
   ledger = true,
 ) => {
@@ -149,11 +152,18 @@ export const syncUsages = (
   tx.delete(printFilamentUsages)
     .where(and(eq(printFilamentUsages.printId, printId), isNotNull(printFilamentUsages.spoolId)))
     .run();
-  // An edit form doesn't carry the tag: the slot keeps the one the printer read.
-  const tagged = next.map((u) => ({
-    ...u,
-    rfid: u.rfid ?? old.find((o) => o.slot != null && o.slot === u.slot)?.rfid ?? null,
-  }));
+  // An edit form doesn't carry the tag: the slot keeps the one the printer read, and what its
+  // spool library already holds. Saved without taking the grams (spools already up to date), the
+  // library's spools are up to date too: never written back (`spoolUsage`).
+  const tagged = next.map((u) => {
+    const was = old.find((o) => o.slot != null && o.slot === u.slot);
+    return {
+      ...u,
+      rfid: u.rfid ?? was?.rfid ?? null,
+      sourceSpool: u.sourceSpool ?? was?.sourceSpool ?? null,
+      chargedAtSource: u.chargedAtSource ?? was?.chargedAtSource ?? !ledger,
+    };
+  });
   for (const u of tagged) if (u.rfid) learnTag(tx, u.spoolId, u.rfid);
   if (next.length)
     tx.insert(printFilamentUsages)
@@ -168,6 +178,8 @@ export const syncUsages = (
           gramsSource: u.gramsSource ?? null,
           gramsEstimated: u.gramsEstimated ?? false,
           rfid: u.rfid,
+          sourceSpool: u.sourceSpool,
+          chargedAtSource: u.chargedAtSource || !ledger,
         })),
       )
       .run();

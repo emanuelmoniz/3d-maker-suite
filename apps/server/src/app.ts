@@ -26,11 +26,13 @@ import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlic
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
 import { createPrinterStatus, type PrinterStatusRunner } from "./integrations/printerStatus.ts";
 import { createServerPresets } from "./integrations/serverPresets.ts";
+import { createSpoolPush, type SpoolPush } from "./integrations/spoolPush.ts";
 import { createSyncer } from "./integrations/sync.ts";
 
 declare module "fastify" {
   interface FastifyInstance {
     printerStatus: PrinterStatusRunner;
+    spoolPush: SpoolPush;
   }
 }
 
@@ -139,6 +141,8 @@ export async function buildApp(
     watchProjects?: boolean;
     /** Read the printers' live status on its own (off in tests: `app.printerStatus.pollAll`). */
     printerStatus?: boolean;
+    /** Write usage back to spool libraries after each change (off in tests: `app.spoolPush.run`). */
+    spoolPush?: boolean;
     /** Bind address and optional password, checked while no users exist (off in tests). */
     access?: { host: string; password?: string; allowedHosts?: string[] };
     /** Fastify `trustProxy` (`APP_TRUST_PROXY`): `req.ip` is then the client behind the proxy. */
@@ -376,10 +380,34 @@ export async function buildApp(
     if (readPreferences(db).hubEnabled) linkLibraries(db, dataDir, syncer.adapters);
   });
   await app.register(printsRoutes(db), { prefix: "/api/prints" });
+  // What each print took, written back to the spool library its spool came from (Spoolman).
+  const spoolPush = createSpoolPush(
+    db,
+    syncer,
+    syncer.adapters,
+    logFor("integrations"),
+    !!opts.spoolPush,
+  );
+  app.decorate("spoolPush", spoolPush);
+  app.addHook("onReady", async () => spoolPush.kick());
+  app.addHook("onClose", async () => spoolPush.close());
+  // Any change that went through may have charged or given back filament (a print, a review, an
+  // import, a sync now); the run finds out. A bulk request kicks once when it ends.
+  app.addHook("onResponse", async (req, reply) => {
+    if (req.method !== "GET" && reply.statusCode < 400 && !req.headers[BULK_ROW_HEADER])
+      spoolPush.kick();
+  });
   // What the printers are doing now; a print the tracker sees end is recorded (ADR-0015).
   const printerStatus = createPrinterStatus(
     db,
-    syncer,
+    {
+      statusSource: syncer.statusSource,
+      recordPrint: (...args) => {
+        const written = syncer.recordPrint(...args);
+        if (written) spoolPush.kick();
+        return written;
+      },
+    },
     syncer.adapters,
     logFor("integrations"),
     !!opts.printerStatus,
@@ -538,6 +566,8 @@ export async function buildApp(
         // Not awaited: a big share's walk mustn't hold up the syncs.
         void rescans().catch((err) => projectsLog.error({ err }, "project rescan failed"));
         await syncer.runAll();
+        // Also what a failed write left for later.
+        await spoolPush.run();
         // A source that moved: the new device starts sending, an old one stops.
         await deviceCatalog
           .tell()

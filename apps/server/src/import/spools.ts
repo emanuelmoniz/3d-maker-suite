@@ -156,7 +156,10 @@ export const spoolImport = {
     const initialGrams = num(v.initialGrams);
     // Imported as new: the vendor's spool is this one now, not the one linked before.
     if (row.source)
-      db.update(spools).set({ sourceSpool: null }).where(eq(spools.sourceSpool, row.source)).run();
+      db.update(spools)
+        .set({ sourceSpool: null, sourceLinkedAt: null })
+        .where(eq(spools.sourceSpool, row.source))
+        .run();
     createSpool(db, {
       ...filament(db, v),
       sourceSpool: row.source,
@@ -192,7 +195,7 @@ export const spoolImport = {
     // A spool entered by hand is linked to the vendor's, so the next run knows it.
     if (row.source)
       db.update(spools)
-        .set({ sourceSpool: row.source })
+        .set({ sourceSpool: row.source, sourceLinkedAt: new Date().toISOString() })
         .where(and(eq(spools.id, target.id), isNull(spools.sourceSpool)))
         .run();
     // The remaining weight only ever changes through the ledger.

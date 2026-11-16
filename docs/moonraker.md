@@ -27,8 +27,9 @@ One integration is one printer. Add one per Klipper printer. The API key is stor
 
 - A **finished** print gets the file's totals per tool, as the slicer wrote them.
 - A **cancelled** or **failed** print gets what really went out: Moonraker counts the filament extruded, and the app takes that share of the file's totals. These grams are measured, not estimated. On a printer with several tools Moonraker counts them together, so the split between tools is estimated.
-- When Moonraker reports to **Spoolman** (its `[spoolman]` section), a job names the Spoolman spool it used and the print's slot keeps it. Moonraker already charged that spool in Spoolman itself, so the app won't charge it there again.
-- The app's own spool is matched as for any printer ([printers.md](printers.md#grams-and-spools)).
+- When Moonraker reports to **Spoolman** (its `[spoolman]` section), a job names the Spoolman spool it used, and the print's slot keeps it. If you imported that spool from [Spoolman](spoolman.md), the slot is charged to your spool for sure. Moonraker already charged the spool in Spoolman itself, so the app never writes that print to Spoolman again. A job that names no Spoolman spool is written back like any other printer's.
+- **Moonraker reports to another Spoolman** (a checkbox in the setup): tick it when Moonraker's `[spoolman]` points at a different Spoolman than the one set up in the app. The spool a job names is then not one of yours, and the app's Spoolman wasn't charged, so the print is written back to it. It applies to prints recorded after you change it.
+- The app's own spool is matched as for any printer ([printers.md](printers.md#grams-and-spools)), and is always charged.
 
 ## Troubleshooting
 

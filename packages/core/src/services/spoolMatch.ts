@@ -15,6 +15,8 @@ export type SpoolCandidate = {
   remainingGrams: number | null;
   /** The tag a printer read on it (Bambu's AMS), learned when a slot with it was charged to it. */
   rfid?: string | null;
+  /** The spool library's spool it was imported from (`<adapter>:<id>`). */
+  sourceSpool?: string | null;
 };
 
 export type SlotToMatch = {
@@ -24,6 +26,8 @@ export type SlotToMatch = {
   startedAt: string;
   /** The tag the printer read on the slot's spool. */
   rfid?: string | null;
+  /** The spool library's spool the printer named (Moonraker's Spoolman spool), as `sourceSpool`. */
+  spoolId?: string | null;
 };
 
 /** The spool picked for a slot; `sure` = the only one that fits, else a person should check it. */
@@ -96,8 +100,9 @@ export function matchSpool(
  * `matchSpool` for every slot of one print. A spool goes to one slot only. Two slots of the same
  * material + colour are two spools (the AMS switched to a second roll when the first ran out), so
  * none of them is sure. `recent` gives the printer's recent spools for a slot (its AMS position).
- * The spool whose tag the printer read comes first (ADR-0015): sure, or only a guess when it can't
- * hold the grams (the app's count is off; a person checks). Then a slot's `loaded` spool, when it
+ * The spool whose tag the printer read, or that was imported from the library spool it named, comes
+ * first (ADR-0015): sure, or only a guess when it can't hold the grams (the app's count is off; a
+ * person checks). Then a slot's `loaded` spool, when it
  * is one of `spools`: sure, unless the printer reported another material for the slot (then it is
  * only a guess a person checks) or it can't hold the grams (then nothing is picked).
  */
@@ -107,9 +112,9 @@ export function matchPrint(
   recent: (slot: number | null | undefined) => string[] = () => [],
   loaded: (slot: number | null | undefined) => string | undefined = () => undefined,
 ): SpoolMatch[] {
-  // ponytail: Spoolman's spool id would sit next to the tag; it arrives with its two-way sync.
   const taggedOf = (s: SlotToMatch) =>
-    s.rfid ? spools.find((c) => !!c.rfid && c.rfid === s.rfid) : undefined;
+    (s.rfid ? spools.find((c) => !!c.rfid && c.rfid === s.rfid) : undefined) ??
+    (s.spoolId ? spools.find((c) => !!c.sourceSpool && c.sourceSpool === s.spoolId) : undefined);
   const loadedOf = (s: { slot?: number | null }) => {
     const id = loaded(s.slot);
     return id ? spools.find((c) => c.id === id) : undefined;

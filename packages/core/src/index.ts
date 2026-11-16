@@ -46,4 +46,5 @@ export * from "./services/printSources.ts";
 export * from "./services/reviewPolicy.ts";
 export * from "./services/spoolImportMatch.ts";
 export * from "./services/spoolMatch.ts";
+export * from "./services/spoolPush.ts";
 export * from "./services/updates.ts";

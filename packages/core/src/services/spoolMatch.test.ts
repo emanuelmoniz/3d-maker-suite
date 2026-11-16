@@ -164,6 +164,20 @@ describe("matchPrint", () => {
       ),
     ).toEqual([guess("b"), sure("a")]);
   });
+
+  it("takes the spool imported from the library spool the printer named, like a tag", () => {
+    const spools = [spool("a", { sourceSpool: "spoolman:3" }), spool("b")];
+    expect(
+      matchPrint(
+        [{ ...slot, slot: 0, spoolId: "spoolman:3" }],
+        spools,
+        () => [],
+        () => "b",
+      ),
+    ).toEqual([sure("a")]);
+    // One the app doesn't have: the colour match, and the named one isn't taken by another slot.
+    expect(matchPrint([{ ...slot, spoolId: "spoolman:9" }], [spool("b")])).toEqual([sure("b")]);
+  });
 });
 
 describe("usableOn", () => {

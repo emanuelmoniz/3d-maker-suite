@@ -57,6 +57,7 @@ export function createSpool(
       .values({
         ...values,
         number: values.number ?? nextNumber(spools),
+        ...(values.sourceSpool && { sourceLinkedAt: new Date().toISOString() }),
       })
       .returning()
       .get();

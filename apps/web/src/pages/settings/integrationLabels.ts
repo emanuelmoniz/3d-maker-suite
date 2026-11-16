@@ -77,4 +77,5 @@ export const CAPS: Record<Capability, string> = {
   filamentPresets: "integrations:capabilities.filamentPresets",
   slice: "integrations:capabilities.slice",
   printerStatus: "integrations:capabilities.printerStatus",
+  spoolUsage: "integrations:capabilities.spoolUsage",
 };

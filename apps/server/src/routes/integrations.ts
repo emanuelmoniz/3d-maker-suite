@@ -246,6 +246,20 @@ export const integrationsRoutes =
         throw new HttpError(409, "slicer_exists", "This slicer is already on that machine");
     };
 
+    /**
+     * One source per adapter that takes usage back: its spools are keyed by adapter
+     * (`<adapter>:<id>`), so two would write one print to both.
+     */
+    const usageTargetExists = (adapter: (typeof syncer.adapters)[number]) => {
+      if (!adapter.capabilities.includes("spoolUsage")) return;
+      const twice = db
+        .select({ id: integrations.id })
+        .from(integrations)
+        .where(eq(integrations.adapterId, adapter.id))
+        .get();
+      if (twice) throw new HttpError(409, "integration_exists", "This source is already set up");
+    };
+
     const isAdmin = (req: FastifyRequest) =>
       !req.user || req.user.rights.permissions["integrations.manage"];
 
@@ -283,6 +297,7 @@ export const integrationsRoutes =
         const plain = parse(adapter.secretsSchema, secrets, "invalid_secrets");
         const deviceId = workerDeviceId(adapter.kind, values.config);
         slicerExists(adapter, deviceId);
+        usageTargetExists(adapter);
         const id = db.transaction(() => {
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);

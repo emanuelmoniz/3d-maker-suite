@@ -42,6 +42,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+/** The Spoolman spool a job names, which Moonraker charged itself. */
+const spoolman = (id: number) => ({ spoolId: `spoolman:${id}`, chargedAtSource: true });
+
 const silent = { debug() {}, info() {}, warn() {}, error() {} };
 function instance(config: Record<string, unknown> = {}, apiKey?: string): IntegrationInstance {
   const adapter = moonrakerAdapter();
@@ -94,7 +97,7 @@ it("imports the three history jobs as their prints, the cancelled one with 0.23 
       startedAt: "2026-11-14T11:00:40.125Z",
       durationSec: 173,
       outcome: "success",
-      filaments: [{ ...filament, grams: 0.07, spoolId: "3" }],
+      filaments: [{ ...filament, grams: 0.07, ...spoolman(3) }],
     },
     {
       externalId: "000002",
@@ -104,7 +107,7 @@ it("imports the three history jobs as their prints, the cancelled one with 0.23 
       durationSec: 335,
       outcome: "cancelled",
       // 76.50 of 331.1 mm extruded: measured, so not estimated.
-      filaments: [{ ...filament, grams: 0.23, spoolId: "3" }],
+      filaments: [{ ...filament, grams: 0.23, ...spoolman(3) }],
     },
     {
       externalId: "000001",
@@ -113,8 +116,26 @@ it("imports the three history jobs as their prints, the cancelled one with 0.23 
       startedAt: "2026-11-14T02:49:51.128Z",
       durationSec: 0,
       outcome: "failed",
-      filaments: [{ ...filament, grams: 0, spoolId: "1" }],
+      filaments: [{ ...filament, grams: 0, ...spoolman(1) }],
     },
+  ]);
+});
+
+it("a Moonraker that reports to another Spoolman names no spool and charged none of the app's", async () => {
+  routes["/server/history/list"] = load("history-list-after-complete");
+  const page = await instance({ otherSpoolman: true }).printHistory?.listPrints({});
+  expect(page?.items[0]?.filaments).toEqual([
+    { slot: 0, material: "PLA", colorHex: "#F2754E", grams: 0.07 },
+  ]);
+});
+
+it("a job that names no Spoolman spool wasn't reported to one", async () => {
+  const h = load("history-list-after-complete");
+  for (const job of h.result.jobs) job.auxiliary_data = [];
+  routes["/server/history/list"] = h;
+  const page = await instance().printHistory?.listPrints({});
+  expect(page?.items[0]?.filaments).toEqual([
+    { slot: 0, material: "PLA", colorHex: "#F2754E", grams: 0.07 },
   ]);
 });
 
@@ -161,9 +182,11 @@ it("a multi-tool job splits the length really extruded over its tools, estimated
   };
   routes["/server/history/list"] = h;
   const [print] = (await instance().printHistory?.listPrints({}))?.items ?? [];
+  // Moonraker charged its Spoolman spool for both tools; which spool each used is unsure.
+  const est = { gramsEstimated: true, chargedAtSource: true };
   expect(print?.filaments).toEqual([
-    { slot: 0, material: "PLA", colorHex: "#F2754E", grams: 0.15, gramsEstimated: true },
-    { slot: 1, material: "PETG", colorHex: "#000000", grams: 0.08, gramsEstimated: true },
+    { slot: 0, material: "PLA", colorHex: "#F2754E", grams: 0.15, ...est },
+    { slot: 1, material: "PETG", colorHex: "#000000", grams: 0.08, ...est },
   ]);
 });
 
@@ -200,7 +223,7 @@ it("the cancelled job, watched live, is one print with the grams really extruded
         slot: 0,
         material: "PLA",
         colorHex: "#F2754E",
-        spoolId: "3",
+        ...spoolman(3),
         active: true,
         gramsUsed: 0.23,
       },
@@ -216,7 +239,7 @@ it("the cancelled job, watched live, is one print with the grams really extruded
     externalId: "000002",
     title: "cube_orca",
     outcome: "cancelled",
-    filaments: [{ slot: 0, material: "PLA", colorHex: "#F2754E", spoolId: "3", grams: 0.23 }],
+    filaments: [{ slot: 0, material: "PLA", colorHex: "#F2754E", ...spoolman(3), grams: 0.23 }],
   });
   expect(prints[0]?.endSeen).toBe(true);
 });

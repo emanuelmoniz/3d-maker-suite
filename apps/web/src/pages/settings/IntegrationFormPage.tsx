@@ -69,6 +69,11 @@ export function IntegrationCreatePage() {
   const taken = existing.some(
     (i) => libraryOf(i) === product && (i.kind === "local" || i.kind === "server"),
   );
+  // A source that takes usage back is set up once (its spools are keyed by the adapter).
+  const once =
+    !slicer &&
+    !!adapter?.capabilities.includes("spoolUsage") &&
+    existing.some((i) => i.adapterId === adapter.id);
 
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
@@ -186,7 +191,8 @@ export function IntegrationCreatePage() {
           </div>
         )}
 
-        {(config.length > 0 || secrets.length > 0) && (
+        {once && <p className="text-warn">{t("integrations:form.takenSource")}</p>}
+        {!once && (config.length > 0 || secrets.length > 0) && (
           <div className="grid gap-4 sm:max-w-md">
             {config.map((field) => input("config", field))}
             {secrets.map((field) => input("secrets", field))}
@@ -201,7 +207,7 @@ export function IntegrationCreatePage() {
           <Button
             type="submit"
             variant="primary"
-            disabled={!adapter || (slicer && taken) || create.isPending}
+            disabled={!adapter || (slicer && taken) || once || create.isPending}
           >
             {t("integrations:form.save")}
           </Button>

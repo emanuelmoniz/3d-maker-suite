@@ -2,6 +2,7 @@ import {
   type ExternalPrint,
   type ExternalPrinter,
   type FilamentLibrary,
+  isStartKey,
   type LibrarySpool,
   matchPrint,
   type NewSpoolField,
@@ -124,6 +125,7 @@ export const activeSpools = (db: Db) =>
       initialGrams: spools.initialGrams,
       remainingGrams: spools.remainingGrams,
       rfid: spools.rfid,
+      sourceSpool: spools.sourceSpool,
       label: spoolName,
     })
     .from(spools)
@@ -242,6 +244,43 @@ export function printRows(
       .all()
       .map((p) => p.externalId),
   );
+  // One job this source names twice: the job tracker keyed it by its start (the printer had no id
+  // for it yet) and the history names it by its id. Within a minute they are one print: the stored
+  // one takes the real id, so it is known from now on, and a start key offered later is a twin.
+  const own = db
+    .select({
+      id: prints.id,
+      printerId: prints.printerId,
+      externalId: prints.externalId,
+      startedAt: prints.startedAt,
+    })
+    .from(prints)
+    .where(eq(prints.integrationId, integrationId))
+    .all();
+  const startKeyed = own.filter(isStartKey);
+  const idKeyed = own.filter((o) => !isStartKey(o));
+  const sameJob = (p: ExternalPrint, among: typeof own) => {
+    const printerId = printerOf.get(p.printerExternalId)?.id;
+    return printerId
+      ? samePrint(
+          { externalId: p.externalId, startedAt: p.startedAt },
+          among.filter((o) => o.printerId === printerId),
+        )
+      : undefined;
+  };
+  for (const p of items) {
+    if (known.has(p.externalId) || isStartKey(p)) continue;
+    const hit = sameJob(p, startKeyed);
+    if (!hit?.externalId) continue;
+    // ponytail: a write while reading, as `readPrints`' plate and title; idempotent.
+    db.update(prints).set({ externalId: p.externalId }).where(eq(prints.id, hit.id)).run();
+    known.delete(hit.externalId);
+    known.add(p.externalId);
+    startKeyed.splice(startKeyed.indexOf(hit), 1);
+    idKeyed.push({ ...hit, externalId: p.externalId });
+  }
+  const sameAsKnown = (p: ExternalPrint) =>
+    isStartKey(p) && !known.has(p.externalId) && !!sameJob(p, idKeyed);
   // The same print from the printer's other source (ADR-0015): it is there already, so it is
   // neither new nor an update. By the id either names, else by a start within a minute.
   const others = db
@@ -271,7 +310,7 @@ export function printRows(
       )
     );
   };
-  const offered = items.filter((p) => !twin(p));
+  const offered = items.filter((p) => !twin(p) && !sameAsKnown(p));
   // Copies: `remainingGrams` becomes what each spool still holds once the rows before take theirs,
   // so a booking can't overdraw it.
   const active = activeSpools(db).map((s) => ({ ...s }));
@@ -369,6 +408,8 @@ export function printRows(
             material: f.material,
             colorHex: f.colorHex,
             ...(f.rfid && { rfid: f.rfid }),
+            ...(f.spoolId && { sourceSpool: f.spoolId }),
+            ...(f.chargedAtSource && { chargedAtSource: true }),
             gramsSource: f.grams == null ? null : (f.gramsSource ?? "printer"),
             gramsEstimated: f.gramsEstimated ?? false,
             ...picked.get(p.externalId)?.[i]?.held,

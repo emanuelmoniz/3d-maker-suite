@@ -265,8 +265,10 @@ export const filamentName = (brand: SQLWrapper, material: SQLWrapper, name: SQLW
 export const spoolName = sql<string>`printf('%03d', ${spools.number}) || '-' || ${filamentName(spoolBrand, spoolMaterial, spools.name)} || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
 
 /** `select()` map for spools: the row plus `brand` / `material` names, as the API returns them. */
+// `sourceLinkedAt` is the write-back's own bookkeeping (`spoolUsage`), not the spool's.
+const { sourceLinkedAt: _linkedAt, ...spoolTable } = getTableColumns(spools);
 export const spoolColumns = {
-  ...getTableColumns(spools),
+  ...spoolTable,
   brand: spoolBrand,
   material: spoolMaterial,
 };

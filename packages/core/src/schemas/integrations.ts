@@ -61,9 +61,17 @@ export const externalPrintSchema = z.object({
       gramsEstimated: z.boolean().optional(),
       /** Set with `grams`; unset means the printer's own. `fillGrams` sets `file` and `plate`. */
       gramsSource: z.enum(GRAMS_SOURCES).optional(),
-      /** The spool the printer named: the tag it read, or the source's own spool id (Spoolman's). */
+      /**
+       * The spool the printer named: the tag it read, or a spool library's own spool as a spool
+       * import keys it (`<adapter>:<id>`, e.g. "spoolman:3"), which is then that spool for sure.
+       */
       rfid: z.string().min(1).optional(),
       spoolId: z.string().min(1).optional(),
+      /**
+       * The printer's host already took this slot's usage off its spool library's spool (Moonraker
+       * reporting to Spoolman): the app charges its own spool, never that library's again.
+       */
+      chargedAtSource: z.boolean().optional(),
     }),
   ),
   /** Design page (e.g. MakerWorld). A plain string: stored and shown, never fetched. */
@@ -141,7 +149,9 @@ export const printerSnapshotSchema = z.object({
         material: z.string().optional(),
         colorHex: hexColor.optional(),
         rfid: z.string().min(1).optional(),
+        /** As `externalPrintSchema`'s filament `spoolId` and `chargedAtSource`. */
         spoolId: z.string().min(1).optional(),
+        chargedAtSource: z.boolean().optional(),
         /** Feeding the nozzle now. */
         active: z.boolean().optional(),
         /** What this job took from the slot so far, when the printer measures it (Moonraker). */

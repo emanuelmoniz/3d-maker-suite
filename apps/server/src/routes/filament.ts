@@ -183,7 +183,8 @@ export const filamentRoutes =
             archivedWhere(spools.archivedAt, req.query.archived),
             taggedWith(db, "spool", spools.id, req.query.tagId),
           ],
-        }) as Page<Spool>,
+          // `spoolColumns` shapes the rows, not the table: names added, internal columns left out.
+        }) as unknown as Page<Spool>,
     );
 
     app.get(

@@ -94,6 +94,7 @@ export interface IntegrationInstance {
   printHistory?: PrintHistorySource;
   status?: PrinterStatusSource;
   spools?: SpoolInventorySource;
+  spoolUsage?: SpoolUsageTarget;
   userPresets?: UserPresetSource;
   /** Who the account is, for its card. Read at sign-in and on each sync; a failure keeps the last. */
   profile?(): Promise<AccountProfile>;
@@ -160,6 +161,42 @@ export interface PrinterStatusSource {
 /** Your spools as the vendor's account keeps them (e.g. Bambu's filament manager). */
 export interface SpoolInventorySource {
   listSpools(): Promise<LibrarySpool[]>;
+}
+
+/**
+ * Writes what prints took back to the source's spools (`spoolUsage`; Spoolman two-way). The server
+ * works out what each spool should hold per print slot and calls this for the difference only;
+ * spool ids are the source's own, as `listSpools` gives them (no `<adapter>:` prefix).
+ */
+export interface SpoolUsageTarget {
+  /**
+   * Makes the spool hold `grams` for `key` (`<printId>:<slot>`), whatever it held for it before:
+   * idempotent, so a retry after a lost answer never charges twice. `sent` is what the server last
+   * knew the spool held for the key, for a source that forgot it. `gone`: no such spool any more.
+   */
+  writeUsage(u: { spoolId: string; key: string; grams: number; sent: number }): Promise<{
+    gone?: boolean;
+  }>;
+  /**
+   * A spool of the app's, made at the source as it is now (its filament found or created by brand,
+   * material, name and colour). Asked again for the same `appSpoolId`, it finds the one it made.
+   */
+  createSpool(s: SpoolToCreate): Promise<{ spoolId: string }>;
+}
+
+export interface SpoolToCreate {
+  appSpoolId: string;
+  brand: string | null;
+  material: string;
+  name: string | null;
+  /** `#rrggbb`. */
+  colorHex: string;
+  colorName: string | null;
+  densityGcm3: number | null;
+  /** Null = not known. */
+  initialGrams: number | null;
+  remainingGrams: number | null;
+  emptyWeightGrams: number | null;
 }
 
 /** A slicer's local presets and catalog. Read-only, no account; the server never writes to it. */

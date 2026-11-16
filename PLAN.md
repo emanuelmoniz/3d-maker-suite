@@ -3367,7 +3367,7 @@ Do Step 10 of the 6.0.0 plan in PLAN.md.
 Do Step 11 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Spoolman two-way  **[plan mode]**
+### [x] Step 12 - Spoolman two-way  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - A Spoolman integration: import spools (the usual review and merge), read the active spool, write usage back after each print.

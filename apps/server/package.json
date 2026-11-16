@@ -16,6 +16,7 @@
     "@3d-maker-suite/adapter-octoprint": "workspace:*",
     "@3d-maker-suite/adapter-orca": "workspace:*",
     "@3d-maker-suite/adapter-prusalink": "workspace:*",
+    "@3d-maker-suite/adapter-spoolman": "workspace:*",
     "@3d-maker-suite/core": "workspace:*",
     "@3d-maker-suite/db": "workspace:*",
     "@3d-maker-suite/host": "workspace:*",
