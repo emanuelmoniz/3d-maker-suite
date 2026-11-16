@@ -348,7 +348,10 @@ describe("grams the printer didn't report (ADR-0015)", () => {
     expect(u).toMatchObject({ grams: 4, gramsSource: "plate", gramsEstimated: true });
   });
 
-  it("nothing to go on: the slot is left as before", () => {
-    expect(record("success", {})).toEqual([]);
+  it("nothing to go on: the slot waits in Filament to review at 0 g, never booked", async () => {
+    await spool("#ff8800");
+    expect(record("success", {})).toMatchObject([
+      { spoolId: null, grams: 0, slot: 0, gramsSource: null },
+    ]);
   });
 });

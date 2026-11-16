@@ -217,10 +217,17 @@ function useFilament(
   const waiting: (typeof printFilamentUsages.$inferInsert)[] = [];
   for (let n = 1; n <= PRINT_MAX_SLOTS; n++) {
     const key = printSlotKeys(n);
-    const grams = num(v[key.grams]);
-    if (!grams || grams <= 0) continue;
-    const spoolId = picked ? (picked[key.spool] ?? null) : find(look.spools, v[key.spool]);
     const said = reported[n - 1];
+    const grams = num(v[key.grams]) ?? 0;
+    // A slot an integration reported with no grams (not from the printer, file or plate) waits at
+    // 0 g for a person; it is never booked.
+    const noGrams = grams <= 0;
+    if (noGrams && !said) continue;
+    const spoolId = noGrams
+      ? null
+      : picked
+        ? (picked[key.spool] ?? null)
+        : find(look.spools, v[key.spool]);
     // An integration's slot keeps what the printer reported.
     const as = said && {
       slot: said.slot ?? null,
