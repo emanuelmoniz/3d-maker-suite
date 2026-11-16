@@ -28,7 +28,7 @@ Automatic Bambu Cloud syncs follow the same rule: they record every new print in
 
 **The spool** is the first that answers: the spool the printer names (its RFID tag or the source's spool id), then the spool **loaded** in that printer slot, then a sure match by material and colour.
 
-A spool learns its **RFID tag** (a Bambu AMS reads it from Bambu spools) the first time a slot with that tag is charged to it: by a sure match, a loaded spool, or the spool you pick or accept in Filament to review. From then on a print that names the tag charges that spool, even when other spools of the same colour would fit. If a tag ever lands on the wrong spool, pick the right one in Filament to review or on the print: the tag moves to it.
+A spool learns its **RFID tag** (a Bambu AMS reads it from Bambu spools) the first time a slot with that tag is charged to it: by a sure match, a loaded spool, or the spool you pick or accept in Filament to review. From then on a print that names the tag charges that spool, even when other spools of the same colour would fit. The spool's page shows its tag. If a tag ever lands on the wrong spool, pick the right one in Filament to review or on the print: the tag moves to it. **Forget tag** on the spool's page drops it; the next print charged to a spool teaches it again.
 
 On a printer's page, each filament slot has a **loaded spool**: set, change or clear it. The spool's page says where it is loaded, and archiving a spool takes it out of its slot. A loaded spool is only charged when it was loaded before the print ended. If its material differs from what the printer reported for the slot, or it can't hold the grams, nothing is charged and the slot waits in Filament to review.
 

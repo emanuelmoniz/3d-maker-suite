@@ -75,6 +75,10 @@ export const useAdjustSpool = () =>
     }),
   );
 
+/** Drops the RFID tag a spool learned from a print. */
+export const useForgetSpoolTag = () =>
+  useInvalidating((id: string) => api("DELETE", `/api/filament/spools/${id}/rfid`));
+
 /** Put a spool in a printer slot, or empty it (`spoolId: null`). */
 export const useLoadSpool = (printerId: string) =>
   useInvalidating((v: SpoolLoad) => api("PUT", `/api/printers/${printerId}/slots`, v));

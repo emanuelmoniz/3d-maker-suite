@@ -31,6 +31,11 @@ export interface IntegrationAdapter {
   capabilities: readonly Capability[];
   /** Non-secret settings, stored as plain JSON. */
   configSchema: z.ZodObject;
+  /**
+   * Optional config fields of which at least one must be set (Bambu LAN: the IP or the serial).
+   * `configSchema` checks it too; this is what the setup form shows before saving.
+   */
+  configAnyOf?: readonly string[];
   /** Fields encrypted at rest (ADR-0005). String values only. */
   secretsSchema: z.ZodObject;
   /** Talks to the vendor's account. A source that only reads a local folder has none. */

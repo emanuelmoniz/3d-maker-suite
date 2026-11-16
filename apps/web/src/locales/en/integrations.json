@@ -94,7 +94,8 @@
     "taken": "Already on this server. Find it on the slicer's card.",
     "secretHint": "Stored encrypted on this computer.",
     "save": "Add",
-    "error": "Couldn't add the integration. Check the fields."
+    "error": "Couldn't add the integration. Check the fields.",
+    "anyOf": "Fill in at least one of: {{fields}}."
   },
   "adapters": {
     "mock": {
@@ -124,7 +125,8 @@
         "serial": "Serial number (optional when the IP is set)",
         "name": "Printer name",
         "accessCode": "Access code (on the printer's screen)"
-      }
+      },
+      "anyOf": "Enter the printer's IP or its serial number."
     },
     "moonraker": {
       "name": "Moonraker (Klipper)",

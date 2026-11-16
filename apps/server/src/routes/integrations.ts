@@ -209,6 +209,7 @@ export const integrationsRoutes =
         id: a.id,
         kind: a.kind,
         config: z.toJSONSchema(a.configSchema, { io: "input" }),
+        configAnyOf: [...(a.configAnyOf ?? [])],
         secrets: z.toJSONSchema(a.secretsSchema, { io: "input" }),
         login: !!a.login,
         capabilities: [...a.capabilities],

@@ -44,9 +44,11 @@ export const tileClass =
 
 /** Add an account, or a slicer on this server:the one installed here if found, else a download. */
 export function IntegrationCreatePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const adapterName = useAdapterName();
+  /** None of the adapter's `configAnyOf` fields was filled in. */
+  const [missing, setMissing] = useState(false);
   const id = useId();
   const search = useSearch({ strict: false }) as { product?: string };
   // A workstation's slicer is set up on its machine page (Plan 5.5.0 Step 9).
@@ -70,15 +72,32 @@ export function IntegrationCreatePage() {
 
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
+  const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
+  const label = (name: string) =>
+    t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
+  const anyOfError = missing
+    ? t(`integrations:adapters.${adapter?.id}.anyOf`, {
+        defaultValue: t("integrations:form.anyOf", {
+          fields: new Intl.ListFormat(i18n.language, { type: "disjunction" }).format(
+            anyOf.map(label),
+          ),
+        }),
+      })
+    : undefined;
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!adapter) return;
     const f = new FormData(e.currentTarget);
+    const values = read(f, "config", config);
+    if (anyOf.length && !anyOf.some((k) => values[k] !== undefined)) {
+      setMissing(true);
+      return;
+    }
     create.mutate(
       {
         adapterId: adapter.id,
-        config: read(f, "config", config),
+        config: values,
         secrets: read(f, "secrets", secrets) as Record<string, string>,
       },
       {
@@ -93,8 +112,10 @@ export function IntegrationCreatePage() {
   const input = (prefix: "config" | "secrets", { name, type, required, options }: Field) => (
     <FormField
       key={`${adapter?.id}-${prefix}-${name}`}
-      label={t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name })}
+      label={label(name)}
       hint={prefix === "secrets" ? t("integrations:form.secretHint") : undefined}
+      // Said once, on the first of the fields it is about.
+      error={prefix === "config" && name === anyOf[0] ? anyOfError : undefined}
     >
       {(p) =>
         type === "boolean" ? (
@@ -127,7 +148,7 @@ export function IntegrationCreatePage() {
   return (
     <>
       <PageHeader title={t("integrations:form.title")} backTo={{ to: "/integrations" }} />
-      <form onSubmit={onSubmit} className="grid max-w-2xl gap-8">
+      <form onSubmit={onSubmit} onInput={() => setMissing(false)} className="grid max-w-2xl gap-8">
         <fieldset className="grid gap-3">
           <legend className="mb-3 font-semibold">{t("integrations:form.product")}</legend>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -138,7 +159,10 @@ export function IntegrationCreatePage() {
                   name={`${id}-product`}
                   className="mt-1"
                   checked={product === p}
-                  onChange={() => setProduct(p)}
+                  onChange={() => {
+                    setProduct(p);
+                    setMissing(false);
+                  }}
                 />
                 <span className="font-medium">{adapterName(p)}</span>
               </label>

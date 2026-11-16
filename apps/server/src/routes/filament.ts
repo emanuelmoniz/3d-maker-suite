@@ -271,6 +271,17 @@ export const filamentRoutes =
       },
     );
 
+    // The RFID tag it learned from a print (ADR-0015): forgotten, the next charge teaches it again.
+    app.delete(
+      "/spools/:id/rfid",
+      { schema: { params, response: { 200: spoolSchema, ...notFound } } },
+      async (req) => {
+        const spool = getSpool(req.params.id);
+        db.update(spools).set({ rfid: null }).where(eq(spools.id, spool.id)).run();
+        return getSpool(spool.id);
+      },
+    );
+
     // --- Weight ledger: the only way to change remaining weight after creation.
     app.post(
       "/spools/:id/adjust",

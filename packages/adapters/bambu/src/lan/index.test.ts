@@ -325,3 +325,10 @@ it("parses the printer's broadcast", () => {
   });
   expect(parseNotify("NOTIFY * HTTP/1.1\r\nNT: upnp:rootdevice\r\n")).toBeUndefined();
 });
+
+it("tells the setup form that the IP or the serial is needed, and checks it", () => {
+  const adapter = bambuLanAdapter();
+  expect(adapter.configAnyOf).toEqual(["host", "serial"]);
+  expect(adapter.configSchema.safeParse({ name: "Becas" }).success).toBe(false);
+  expect(adapter.configSchema.safeParse({ serial: SERIAL }).success).toBe(true);
+});

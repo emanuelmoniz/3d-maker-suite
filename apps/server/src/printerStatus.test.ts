@@ -685,4 +685,15 @@ describe("a spool's tag (Bambu AMS RFID)", () => {
     record("p2", "TAG-B", at(100));
     expect(printUsages("p2")).toMatchObject([{ spoolId: b.id }]);
   });
+
+  it("can be forgotten on the spool; the next charge teaches it again", async () => {
+    const a = await spool("#ff8800");
+    record("p1", "TAG-C");
+    expect(tagOf(a.id)).toBe("TAG-C");
+    const res = await app.inject({ method: "DELETE", url: `/api/filament/spools/${a.id}/rfid` });
+    expect(res.json()).toMatchObject({ id: a.id, rfid: null });
+    expect(tagOf(a.id)).toBeNull();
+    record("p2", "TAG-C", at(100));
+    expect(tagOf(a.id)).toBe("TAG-C");
+  });
 });

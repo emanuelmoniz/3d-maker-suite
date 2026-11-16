@@ -226,6 +226,8 @@ export const adapterInfoSchema = z.object({
   id: z.string(),
   kind: z.enum(INTEGRATION_KINDS),
   config: z.record(z.string(), z.unknown()),
+  /** Config fields of which at least one must be set (`IntegrationAdapter.configAnyOf`). */
+  configAnyOf: z.array(z.string()),
   secrets: z.record(z.string(), z.unknown()),
   /** Secrets come from an interactive sign-in instead of the form. */
   login: z.boolean(),

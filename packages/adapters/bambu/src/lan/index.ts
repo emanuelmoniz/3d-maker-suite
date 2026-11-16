@@ -328,6 +328,7 @@ export function bambuLanAdapter(deps: Partial<LanDeps> = {}): IntegrationAdapter
     kind: "host",
     capabilities: ["printers", "printerStatus"],
     configSchema: bambuLanConfigSchema,
+    configAnyOf: ["host", "serial"],
     secretsSchema: bambuLanSecretsSchema,
     create: (ctx) => {
       const code = () => ctx.secrets.get("accessCode");

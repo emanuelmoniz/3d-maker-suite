@@ -899,6 +899,8 @@ describe("capabilities", () => {
     expect(adapters[0]).toMatchObject({
       id: "mock",
       capabilities: ["printers", "prints", "spools", "slice", "printerStatus"],
+      // No fields of which one must be set.
+      configAnyOf: [],
     });
 
     // Until changed, every type follows its default policy; spools start untracked on a new one.

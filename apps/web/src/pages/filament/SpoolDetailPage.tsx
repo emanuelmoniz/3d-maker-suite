@@ -8,7 +8,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { textLink } from "../../lib/cx.ts";
-import { spoolName, useSpool } from "../../lib/filament.ts";
+import { spoolName, useForgetSpoolTag, useSpool } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
@@ -41,6 +41,25 @@ function LoadedIn({ printerId, slot }: { printerId: string; slot: number }) {
     <Link to="/printers/$id" params={{ id: printerId }} className={textLink}>
       {t("filament:detail.loadedIn", { printer: printerName(t, printer), slot: slot + 1 })}
     </Link>
+  );
+}
+
+/** The RFID tag the spool learned from a print (ADR-0015), and a way to forget a wrong one. */
+function SpoolTag({ spoolId, rfid }: { spoolId: string; rfid: string }) {
+  const { t } = useTranslation();
+  const forget = useForgetSpoolTag();
+  return (
+    <div className="grid gap-1">
+      <span className="font-mono text-sm wrap-anywhere">{rfid}</span>
+      <span className="text-sm text-muted">{t("filament:detail.rfidHint")}</span>
+      <Write can="filament">
+        <div>
+          <Button onClick={() => forget.mutate(spoolId)} disabled={forget.isPending}>
+            {t("filament:detail.rfidForget")}
+          </Button>
+        </div>
+      </Write>
+    </div>
   );
 }
 
@@ -168,6 +187,13 @@ export function SpoolDetailPage() {
               <LoadedIn printerId={spool.loadedPrinterId} slot={spool.loadedSlot ?? 0} />
             ) : (
               none
+            )}
+          </Info>
+          <Info label={t("filament:detail.rfid")}>
+            {spool.rfid ? (
+              <SpoolTag spoolId={spool.id} rfid={spool.rfid} />
+            ) : (
+              t("filament:detail.rfidNone")
             )}
           </Info>
           <Info label={t("filament:spools.purchasedAt")}>
