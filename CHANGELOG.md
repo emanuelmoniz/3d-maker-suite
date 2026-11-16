@@ -4,6 +4,25 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [6.0.0-alpha.1] - 2026-11-16
+
+Pre-release, first of 6.0.0. Lists everything since 5.6.2. Back up before updating. Migrations 0127 (printer alerts), 0128 (where a usage's grams came from), 0129 (loaded spool per printer slot) and 0130 (review policy) apply as described below. Updating keeps all data.
+
+**For Bambu Cloud users:** automatic syncs no longer hold back prints for review. Every new print is recorded at once, with or without a spool or a project; a filament slot that isn't sure waits in **Prints → Filament to review**. Prints held when you update come in with the next run. Review and import by hand is unchanged.
+
+### Added
+- **Live status** on the dashboard and each printer's page: state, progress, time left, layer, temperatures and filament slots, for printers whose source reports it. Read-only. The sources for real printers (Moonraker, Bambu LAN, PrusaLink, OctoPrint) follow in the next pre-releases; this one has the foundation and a simulated printer ([docs/printers.md](docs/printers.md#live-status))
+- **Prints recorded automatically** when a printer's job ends: finished, cancelled or failed, once, with its project linked by title when one matches. A print seen half-way, a restart during a print and a double end report are handled; two sources for one printer make one print
+- **Grams from the job file and the project plate** when the printer doesn't report them (OrcaSlicer, PrusaSlicer and Bambu Studio totals). A cancelled or failed print gets the share of the material it reached, marked estimated; each usage shows where its grams came from
+- **Loaded spool per printer slot**: set, change and clear it on the printer's page; the spool's page says where it is loaded. It is charged when the printer can't say which spool it used, unless its material contradicts the printer's
+- **Review level** (Never, When unsure, Always) in Prints settings, on a source line and on a printer's form; the most specific wins. A suggested spool is preselected in Filament to review, estimated grams are marked and can be corrected in the row, and **Accept suggestions** accepts them all ([docs/printers.md](docs/printers.md#review-level))
+- **Alerts:** print finished, print failed, printer offline (during a print, after 2 minutes) and filament to review ([docs/alerts.md](docs/alerts.md#printer-alerts))
+- **Host** source kind: a printer added by address and key, listed and synced like an account
+- `pnpm test:battery` for running the tests on a laptop on battery
+
+### Changed
+- Bambu Cloud automatic print syncs record every print at once instead of holding back those without a single matching spool or a project. **Sync waiting for review** no longer counts prints from automatic runs
+
 ## [5.6.2] - 2026-11-14
 
 Lists everything since 5.6.1. No migration.

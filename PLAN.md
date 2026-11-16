@@ -3307,7 +3307,7 @@ Show me the policy × slot function and its tests first.
 Do Step 6b of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7 - Docs, push & v6.0.0-alpha.1
+### [x] Step 7 - Docs, push & v6.0.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `docs/printers.md`: live status, how prints are recorded, grams and spools, the review policy, the printer alerts.
