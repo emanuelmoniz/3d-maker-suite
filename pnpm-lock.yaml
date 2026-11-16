@@ -227,6 +227,9 @@ importers:
       '@3d-maker-suite/adapter-moonraker':
         specifier: workspace:*
         version: link:../../packages/adapters/moonraker
+      '@3d-maker-suite/adapter-octoprint':
+        specifier: workspace:*
+        version: link:../../packages/adapters/octoprint
       '@3d-maker-suite/adapter-orca':
         specifier: workspace:*
         version: link:../../packages/adapters/orca
@@ -413,6 +416,18 @@ importers:
 
   packages/adapters/moonraker:
     dependencies:
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../core
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/adapters/octoprint:
+    dependencies:
+      '@3d-maker-suite/3mf':
+        specifier: workspace:*
+        version: link:../../3mf
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../../core

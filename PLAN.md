@@ -3358,7 +3358,7 @@ Do Step 9 of the 6.0.0 plan in PLAN.md.
 Do Step 10 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 11 - OctoPrint
+### [x] Step 11 - OctoPrint
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Status and job through the push socket (API key, Node's `WebSocket`): the REST job looks the same after a cancel as before a print. A cancel's `PrintCancelled` and `PrintFailed` are one cancelled print. Grams from the job file's totals, read with a ranged download (OctoPrint's own analysis has length and volume, no grams).
 **Done when:** the fixture sequence imports as one finished and one cancelled print; tests pass.

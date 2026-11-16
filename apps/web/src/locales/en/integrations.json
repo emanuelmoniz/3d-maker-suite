@@ -138,6 +138,16 @@
         "apiKey": "API key (only if Moonraker asks for one)"
       }
     },
+    "octoprint": {
+      "name": "OctoPrint",
+      "fields": {
+        "host": "Address (IP or host name of OctoPrint)",
+        "name": "Printer name",
+        "brand": "Brand",
+        "model": "Model",
+        "apiKey": "API key (OctoPrint: Settings → API)"
+      }
+    },
     "prusalink": {
       "name": "PrusaLink (Prusa)",
       "fields": {

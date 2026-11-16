@@ -90,6 +90,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 | Klipper printers (Moonraker) setup | [docs/moonraker.md](docs/moonraker.md) |
 | Bambu Lab printers on your network (Bambu LAN) setup | [docs/bambu-lan.md](docs/bambu-lan.md) |
 | Prusa printers (PrusaLink) setup | [docs/prusalink.md](docs/prusalink.md) |
+| OctoPrint setup | [docs/octoprint.md](docs/octoprint.md) |
 | Project folders: structure, depths, Docker | [docs/projects.md](docs/projects.md) |
 | Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
 | Printers, usage and maintenance | [docs/printers.md](docs/printers.md) |
