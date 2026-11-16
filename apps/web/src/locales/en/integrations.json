@@ -138,6 +138,17 @@
         "apiKey": "API key (only if Moonraker asks for one)"
       }
     },
+    "prusalink": {
+      "name": "PrusaLink (Prusa)",
+      "fields": {
+        "host": "Address (IP or host name of the printer)",
+        "name": "Printer name",
+        "model": "Model",
+        "username": "User (maker unless you changed it)",
+        "password": "Password (on the printer: Settings → Network → PrusaLink)",
+        "apiKey": "API key (instead of the password)"
+      }
+    },
     "bambu-studio": {
       "name": "Bambu Studio"
     },

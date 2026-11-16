@@ -230,6 +230,9 @@ importers:
       '@3d-maker-suite/adapter-orca':
         specifier: workspace:*
         version: link:../../packages/adapters/orca
+      '@3d-maker-suite/adapter-prusalink':
+        specifier: workspace:*
+        version: link:../../packages/adapters/prusalink
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -425,6 +428,18 @@ importers:
       '@3d-maker-suite/slicer-presets':
         specifier: workspace:*
         version: link:../../slicer-presets
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/adapters/prusalink:
+    dependencies:
+      '@3d-maker-suite/3mf':
+        specifier: workspace:*
+        version: link:../../3mf
+      '@3d-maker-suite/core':
+        specifier: workspace:*
+        version: link:../../core
       zod:
         specifier: ^4.6.5
         version: 4.6.5

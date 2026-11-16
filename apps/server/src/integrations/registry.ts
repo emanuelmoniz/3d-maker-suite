@@ -12,6 +12,7 @@ import {
   orcaSlicerServerAdapter,
   orcaSlicerWorkerAdapter,
 } from "@3d-maker-suite/adapter-orca";
+import { prusalinkAdapter } from "@3d-maker-suite/adapter-prusalink";
 import type { IntegrationAdapter } from "@3d-maker-suite/core";
 
 // Composition root: the only non-test file that may import an adapter package (ADR-0003).
@@ -20,6 +21,7 @@ export const adapters = (opts: { mock: boolean }): IntegrationAdapter[] => [
   bambuCloudAdapter(),
   bambuLanAdapter(),
   moonrakerAdapter(),
+  prusalinkAdapter(),
   bambuStudioAdapter(),
   orcaSlicerAdapter(),
   bambuStudioServerAdapter(),

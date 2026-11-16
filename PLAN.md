@@ -3349,7 +3349,7 @@ Do Step 8 of the 6.0.0 plan in PLAN.md.
 Do Step 9 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - PrusaLink
+### [x] Step 10 - PrusaLink
 **Model:** Sonnet · **Effort:** Medium
 **Scope:** Status and job over the local API (digest auth); grams from the job file through its download link (the API sends no file metadata on the MK4, XL and MINI; a `.bgcode` has its totals in the first KB). Step 1 had no Prusa printer: the fixtures are payloads others published, so a real printer (a tester's) confirms the adapter before 6.0.0, and the docs say so until then.
 **Done when:** fixtures import as the expected prints; tests pass; the check on a real printer is done or named as open in the CHANGELOG.
