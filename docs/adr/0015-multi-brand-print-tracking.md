@@ -93,7 +93,7 @@ The first that answers wins:
 - `unmatched`: a sure spool with real grams is charged; an unsure slot waits, with the best guess suggested.
 - `always`: every slot waits, with its match suggested.
 - A suggestion (`suggestedSpoolId` on the usage) **charges nothing until a person accepts it**. Accepting, or picking another spool, books the spool's history once.
-- The global level is a preference, a source's is on its `sync_policies` row for prints (set in Prints settings → Sources, ADR-0021), a printer's on the printer.
+- The global level is a preference, a source's is on its `sync_policies` row for prints (set in Prints settings → Sources, ADR-0021), a printer's on the printer. A source with no print history (PrusaLink, OctoPrint) keeps it, and its track-usage switch, on its `printerStatus` row instead; a source with both reads `prints`.
 
 ### Alerts
 New kinds in the kind catalog (ADR-0016):

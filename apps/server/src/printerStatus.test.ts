@@ -457,6 +457,64 @@ describe("grams the printer didn't report (ADR-0015)", () => {
     ]);
   });
 
+  it("a source with no print history keeps its level and tracking on its live status policy", async () => {
+    const s = await spool("#ff8800");
+    const patch = (policies: object[]) =>
+      app.inject({
+        method: "PATCH",
+        url: `/api/integrations/${integrationId}`,
+        payload: { policies },
+      });
+    // Its print history settings would say otherwise: a status-only source has none to read.
+    expect((await patch([{ type: "prints", reviewPolicy: "never" }])).statusCode).toBe(200);
+    const live = await patch([
+      { type: "printerStatus", reviewPolicy: "always", trackUsage: false },
+    ]);
+    expect(live.statusCode).toBe(200);
+    expect(
+      live.json().policies.find((p: { type: string }) => p.type === "printerStatus"),
+    ).toMatchObject({ reviewPolicy: "always", trackUsage: false });
+
+    // PrusaLink, OctoPrint: live status, no print history.
+    const statusOnly = {
+      ...mockAdapter(state),
+      capabilities: ["printers", "printerStatus"] as const,
+    };
+    const syncer = createSyncer(db, [statusOnly], loadKey(dataDir), app.log, dataDir);
+    // Each its own start: one printer, two starts within a minute are one print (the dedupe).
+    const print = (externalId: string, startedAt: string) =>
+      syncer.recordPrint(integrationId, {
+        print: {
+          externalId,
+          printerExternalId: "mock-1",
+          title: "benchy",
+          startedAt,
+          outcome: "success",
+          filaments: [{ slot: 0, material: "PLA", colorHex: "#ff8800", grams: 5 }],
+        },
+        partial: false,
+        endSeen: true,
+        job: {},
+      });
+    const usage = (externalId: string) => {
+      const [p] = db
+        .select()
+        .from(schema.prints)
+        .where(eq(schema.prints.externalId, externalId))
+        .all();
+      return usagesOf(p?.id ?? "");
+    };
+    // `always`: the sure spool is only suggested.
+    expect(print("s1", at(0))).toBe(true);
+    expect(usage("s1")).toMatchObject([{ spoolId: null, suggestedSpoolId: s.id }]);
+    // `never` with tracking off: linked, nothing taken from the spool.
+    await patch([{ type: "printerStatus", reviewPolicy: "never" }]);
+    expect(print("s2", new Date(Date.UTC(2026, 10, 15, 11)).toISOString())).toBe(true);
+    expect(usage("s2")).toMatchObject([{ spoolId: s.id, grams: 5 }]);
+    const left = (await app.inject(`/api/filament/spools/${s.id}`)).json().remainingGrams;
+    expect(left).toBe(1000);
+  });
+
   it("estimated grams wait with the spool suggested; under the printer's `never` they are charged", async () => {
     const s = await spool("#ff8800");
     const totals = [{ slot: 0, grams: 4.35 }];

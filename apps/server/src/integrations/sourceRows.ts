@@ -7,6 +7,7 @@ import {
   type NewSpoolField,
   PRINT_MAX_SLOTS,
   printSlotKeys,
+  type ReviewPolicy,
   reviewPolicyOf,
   type SLICER_ZIP_TYPES,
   slotOutcome,
@@ -17,7 +18,6 @@ import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
 import { presetName, presetNames, printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
 import { readPreferences } from "../lib/preferences.ts";
-import { policyOf } from "./capabilities.ts";
 import { catalogName } from "./imports.ts";
 
 const { brands, printerModels, printers, printFilamentUsages, prints, spools } = schema;
@@ -153,11 +153,11 @@ export function loadedSpools(db: Db) {
 
 /**
  * The review level of a printer's automatic prints from one source (ADR-0015): the printer's own,
- * else the source's (its `prints` policy), else the global one.
+ * else the source's (`source`, from its prints settings: `Syncer`'s `printsPolicy`), else the
+ * global one.
  */
-export function reviewLevels(db: Db, integrationId: string | null) {
+export function reviewLevels(db: Db, source: ReviewPolicy | null) {
   const global = readPreferences(db).printReview;
-  const source = integrationId ? policyOf(db, integrationId, "prints").reviewPolicy : null;
   const own = new Map(
     db
       .select({ id: printers.id, level: printers.reviewPolicy })

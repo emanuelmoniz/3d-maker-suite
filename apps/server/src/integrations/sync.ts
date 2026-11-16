@@ -278,6 +278,19 @@ export function createSyncer(
     });
   };
 
+  /**
+   * Where a source keeps the settings of the prints it records (review level, track usage): its
+   * `prints` policy, or, for a source with no print history (PrusaLink, OctoPrint), its
+   * `printerStatus` one. A source with both reads `prints`.
+   */
+  const printsPolicy = (id: string) => {
+    const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
+    const caps = adapters.find((a) => a.id === row?.adapterId)?.capabilities ?? [];
+    const statusOnly = !caps.includes("prints") && caps.includes("printerStatus");
+    return policyOf(db, id, statusOnly ? "printerStatus" : "prints");
+  };
+  const levelsOf = (id: string) => reviewLevels(db, printsPolicy(id).reviewPolicy);
+
   const codeOf = (e: unknown): IntegrationErrorCode =>
     e instanceof IntegrationError ? e.code : "unknown";
 
@@ -1018,7 +1031,7 @@ export function createSyncer(
     const levels = new Map<string, ReturnType<typeof reviewLevels>>();
     const levelOf = (integrationId: string | null, printerId: string | null) => {
       if (!integrationId) return "unmatched";
-      if (!levels.has(integrationId)) levels.set(integrationId, reviewLevels(db, integrationId));
+      if (!levels.has(integrationId)) levels.set(integrationId, levelsOf(integrationId));
       return levels.get(integrationId)?.(printerId) ?? "unmatched";
     };
     db.transaction((tx) => {
@@ -1086,7 +1099,7 @@ export function createSyncer(
     if (type === "prints") {
       const items = instance ? await readPrints(row.id, instance, range, signal, review) : [];
       // Read for a review: a person decides. Else the rows are automatic and follow the level.
-      const rows = printRows(db, row.id, items, review ? undefined : reviewLevels(db, row.id));
+      const rows = printRows(db, row.id, items, review ? undefined : levelsOf(row.id));
       const kept = range.from || range.to ? { from: range.from, to: range.to } : undefined;
       return { entity: type, ignoredHeaders: [], from, rows, range: kept };
     }
@@ -1212,9 +1225,9 @@ export function createSyncer(
       }),
     };
     const from = { kind: "integration" as const, integrationId: id };
-    const rows = printRows(db, id, [p.data], reviewLevels(db, id));
+    const rows = printRows(db, id, [p.data], levelsOf(id));
     const read: Stored = { entity: "prints", ignoredHeaders: [], from, rows };
-    const stored = policyOf(db, id, "prints").trackUsage ? read : untracked(read);
+    const stored = printsPolicy(id).trackUsage ? read : untracked(read);
     const { created } = writeAutomatic(stored);
     if (!created)
       log.debug({ integrationId: id }, "tracked print not written: known, or its printer isn't");
