@@ -3630,7 +3630,7 @@ Design:
 Do Step 1 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Scan folders in the header
+### [x] Step 2 - Scan folders in the header
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Projects page: **Scan folders** moves into the `PageHeader` actions, next to **Add project**, with the same permission as today and `busy` while scanning (`useScan`).

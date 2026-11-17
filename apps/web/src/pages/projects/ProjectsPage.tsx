@@ -1,4 +1,9 @@
-import { type Project, type ProjectListItem, projectFilters } from "@3d-maker-suite/core";
+import {
+  type Project,
+  type ProjectListItem,
+  type ProjectScanStatus,
+  projectFilters,
+} from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import {
   Check,
@@ -65,11 +70,17 @@ function Thumb({ p, className }: { p: Project; className: string }) {
 const linkButton =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md px-3 font-medium hover:opacity-90";
 
-function ScanPanel() {
+function ScanPanel({
+  status,
+  start,
+}: {
+  status: ProjectScanStatus | undefined;
+  start: ReturnType<typeof useScan>["start"];
+}) {
   const { t } = useTranslation();
-  const { status, start } = useScan();
-  if (!status) return null;
-  const running = status.state === "running";
+  const running = status?.state === "running";
+  const idle = !running && !status?.finishedAt && !status?.failed && !start.isError;
+  if (!status || (idle && !status.missingRoots.length)) return null;
   const discovering = running && status.phase !== "scanning";
   return (
     <div className="mb-4 grid gap-2" role="status" aria-live="polite">
@@ -106,12 +117,6 @@ function ScanPanel() {
           {t("projects:scan.error")}
         </p>
       )}
-      <div>
-        <Button disabled={running || start.isPending} onClick={() => start.mutate()}>
-          <ScanSearch className="size-4" aria-hidden />
-          {t("projects:scan.start")}
-        </Button>
-      </div>
     </div>
   );
 }
@@ -253,6 +258,8 @@ export function ProjectsPage() {
   const [view, setView] = useState(storedView);
   // One list query for both views: the filter bar sets filters, the table or pager the rest.
   const [query, setQuery] = useUrlListQuery();
+  const { status: scanStatus, start: scanStart } = useScan();
+  const scanning = scanStatus?.state === "running" || scanStart.isPending;
   const { data, isError } = useListPage<ProjectListItem>(
     ["projects", "list"],
     "/api/projects",
@@ -297,6 +304,10 @@ export function ProjectsPage() {
         description={t("nav:items.projects.description")}
         actions={
           <>
+            <Button busy={scanning} onClick={() => scanStart.mutate()}>
+              <ScanSearch className="size-4" aria-hidden />
+              {t("projects:scan.start")}
+            </Button>
             <Write can="projects">{add}</Write>
             <SettingsLink module="projects" />
           </>
@@ -307,7 +318,7 @@ export function ProjectsPage() {
           {t("projects:loadError")}
         </p>
       )}
-      <ScanPanel />
+      <ScanPanel status={scanStatus} start={scanStart} />
       {data && !data.total && !filtered && !query.archived && !hasArchived ? (
         <EmptyState
           icon={FolderKanban}

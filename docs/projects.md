@@ -141,7 +141,7 @@ volumes:
 ```
 
 - With `:ro` the app can read and show projects, but uploading, deleting, moving and creating folders fails.
-- The app watches folders for changes while it runs and scans once at start. Network shares (SMB, NFS) often send no change events, so use **Scan folders** on the Projects page after changing files there.
+- The app watches folders for changes while it runs and scans once at start. Network shares (SMB, NFS) often send no change events, so use **Scan folders** (in the header of the Projects page, next to **Add project**) after changing files there.
 - A root that doesn't exist (an unmounted share) is reported by the scan and skipped; its projects stay in the app.
 
 More on installing with Docker: [install.md](install.md#docker).
