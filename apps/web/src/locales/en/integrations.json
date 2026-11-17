@@ -208,6 +208,7 @@
       "name": "Spoolman",
       "fields": {
         "host": "Address (IP or host name, with :7912 or the port Spoolman runs on)",
+        "name": "Name (optional, shown on its card instead of \"Spoolman account\")",
         "apiKey": "API key (only for a proxy in front of Spoolman)"
       }
     },

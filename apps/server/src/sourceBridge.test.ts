@@ -111,6 +111,22 @@ describe("printers through a connector, on the hub", () => {
     expect((await send("GET", "/api/hub/device/sources")).statusCode).toBe(403);
   });
 
+  it("a Spoolman's optional name is its card's account name; none keeps the generic one", async () => {
+    const named = await send("POST", "/api/integrations", {
+      adapterId: "spoolman",
+      config: { host: "192.168.1.60:7912", name: " Garage " },
+    });
+    expect(named.statusCode).toBe(201);
+    expect(named.json().account).toMatchObject({ name: "Garage" });
+    // One Spoolman can be set up.
+    await send("DELETE", `/api/integrations/${named.json().id}`);
+    const plain = await send("POST", "/api/integrations", {
+      adapterId: "spoolman",
+      config: { host: "192.168.1.61:7912" },
+    });
+    expect(plain.json().account).toMatchObject({ name: null });
+  });
+
   it("a spool library on the network is assigned as a printer is, and nothing else of its", async () => {
     const a = await pair("A");
     const made = await send("POST", "/api/integrations", {

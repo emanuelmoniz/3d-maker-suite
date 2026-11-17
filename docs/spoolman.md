@@ -14,7 +14,7 @@ The app's spool list stays its own: Spoolman is a source and a target, not the m
 3. An API key only if a reverse proxy in front of Spoolman asks for one (`x-api-key`). Spoolman itself has no sign-in.
 4. Press **Test** to check the address and key before saving, then **Add**.
 
-One Spoolman can be set up. To change its address or key later, open **Edit** on its card: a key left empty keeps the stored one. The key is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)).
+One Spoolman can be set up. Give it a **Name** (optional) to tell it apart: the card shows it instead of "Spoolman account", and so does the machine's page when Spoolman is reached through it. To change its name, address or key later, open **Edit** on its card: a key left empty keeps the stored one. The key is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)).
 
 ## Import spools
 

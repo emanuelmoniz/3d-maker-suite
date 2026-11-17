@@ -163,7 +163,7 @@ A connector older than 6.0.0 can't reach printers: the hub refuses the pick unti
 
 ### Spoolman through a connector
 
-[Spoolman](spoolman.md) on that network is reached the same way: pick the machine under **Reached from** when you add it. The machine needs **Reach spool libraries** on, on its page, which lists the spool libraries that go through it. Use its address as the machine sees it. The hub imports its spools through the machine and writes back what each print used, exactly once ([spoolman.md](spoolman.md#how-a-print-is-written-only-once)).
+[Spoolman](spoolman.md) on that network is reached the same way: pick the machine under **Reached from** when you add it. A name you give it on its Edit page is what the machine's list shows for it. The machine needs **Reach spool libraries** on, on its page, which lists the spool libraries that go through it. Use its address as the machine sees it. The hub imports its spools through the machine and writes back what each print used, exactly once ([spoolman.md](spoolman.md#how-a-print-is-written-only-once)).
 
 This is the only thing a connector ever writes outside its own folders, and only these two things: a Spoolman spool's used weight (with its **3D Maker Suite** field), and a spool of yours that Spoolman doesn't have yet. It never deletes or changes anything else there.
 

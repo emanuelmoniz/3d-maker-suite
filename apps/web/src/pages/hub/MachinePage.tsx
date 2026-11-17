@@ -579,7 +579,8 @@ function Reach({ device: d, kind }: { device: Device; kind: "printers" | "spoolL
   );
   const label = (i: (typeof here)[number]) => {
     const host = (i.config as { host?: unknown } | undefined)?.host;
-    const name = adapterName(i.adapterId);
+    // A name you gave it (Spoolman), else its adapter's.
+    const name = (!printers && i.account?.name) || adapterName(i.adapterId);
     const printer = printers ? known.find((p) => p.integrationId === i.id)?.name : undefined;
     const text =
       printer ??

@@ -38,6 +38,8 @@ const DENSITY = 1.24;
 export const spoolmanConfigSchema = z.object({
   /** "192.168.1.60:7912" or "http://...". */
   host: z.string().trim().min(1).max(255),
+  /** A name for its card and its machine's page; unset = "Spoolman account". */
+  name: z.string().trim().max(100).optional(),
 });
 type Config = z.infer<typeof spoolmanConfigSchema>;
 
