@@ -342,7 +342,8 @@ describe("migration 0024", () => {
       63, // 0064 turns off data types into manual
     );
     // Only the columns that exist at 0064 (slicer_version came with 0071, catalog_fingerprint with
-    // 0096, catalog_receive and catalog_install with 0115, the preset_* ones with 0118).
+    // 0096, catalog_receive and catalog_install with 0115, the preset_* ones with 0118, device_id with
+    // 0134).
     const {
       slicerVersion: _,
       catalogFingerprint: __,
@@ -351,6 +352,7 @@ describe("migration 0024", () => {
       presetReceive: _____,
       presetInstall: ______,
       presetState: _______,
+      deviceId: ________,
       ...columns
     } = getTableColumns(s.integrations);
     const rows = now.select(columns).from(s.integrations).all();
@@ -874,9 +876,9 @@ describe("migration 0088", () => {
       spool_no_price: "off",
       spool_no_open_date: "off",
     });
-    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's, 0127's three printer kinds
-    // and 0130's filament_review.
-    expect(Object.keys(off.admin ?? {})).toHaveLength(22);
+    // The 15 kinds of 0088, the two preset kinds 0090 adds and 0101's, 0127's three printer kinds,
+    // 0130's filament_review and 0134's printer_unreachable.
+    expect(Object.keys(off.admin ?? {})).toHaveLength(23);
     expect([off.editor, off.viewer, off.nf]).toEqual([{}, {}, {}]);
 
     const on = kinds({ price: true, openDate: true });
@@ -2427,6 +2429,45 @@ describe("migration 0133", () => {
       },
     ]);
     expect(now.select().from(s.spools).all()).toHaveLength(3);
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});
+
+describe("migration 0134", () => {
+  it("adds printer_unreachable, keeps alert states, and a deleted device leaves its printer to the server", () => {
+    const now = migrateAcross(133, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      run(
+        `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
+      );
+      run(
+        "insert into alerts (id, kind, severity, module, task, entity_type, entity_id, created_at) values ('a', 'printer_offline', 'warning', 'printers', 't', 'printer', 'p', 'x')",
+      );
+      run(
+        `insert into alert_states (alert_id, user_id, read_at, updated_at, notified_at) values ('a', 'u', 'r', 'x', '{"email":"n"}')`,
+      );
+      run(
+        "insert into integrations (id, adapter_id, config, created_at, updated_at) values ('i', 'moonraker', '{}', 'x', 'x')",
+      );
+    });
+    expect(now.select().from(s.alertStates).all()).toEqual([
+      expect.objectContaining({ alertId: "a", readAt: "r" }),
+    ]);
+    const kinds = Object.fromEntries(
+      now
+        .select()
+        .from(s.roles)
+        .all()
+        .map((r) => [r.builtIn, r.alertKinds.printer_unreachable]),
+    );
+    expect(kinds).toEqual({ admin: "notify", editor: undefined, viewer: undefined });
+    const run = (q: string) => now.$client.prepare(q).run();
+    run(
+      "insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('dev', 'WS', 'u', 't', 'x', 'x')",
+    );
+    run("update integrations set device_id = 'dev' where id = 'i'");
+    run("delete from devices where id = 'dev'");
+    expect(now.select().from(s.integrations).get()?.deviceId).toBeNull();
     expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });

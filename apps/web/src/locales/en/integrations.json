@@ -53,6 +53,7 @@
     "twoInstalls": "Installed twice on this server: the copy found installed here and a download. Both keep working; delete one."
   },
   "account": {
+    "through": "Reached through {{machine}}",
     "addAnother": "Add another account",
     "untitled": "{{adapter}} account",
     "signedOut": "Signed out",
@@ -94,6 +95,11 @@
     "taken": "Already on this server. Find it on the slicer's card.",
     "takenSource": "Already set up: find its card on the Integrations page.",
     "secretHint": "Stored encrypted on this computer.",
+    "reach": "Reached from",
+    "reachHint": "A printer on another network: a machine there reads it for the server through its connector.",
+    "reachServer": "This server",
+    "reachDevice": "{{name}}",
+    "reachDeviceOffline": "{{name}} (offline)",
     "save": "Add",
     "error": "Couldn't add the integration. Check the fields.",
     "anyOf": "Fill in at least one of: {{fields}}."

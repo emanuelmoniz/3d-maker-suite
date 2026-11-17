@@ -1,6 +1,6 @@
 # ADR-0014: Hub and connector: central files, device roots, slice workers
 
-- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment).
+- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub (see the 2026-11-17 amendment).
 - Date: 2026-10-26, accepted 2026-10-27
 
 ## Context
@@ -262,3 +262,15 @@ The decisions of Steps 11, 12 and 14, with the one thing Step 15 added:
   - a device root: the live event `roots.rescan` while its device is online. The connector runs the same index call as on connect, so its digests decide what the hub asks for. Offline: skipped, its connect indexes it anyway. An older connector skips the event.
 
   The time of day works for device roots too, and the connector needs no scheduler of its own.
+
+
+## Amendment (2026-11-17): printers through a connector (6.0.0 Step 14, ADR-0015)
+
+A hub reaches printers on another network through a connector there (ADR-0015, "LAN reach").
+
+- **Assignment.** An integration of a printer on the network (kind `host` with `printerStatus`) gets a machine (`integrations.device_id`, migration 0134; a deleted device sets it back to null, the server). `hub.manage` picks it on the machine page (**Printers**) or in the add form (**Reached from**), with the hub on. A connector says which printer adapters it runs (`X-Printer-Adapters` on its stream); an online one without the adapter answers 409 `device_outdated`.
+- **The adapter runs on the connector.** The connector is a second composition root (`apps/connector/src/printers/registry.ts`: Bambu LAN, Moonraker, OctoPrint, PrusaLink), so its imports grow by those four adapters and `mqtt`. It runs their read parts only, and core's job tracker on what it reads. The hub doesn't track such a source, so a print is never recorded twice.
+- **Keys.** `GET /api/hub/device/printers` gives the device its sources with their config and keys: the one API answer with secrets, and only to the token of the device they are assigned to. Never in `hub_events`, never logged. The connector keeps them in `printers.json`, encrypted with its `secret.key`, so it keeps watching through its own restart while the hub is away. Unpair and revoke delete the file.
+- **New fixed operations:** `printers.changed` (live notice: fetch the assignment again; a connect does too) and `printers.read` (live request: a source's `test`, `printers` or one page of `history`; a source it doesn't have answers ENOENT, an older connector ENOTSUP). Neither sends anything to a printer.
+- **Device → hub:** `POST /api/hub/device/printers/status` after every read (the latest only, no retry; 404 `not_assigned` for a source that isn't its own), and `POST /api/hub/device/printers/prints`, the job outbox: every print its tracker saw end stays in `printers.json` until the hub answers it in `done` (written, already there, invalid, or not this device's).
+- **Offline.** A device that goes away turns its printers offline; one in a print raises `printer_unreachable` after 2 minutes (ADR-0015, Alerts). Its connect runs the source's due syncs, so Moonraker's history backfills; the scheduled sync skips a source whose device is offline, with no error.

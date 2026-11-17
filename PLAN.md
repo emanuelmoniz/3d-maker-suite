@@ -3413,7 +3413,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 
 ## Phase 44 - Hub
 
-### [ ] Step 14 - Connector printer bridge  **[plan mode]**
+### [x] Step 14 - Connector printer bridge  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - A new fixed connector operation: relay status and history for the printer hosts the hub assigns to that device. It never sends commands to a printer.
@@ -3425,6 +3425,21 @@ Then push dev, push the tag and confirm the pre-release is published.
 **Prompt:**
 ```
 Do Step 14 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 14b - Spoolman through a connector  **[plan mode]**
+**Model:** Opus (or Fable) · **Effort:** High
+**Scope:**
+- A hub on another network (a VPS) reaches a Spoolman on the LAN through a machine's connector, as Step 14's printers: assign the Spoolman integration to a machine (machine page → Printers or its own line, and **Reached from** in the add form).
+- Spool import (`listSpools`) is a live request to the connector, read-only, like `printers.read`.
+- Usage write-back (`writeUsage`, `createSpool`) goes through the connector with the same idempotency keys (`<printId>:<slot>`), so a retry never charges a spool twice. Writes that can't reach Spoolman while the machine is offline wait on the hub (`spool_usage_pushes`) and go when it is back; decide whether the connector also needs an outbox for them.
+- These are the connector's first write operations on another system: amend ADR-0014's fixed list and ADR-0015 ("Spoolman, two-way") with exactly what it may write, and keep the connector refusing anything else.
+- A Moonraker reached through the same machine keeps `chargedAtSource`: its jobs aren't written to Spoolman twice.
+
+**Done when:** a VPS hub imports the spools of a LAN Spoolman through a connector and writes each print's usage back exactly once, also when the machine was offline when the print was recorded; tests run a real connector against a test hub with the fake Spoolman.
+**Prompt:**
+```
+Do Step 14b of the 6.0.0 plan in PLAN.md.
 ```
 
 ## Phase 45 - Release

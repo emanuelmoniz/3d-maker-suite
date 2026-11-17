@@ -156,6 +156,13 @@ export const integrationSchema = z.object({
   presetLibrary: z.string().nullable(),
   /** A worker's device name ("Bambu Studio (WS-3)"); null for other kinds. */
   deviceName: z.string().nullable().optional(),
+  /**
+   * A printer source reached through this device's connector (ADR-0015, LAN reach); null = this
+   * server reaches it itself.
+   */
+  deviceId: id.nullable().optional(),
+  /** That device's name. */
+  viaDeviceName: z.string().nullable().optional(),
   enabled: z.boolean(),
   // The setup fields below are left out for non-admins (ADR-0012).
   config: z.json().optional(),

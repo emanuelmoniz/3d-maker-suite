@@ -54,7 +54,9 @@ const PRODUCTS = {
     app: "connector",
     port: 4301,
     apps: ["connector"],
-    packages: ["3mf", "core", "host", "slicer-presets"],
+    packages: ["3mf", "core", "host", "slicer-presets", "adapters"],
+    // The printers it reaches for a hub (ADR-0015, LAN reach): apps/connector/src/printers/registry.ts.
+    adapters: ["bambu", "moonraker", "octoprint", "prusalink"],
     // It only helps while it runs: the installer always registers it.
     alwaysStart: true,
   },
@@ -150,6 +152,9 @@ for (const n of readdirSync(join(app, "apps")))
 if (p.packages)
   for (const n of readdirSync(join(app, "packages")))
     if (!p.packages.includes(n)) rmSync(join(app, "packages", n), { recursive: true });
+if (p.adapters)
+  for (const n of readdirSync(join(app, "packages", "adapters")))
+    if (!p.adapters.includes(n)) rmSync(join(app, "packages", "adapters", n), { recursive: true });
 if (server) {
   for (const n of readdirSync(join(app, "apps", "web")))
     if (n !== "dist" && n !== "package.json")

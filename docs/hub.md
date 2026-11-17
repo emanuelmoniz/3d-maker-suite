@@ -143,6 +143,23 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 
 **Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Settings → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its local page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
 
+## Printers through a connector
+
+A hub on a VPS can't reach printers on your office or home network. A machine on that network reaches them for it: its connector reads each printer's live status and history and keeps the prints it sees end. It never sends a command to a printer. Works with [Moonraker](moonraker.md), [Bambu LAN](bambu-lan.md), [PrusaLink](prusalink.md) and [OctoPrint](octoprint.md).
+
+**Set it up** (needs Hub management and Integrations rights):
+- When you add the printer in **Integrations**, pick the machine under **Reached from**. Enter the printer's address as the machine sees it (its LAN IP).
+- Or on the machine's page, under **Printers**, pick an existing printer and press **Reach through this machine**. **Reach from the server** moves it back. A printer reached through another machine moves.
+
+The hub sends the machine the printer's address and key over its paired connection. The connector keeps them encrypted in its data folder, so it keeps watching through its own restart while the hub is away. Unpairing or revoking the machine deletes them there.
+
+**When something is away:**
+- **The hub is down** (an update, a restart): the connector keeps watching. A print that ends meanwhile is kept on the machine and recorded when the hub is back, also on a printer with no history of its own (PrusaLink, OctoPrint, Bambu LAN without the cloud).
+- **The machine or its connector is offline:** its printers show offline, with the reason on their card. A print that was running raises **Printer unreachable** after 2 minutes ([alerts.md](alerts.md#printer-alerts)). When the machine is back, the hub reads the history it missed (Moonraker) and the connector sends the prints it saw end.
+- **The printer stops answering** while the machine is online: **Printer offline**, as for a printer the hub reaches itself.
+
+A connector older than 6.0.0 can't reach printers: the hub refuses the pick until it updates (Update now on the machine page).
+
 ## Slice workers
 
 A device can slice for the hub. In **Settings → Integrations**, the slicer's card sets up its install there (**Set up**, or **Add a machine…**; only machines with **Use slicer as server worker** on are offered), picks or installs its program (**Use this program**), and **Change slicer machine** picks it. One install per slicer and machine. Having an install makes it a slice worker, and removing its last slicer ends it; only the hub's slicer slices. Steps, offline behaviour and the manual path: [slicing.md](slicing.md#slice-on-a-worker).
@@ -281,5 +298,6 @@ The machine page has **Restart connector** and **Stop connector**; both need it 
   | Linux | `~/.local/share/3d-maker-suite-connector/install` | `~/.local/share/3d-maker-suite-connector` |
 
 - **Network.** Outbound HTTPS (or HTTP on a LAN) from the device to the hub, plus GitHub release downloads for updates. The local page listens on `127.0.0.1:4301` only.
-- **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers). It never runs a command the hub sends. The device token is stored encrypted and never logged.
+- **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers, read the status and history of the printers the hub assigns to it). It never runs a command the hub sends and never sends a command to a printer. The device token and the printers' keys are stored encrypted and never logged.
+- **Network.** It only connects out: to the hub, and to the printers assigned to it on its own network (their web or MQTT port, as each printer's setup page says).
 - **Signing.** Nothing is code-signed yet; see ADR-0014, "Unsigned builds".

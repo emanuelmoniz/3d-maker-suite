@@ -109,6 +109,11 @@ export const integrations = sqliteTable("integrations", {
   presetReceive: integer({ mode: "boolean" }).notNull().default(false),
   /** Its last look: the same state a machine reports (`presetInstall`). */
   presetInstall: text({ mode: "json" }).$type<PresetInstallSlicer>(),
+  /**
+   * A printer source reached through this device's connector (ADR-0015, LAN reach); null = this
+   * server reaches it. A deleted device leaves it to the server.
+   */
+  deviceId: text().references((): AnySQLiteColumn => devices.id, { onDelete: "set null" }),
   /** What its install queue settled: the sha per preset and the last backup. Not in the API. */
   presetState: text({ mode: "json" }).$type<PresetInstallSaved>(),
   status: text().notNull().default("new"),

@@ -227,3 +227,26 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
     },
   };
 }
+
+/**
+ * The fake printer as a printer on the network (`host`), for a hub that reaches it through a
+ * connector (ADR-0015, LAN reach): the same state, printers, history and live status, no spools.
+ */
+export function mockHostAdapter(state: MockState = fixture()): IntegrationAdapter {
+  const base = mockAdapter(state);
+  return {
+    id: "mock-host",
+    kind: "host",
+    capabilities: ["printers", "prints", "printerStatus"],
+    configSchema: z.object({
+      host: z.string().min(1),
+      liveCycleSec: z.number().int().min(20).max(3600).optional(),
+    }),
+    secretsSchema: base.secretsSchema,
+    create: (ctx) => {
+      // biome-ignore lint/style/noNonNullAssertion: the mock always has one
+      const { test, printers, printHistory, status } = base.create!(ctx);
+      return { test, printers, printHistory, status };
+    },
+  };
+}

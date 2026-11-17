@@ -90,7 +90,7 @@ function LayerStack({ status }: { status: PrinterStatus["snapshot"] }) {
 
 /** What one printer is doing now: state, how far, when it's done, temperatures and filament. */
 export function PrinterStatusCard({
-  status: { printerId, snapshot: s },
+  status: { printerId, snapshot: s, via },
   name,
   link = false,
 }: {
@@ -154,7 +154,18 @@ export function PrinterStatusCard({
           {s.state === "error" && job?.failureReason && (
             <p className="text-bad wrap-anywhere">{job.failureReason}</p>
           )}
-          {offline && <p>{t("printers:status.offlineHint")}</p>}
+          {offline && (
+            <p>
+              {via && !via.online
+                ? t("printers:status.connectorOffline", { machine: via.deviceName })
+                : t("printers:status.offlineHint")}
+            </p>
+          )}
+          {via?.online && !offline && (
+            <p className="text-muted wrap-anywhere">
+              {t("printers:status.through", { machine: via.deviceName })}
+            </p>
+          )}
         </div>
       </div>
 

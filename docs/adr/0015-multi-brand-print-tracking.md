@@ -100,6 +100,7 @@ New kinds in the kind catalog (ADR-0016):
 - `print_finished` and `print_failed`: event kinds, one per print the tracker saw end. A cancelled print and a backfilled one raise none.
 - `printer_offline`: a condition kind, raised when a printer stops answering during a print and resolved when it answers. A printer that is off while idle raises nothing.
 - `filament_review`: a condition kind with the count of slots waiting in Filament to review, resolved when the queue is empty. It replaces `sync_pending` for automatic print runs.
+- `printer_unreachable` (6.0.0 Step 14): a condition kind for a printer reached through a connector, raised when the connector goes offline during a print for as long as `printer_offline` waits, and resolved when the printer answers again. It names the machine: the printer may be fine, the way to it isn't.
 
 ### Spoolman, two-way
 - An integration of its own. It imports spools, writes usage back after each print, and reads the active spool.
@@ -113,6 +114,7 @@ New kinds in the kind catalog (ADR-0016):
 - A server on the same LAN talks to printers directly.
 - A hub elsewhere reaches them through the ADR-0014 connector. The connector gets one new fixed operation: relay status and history for the printer hosts the hub assigns to it. It still never runs a command the hub sends, and it never sends commands to a printer.
 - The connector keeps the end of a job until the hub has it, not only the latest status: a print that ends while the hub is away must not be lost on a printer without history.
+- **As built (6.0.0 Step 14):** the connector runs the printer's adapter itself, and core's job tracker on what it reads, rather than tunnelling the adapter's HTTP, WebSocket and MQTT traffic for the hub (that needs an allow-list per protocol to stay read-only, and Bambu's MQTT is hard to relay). It posts the latest status, and each print its tracker saw end from a file it keeps until the hub has it. The hub doesn't track a source a connector reads. The printer's keys reach the connector over its paired channel and are kept there encrypted. Spoolman behind a connector is a later step. Details in ADR-0014's 2026-11-17 amendment.
 - So 6.0.0 builds on 5.0.0.
 
 ### Printers with no network

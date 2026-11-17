@@ -218,6 +218,8 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     print_finished: () => t("alerts:kinds.print_finished", { title: c.title, printer: c.printer }),
     print_failed: () => t("alerts:kinds.print_failed", { title: c.title, printer: c.printer }),
     printer_offline: () => t("alerts:kinds.printer_offline", { name: c.name }),
+    printer_unreachable: () =>
+      t("alerts:kinds.printer_unreachable", { name: c.name, device: c.device }),
     filament_review: () => t("alerts:kinds.filament_review", { count: Number(c.count) }),
   }[a.kind]();
   if (inList)
@@ -255,6 +257,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "warranty_ending":
     case "printer_offline":
+    case "printer_unreachable":
       return (
         <Link to="/printers/$id" params={{ id: a.entityId }} className={textLink}>
           {text}
@@ -474,6 +477,7 @@ const KIND_NAMES: Record<AlertKind, string> = {
   print_finished: "alerts:kindNames.print_finished",
   print_failed: "alerts:kindNames.print_failed",
   printer_offline: "alerts:kindNames.printer_offline",
+  printer_unreachable: "alerts:kindNames.printer_unreachable",
   filament_review: "alerts:kindNames.filament_review",
 };
 const STATUS: Record<AlertStatus, string> = {

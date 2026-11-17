@@ -8,6 +8,10 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@3d-maker-suite/adapter-bambu": "workspace:*",
+    "@3d-maker-suite/adapter-moonraker": "workspace:*",
+    "@3d-maker-suite/adapter-octoprint": "workspace:*",
+    "@3d-maker-suite/adapter-prusalink": "workspace:*",
     "@3d-maker-suite/core": "workspace:*",
     "@3d-maker-suite/host": "workspace:*",
     "@3d-maker-suite/slicer-presets": "workspace:*",

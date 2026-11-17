@@ -166,12 +166,16 @@ export const printerStatusSchema = z.object({
   printerId: id,
   integrationId: id,
   snapshot: printerSnapshotSchema,
+  /** Reached through a connector (ADR-0015): which one, and whether it is online. */
+  via: z.object({ deviceId: id, deviceName: z.string(), online: z.boolean() }).optional(),
 });
 
 /** `config` and `secrets` are checked against the adapter's own schemas by the server. */
 export const integrationInputSchema = z.object({
   adapterId: z.string().min(1),
   enabled: z.boolean().optional(),
+  /** A printer source reached through this device's connector (`host` printers, `hub.manage`). */
+  deviceId: id.nullable().optional(),
   config: z.record(z.string(), z.json()).default({}),
   secrets: z.record(z.string(), z.string()).default({}),
 });
@@ -182,6 +186,8 @@ export const integrationPatchSchema = z
     enabled: z.boolean(),
     config: z.record(z.string(), z.json()),
     secrets: z.record(z.string(), z.string()),
+    /** As `integrationInputSchema.deviceId`: null = this server reaches it. */
+    deviceId: id.nullable(),
     slicerConfigDir: z.string().trim().nullable(),
     slicerPath: z.string().trim().nullable(),
     /** A local slicer receives the hub's catalog (ADR-0022); 409 `hub_slicer` on the hub's slicer. */
@@ -401,6 +407,30 @@ export const testResultSchema = z.union([
   z.object({ ok: z.literal(true) }),
   z.object({ ok: z.literal(false), code: z.enum(INTEGRATION_ERROR_CODES) }),
 ]);
+
+/**
+ * A print the job tracker saw end (`TrackedPrint`), as a connector sends it to the hub (ADR-0015,
+ * LAN reach). `print` is checked again by the hub's `recordPrint`.
+ */
+export const trackedPrintSchema = z.object({
+  print: externalPrintSchema,
+  partial: z.boolean(),
+  endSeen: z.boolean(),
+  job: z.object({
+    file: z.string().optional(),
+    progress: z.number().optional(),
+    layer: z.number().optional(),
+    totalLayers: z.number().optional(),
+    totals: z
+      .array(
+        z.object({
+          slot: z.number().int().nonnegative().optional(),
+          grams: z.number().nonnegative(),
+        }),
+      )
+      .optional(),
+  }),
+});
 
 export type ExternalPrinter = z.infer<typeof externalPrinterSchema>;
 export type ExternalPrint = z.infer<typeof externalPrintSchema>;

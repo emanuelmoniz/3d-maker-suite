@@ -1024,6 +1024,7 @@ describe("who gets which alert (ADR-0016)", () => {
     "print_finished",
     "print_failed",
     "printer_offline",
+    "printer_unreachable",
   ];
   // Written out, like MATRIX: sync kinds also need the policy flags (off by default).
   const GETS: Record<RoleBuiltIn, AlertKind[]> = {

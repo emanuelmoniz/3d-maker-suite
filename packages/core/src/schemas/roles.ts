@@ -310,6 +310,12 @@ export const ALERT_KIND_CATALOG: Record<AlertKind, KindRule> = {
     condition: true,
     default: "app",
   },
+  // Its connector went offline during a print (ADR-0015, LAN reach).
+  printer_unreachable: {
+    needs: (p) => hasLevel(p, "printers", "read"),
+    condition: true,
+    default: "app",
+  },
   // What the queue's assign needs.
   filament_review: {
     needs: (p) => hasLevel(p, "prints", "write"),

@@ -77,6 +77,11 @@ import { catalogCards, catalogSource } from "./catalogSource.ts";
 import { deleteCloudCopy, fetchCloudPresets, placeCloudPresets } from "./cloudPresets.ts";
 import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
+import { bridgeable, type PrinterBridge } from "./printerBridge.ts";
+
+/** What the syncer needs of the printer bridge (`Pick` is a core type here). */
+type SyncBridge = { instance: PrinterBridge["instance"]; online: PrinterBridge["online"] };
+
 import { mergeUserPresets, userPresetFiles } from "./presetLibrary.ts";
 import { ownRows, releaseRoute } from "./presetRoutes.ts";
 import { linkSourcePrinters } from "./printerSources.ts";
@@ -245,6 +250,8 @@ export function createSyncer(
 ) {
   const running = new Set<string>();
   const review = createReview(db, dataDir);
+  /** Printers reached through a connector (ADR-0015, LAN reach); set by the app (`useBridge`). */
+  let bridge: SyncBridge | undefined;
 
   const rowOf = (id: string) => {
     const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
@@ -270,6 +277,9 @@ export function createSyncer(
 
   const instanceFor = (row: ReturnType<typeof rowOf>, signal: AbortSignal) => {
     const adapter = adapterOf(row);
+    const { deviceId } = row;
+    if (deviceId && bridge && bridgeable(adapter))
+      return bridge.instance({ ...row, deviceId }, adapter);
     if (!adapter.create) throw new HttpError(409, "capability_unavailable", "No account to reach");
     return adapter.create({
       config: adapter.configSchema.parse(row.config),
@@ -547,32 +557,53 @@ export function createSyncer(
           adapters.find((a) => a.id === r.adapterId),
         ),
       );
-    for (const row of rows) {
-      const { id, lastError } = row;
-      if (lastError && NEEDS_USER.has(lastError)) continue;
-      if (lastError) {
-        const latest = db
-          .select({ startedAt: syncRuns.startedAt })
-          .from(syncRuns)
-          .where(eq(syncRuns.integrationId, id))
-          .orderBy(desc(syncRuns.startedAt))
-          .get();
-        const wait = BACK_OFF.has(lastError) ? BACK_OFF_MS : RETRY_MS;
-        if (latest && Date.now() - Date.parse(latest.startedAt) < wait) continue;
-      }
-      const adapter = adapters.find((a) => a.id === row.adapterId);
-      // Adapter order: printers come before the prints that point at them.
-      for (const type of activeCapabilities(db, adapters, row)) {
-        if (isAction(type) || slicerFileType(adapter, type)) continue;
-        const p = policyOf(db, id, type);
-        // A failed run leaves `lastRunAt` alone, so it is retried after RETRY_MS.
-        if (p.mode !== "auto" || !isDue(p)) continue;
-        // A manual run in progress (409) or a deleted row is fine to skip; failures are already stored.
-        const done = await run(id, "scheduled", { type }).catch(() => null);
-        // The vendor is failing: leave this integration's other types for a later tick.
-        if (done?.errorCode) break;
-      }
+    for (const row of rows) await runDueRow(row);
+  }
+
+  /** One integration's due types, as the scheduled job runs them. */
+  async function runDueRow(row: typeof integrations.$inferSelect) {
+    const { id, lastError } = row;
+    // Reached through a connector that is offline: nothing to read, and no error to keep. Its
+    // connect runs what is due (`runDue`), the history it missed with it.
+    if (row.deviceId && bridge && !bridge.online(row.deviceId)) return;
+    if (lastError && NEEDS_USER.has(lastError)) return;
+    if (lastError) {
+      const latest = db
+        .select({ startedAt: syncRuns.startedAt })
+        .from(syncRuns)
+        .where(eq(syncRuns.integrationId, id))
+        .orderBy(desc(syncRuns.startedAt))
+        .get();
+      const wait = BACK_OFF.has(lastError) ? BACK_OFF_MS : RETRY_MS;
+      // Unreachable because its connector was away isn't the vendor failing: try it at once.
+      const away = !!row.deviceId && lastError === "unreachable";
+      if (!away && latest && Date.now() - Date.parse(latest.startedAt) < wait) return;
     }
+    const adapter = adapters.find((a) => a.id === row.adapterId);
+    // Adapter order: printers come before the prints that point at them.
+    for (const type of activeCapabilities(db, adapters, row)) {
+      if (isAction(type) || slicerFileType(adapter, type)) continue;
+      const p = policyOf(db, id, type);
+      // A failed run leaves `lastRunAt` alone, so it is retried after RETRY_MS.
+      if (p.mode !== "auto" || !isDue(p)) continue;
+      // A manual run in progress (409) or a deleted row is fine to skip; failures are already stored.
+      const done = await run(id, "scheduled", { type }).catch(() => null);
+      // The vendor is failing: leave this integration's other types for a later tick.
+      if (done?.errorCode) break;
+    }
+  }
+
+  /** Runs what is due of one working integration now (a connector came back). */
+  async function runDue(id: string) {
+    const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
+    if (
+      row &&
+      working(
+        row,
+        adapters.find((a) => a.id === row.adapterId),
+      )
+    )
+      await runDueRow(row);
   }
 
   /**
@@ -1286,6 +1317,11 @@ export function createSyncer(
   return {
     run,
     runAll,
+    runDue,
+    /** How a source reached through a connector is read (ADR-0015); the app sets it once. */
+    useBridge: (b: SyncBridge) => {
+      bridge = b;
+    },
     recordPrint,
     statusSource,
     usageTarget,

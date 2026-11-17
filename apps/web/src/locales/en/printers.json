@@ -249,7 +249,9 @@
     "slots": "Filament",
     "unknownMaterial": "Unknown",
     "feeding": "(in use)",
-    "offlineHint": "Not answering. Its last print is kept until it is back."
+    "offlineHint": "Not answering. Its last print is kept until it is back.",
+    "connectorOffline": "Can't be reached: the connector on {{machine}} is offline. A print that ends meanwhile is recorded when it is back.",
+    "through": "Through {{machine}}"
   },
   "loaded": {
     "title": "Loaded spools",

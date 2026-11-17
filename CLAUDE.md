@@ -10,7 +10,7 @@ Local-first manager for 3D printing: printers, maintenance, filament, projects, 
 Runs locally on the user's PC (Windows, macOS, Linux) or in Docker on a NAS or server. Public GitHub repo. Brand-agnostic core; Bambu Lab is the first integration (Bambu Cloud first).
 
 ## Golden rules
-- **Core is brand-agnostic.** `packages/core` and `apps/*` never import from a vendor adapter. Vendors live only in `packages/adapters/<vendor>` and implement interfaces from `packages/core/src/integrations`.
+- **Core is brand-agnostic.** `packages/core` and `apps/*` never import from a vendor adapter, except the two registries: `apps/server/src/integrations/registry.ts` and the connector's printer adapters in `apps/connector/src/printers/registry.ts`. Vendors live only in `packages/adapters/<vendor>` and implement interfaces from `packages/core/src/integrations`.
 - **No hard-coded UI strings.** Every user-facing text goes through i18next keys (`apps/web/src/locales/en/*.json`). Only EN ships for now, but code must stay multi-language ready (no string concatenation for sentences, use ICU plurals, locale-aware dates/numbers/currency).
 - **One source of truth for types:** zod schemas in `packages/core/src/schemas` → used by API validation, OpenAPI and frontend.
 - **DB changes only via Drizzle migrations.** Never edit an applied migration.

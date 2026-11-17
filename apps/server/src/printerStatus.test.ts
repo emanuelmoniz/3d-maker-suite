@@ -330,7 +330,9 @@ describe("printer alerts", () => {
     await reads([idle], [snap(10)], []);
     const printer = db.select().from(schema.printers).get();
     expect(app.printerStatus.offline()).toEqual([]);
-    expect(app.printerStatus.offline(Date.now() + 3 * 60_000)).toEqual([printer?.id]);
+    expect(app.printerStatus.offline(Date.now() + 3 * 60_000)).toEqual([
+      { printerId: printer?.id, reason: "printer" },
+    ]);
     await reads([snap(100)]);
     expect(app.printerStatus.offline(Date.now() + 3 * 60_000)).toEqual([]);
   });
@@ -344,9 +346,23 @@ describe("printer alerts", () => {
     const printer = db.select().from(schema.printers).get();
     const log = { warn: () => {} };
     const key = Buffer.alloc(32);
-    await evaluateAlerts(db, key, log, undefined, undefined, [printer?.id ?? ""]);
+    const printerId = printer?.id ?? "";
+    await evaluateAlerts(db, key, log, undefined, undefined, [{ printerId, reason: "printer" }]);
     expect(mine()).toMatchObject([
       { kind: "printer_offline", severity: "warning", entityId: printer?.id, resolvedAt: null },
+    ]);
+    await evaluateAlerts(db, key, log, undefined, undefined, []);
+    expect(mine()[0]?.resolvedAt).not.toBeNull();
+  });
+
+  it("evaluate raises printer_unreachable, naming the connector, when the connector went away", async () => {
+    const printerId = db.select().from(schema.printers).get()?.id ?? "";
+    const log = { warn: () => {} };
+    const key = Buffer.alloc(32);
+    const silent = [{ printerId, reason: "connector" as const, device: "WS-3" }];
+    await evaluateAlerts(db, key, log, undefined, undefined, silent);
+    expect(mine()).toMatchObject([
+      { kind: "printer_unreachable", context: { device: "WS-3" }, resolvedAt: null },
     ]);
     await evaluateAlerts(db, key, log, undefined, undefined, []);
     expect(mine()[0]?.resolvedAt).not.toBeNull();

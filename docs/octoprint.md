@@ -18,6 +18,8 @@ The OctoPrint integration reads a printer through [OctoPrint](https://octoprint.
 
 One integration is one printer, the one OctoPrint is connected to. The key is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
 
+**Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration, or on the machine's page under **Printers**. See [printers through a connector](hub.md#printers-through-a-connector).
+
 ## What it reads
 
 - **Live status:** state, progress, time left, nozzle, bed and chamber temperatures and the file being printed. OctoPrint reports no layers. A cancel in progress still shows as printing until OctoPrint says the print is over.

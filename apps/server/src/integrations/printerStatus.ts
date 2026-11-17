@@ -1,5 +1,8 @@
 import {
+  type DevicePrinterStatus,
   type IntegrationAdapter,
+  PRINTER_BUSY_STATES,
+  PRINTER_POLL_MS,
   type PrinterSnapshot,
   type PrinterStatus,
   type PrinterStatusSource,
@@ -14,16 +17,19 @@ import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { capableRows } from "./capabilities.ts";
+import { bridgeable } from "./printerBridge.ts";
 import { sourcePrinters } from "./printerSources.ts";
 import type { Syncer } from "./sync.ts";
 
 // Live status of every printer whose source has `printerStatus` (ADR-0015). Snapshots are kept in
 // memory only; the job tracker's state per printer is stored, so a restart during a print still
 // records it. A print the tracker sees end is written at once (`Syncer.recordPrint`).
+//
+// A source reached through a connector (`integrations.deviceId`, LAN reach) isn't read here: its
+// connector reads it, tracks its jobs and posts the status (`relay`) and each ended print
+// (`recordTracked`). The hub never tracks it too, so a print is never recorded twice.
 
-// ponytail: one pace for every adapter (ADR-0015: "a few seconds while printing, slower when
-// idle"). Give `PrinterStatusSource` its own if a printer can't take it.
-export const POLL_MS = { busy: 3_000, idle: 15_000 };
+export const POLL_MS = PRINTER_POLL_MS;
 /**
  * How long a printer may stay silent during a print before it is "offline" for alerts.
  * ponytail: fixed, make it a preference if anyone asks.
@@ -34,9 +40,8 @@ const REFRESH_MS = 10_000;
 /** Kept between restarts; `settings` holds JSON. */
 const TRACKERS = "printerTrackers";
 /** What a source is made from; not `updatedAt`, which every sync moves. */
-const setupOf = (row: { config: unknown; secrets: unknown }) =>
-  JSON.stringify([row.config, row.secrets]);
-const BUSY = new Set<PrinterSnapshot["state"]>(["preparing", "printing", "paused"]);
+const setupOf = (row: { config: unknown; secrets: unknown; deviceId: string | null }) =>
+  JSON.stringify([row.config, row.secrets, row.deviceId]);
 
 type Source = {
   status: PrinterStatusSource;
@@ -49,6 +54,18 @@ type Source = {
   failing: boolean;
 };
 
+/** A source its connector reads (ADR-0015, LAN reach). */
+type Bridged = {
+  deviceId: string;
+  version: string;
+  known: Set<string>;
+  /** The printers whose job the connector's tracker follows, as it last said. */
+  active: Set<string>;
+};
+
+/** Why a printer is silent during a print: it stopped answering, or its connector is away. */
+export type Silent = { printerId: string; reason: "printer" | "connector"; device?: string };
+
 export function createPrinterStatus(
   db: Db,
   syncer: Pick<Syncer, "recordPrint" | "statusSource">,
@@ -58,8 +75,16 @@ export function createPrinterStatus(
   auto = false,
   /** Called when an alert may have opened or cleared. */
   alertsChanged: () => void = () => {},
+  /** Connectors (the hub's channel): is one online, and tell it its printers changed. */
+  hub: { online: (deviceId: string) => boolean; tell: (deviceId: string) => void } = {
+    online: () => false,
+    tell: () => {},
+  },
 ) {
   const sources = new Map<string, Source>();
+  const bridged = new Map<string, Bridged>();
+  /** Per device, what its printers were made from: a change is told to its connector. */
+  const assignments = new Map<string, string>();
   /** By `<integrationId>:<printerExternalId>`. */
   const latest = new Map<string, { integrationId: string; snapshot: PrinterSnapshot }>();
   const stored = db
@@ -70,10 +95,11 @@ export function createPrinterStatus(
   const trackers = new Map<string, TrackerState>(
     Object.entries((stored ?? {}) as Record<string, TrackerState>),
   );
-  /** Printers that went silent while a job was active, by key: when it was first missed. */
-  const silentSince = new Map<string, number>();
+  /** Printers that went silent while a job was active, by key: when it was first missed, and why. */
+  const silentSince = new Map<string, { at: number; reason: Silent["reason"] }>();
   const listeners = new Set<(all: PrinterStatus[]) => void>();
   let refreshTimer: NodeJS.Timeout | undefined;
+  let closed = false;
   let sent = "";
   let alerted = "";
 
@@ -84,6 +110,13 @@ export function createPrinterStatus(
       .onConflictDoUpdate({ target: schema.settings.key, set: { value } })
       .run();
   };
+
+  const deviceName = (deviceId: string) =>
+    db
+      .select({ name: schema.devices.name })
+      .from(schema.devices)
+      .where(eq(schema.devices.id, deviceId))
+      .get()?.name ?? "";
 
   /**
    * Every printer with a status that is one of ours (imported from its source or linked to it by
@@ -99,9 +132,19 @@ export function createPrinterStatus(
         .map((p) => p.id),
     );
     const ours = sourcePrinters(db);
+    const names = new Map<string, string>();
     return [...latest].flatMap(([key, { integrationId, snapshot }]) => {
       const printerId = ours.get(key);
-      return printerId && !archived.has(printerId) ? [{ printerId, integrationId, snapshot }] : [];
+      if (!printerId || archived.has(printerId)) return [];
+      const b = bridged.get(integrationId);
+      if (!b) return [{ printerId, integrationId, snapshot }];
+      if (!names.has(b.deviceId)) names.set(b.deviceId, deviceName(b.deviceId));
+      const via = {
+        deviceId: b.deviceId,
+        deviceName: names.get(b.deviceId) ?? "",
+        online: hub.online(b.deviceId),
+      };
+      return [{ printerId, integrationId, snapshot, via }];
     });
   }
 
@@ -114,6 +157,41 @@ export function createPrinterStatus(
     for (const l of listeners) l(now);
   }
 
+  /** The alert check after a read: only when who is silent for too long changed. */
+  function checkAlerts() {
+    const down = offline()
+      .map((s) => `${s.printerId}:${s.reason}`)
+      .sort()
+      .join();
+    if (down === alerted) return;
+    alerted = down;
+    alertsChanged();
+  }
+
+  /** Silent during a print, or not (any more). */
+  function silence(key: string, silent: boolean, at: string, reason: Silent["reason"]) {
+    if (!silent) return void silentSince.delete(key);
+    const was = silentSince.get(key);
+    // The same silence keeps its start, also when its reason changes (the connector is back, the
+    // printer still doesn't answer).
+    if (!was || was.reason !== reason)
+      silentSince.set(key, { at: was?.at ?? Date.parse(at), reason });
+  }
+
+  /**
+   * A print the tracker saw end, here or on a connector: written, then its alert. False when
+   * writing failed (a connector keeps it and sends it again); a print already there is done.
+   */
+  function recordTracked(integrationId: string, p: TrackedPrint) {
+    try {
+      if (syncer.recordPrint(integrationId, p)) raisePrint(integrationId, p);
+      return true;
+    } catch (err) {
+      log.error({ err, integrationId }, "tracked print not written");
+      return false;
+    }
+  }
+
   function apply(integrationId: string, snapshot: PrinterSnapshot) {
     const key = `${integrationId}:${snapshot.printerExternalId}`;
     latest.set(key, { integrationId, snapshot });
@@ -122,15 +200,13 @@ export function createPrinterStatus(
     trackers.set(key, out.state);
     // Stored when a job starts or ends, not on every read: a restart loses only the progress since.
     if (out.state.phase !== before.phase) saveTrackers();
-    if (snapshot.state === "offline" && out.state.phase === "active")
-      silentSince.set(key, silentSince.get(key) ?? Date.parse(snapshot.at));
-    else silentSince.delete(key);
-    for (const p of out.prints)
-      try {
-        if (syncer.recordPrint(integrationId, p)) raisePrint(integrationId, p);
-      } catch (err) {
-        log.error({ err, integrationId }, "tracked print not written");
-      }
+    silence(
+      key,
+      snapshot.state === "offline" && out.state.phase === "active",
+      snapshot.at,
+      "printer",
+    );
+    for (const p of out.prints) recordTracked(integrationId, p);
   }
 
   /** One alert per print the tracker wrote; a cancelled one raises none, and history never gets here. */
@@ -159,14 +235,16 @@ export function createPrinterStatus(
     });
   }
 
-  /** Our printers (ids) that have been silent for longer than `OFFLINE_ALERT_MS` in a print. */
-  function offline(now = Date.now()): string[] {
+  /** Our printers that have been silent for longer than `OFFLINE_ALERT_MS` in a print, and why. */
+  function offline(now = Date.now()): Silent[] {
     const ours = new Map(
       all().map((s) => [`${s.integrationId}:${s.snapshot.printerExternalId}`, s]),
     );
-    return [...silentSince]
-      .filter(([, since]) => now - since >= OFFLINE_ALERT_MS)
-      .flatMap(([key]) => ours.get(key)?.printerId ?? []);
+    return [...silentSince].flatMap(([key, { at, reason }]) => {
+      const s = ours.get(key);
+      if (!s || now - at < OFFLINE_ALERT_MS) return [];
+      return [{ printerId: s.printerId, reason, ...(s.via && { device: s.via.deviceName }) }];
+    });
   }
 
   async function poll(id: string) {
@@ -198,38 +276,130 @@ export function createPrinterStatus(
         apply(id, { printerExternalId: ext, at, state: "offline", slots: [] });
     for (const ext of answered) src.known.add(ext);
     notify();
-    const down = offline().sort().join();
-    if (down !== alerted) {
-      alerted = down;
-      alertsChanged();
-    }
+    checkAlerts();
     if (!auto) return;
     const busy = [...src.known].some((ext) =>
-      BUSY.has(latest.get(`${id}:${ext}`)?.snapshot.state ?? "idle"),
+      PRINTER_BUSY_STATES.has(latest.get(`${id}:${ext}`)?.snapshot.state ?? "idle"),
     );
     src.timer = setTimeout(() => void poll(id), busy ? POLL_MS.busy : POLL_MS.idle).unref();
   }
 
+  /**
+   * What a connector read of a source assigned to it (`POST /api/hub/device/printers/status`).
+   * False when that source isn't its own (moved to another machine meanwhile).
+   */
+  function relay(deviceId: string, r: DevicePrinterStatus) {
+    const b = bridged.get(r.integrationId);
+    if (!b || b.deviceId !== deviceId) return false;
+    // Online is its event stream (ADR-0014). A read posted while it is away, or one still on its
+    // way when the stream closed, would undo the offline its going away set.
+    if (!hub.online(deviceId)) return true;
+    const id = r.integrationId;
+    const at = new Date().toISOString();
+    const read: PrinterSnapshot[] = [];
+    for (const raw of r.snapshots) {
+      const s = printerSnapshotSchema.safeParse(raw);
+      if (s.success) read.push(s.data);
+      else log.warn({ integrationId: id, issues: s.error.issues }, "invalid printer status");
+    }
+    // A source that failed whole says nothing of its printers: they are out of sight.
+    const answered = new Set(read.map((s) => s.printerExternalId));
+    for (const ext of b.known)
+      if (!answered.has(ext))
+        read.push({ printerExternalId: ext, at, state: "offline", slots: [] });
+    b.active = new Set(r.active);
+    for (const s of read) {
+      const key = `${id}:${s.printerExternalId}`;
+      latest.set(key, { integrationId: id, snapshot: s });
+      silence(key, s.state === "offline" && b.active.has(s.printerExternalId), s.at, "printer");
+      b.known.add(s.printerExternalId);
+    }
+    notify();
+    checkAlerts();
+    return true;
+  }
+
+  /** A connector went away: its printers are out of sight, and a print they ran unreachable. */
+  function deviceOffline(deviceId: string) {
+    // The app closing ends every stream.
+    if (closed) return;
+    const at = new Date().toISOString();
+    for (const [id, b] of bridged) {
+      if (b.deviceId !== deviceId) continue;
+      for (const ext of b.known) {
+        const key = `${id}:${ext}`;
+        latest.set(key, {
+          integrationId: id,
+          snapshot: { printerExternalId: ext, at, state: "offline", slots: [] },
+        });
+        silence(key, b.active.has(ext), at, "connector");
+      }
+    }
+    notify();
+    checkAlerts();
+  }
+
   function stop(id: string) {
     const src = sources.get(id);
-    if (!src) return;
-    clearTimeout(src.timer);
-    src.abort.abort();
-    sources.delete(id);
+    if (src) {
+      clearTimeout(src.timer);
+      src.abort.abort();
+      sources.delete(id);
+    }
+    bridged.delete(id);
     for (const key of latest.keys()) if (key.startsWith(`${id}:`)) latest.delete(key);
     for (const key of silentSince.keys()) if (key.startsWith(`${id}:`)) silentSince.delete(key);
+  }
+
+  /**
+   * Moved between this server and a connector: whoever tracked its jobs until now keeps that, and
+   * the new one starts afresh (a job running then is first seen half-way, `partial`).
+   */
+  function forgetTrackers(id: string) {
+    let gone = false;
+    for (const key of trackers.keys())
+      if (key.startsWith(`${id}:`)) gone = trackers.delete(key) || gone;
+    if (gone) saveTrackers();
+  }
+
+  /** A source its connector reads: its printers, offline until the connector says otherwise. */
+  function startBridged(id: string, deviceId: string, version: string) {
+    const ours = [...sourcePrinters(db).keys()]
+      .filter((k) => k.startsWith(`${id}:`))
+      .map((k) => k.slice(id.length + 1));
+    const b: Bridged = { deviceId, version, known: new Set(ours), active: new Set() };
+    bridged.set(id, b);
+    if (hub.online(deviceId)) return;
+    const at = new Date().toISOString();
+    for (const ext of b.known)
+      latest.set(`${id}:${ext}`, {
+        integrationId: id,
+        snapshot: { printerExternalId: ext, at, state: "offline", slots: [] },
+      });
   }
 
   /** Starts the sources that can say what their printers do and stops the ones that no longer can. */
   function refresh() {
     const rows = capableRows(db, adapters, "printerStatus");
-    const now = new Map(rows.map((r) => [r.row.id, r.row]));
-    for (const [id, src] of sources) {
-      const row = now.get(id);
-      if (!row || setupOf(row) !== src.version) stop(id);
+    const now = new Map(rows.map((r) => [r.row.id, r]));
+    const via = (id: string) => {
+      const r = now.get(id);
+      return r && bridgeable(r.adapter) ? r.row.deviceId : null;
+    };
+    for (const [id, src] of [...sources, ...bridged]) {
+      const row = now.get(id)?.row;
+      if (row && setupOf(row) === src.version) continue;
+      const before = bridged.get(id)?.deviceId ?? null;
+      stop(id);
+      if (!row || before !== via(id)) forgetTrackers(id);
     }
-    for (const [id, row] of now) {
-      if (sources.has(id)) continue;
+    for (const [id, { row }] of now) {
+      if (sources.has(id) || bridged.has(id)) continue;
+      const deviceId = via(id);
+      if (deviceId) {
+        startBridged(id, deviceId, setupOf(row));
+        continue;
+      }
       const abort = new AbortController();
       try {
         const status = syncer.statusSource(id, abort.signal);
@@ -246,13 +416,29 @@ export function createPrinterStatus(
         log.warn({ err, integrationId: id }, "printer status source not started");
       }
     }
+    // A connector whose printers changed fetches them again.
+    const byDevice = new Map<string, string[]>();
+    for (const [id, b] of bridged)
+      byDevice.set(b.deviceId, [...(byDevice.get(b.deviceId) ?? []), `${id}:${b.version}`]);
+    for (const deviceId of new Set([...assignments.keys(), ...byDevice.keys()])) {
+      const fingerprint = (byDevice.get(deviceId) ?? []).sort().join();
+      if ((assignments.get(deviceId) ?? "") === fingerprint) continue;
+      if (fingerprint) assignments.set(deviceId, fingerprint);
+      else assignments.delete(deviceId);
+      hub.tell(deviceId);
+    }
     notify();
+    // Silent for long enough now, with no read to notice: a connector that went away.
+    checkAlerts();
   }
 
   return {
     all,
     offline,
     refresh,
+    relay,
+    recordTracked,
+    deviceOffline,
     /** Reads every source once, now. */
     pollAll: () => Promise.all([...sources.keys()].map(poll)).then(() => undefined),
     /** Called with every printer's status whenever one changes; returns the unsubscribe. */
@@ -265,8 +451,9 @@ export function createPrinterStatus(
       refreshTimer = setInterval(refresh, REFRESH_MS).unref();
     },
     close() {
+      closed = true;
       clearInterval(refreshTimer);
-      for (const id of [...sources.keys()]) stop(id);
+      for (const id of [...sources.keys(), ...bridged.keys()]) stop(id);
       if (trackers.size) saveTrackers();
       listeners.clear();
     },

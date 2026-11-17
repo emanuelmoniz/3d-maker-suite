@@ -6,13 +6,17 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { useCan } from "../../lib/auth.ts";
+import { useDevices } from "../../lib/hub.ts";
 import {
+  isPrinterHost,
   libraryOf,
   useAdapterName,
   useAdapters,
   useCreateIntegration,
   useIntegrations,
 } from "../../lib/integrations.ts";
+import { usePreferences } from "../../lib/preferences.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -55,6 +59,10 @@ export function IntegrationCreatePage() {
   const adapters = (useAdapters().data ?? []).filter((a) => a.kind !== "worker");
   const existing = useIntegrations().data ?? [];
   const create = useCreateIntegration();
+  // A printer on another network is reached through a machine's connector (ADR-0015, LAN reach).
+  const hubOn = !!usePreferences().data?.values.hubEnabled;
+  const manageHub = useCan("hub.manage");
+  const devices = useDevices(hubOn && manageHub).data ?? [];
 
   // One product per library (a slicer's local and server adapters), else per adapter.
   const products = [...new Set(adapters.map((a) => a.libraryId ?? a.id))];
@@ -78,6 +86,7 @@ export function IntegrationCreatePage() {
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
   const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
+  const reach = hubOn && manageHub && !!adapter && isPrinterHost(adapter) && devices.length > 0;
   const label = (name: string) =>
     t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
   const anyOfError = missing
@@ -99,11 +108,13 @@ export function IntegrationCreatePage() {
       setMissing(true);
       return;
     }
+    const via = reach ? String(f.get("deviceId") ?? "") : "";
     create.mutate(
       {
         adapterId: adapter.id,
         config: values,
         secrets: read(f, "secrets", secrets) as Record<string, string>,
+        ...(via && { deviceId: via }),
       },
       {
         onSuccess: (row) =>
@@ -196,6 +207,31 @@ export function IntegrationCreatePage() {
           <div className="grid gap-4 sm:max-w-md">
             {config.map((field) => input("config", field))}
             {secrets.map((field) => input("secrets", field))}
+            {reach && (
+              <FormField
+                key={`${adapter.id}-reach`}
+                label={t("integrations:form.reach")}
+                hint={t("integrations:form.reachHint")}
+              >
+                {(p) => (
+                  <select {...p} name="deviceId" defaultValue="" className={inputClass}>
+                    <option value="">{t("integrations:form.reachServer")}</option>
+                    {devices.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {t(
+                          d.online
+                            ? "integrations:form.reachDevice"
+                            : "integrations:form.reachDeviceOffline",
+                          {
+                            name: d.name,
+                          },
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
+            )}
           </div>
         )}
         {create.isError && (

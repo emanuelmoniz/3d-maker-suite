@@ -8,8 +8,16 @@ import { readPreferences } from "./preferences.ts";
 
 const { hubEvents } = schema;
 
-/** `port`: the connector's status page port it reported (`X-Connector-Port`). */
-type Stream = { write: (frame: string) => void; end: () => void; port?: number | null };
+/**
+ * `port`: the connector's status page port it reported (`X-Connector-Port`); `printerAdapters`:
+ * the printer sources it can run (`X-Printer-Adapters`, ADR-0015), none from an older connector.
+ */
+type Stream = {
+  write: (frame: string) => void;
+  end: () => void;
+  port?: number | null;
+  printerAdapters?: string[];
+};
 type Waiting = {
   deviceId: string;
   timer?: NodeJS.Timeout;
@@ -30,6 +38,7 @@ export function createHubChannel(db: Db) {
   const streams = new Map<string, Set<Stream>>();
   const waiting = new Map<string, Waiting>();
   const comeOnline = new Set<(deviceId: string) => void>();
+  const goOffline = new Set<(deviceId: string) => void>();
 
   /** A device is online while its event stream is open (and the hub is on). */
   const online = (deviceId: string) => streams.has(deviceId) && readPreferences(db).hubEnabled;
@@ -39,6 +48,12 @@ export function createHubChannel(db: Db) {
 
     /** An online device's status page port, for the project page's probe; null = not reported. */
     port: (deviceId: string) => [...(streams.get(deviceId) ?? [])].at(-1)?.port ?? null,
+
+    /** The printer sources an online device's connector runs; undefined while it's offline. */
+    printerAdapters: (deviceId: string) =>
+      online(deviceId)
+        ? ([...(streams.get(deviceId) ?? [])].at(-1)?.printerAdapters ?? [])
+        : undefined,
 
     /** Queues an event for a device and sends it now if the device is connected. */
     publish(deviceId: string, event: HubEvent) {
@@ -77,11 +92,15 @@ export function createHubChannel(db: Db) {
         if (set.size) return;
         streams.delete(deviceId);
         for (const w of waiting.values()) if (w.deviceId === deviceId) w.fail(offline());
+        for (const fn of goOffline) fn(deviceId);
       };
     },
 
     /** Calls `fn` when a device's first stream opens (e.g. slices waiting for it). */
     onOnline: (fn: (deviceId: string) => void) => void comeOnline.add(fn),
+
+    /** Calls `fn` when a device's last stream closes. */
+    onOffline: (fn: (deviceId: string) => void) => void goOffline.add(fn),
 
     /** Ends a device's streams (revoked), or every stream. */
     end(deviceId?: string) {

@@ -648,6 +648,11 @@ export const hubRoutes =
         write: (f: string) => res.write(f),
         end: () => res.end(),
         port: port.success ? port.data : null,
+        printerAdapters: String(req.headers["x-printer-adapters"] ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 50),
       });
       let userName = owner?.name;
       const beat = setInterval(() => {

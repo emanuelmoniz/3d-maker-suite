@@ -33,8 +33,9 @@ Read, snooze and dismiss are per person. A condition alert (maintenance due, low
 For printers with live status (see [printers.md](printers.md)):
 - **Print finished** and **Print failed** are event alerts, one per print, linking to the print. A cancelled print raises none, and neither does a print that came in by importing history.
 - **Printer offline** is a condition alert: it opens when a printer stops answering during a print for more than 2 minutes, and resolves when it answers again. A printer that is off while idle raises nothing.
+- **Printer unreachable** is its twin for a printer reached through a connector ([hub.md](hub.md#printers-through-a-connector)): the connector on its network went offline during a print for more than 2 minutes, so the printer can't be reached. It names the machine and resolves when the connector is back and reads the printer. A print that ended meanwhile is recorded then.
 
-All three are In app by default; Admin gets them as Notify.
+All four are In app by default; Admin gets them as Notify.
 
 ## Filament to review
 

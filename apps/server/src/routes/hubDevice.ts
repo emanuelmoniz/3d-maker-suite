@@ -74,7 +74,7 @@ const MAX_CATALOG_ZIP = 100 * 1024 ** 2;
 const sha256Header = z.object({ "x-file-sha256": z.string().regex(/^[0-9a-f]{64}$/) });
 
 /** The paired device making the request; the role check is skipped for these routes (lib/auth.ts). */
-const deviceOf = (req: FastifyRequest) => {
+export const deviceOf = (req: FastifyRequest) => {
   if (!req.deviceId) throw new HttpError(403, "forbidden", "Only a paired device can call this");
   return req.deviceId;
 };

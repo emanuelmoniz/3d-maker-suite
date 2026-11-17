@@ -199,6 +199,19 @@ export const usePatchIntegration = (id: string) =>
     true,
   );
 
+/**
+ * A printer on the network reached through a machine's connector, or by this server (`null`)
+ * (ADR-0015, LAN reach).
+ */
+export const useAssignPrinter = () =>
+  useInvalidating(({ id, deviceId }: { id: string; deviceId: string | null }) =>
+    api<Integration>("PATCH", `/api/integrations/${id}`, { deviceId }),
+  );
+
+/** A printer source a connector can reach for the hub: on the network, with a live status. */
+export const isPrinterHost = (a: Pick<AdapterInfo, "kind" | "capabilities">) =>
+  a.kind === "host" && a.capabilities.includes("printerStatus");
+
 export const useDeleteIntegration = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);
 

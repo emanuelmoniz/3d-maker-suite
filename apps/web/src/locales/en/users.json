@@ -244,6 +244,7 @@
       "print_finished": "Print finished",
       "print_failed": "Print failed",
       "printer_offline": "Printer offline during a print",
+      "printer_unreachable": "Printer unreachable during a print (its connector is offline)",
       "filament_review": "Filament waiting for a spool"
     }
   },

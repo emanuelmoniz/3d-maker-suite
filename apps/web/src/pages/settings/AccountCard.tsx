@@ -196,6 +196,11 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
               .join(" · ")}
           </p>
         ) : null}
+        {i.viaDeviceName && (
+          <p className="wrap-anywhere text-muted">
+            {t("integrations:account.through", { machine: i.viaDeviceName })}
+          </p>
+        )}
         <p
           role={state === "error" ? "alert" : undefined}
           className={cx("flex items-start gap-2", state === "error" ? "text-bad" : "text-muted")}

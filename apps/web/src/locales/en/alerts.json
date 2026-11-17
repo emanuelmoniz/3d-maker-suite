@@ -76,6 +76,7 @@
     "print_finished": "Print finished",
     "print_failed": "Print failed",
     "printer_offline": "Printer offline",
+    "printer_unreachable": "Printer unreachable",
     "filament_review": "Filament to review"
   },
   "status": {
@@ -124,6 +125,7 @@
     "print_finished": "{{title}} finished on {{printer}}",
     "print_failed": "{{title}} failed on {{printer}}",
     "printer_offline": "{{name}} stopped answering during a print",
+    "printer_unreachable": "{{name}} can't be reached during a print: the connector on {{device}} is offline",
     "filament_review_one": "{{count}} filament slot waits for a spool",
     "filament_review_other": "{{count}} filament slots wait for a spool",
     "preset_held_one": "{{name}} removed {{count}} slicer preset at once",

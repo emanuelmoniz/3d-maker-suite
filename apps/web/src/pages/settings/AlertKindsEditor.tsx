@@ -32,6 +32,7 @@ const KIND_LABELS: Record<AlertKind, string> = {
   print_finished: "users:alerts.kinds.print_finished",
   print_failed: "users:alerts.kinds.print_failed",
   printer_offline: "users:alerts.kinds.printer_offline",
+  printer_unreachable: "users:alerts.kinds.printer_unreachable",
   filament_review: "users:alerts.kinds.filament_review",
 };
 const SUB_LABELS: Record<AlertSubscription, string> = {

@@ -181,6 +181,18 @@ importers:
 
   apps/connector:
     dependencies:
+      '@3d-maker-suite/adapter-bambu':
+        specifier: workspace:*
+        version: link:../../packages/adapters/bambu
+      '@3d-maker-suite/adapter-moonraker':
+        specifier: workspace:*
+        version: link:../../packages/adapters/moonraker
+      '@3d-maker-suite/adapter-octoprint':
+        specifier: workspace:*
+        version: link:../../packages/adapters/octoprint
+      '@3d-maker-suite/adapter-prusalink':
+        specifier: workspace:*
+        version: link:../../packages/adapters/prusalink
       '@3d-maker-suite/core':
         specifier: workspace:*
         version: link:../../packages/core

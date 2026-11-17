@@ -27,6 +27,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { raisesSeverity } from "../integrations/capabilities.ts";
+import type { Silent } from "../integrations/printerStatus.ts";
 import { accountsOn, alertVisible } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
@@ -133,7 +134,7 @@ type Found = Map<string, Raised>;
 export const raise = (db: Db, a: Raised) => db.insert(alerts).values(a).onConflictDoNothing().run();
 
 /** Everything that is wrong right now, keyed like the alerts table's open-row unique index. */
-function conditions(db: Db, now: Date, offline: string[]): Found {
+function conditions(db: Db, now: Date, offline: Silent[]): Found {
   const prefs = readPreferences(db);
   const found: Found = new Map();
   const add = (a: Raised) => found.set(`${a.kind}|${a.entityType}|${a.entityId}`, a);
@@ -251,18 +252,19 @@ function conditions(db: Db, now: Date, offline: string[]): Found {
       ...(run && left.length && { detail: { runId: run.id, log: left } }),
     });
   }
-  // A printer that stopped answering during a print (the runner decides how long is too long).
-  for (const id of offline) {
-    const p = db.select().from(printers).where(eq(printers.id, id)).get();
+  // A printer that stopped answering during a print, or whose connector went away then (ADR-0015;
+  // the runner decides how long is too long).
+  for (const { printerId, reason, device } of offline) {
+    const p = db.select().from(printers).where(eq(printers.id, printerId)).get();
     if (!p || p.archivedAt) continue;
     add({
-      kind: "printer_offline",
+      kind: reason === "connector" ? "printer_unreachable" : "printer_offline",
       severity: "warning",
       module: "printers",
       task: `printer:${p.id}`,
       entityType: "printer",
       entityId: p.id,
-      context: { name: printerTitle(p) },
+      context: { name: printerTitle(p), ...(reason === "connector" && { device: device ?? "" }) },
     });
   }
   // Slots of recorded prints that wait for a spool (Filament to review): one alert with their
@@ -422,6 +424,11 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
       return { title: "Print failed", body: `${c.title} on ${c.printer}` };
     case "printer_offline":
       return { title: "Printer offline", body: `${c.name} stopped answering during a print` };
+    case "printer_unreachable":
+      return {
+        title: "Printer unreachable",
+        body: `${c.name} can't be reached during a print: its connector ${c.device} is offline`,
+      };
     case "filament_review":
       return { title: "Filament to review", body: `${c.count} filament slots wait for a spool` };
     case "preset_held":
@@ -477,8 +484,8 @@ export async function evaluateAlerts(
   /** The app's address for links in notifications; none = no links. */
   baseUrl?: string,
   now = new Date(),
-  /** Printers that stopped answering during a print (`PrinterStatusRunner.offline`). */
-  offline: string[] = [],
+  /** Printers silent during a print, and why (`PrinterStatusRunner.offline`). */
+  offline: Silent[] = [],
 ) {
   const stamp = now.toISOString();
   const found = conditions(db, now, offline);

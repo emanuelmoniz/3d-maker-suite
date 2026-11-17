@@ -52,6 +52,19 @@ export interface TrackedPrint {
   job: Pick<TrackedJob, "file" | "progress" | "layer" | "totalLayers" | "totals">;
 }
 
+/**
+ * How often a printer status source is read (ADR-0015: a few seconds while printing, slower when
+ * idle), by the server and by a connector that reaches the printer for it.
+ * ponytail: one pace for every adapter. Give `PrinterStatusSource` its own if a printer can't take it.
+ */
+export const PRINTER_POLL_MS = { busy: 3_000, idle: 15_000 };
+/** States read at the busy pace. */
+export const PRINTER_BUSY_STATES: ReadonlySet<PrinterSnapshot["state"]> = new Set([
+  "preparing",
+  "printing",
+  "paused",
+]);
+
 const OUTCOMES: Partial<Record<PrinterSnapshot["state"], PrintOutcome>> = {
   finished: "success",
   cancelled: "cancelled",

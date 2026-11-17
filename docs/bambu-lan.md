@@ -20,6 +20,8 @@ The Bambu LAN integration reads a Bambu Lab printer on your network: its live st
 
 One integration is one printer. Add one per printer. The access code is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
 
+**Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration, or on the machine's page under **Printers**. See [printers through a connector](hub.md#printers-through-a-connector).
+
 ## With Bambu Cloud, or alone
 
 - **With a Bambu Cloud account** that has the same printer, the two are **one printer** in the app, matched by serial: Bambu LAN gives the live status, Bambu Cloud the history. Each print is recorded once, whichever source sees it first: a print sent through the cloud carries the cloud's task id, and any other print is matched by its start time.

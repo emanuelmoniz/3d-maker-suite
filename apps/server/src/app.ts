@@ -24,6 +24,7 @@ import { HttpError } from "./errors.ts";
 import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
+import { createPrinterBridge } from "./integrations/printerBridge.ts";
 import { createPrinterStatus, type PrinterStatusRunner } from "./integrations/printerStatus.ts";
 import { createServerPresets } from "./integrations/serverPresets.ts";
 import { createSpoolPush, type SpoolPush } from "./integrations/spoolPush.ts";
@@ -71,6 +72,7 @@ import { fsRoutes } from "./routes/fs.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { hubRoutes } from "./routes/hub.ts";
 import { hubDeviceRoutes } from "./routes/hubDevice.ts";
+import { hubDevicePrintersRoutes } from "./routes/hubDevicePrinters.ts";
 import { importRoutes } from "./routes/import.ts";
 import { integrationsRoutes, removeWorkersOf } from "./routes/integrations.ts";
 import { logsRoutes } from "./routes/logs.ts";
@@ -356,6 +358,9 @@ export async function buildApp(
     await app.register(presetFileRoutes(db, dataDir, adapters, kind), { prefix });
   await app.register(maintenanceRoutes(db), { prefix: "/api/maintenance" });
   const syncer = createSyncer(db, opts.adapters ?? [], key, logFor("integrations"), dataDir);
+  // Printers a connector reaches for the hub (ADR-0015, LAN reach).
+  const printerBridge = createPrinterBridge(db, hub, key, syncer.adapters);
+  syncer.useBridge(printerBridge);
   await app.register(filamentRoutes(db), { prefix: "/api/filament" });
   // A hub's saved preset reaches the catalog at once (ADR-0019). A connector shares them one at a
   // time, so a batch is one check.
@@ -413,8 +418,22 @@ export async function buildApp(
     !!opts.printerStatus,
     // `evaluate` is defined further down; it is only called once a source has been read.
     () => void evaluate(),
+    { online: hub.online, tell: printerBridge.tell },
   );
   app.decorate("printerStatus", printerStatus);
+  // A connector away: its printers are out of sight. Back: what is due runs, the history it
+  // missed with it (the prints it held come on their own).
+  hub.onOffline((deviceId) => printerStatus.deviceOffline(deviceId));
+  hub.onOnline((deviceId) => {
+    for (const { integrationId } of printerBridge.assigned(deviceId))
+      void syncer
+        .runDue(integrationId)
+        .catch((err) => logFor("integrations").error({ err, integrationId }, "sync failed"));
+  });
+  await app.register(
+    hubDevicePrintersRoutes(db, printerBridge, printerStatus, logFor("integrations")),
+    { prefix: "/api/hub/device" },
+  );
   // A spool a printer's host reports to (Moonraker to Spoolman) waits while it prints.
   printerStatus.subscribe((all) => spoolPush.watch(all));
   if (opts.printerStatus) app.addHook("onReady", async () => printerStatus.start());
@@ -520,7 +539,16 @@ export async function buildApp(
   if (dataDir) serverPresets.start();
   app.addHook("onClose", async () => serverPresets.stop());
   await app.register(
-    integrationsRoutes(db, key, syncer, installer, workers, deviceCatalog, serverPresets),
+    integrationsRoutes(
+      db,
+      key,
+      syncer,
+      installer,
+      workers,
+      deviceCatalog,
+      serverPresets,
+      printerBridge,
+    ),
     {
       prefix: "/api/integrations",
     },

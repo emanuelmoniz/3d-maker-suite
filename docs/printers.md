@@ -12,6 +12,8 @@ A printer whose source reports live status shows a card on the dashboard and on 
 
 Which printers report status depends on the source: Klipper printers through [Moonraker](moonraker.md), Bambu Lab printers through [Bambu LAN](bambu-lan.md). Prusa printers through [PrusaLink](prusalink.md), and any printer behind [OctoPrint](octoprint.md).
 
+A hub on another network, such as a VPS, reaches these printers through the connector of a machine on the printer's network: [printers through a connector](hub.md#printers-through-a-connector). The card then says which machine, and when that machine's connector is offline it says so instead of only "offline".
+
 ## How prints are recorded
 
 When a printer's job ends (finished, cancelled or failed) the app records it as a print, once, at once. Nothing is held back for you to review first:
@@ -49,4 +51,4 @@ In Filament to review a suggested spool is preselected, and **Accept** charges i
 
 ## Printer alerts
 
-Print finished, print failed, printer offline and filament to review are alerts. See [alerts.md](alerts.md#printer-alerts).
+Print finished, print failed, printer offline, printer unreachable (its connector is offline) and filament to review are alerts. See [alerts.md](alerts.md#printer-alerts).

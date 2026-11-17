@@ -34,6 +34,7 @@ export const ALERT_KINDS = [
   "print_finished",
   "print_failed",
   "printer_offline",
+  "printer_unreachable",
   "filament_review",
 ] as const;
 export const ALERT_SEVERITIES = ["error", "warning", "success"] as const;

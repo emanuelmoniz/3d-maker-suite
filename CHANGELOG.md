@@ -4,6 +4,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+### Added
+- **Printers through a connector**: a hub on another network (a VPS) reaches Moonraker, Bambu LAN, PrusaLink and OctoPrint printers through the connector of a machine on the printer's network. Pick the machine under **Reached from** when you add the printer, or on the machine's page under **Printers**. The connector reads live status and history and never controls the printer; a print that ends while the hub is down is kept on the machine and recorded when the hub is back ([docs/hub.md](docs/hub.md#printers-through-a-connector))
+- **Printer unreachable** alert: the connector a printer is reached through went offline during a print. **Printer offline** stays for a printer that stops answering
+- Migration 0134 (a printer source's machine, the new alert kind). Connectors update to the hub's version; one older than this can't reach printers
+
 ## [6.0.0-alpha.3] - 2026-11-17
 
 Pre-release, third of 6.0.0. Fixes only, since 6.0.0-alpha.2. No migrations. Updating keeps all data.

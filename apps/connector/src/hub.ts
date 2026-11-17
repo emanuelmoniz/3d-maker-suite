@@ -12,6 +12,7 @@ import {
   HUB_HEARTBEAT_MS,
   type HubEvent,
   hubEventSchema,
+  type IntegrationAdapter,
   pairResultSchema,
   presetSwitchesSchema,
 } from "@3d-maker-suite/core";
@@ -21,6 +22,7 @@ import { createCatalogSend } from "./catalog.ts";
 import { createCatalogInstall } from "./catalogInstall.ts";
 import { createPresetInstall } from "./presetInstall.ts";
 import { createPresetShare, openPresetState } from "./presets.ts";
+import { createPrinterBridge } from "./printers.ts";
 import { createRootSync, type Request } from "./roots.ts";
 import { createSlicers } from "./slicers.ts";
 import type { Store } from "./state.ts";
@@ -113,6 +115,15 @@ type Options = {
     restart: () => void;
     stop: () => void;
   };
+  /**
+   * The printers it reaches for the hub (ADR-0015, LAN reach): the adapters it runs and the data
+   * folder for `printers.json`; none = it reaches none. `pollMs`: the read pace (tests).
+   */
+  printers?: {
+    dataDir: string;
+    adapters: IntegrationAdapter[];
+    pollMs?: { busy: number; idle: number };
+  };
   log?: (line: string) => void;
 };
 
@@ -133,6 +144,7 @@ export function createLink({
   presetHooks,
   slicers: slicerHooks,
   settings,
+  printers: printersAt,
   log = () => {},
 }: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
@@ -224,6 +236,8 @@ export function createLink({
     });
   const reply = (requestId: string, body: unknown) =>
     request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
+  // Starts watching what it was given last time, before the hub answers or without it.
+  const printers = printersAt && createPrinterBridge({ request, log, ...printersAt });
   /** A request about a code to change this device's user, with the same errors as pairing. */
   const askWithCode = async <T extends z.ZodType>(path: string, body: unknown, result: T) => {
     const res = await request(path, { method: "POST", body }).catch(() => {
@@ -328,6 +342,12 @@ export function createLink({
         void catalogInstall?.set(event.data.libraries);
         return;
       }
+      if (event.success && event.data.type === "printers.changed") return void printers?.load();
+      if (event.success && event.data.type === "printers.read") {
+        const { requestId } = event.data;
+        if (!printers) return void reply(requestId, { ok: false, code: "ENOTSUP" });
+        return void printers.read(event.data, (body) => reply(requestId, body));
+      }
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))
@@ -379,6 +399,7 @@ export function createLink({
           "x-connector-os": os,
           "x-connector-system": JSON.stringify(systemInfo()),
           ...(port && { "x-connector-port": String(port) }),
+          ...(printers && { "x-printer-adapters": printers.adapterIds().join(",") }),
           ...(failure && { "x-connector-update": JSON.stringify(failure) }),
           ...(store.get().cursor && { "last-event-id": String(store.get().cursor) }),
         },
@@ -423,6 +444,7 @@ export function createLink({
         void catalogInstall?.set(catalogSourcesSchema.catch({}).parse(installs));
       });
       void slicers.prune();
+      void printers?.load();
       void loadBranding(hub, token, signal);
       const parse = sseParser(handle);
       const text = new TextDecoder();
@@ -497,6 +519,7 @@ export function createLink({
       log(`${status}${error ? `: ${error}` : ""}`);
       if (status === "revoked") {
         branding = {};
+        printers?.forget();
         return store.forget();
       }
       // It was online this round: a drop starts the backoff over.
@@ -522,6 +545,7 @@ export function createLink({
       presetInstall?.stop();
       catalog?.stop();
       catalogInstall?.stop();
+      printers?.stop();
     },
     state: () => ({ status, error }),
     branding: () => branding,
@@ -538,6 +562,7 @@ export function createLink({
       presetInstall?.stop();
       catalog?.stop();
       catalogInstall?.stop();
+      printers?.forget();
       store.forget();
       branding = {};
       userName = undefined;
@@ -549,6 +574,7 @@ export function createLink({
     roots,
     sync,
     slicers,
+    printers,
     /** Who a code would change this device's user to; the code stays unused. */
     checkUser: (code: string) => askWithCode("/user/check", { code }, deviceUserPreviewSchema),
 

@@ -25,7 +25,13 @@ import {
   useDeviceActions,
   useDevices,
 } from "../../lib/hub.ts";
-import { useAdapterName } from "../../lib/integrations.ts";
+import {
+  isPrinterHost,
+  useAdapterName,
+  useAdapters,
+  useAssignPrinter,
+  useIntegrations,
+} from "../../lib/integrations.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
 import { useUsers } from "../../lib/users.ts";
 import { SourceBadge, SyncSources } from "../settings/Sources.tsx";
@@ -37,6 +43,7 @@ const ERRORS: Record<string, string> = {
   device_outdated: "hub:edit.outdated",
   device_timeout: "hub:edit.timeout",
   hub_slicer: "hub:machine.errors.hubSlicer",
+  hub_off: "hub:machine.errors.hubOff",
 };
 
 /** A failed save, in words: a connector that is offline, too old or silent says so. */
@@ -540,6 +547,90 @@ function Projects({ device: d }: { device: Device }) {
 }
 
 /**
+ * Printers on this machine's network that it reaches for the hub (ADR-0015, LAN reach): its
+ * connector reads their status and history, never commands them. Who manages the hub and its
+ * integrations moves one here, to another machine, or back to this server.
+ */
+function Printers({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const may = useMay(d);
+  const edit = may.manage && may.integrations;
+  const adapters = useAdapters();
+  const integrations = useIntegrations(may.integrations);
+  const adapterName = useAdapterName();
+  const assign = useAssignPrinter();
+  const [pick, setPick] = useState("");
+  if (!may.integrations) return null;
+  const hosts = new Set(adapters.data?.filter(isPrinterHost).map((a) => a.id));
+  const printers = (integrations.data ?? []).filter((i) => hosts.has(i.adapterId));
+  const here = printers.filter((i) => i.deviceId === d.id);
+  const others = printers.filter((i) => i.deviceId !== d.id);
+  const label = (i: (typeof printers)[number]) => {
+    const host = (i.config as { host?: unknown } | undefined)?.host;
+    const name = adapterName(i.adapterId);
+    return typeof host === "string" && host ? t("hub:machine.printerAt", { name, host }) : name;
+  };
+  return (
+    <Section title={t("hub:machine.printers")}>
+      <p className="text-muted">{t("hub:machine.printersHint")}</p>
+      {here.length ? (
+        <ul className="grid gap-1">
+          {here.map((i) => (
+            <li key={i.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span className="wrap-anywhere">{label(i)}</span>
+              {edit && (
+                <Button
+                  disabled={assign.isPending}
+                  aria-label={t("hub:machine.printerRemoveNamed", { name: label(i) })}
+                  onClick={() => assign.mutate({ id: i.id, deviceId: null })}
+                >
+                  {t("hub:machine.printerRemove")}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted">{t("hub:machine.noPrinters")}</p>
+      )}
+      {edit && others.length > 0 && (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (pick) assign.mutate({ id: pick, deviceId: d.id }, { onSuccess: () => setPick("") });
+          }}
+        >
+          <FormField label={t("hub:machine.addPrinter")}>
+            {(p) => (
+              <select
+                {...p}
+                value={pick}
+                onChange={(e) => setPick(e.currentTarget.value)}
+                className={inputClass}
+              >
+                <option value="">{t("hub:machine.pickPrinter")}</option>
+                {others.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.viaDeviceName
+                      ? t("hub:machine.printerOn", { printer: label(i), machine: i.viaDeviceName })
+                      : label(i)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+          <Button type="submit" disabled={!pick || assign.isPending}>
+            {t("hub:machine.addPrinterButton")}
+          </Button>
+        </form>
+      )}
+      <Alert error={assign.error} />
+    </Section>
+  );
+}
+
+/**
  * Restart and Stop act on the connector (live); Revoke on the pairing (hub.manage). The buttons go
  * in the page header, the messages under it.
  */
@@ -685,6 +776,7 @@ export function MachinePage() {
             <Slicers device={device} />
             <SlicersCatalog device={device} />
             <Projects device={device} />
+            <Printers device={device} />
           </div>
         </div>
       )}

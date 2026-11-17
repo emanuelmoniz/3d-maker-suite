@@ -450,6 +450,25 @@ export const hubEventSchema = z.discriminatedUnion("type", [
    */
   z.object({ type: z.literal("folders.set"), folders: z.array(sharedFolderSchema).max(200) }),
   /**
+   * Live only (ADR-0015, LAN reach): the printer sources assigned to it changed. Fetch them again
+   * (`GET /api/hub/device/printers`); a connect fetches them too.
+   */
+  z.object({ type: z.literal("printers.changed") }),
+  /**
+   * Read a printer source assigned to it, never a command to the printer: `test` answers a
+   * `testResultSchema`, `printers` an `ExternalPrinter[]`, `history` one page of
+   * `listPrints` (`{ items, nextCursor? }`). A source it doesn't have answers ENOENT.
+   */
+  z.object({
+    type: z.literal("printers.read"),
+    requestId: id,
+    integrationId: id,
+    op: z.enum(["test", "printers", "history"]),
+    since: isoDate.optional(),
+    until: isoDate.optional(),
+    cursor: z.string().max(4096).optional(),
+  }),
+  /**
    * Slice workers: run `program` (the worker's `slicerPath`) with `args` in a work folder of the
    * data folder, after writing `files` there; `{dir}` in the args is that folder. The 3MF goes
    * last: a copy here with its `sha256`, else `GET /api/hub/device/slices/:requestId/file`. Each
@@ -571,6 +590,39 @@ export const deviceFolderSchema = z.object({
 export const deviceFolderQuerySchema = z.object({ rel });
 
 /** The connector's answer to a request event: the result, or the OS error code (ENOENT, ...). */
+/**
+ * A printer source assigned to a device (`GET /api/hub/device/printers`, ADR-0015): what its
+ * connector needs to run the adapter. The only API answer with secrets, and only to that device.
+ */
+export const devicePrinterSchema = z.object({
+  integrationId: id,
+  adapterId: z.string().min(1).max(100),
+  config: z.record(z.string(), z.json()),
+  secrets: z.record(z.string(), z.string()),
+});
+/**
+ * What a connector read of one printer source (`POST /api/hub/device/printers/status`), the latest
+ * only. `snapshots` are checked one by one; `active`: the printers whose job its tracker follows;
+ * `failing`: the source itself failed (a wrong key).
+ */
+export const devicePrinterStatusSchema = z.object({
+  integrationId: id,
+  snapshots: z.array(z.unknown()).max(50),
+  active: z.array(z.string().max(200)).max(50),
+  failing: z.boolean(),
+});
+/**
+ * Prints a connector's job tracker saw end (`POST /api/hub/device/printers/prints`), kept on its
+ * disk until the hub answers with their `key` in `done`. Each `print` is a `trackedPrintSchema`,
+ * checked one by one: an invalid one is dropped, not retried.
+ */
+export const devicePrintsSchema = z.object({
+  items: z
+    .array(z.object({ key: z.string().min(1).max(300), integrationId: id, print: z.unknown() }))
+    .max(100),
+});
+export const devicePrintsResultSchema = z.object({ done: z.array(z.string()) });
+
 export const deviceReplySchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), result: z.unknown() }),
   z.object({ ok: z.literal(false), code: z.string().max(50) }),
@@ -674,4 +726,6 @@ export type DeviceRoot = z.infer<typeof deviceRootSchema>;
 export type DeviceIndex = z.infer<typeof deviceIndexSchema>;
 export type DeviceFolder = z.infer<typeof deviceFolderSchema>;
 export type DeviceReply = z.infer<typeof deviceReplySchema>;
+export type DevicePrinter = z.infer<typeof devicePrinterSchema>;
+export type DevicePrinterStatus = z.infer<typeof devicePrinterStatusSchema>;
 export type DeviceSlice = z.infer<typeof deviceSliceSchema>;
