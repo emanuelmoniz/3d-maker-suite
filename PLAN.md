@@ -3558,6 +3558,22 @@ Do Step 19 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fi
 Do Step 19b of the 6.0.0 plan in PLAN.md.
 ```
 
+### [ ] Step 19c - Read a printer when it pushes a change
+**Model:** Sonnet · **Effort:** Medium
+**Why:** Bambu LAN already gets each change pushed over MQTT (a tray swapped, a print started), but the server or connector reads the adapter only on its timer (`PRINTER_POLL_MS`: 15 s idle, 3 s busy). So a swapped spool, and Step 19b's auto-load, shows up to 15 s late. A source the printer pushes to should say "read me now".
+**Scope:**
+- **Core:** `PrinterStatusSource` gets an optional `onChange(listener): () => void` (returns unsubscribe). An adapter that has it calls the listener when its snapshot changed (not on every message, and not for the read time alone). Update the interface comment (today: "the server asks every few seconds").
+- **Bambu LAN:** implements it from its MQTT reports: compares the new snapshot with the last one it signalled and calls the listener when they differ; also on connect, close and a refused key.
+- **Server (`printerStatus.ts`) and connector (`sources.ts`):** when a source has `onChange`, a change starts a read at once instead of waiting for the timer. At most one read per second per source (a burst of reports is one read); a read already running gets one more after it. The timer stays as the fallback, at today's pace. Unsubscribe when the source stops, is paused or moves to another machine.
+- Other adapters (Moonraker, PrusaLink, OctoPrint) stay on the timer. Moonraker's websocket can follow later with the same hook.
+- Docs (CLAUDE.md, docs follow the code): `docs/bambu-lan.md` (how fast state and slots show), `docs/architecture.md` (the status capability: pushed sources read on change, the timer as fallback), `docs/hub.md` if it states how often a connector reports, amend ADR-0015 (Step 19c).
+
+**Done when:** swapping a tray on a Bambu LAN printer, direct and through a connector, shows on the printer page within about 2 s (19b loads its spool as fast); a burst of reports gives at most one read per second; a source without `onChange` behaves as before; a stopped or moved source no longer reads on change; tests cover the throttle, the fallback timer and unsubscribing; lint, tests and `pnpm i18n:check` pass; the docs above describe it.
+**Prompt:**
+```
+Do Step 19c of the 6.0.0 plan in PLAN.md.
+```
+
 ### [ ] Step 20 - Docs, push & v6.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
