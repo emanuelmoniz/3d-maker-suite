@@ -29,7 +29,6 @@ import {
   isNetworkSource,
   useAdapterName,
   useAdapters,
-  useAssignSource,
   useIntegrations,
 } from "../../lib/integrations.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
@@ -547,86 +546,106 @@ function Projects({ device: d }: { device: Device }) {
 }
 
 /**
- * Printers and spool libraries on this machine's network that it reaches for the hub (ADR-0015, LAN
- * reach): its connector reads them, never commands a printer, and writes a spool library only what
- * prints used. Who manages the hub and its integrations moves one here, to another machine, or back
- * to this server.
+ * Printers, or spool libraries, on this machine's network that it reaches for the hub (ADR-0015,
+ * LAN reach): off, the machine isn't offered in Integrations' Reached from and the hub doesn't
+ * relay for it. Its connector reads them, never commands a printer, and writes a spool library only
+ * what prints used. The sources are set up in Integrations; this lists what goes through here.
  */
-function Printers({ device: d }: { device: Device }) {
+function Reach({ device: d, kind }: { device: Device; kind: "printers" | "spoolLibraries" }) {
   const { t } = useTranslation();
   const may = useMay(d);
-  const edit = may.manage && may.integrations;
+  const { slicers } = useDeviceActions();
   const adapters = useAdapters();
   const integrations = useIntegrations(may.integrations);
   const adapterName = useAdapterName();
-  const assign = useAssignSource();
-  const [pick, setPick] = useState("");
-  if (!may.integrations) return null;
-  const hosts = new Set(adapters.data?.filter(isNetworkSource).map((a) => a.id));
-  const printers = (integrations.data ?? []).filter((i) => hosts.has(i.adapterId));
-  const here = printers.filter((i) => i.deviceId === d.id);
-  const others = printers.filter((i) => i.deviceId !== d.id);
-  const label = (i: (typeof printers)[number]) => {
+  const [confirm, setConfirm] = useState(false);
+  const printers = kind === "printers";
+  const on = printers ? d.reachPrinters : d.reachSpoolLibraries;
+  const set = (value: boolean) =>
+    slicers.mutate(
+      printers ? { id: d.id, reachPrinters: value } : { id: d.id, reachSpoolLibraries: value },
+      { onSettled: () => setConfirm(false) },
+    );
+  const mine = new Set(
+    adapters.data
+      ?.filter((a) => isNetworkSource(a) && a.capabilities.includes("printerStatus") === printers)
+      .map((a) => a.id),
+  );
+  const here = (integrations.data ?? []).filter(
+    (i) => i.deviceId === d.id && mine.has(i.adapterId),
+  );
+  const label = (i: (typeof here)[number]) => {
     const host = (i.config as { host?: unknown } | undefined)?.host;
     const name = adapterName(i.adapterId);
-    return typeof host === "string" && host ? t("hub:machine.printerAt", { name, host }) : name;
+    const text =
+      typeof host === "string" && host ? t("hub:machine.sourceAt", { name, host }) : name;
+    return i.enabled ? text : t("hub:machine.sourcePaused", { label: text });
   };
+  const name = t(
+    printers ? "hub:machine.reachPrintersName" : "hub:machine.reachSpoolLibrariesName",
+  );
   return (
-    <Section title={t("hub:machine.printers")}>
-      <p className="text-muted">{t("hub:machine.printersHint")}</p>
-      {here.length ? (
+    <Section title={t(printers ? "hub:machine.printers" : "hub:machine.spoolLibraries")}>
+      <p className="text-muted">
+        {t(printers ? "hub:machine.reachPrintersHint" : "hub:machine.reachSpoolLibrariesHint")}
+      </p>
+      <Setting
+        edit={may.manage}
+        label={t(printers ? "hub:machine.reachPrinters" : "hub:machine.reachSpoolLibraries")}
+        name={name}
+        checked={on}
+        busy={slicers.isPending}
+        // Off pauses what goes through it: asked first while something does.
+        onChange={(value) =>
+          value || !here.some((i) => i.enabled) ? set(value) : setConfirm(true)
+        }
+      />
+      {may.integrations &&
+        (here.length ? (
+          <ul className="grid gap-1">
+            {here.map((i) => (
+              <li key={i.id} className="wrap-anywhere">
+                {label(i)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted">
+            {t(printers ? "hub:machine.noPrinters" : "hub:machine.noSpoolLibraries")}
+          </p>
+        ))}
+      {on && may.integrations && (
+        <p>
+          <Link to="/integrations/new" search={{ via: d.id }} className={textLink}>
+            {t("hub:machine.setUpInIntegrations")}
+          </Link>
+        </p>
+      )}
+      <Alert error={slicers.error} />
+      <ConfirmDialog
+        open={confirm}
+        destructive
+        title={t(
+          printers
+            ? "hub:machine.stopReachPrintersTitle"
+            : "hub:machine.stopReachSpoolLibrariesTitle",
+          { name: d.name },
+        )}
+        description={t("hub:machine.stopReachBody")}
+        confirmLabel={t("hub:machine.stopReach")}
+        onCancel={() => setConfirm(false)}
+        onConfirm={() => set(false)}
+      >
         <ul className="grid gap-1">
-          {here.map((i) => (
-            <li key={i.id} className="flex flex-wrap items-center justify-between gap-2">
-              <span className="wrap-anywhere">{label(i)}</span>
-              {edit && (
-                <Button
-                  disabled={assign.isPending}
-                  aria-label={t("hub:machine.printerRemoveNamed", { name: label(i) })}
-                  onClick={() => assign.mutate({ id: i.id, deviceId: null })}
-                >
-                  {t("hub:machine.printerRemove")}
-                </Button>
-              )}
-            </li>
-          ))}
+          {here
+            .filter((i) => i.enabled)
+            .map((i) => (
+              <li key={i.id} className="wrap-anywhere">
+                {label(i)}
+              </li>
+            ))}
         </ul>
-      ) : (
-        <p className="text-muted">{t("hub:machine.noPrinters")}</p>
-      )}
-      {edit && others.length > 0 && (
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (pick) assign.mutate({ id: pick, deviceId: d.id }, { onSuccess: () => setPick("") });
-          }}
-        >
-          <FormField label={t("hub:machine.addPrinter")}>
-            {(p) => (
-              <select
-                {...p}
-                value={pick}
-                onChange={(e) => setPick(e.currentTarget.value)}
-                className={inputClass}
-              >
-                <option value="">{t("hub:machine.pickPrinter")}</option>
-                {others.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.viaDeviceName
-                      ? t("hub:machine.printerOn", { printer: label(i), machine: i.viaDeviceName })
-                      : label(i)}
-                  </option>
-                ))}
-              </select>
-            )}
-          </FormField>
-          <Button type="submit" disabled={!pick || assign.isPending}>
-            {t("hub:machine.addPrinterButton")}
-          </Button>
-        </form>
-      )}
-      <Alert error={assign.error} />
+      </ConfirmDialog>
     </Section>
   );
 }
@@ -777,7 +796,8 @@ export function MachinePage() {
             <Slicers device={device} />
             <SlicersCatalog device={device} />
             <Projects device={device} />
-            <Printers device={device} />
+            <Reach device={device} kind="printers" />
+            <Reach device={device} kind="spoolLibraries" />
           </div>
         </div>
       )}

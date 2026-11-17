@@ -27,7 +27,7 @@ const { integrations } = schema;
 export const hubDeviceSourcesRoutes =
   (
     db: Db,
-    bridge: Pick<SourceBridge, "assigned">,
+    bridge: Pick<SourceBridge, "assigned" | "reaches">,
     status: Pick<PrinterStatusRunner, "relay" | "recordTracked">,
     log: FastifyBaseLogger,
   ): FastifyPluginAsyncZod =>
@@ -71,11 +71,11 @@ export const hubDeviceSourcesRoutes =
         const done: string[] = [];
         for (const { key, integrationId, print } of req.body.items) {
           const row = db
-            .select({ deviceId: integrations.deviceId })
+            .select({ deviceId: integrations.deviceId, adapterId: integrations.adapterId })
             .from(integrations)
             .where(eq(integrations.id, integrationId))
             .get();
-          if (row?.deviceId !== deviceId) {
+          if (row?.deviceId !== deviceId || !bridge.reaches(row.adapterId, deviceId)) {
             log.warn({ integrationId, deviceId }, "print from a connector the source isn't on");
             done.push(key);
             continue;

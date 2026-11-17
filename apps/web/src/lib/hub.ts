@@ -103,6 +103,8 @@ export function useDeviceActions() {
         useAsWorker?: boolean;
         receiveCatalog?: boolean;
         shareCatalog?: boolean;
+        reachPrinters?: boolean;
+        reachSpoolLibraries?: boolean;
       }) => api("PATCH", `/api/hub/devices/${id}`, patch),
       // Integrations and the Catalog and Presets Sources tabs list machines by them; worker off
       // removes its installs from Integrations.

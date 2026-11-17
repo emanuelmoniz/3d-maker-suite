@@ -110,7 +110,21 @@ describe("printers through a connector", {
         .from(schema.alerts)
         .all()
         .filter((a) => a.kind === kind);
-    return { app, db, url, port: Number(new URL(url).port), send, code, close, prints, alerts };
+    /** The paired machines reach printers and spool libraries (ADR-0014, Step 15's switches). */
+    const reach = () =>
+      db.update(schema.devices).set({ reachPrinters: true, reachSpoolLibraries: true }).run();
+    return {
+      app,
+      db,
+      url,
+      port: Number(new URL(url).port),
+      send,
+      code,
+      close,
+      prints,
+      alerts,
+      reach,
+    };
   };
 
   const folder = (prefix: string) => {
@@ -144,6 +158,7 @@ describe("printers through a connector", {
     const h = await hub(state, hubDir);
     const c = connector(state, devDir);
     await c.link.pair(h.url, await h.code(), "WS-1");
+    h.reach();
     await until(() => c.link.state().status === "online");
     const deviceId = c.store.get().deviceId ?? "";
     const created = await h.send("POST", "/api/integrations", {
@@ -240,6 +255,7 @@ describe("printers through a connector", {
     const h = await hub(state, hubDir);
     const c = connector(state, devDir);
     await c.link.pair(h.url, await h.code(), "WS-1");
+    h.reach();
     await until(() => c.link.state().status === "online");
     c.link.close();
     await until(async () => (await h.send("GET", "/api/hub/devices")).json()[0]?.online === false);
@@ -277,6 +293,7 @@ describe("printers through a connector", {
     const h = await hub(state, folder("hub-"));
     const c = connector(state, folder("connector-"), false);
     await c.link.pair(h.url, await h.code(), "WS-old");
+    h.reach();
     await until(() => c.link.state().status === "online");
     const res = await h.send("POST", "/api/integrations", {
       adapterId: "mock-host",
@@ -324,6 +341,7 @@ describe("printers through a connector", {
       const devDir = folder("connector-");
       const c = connector(state, devDir);
       await c.link.pair(h.url, await h.code(), "WS-1");
+      h.reach();
       await until(() => c.link.state().status === "online");
       const deviceId = c.store.get().deviceId ?? "";
       const vendor = spoolman.addSpool({ vendor: "Bambu Lab", colorHex: "ff8800", used: 100 });

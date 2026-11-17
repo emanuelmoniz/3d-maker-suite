@@ -176,6 +176,9 @@ export const deviceSchema = z.object({
   sliceWorker: z.boolean(),
   /** Use slicer as server worker: only then is it offered in Integrations. */
   useAsWorker: z.boolean(),
+  /** Reach printers / Reach spool libraries: sources on its network may go through it (ADR-0015). */
+  reachPrinters: z.boolean(),
+  reachSpoolLibraries: z.boolean(),
   /** Slicers catalog: Receive from server, Share to server (off = not a source that way). */
   receiveCatalog: z.boolean(),
   shareCatalog: z.boolean(),
@@ -204,6 +207,8 @@ export const deviceUpdateSchema = z
     useAsWorker: z.boolean(),
     receiveCatalog: z.boolean(),
     shareCatalog: z.boolean(),
+    reachPrinters: z.boolean(),
+    reachSpoolLibraries: z.boolean(),
   })
   .partial()
   .strict();

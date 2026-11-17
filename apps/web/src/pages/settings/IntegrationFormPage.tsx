@@ -54,7 +54,7 @@ export function IntegrationCreatePage() {
   /** None of the adapter's `configAnyOf` fields was filled in. */
   const [missing, setMissing] = useState(false);
   const id = useId();
-  const search = useSearch({ strict: false }) as { product?: string };
+  const search = useSearch({ strict: false }) as { product?: string; via?: string };
   // A workstation's slicer is set up on its machine page (Plan 5.5.0 Step 9).
   const adapters = (useAdapters().data ?? []).filter((a) => a.kind !== "worker");
   const existing = useIntegrations().data ?? [];
@@ -62,7 +62,7 @@ export function IntegrationCreatePage() {
   // A printer on another network is reached through a machine's connector (ADR-0015, LAN reach).
   const hubOn = !!usePreferences().data?.values.hubEnabled;
   const manageHub = useCan("hub.manage");
-  const devices = useDevices(hubOn && manageHub).data ?? [];
+  const allDevices = useDevices(hubOn && manageHub).data ?? [];
 
   // One product per library (a slicer's local and server adapters), else per adapter.
   const products = [...new Set(adapters.map((a) => a.libraryId ?? a.id))];
@@ -86,6 +86,10 @@ export function IntegrationCreatePage() {
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
   const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
+  // Only a machine with the matching switch on: Reach printers, or Reach spool libraries.
+  const devices = allDevices.filter((d) =>
+    adapter?.capabilities.includes("printerStatus") ? d.reachPrinters : d.reachSpoolLibraries,
+  );
   const reach = hubOn && manageHub && !!adapter && isNetworkSource(adapter) && devices.length > 0;
   const label = (name: string) =>
     t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
@@ -214,7 +218,12 @@ export function IntegrationCreatePage() {
                 hint={t("integrations:form.reachHint")}
               >
                 {(p) => (
-                  <select {...p} name="deviceId" defaultValue="" className={inputClass}>
+                  <select
+                    {...p}
+                    name="deviceId"
+                    defaultValue={devices.some((d) => d.id === search.via) ? search.via : ""}
+                    className={inputClass}
+                  >
                     <option value="">{t("integrations:form.reachServer")}</option>
                     {devices.map((d) => (
                       <option key={d.id} value={d.id}>

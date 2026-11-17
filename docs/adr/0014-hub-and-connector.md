@@ -275,6 +275,10 @@ A hub reaches printers on another network through a connector there (ADR-0015, "
 - **Device → hub:** `POST /api/hub/device/sources/status` after every read (the latest only, no retry; 404 `not_assigned` for a source that isn't its own), and `POST /api/hub/device/sources/prints`, the job outbox: every print its tracker saw end stays in `sources.json` until the hub answers it in `done` (written, already there, invalid, or not this device's).
 - **Offline.** A device that goes away turns its printers offline; one in a print raises `printer_unreachable` after 2 minutes (ADR-0015, Alerts). Its connect runs the source's due syncs, so Moonraker's history backfills; the scheduled sync skips a source whose device is offline, with no error.
 
+## Amendment (2026-11-17): a machine reaches the LAN only when allowed (6.0.0 Step 15)
+
+Reaching a LAN address for the hub is an opt-in per machine. `devices.reach_printers` and `devices.reach_spool_libraries` (migration 0135; it turns on the one a machine already uses), set by `hub.manage` only. A source is assigned only to a machine with the matching switch on (409 `device_not_reaching`), the assignment the connector fetches (`GET /api/hub/device/sources`) leaves out any other, and the hub neither asks it (`sources.read`, `spools.write`) nor takes prints from it. Turning a switch off pauses (`enabled = false`) the sources that go through the machine; they keep it. No new operation.
+
 ## Amendment (2026-11-17): a spool library through a connector (6.0.0 Step 14b, ADR-0015)
 
 A hub on another network reaches Spoolman through a connector there, as it reaches printers (the amendment above). It is the connector's first write on another system, so the list of what it may write is fixed here.

@@ -49,6 +49,23 @@ export const bridgeable = (adapter?: Pick<IntegrationAdapter, "kind" | "capabili
   adapter?.kind === "host" &&
   adapter.capabilities.some((c) => c === "printerStatus" || c === "spools" || c === "spoolUsage");
 
+/**
+ * The machine switch a source needs (ADR-0015, LAN reach): Reach printers for a printer, Reach
+ * spool libraries for a spool library.
+ */
+export const reachSwitch = (adapter: Pick<IntegrationAdapter, "capabilities">) =>
+  adapter.capabilities.includes("printerStatus") ? "reachPrinters" : "reachSpoolLibraries";
+
+/** Does this machine have the switch on that the source needs? */
+export const deviceReaches = (
+  db: Db,
+  deviceId: string,
+  adapter: Pick<IntegrationAdapter, "capabilities">,
+) => {
+  const key = reachSwitch(adapter);
+  return !!db.select({ on: devices[key] }).from(devices).where(eq(devices.id, deviceId)).get()?.on;
+};
+
 /** The connector's answer as the adapter's error; the hub's own (offline, timeout) as unreachable. */
 const codeOf = (code: string): IntegrationErrorCode =>
   (INTEGRATION_ERROR_CODES as readonly string[]).includes(code)
@@ -72,6 +89,10 @@ export function createSourceBridge(
     ms?: number,
   ): Promise<z.infer<T>> {
     if (!channel.online(row.deviceId)) throw new IntegrationError("unreachable");
+    // The switch is checked here too: a source left on a machine that no longer reaches isn't asked.
+    const adapter = adapters.find((a) => a.id === row.adapterId);
+    if (adapter && !deviceReaches(db, row.deviceId, adapter))
+      throw new IntegrationError("unreachable", "The machine doesn't reach this kind of source");
     const integrationId = row.id;
     try {
       return await channel.ask(
@@ -157,7 +178,12 @@ export function createSourceBridge(
       const rows = new Map(
         (["printerStatus", "spools", "spoolUsage"] as const)
           .flatMap((cap) => capableRows(db, adapters, cap))
-          .filter(({ row, adapter }) => row.deviceId === deviceId && bridgeable(adapter))
+          .filter(
+            ({ row, adapter }) =>
+              row.deviceId === deviceId &&
+              bridgeable(adapter) &&
+              deviceReaches(db, deviceId, adapter),
+          )
           .map(({ row }) => [row.id, row]),
       );
       return [...rows.values()].map((row) => ({
@@ -169,6 +195,12 @@ export function createSourceBridge(
     },
 
     online: (deviceId: string) => channel.online(deviceId),
+
+    /** Does this machine reach the kind of source this adapter is (its switch is on)? */
+    reaches(adapterId: string, deviceId: string) {
+      const adapter = adapters.find((a) => a.id === adapterId);
+      return !!adapter && deviceReaches(db, deviceId, adapter);
+    },
 
     /**
      * May this source be reached through `deviceId`: a printer on the network, the hub on, the
@@ -185,6 +217,12 @@ export function createSourceBridge(
         throw new HttpError(409, "hub_off", "Turn the hub on to reach a source through a machine");
       if (!db.select({ id: devices.id }).from(devices).where(eq(devices.id, deviceId)).get())
         throw new HttpError(400, "unknown_device", "No such machine");
+      if (!deviceReaches(db, deviceId, adapter))
+        throw new HttpError(
+          409,
+          "device_not_reaching",
+          "Turn on Reach printers or Reach spool libraries on that machine first",
+        );
       const runs = channel.sourceAdapters(deviceId);
       if (runs && !runs.includes(adapter.id))
         throw new HttpError(409, "device_outdated", "The connector is too old for this source");

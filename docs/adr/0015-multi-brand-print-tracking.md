@@ -116,6 +116,7 @@ New kinds in the kind catalog (ADR-0016):
 - A hub elsewhere reaches them through the ADR-0014 connector. The connector gets one new fixed operation: relay status and history for the printer hosts the hub assigns to it. It still never runs a command the hub sends, and it never sends commands to a printer.
 - The connector keeps the end of a job until the hub has it, not only the latest status: a print that ends while the hub is away must not be lost on a printer without history.
 - **As built (6.0.0 Step 14):** the connector runs the printer's adapter itself, and core's job tracker on what it reads, rather than tunnelling the adapter's HTTP, WebSocket and MQTT traffic for the hub (that needs an allow-list per protocol to stay read-only, and Bambu's MQTT is hard to relay). It posts the latest status, and each print its tracker saw end from a file it keeps until the hub has it. The hub doesn't track a source a connector reads. The printer's keys reach the connector over its paired channel and are kept there encrypted. Spoolman behind a connector came in Step 14b, with the connector's only write (see Spoolman, two-way). Details in ADR-0014's 2026-11-17 amendments.
+- **Opt-in (6.0.0 Step 15):** a machine reaches printers only with **Reach printers** on, and spool libraries only with **Reach spool libraries** on; the server checks it on every assignment and relay (ADR-0014's 2026-11-17 amendment).
 - So 6.0.0 builds on 5.0.0.
 
 ### Printers with no network

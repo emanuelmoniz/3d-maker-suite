@@ -45,6 +45,7 @@ import { HttpError } from "../errors.ts";
 import { deviceLibraries, presetLibrary } from "../integrations/capabilities.ts";
 import { catalogSource } from "../integrations/catalogSource.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
+import { bridgeable, reachSwitch } from "../integrations/sourceBridge.ts";
 import { loginLimiter, machineGuard } from "../lib/auth.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { deviceError, setPresetLibrary } from "../lib/machine.ts";
@@ -107,6 +108,8 @@ export const hubRoutes =
     adapters: IntegrationAdapter[] = [],
     /** Use slicer as server worker off: its worker integrations (and their slicers) go. */
     dropWorkers: (deviceId: string) => Promise<void> = async () => {},
+    /** Its sources changed (paused by a Reach switch): the connector fetches them again. */
+    sourcesChanged: (deviceId: string) => void = () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
@@ -155,6 +158,8 @@ export const hubRoutes =
           slicers: devices.slicers,
           sliceWorker: devices.sliceWorker,
           useAsWorker: devices.useAsWorker,
+          reachPrinters: devices.reachPrinters,
+          reachSpoolLibraries: devices.reachSpoolLibraries,
           receiveCatalog: devices.receiveCatalog,
           shareCatalog: devices.shareCatalog,
           presets: devices.presetLibraries,
@@ -266,6 +271,30 @@ export const hubRoutes =
         },
       );
 
+    /**
+     * The enabled sources that go through a machine and need one of these switches (a printer:
+     * Reach printers, a spool library: Reach spool libraries).
+     */
+    const sourcesOn = (deviceId: string, switches: ("reachPrinters" | "reachSpoolLibraries")[]) =>
+      db
+        .select({
+          id: integrations.id,
+          adapterId: integrations.adapterId,
+          config: integrations.config,
+          enabled: integrations.enabled,
+        })
+        .from(integrations)
+        .where(eq(integrations.deviceId, deviceId))
+        .all()
+        .filter((i) => {
+          const a = adapters.find((x) => x.id === i.adapterId);
+          return !!a && bridgeable(a) && switches.includes(reachSwitch(a));
+        });
+    const sourcesPaused = (
+      deviceId: string,
+      switches: ("reachPrinters" | "reachSpoolLibraries")[],
+    ) => sourcesOn(deviceId, switches).filter((i) => i.enabled);
+
     // Receive on or off makes the connector sync again from scratch (`roots.changed`).
     // Share goes to it first while it's online (ENOTSUP: too old, nothing saved); offline, it
     // reads it when it connects (`X-Share-Projects`).
@@ -279,10 +308,23 @@ export const hubRoutes =
         },
       },
       async (req, reply) => {
-        const { name, receiveProjects, shareProjects, useAsWorker, receiveCatalog, shareCatalog } =
-          req.body;
+        const {
+          name,
+          receiveProjects,
+          shareProjects,
+          useAsWorker,
+          receiveCatalog,
+          shareCatalog,
+          reachPrinters,
+          reachSpoolLibraries,
+        } = req.body;
         const row = machineGuard(db, req.user, req.params.id);
-        if (name !== undefined || useAsWorker !== undefined)
+        if (
+          name !== undefined ||
+          useAsWorker !== undefined ||
+          reachPrinters !== undefined ||
+          reachSpoolLibraries !== undefined
+        )
           machineGuard(db, req.user, row.id, "manage");
         if (receiveProjects !== undefined || shareProjects !== undefined)
           machineGuard(db, req.user, row.id, "projects");
@@ -301,8 +343,27 @@ export const hubRoutes =
             z.null(),
             { error: deviceError },
           );
+        // A Reach switch off pauses what goes through the machine; the sources keep it, so a hub on a
+        // VPS never starts reaching a LAN address by itself when the switch comes back on.
+        const off = [
+          reachPrinters === false && row.reachPrinters && "reachPrinters",
+          reachSpoolLibraries === false && row.reachSpoolLibraries && "reachSpoolLibraries",
+        ].filter((k): k is "reachPrinters" | "reachSpoolLibraries" => !!k);
+        const paused = off.length ? sourcesPaused(row.id, off) : [];
         if (Object.keys(req.body).length)
           db.update(devices).set(req.body).where(eq(devices.id, row.id)).run();
+        if (paused.length) {
+          db.update(integrations)
+            .set({ enabled: false, updatedAt: new Date().toISOString() })
+            .where(
+              inArray(
+                integrations.id,
+                paused.map((p) => p.id),
+              ),
+            )
+            .run();
+          sourcesChanged(row.id);
+        }
         if (name !== undefined && name !== row.name)
           channel.publish(row.id, { type: "device.renamed", name });
         if (receiveProjects !== undefined && receiveProjects !== row.receiveProjects)

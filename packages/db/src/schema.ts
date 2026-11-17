@@ -1374,6 +1374,9 @@ export const devices = sqliteTable(
     sliceWorker: integer({ mode: "boolean" }).notNull().default(false),
     /** Use slicer as server worker: only then is it offered in Integrations (worker installs). */
     useAsWorker: integer({ mode: "boolean" }).notNull().default(false),
+    /** Reach printers / Reach spool libraries: may sources on its network go through its connector. */
+    reachPrinters: integer({ mode: "boolean" }).notNull().default(false),
+    reachSpoolLibraries: integer({ mode: "boolean" }).notNull().default(false),
     /**
      * Slicers catalog Receive from server and Share to server: off = it isn't a catalog source in
      * that direction, and its slicers' lines in it are off.

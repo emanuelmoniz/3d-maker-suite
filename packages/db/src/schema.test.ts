@@ -2471,3 +2471,43 @@ describe("migration 0134", () => {
     expect(now.$client.pragma("foreign_key_check")).toEqual([]);
   });
 });
+
+describe("migration 0135", () => {
+  it("turns each Reach switch on for a machine that already reaches a source of that kind", () => {
+    const now = migrateAcross(134, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      run(
+        `insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at) values ('u', 'u@x.io', 'u', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x')`,
+      );
+      for (const d of ["printers", "spools", "both", "none"])
+        run(
+          `insert into devices (id, name, user_id, token_hash, created_at, updated_at) values ('${d}', '${d}', 'u', '${d}', 'x', 'x')`,
+        );
+      const source = (id: string, adapter: string, device: string) =>
+        run(
+          `insert into integrations (id, adapter_id, config, device_id, created_at, updated_at) values ('${id}', '${adapter}', '{}', '${device}', 'x', 'x')`,
+        );
+      source("i1", "moonraker", "printers");
+      source("i2", "spoolman", "spools");
+      source("i3", "bambu-lan", "both");
+      source("i4", "spoolman", "both");
+      // A source the server reaches itself changes nothing.
+      run(
+        "insert into integrations (id, adapter_id, config, created_at, updated_at) values ('i5', 'moonraker', '{}', 'x', 'x')",
+      );
+    });
+    const reach = Object.fromEntries(
+      now
+        .select()
+        .from(s.devices)
+        .all()
+        .map((d) => [d.id, [d.reachPrinters, d.reachSpoolLibraries]]),
+    );
+    expect(reach).toEqual({
+      printers: [true, false],
+      spools: [false, true],
+      both: [true, true],
+      none: [false, false],
+    });
+  });
+});

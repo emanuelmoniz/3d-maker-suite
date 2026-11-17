@@ -1,6 +1,7 @@
 // The hub's side of printers reached through a connector (ADR-0015, LAN reach): who may assign
 // one, what a device may read and post. A real connector against this hub: apps/connector's
 // sources.test.ts.
+
 import {
   fixture,
   type MockState,
@@ -10,6 +11,7 @@ import {
 import { spoolmanAdapter } from "@3d-maker-suite/adapter-spoolman";
 import { BUILT_IN_ROLE_IDS, type PrinterSnapshot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
@@ -55,8 +57,8 @@ beforeEach(async () => {
 });
 afterEach(() => app.close());
 
-/** A paired device (offline: no stream open). */
-async function pair(name: string) {
+/** A paired device (offline: no stream open), reaching printers and spool libraries unless told not to. */
+async function pair(name: string, reach = true) {
   const userId = db.select().from(schema.users).all()[0]?.id;
   const { code } = (await send("POST", "/api/hub/pairing-codes", { userId })).json();
   const res = await app.inject({
@@ -64,7 +66,13 @@ async function pair(name: string) {
     url: "/api/hub/pair",
     payload: { code, name, os: "win32", connectorVersion: "6.0.0" },
   });
-  return res.json() as { token: string; deviceId: string };
+  const paired = res.json() as { token: string; deviceId: string };
+  if (reach)
+    db.update(schema.devices)
+      .set({ reachPrinters: true, reachSpoolLibraries: true })
+      .where(eq(schema.devices.id, paired.deviceId))
+      .run();
+  return paired;
 }
 
 const printer = (deviceId?: string | null) =>
@@ -189,5 +197,84 @@ describe("printers through a connector, on the hub", () => {
       headers: { cookie },
     });
     expect((await send("GET", `/api/integrations/${id}`)).json()).toMatchObject({ deviceId: null });
+  });
+
+  it("a machine whose switch is off can't be assigned a source of that kind: 409 device_not_reaching", async () => {
+    const a = await pair("A", false);
+    const id = (await printer()).json().id as string;
+    const patch = await send("PATCH", `/api/integrations/${id}`, { deviceId: a.deviceId });
+    expect(patch.statusCode).toBe(409);
+    expect(patch.json().error.code).toBe("device_not_reaching");
+    expect((await printer(a.deviceId)).json().error.code).toBe("device_not_reaching");
+    // The other kind's switch doesn't open it.
+    db.update(schema.devices)
+      .set({ reachSpoolLibraries: true })
+      .where(eq(schema.devices.id, a.deviceId))
+      .run();
+    expect((await printer(a.deviceId)).statusCode).toBe(409);
+    const spools = await send("POST", "/api/integrations", {
+      adapterId: "spoolman",
+      config: { host: "192.168.1.60:7912" },
+      deviceId: a.deviceId,
+    });
+    expect(spools.statusCode).toBe(201);
+    db.update(schema.devices)
+      .set({ reachPrinters: true })
+      .where(eq(schema.devices.id, a.deviceId))
+      .run();
+    expect((await printer(a.deviceId)).statusCode).toBe(201);
+  });
+
+  it("turning a switch off pauses its sources, which keep the machine; the connector hears nothing of them", async () => {
+    const a = await pair("A");
+    const made = await printer(a.deviceId);
+    const id = made.json().id as string;
+    const spools = await send("POST", "/api/integrations", {
+      adapterId: "spoolman",
+      config: { host: "192.168.1.60:7912" },
+      deviceId: a.deviceId,
+    });
+    const off = await send("PATCH", `/api/hub/devices/${a.deviceId}`, { reachPrinters: false });
+    expect(off.statusCode).toBe(204);
+    const row = (await send("GET", `/api/integrations/${id}`)).json();
+    expect(row).toMatchObject({ enabled: false, deviceId: a.deviceId });
+    // The spool library keeps going: its own switch is still on.
+    expect((await send("GET", `/api/integrations/${spools.json().id}`)).json()).toMatchObject({
+      enabled: true,
+    });
+    const sources = (await device(a.token, "GET", "/sources")).json() as { adapterId: string }[];
+    expect(sources.map((s) => s.adapterId)).toEqual(["spoolman"]);
+    // Back on: nothing starts by itself.
+    await send("PATCH", `/api/hub/devices/${a.deviceId}`, { reachPrinters: true });
+    expect((await send("GET", `/api/integrations/${id}`)).json()).toMatchObject({ enabled: false });
+  });
+
+  it("a source left on a machine with its switch off isn't relayed for", async () => {
+    const a = await pair("A");
+    const id = (await printer(a.deviceId)).json().id as string;
+    // Off behind the API's back (not paused): the server still refuses the connector.
+    db.update(schema.devices)
+      .set({ reachPrinters: false })
+      .where(eq(schema.devices.id, a.deviceId))
+      .run();
+    expect((await device(a.token, "GET", "/sources")).json()).toEqual([]);
+    const res = await device(a.token, "POST", "/sources/prints", {
+      items: [
+        {
+          key: "k1",
+          integrationId: id,
+          print: {
+            externalId: "1",
+            name: "x",
+            status: "finished",
+            startedAt: "2026-01-01T00:00:00Z",
+            endedAt: "2026-01-01T01:00:00Z",
+          },
+        },
+      ],
+    });
+    // Dropped as not this device's any more: nothing was recorded.
+    expect(res.json()).toEqual({ done: ["k1"] });
+    expect(db.select().from(schema.prints).all()).toEqual([]);
   });
 });

@@ -286,6 +286,7 @@ export async function buildApp(
       opts.adapters ?? [],
       // Called on a request, once `workers` and `installer` (set up below) exist.
       (deviceId) => removeWorkersOf(db, syncer, installer, workers, deviceId),
+      (deviceId) => sourceBridge.tell(deviceId),
     ),
     { prefix: "/api/hub" },
   );

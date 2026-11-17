@@ -149,7 +149,8 @@ A hub on a VPS can't reach printers on your office or home network. A machine on
 
 **Set it up** (needs Hub management and Integrations rights):
 - When you add the printer in **Integrations**, pick the machine under **Reached from**. Enter the printer's address as the machine sees it (its LAN IP).
-- Or on the machine's page, under **Printers and spool libraries**, pick an existing printer and press **Reach through this machine**. **Reach from the server** moves it back. A printer reached through another machine moves.
+- A machine is offered there only after you turn on **Reach printers** on its page (Hub management → the machine). The page lists the printers that go through it, and **Set up in Integrations** opens the add form with the machine already picked. Turning the switch off asks first, then pauses those printers; they keep the machine, so nothing starts reaching a printer again on its own.
+- To move a printer, edit its **Reached from**; **This server** moves it back.
 
 The hub sends the machine the printer's address and key over its paired connection. The connector keeps them encrypted in its data folder, so it keeps watching through its own restart while the hub is away. Unpairing or revoking the machine deletes them there.
 
@@ -162,7 +163,7 @@ A connector older than 6.0.0 can't reach printers: the hub refuses the pick unti
 
 ### Spoolman through a connector
 
-[Spoolman](spoolman.md) on that network is reached the same way: pick the machine under **Reached from** when you add it, or on the machine's page under **Printers and spool libraries**. Use its address as the machine sees it. The hub imports its spools through the machine and writes back what each print used, exactly once ([spoolman.md](spoolman.md#how-a-print-is-written-only-once)).
+[Spoolman](spoolman.md) on that network is reached the same way: pick the machine under **Reached from** when you add it. The machine needs **Reach spool libraries** on, on its page, which lists the spool libraries that go through it. Use its address as the machine sees it. The hub imports its spools through the machine and writes back what each print used, exactly once ([spoolman.md](spoolman.md#how-a-print-is-written-only-once)).
 
 This is the only thing a connector ever writes outside its own folders, and only these two things: a Spoolman spool's used weight (with its **3D Maker Suite** field), and a spool of yours that Spoolman doesn't have yet. It never deletes or changes anything else there.
 

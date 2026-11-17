@@ -3454,7 +3454,7 @@ Design:
 - **Secrets are never shown,** also on the printer page: "Access code: set".
 - No printer control, as before.
 
-### [ ] Step 15 - Machine switches for printers and spool libraries
+### [x] Step 15 - Machine switches for printers and spool libraries
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `devices`: `reachPrinters` and `reachSpoolLibraries` booleans (Drizzle migration). The migration turns each one on for a machine that already reaches a source of that kind, so nothing in use stops.
