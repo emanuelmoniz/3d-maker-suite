@@ -359,6 +359,9 @@ export function PrintReviewPage() {
                 header: t("prints:review.columns.spool"),
                 cell: (i) => (
                   <Combobox
+                    // Sized by its longest spool (the size attribute): w-full let the column shrink
+                    // until the picked spool was cut off.
+                    className={`${inputClass} w-auto!`}
                     aria-label={t("prints:review.pick", {
                       title: printName(t, { number: i.printNumber, title: i.printTitle }),
                     })}

@@ -34,6 +34,7 @@ function taskOf(a: Alert, t: TFunction) {
   if (a.kind === "maintenance_due") return String(c.task);
   if (a.kind.startsWith("sync_")) return t(CAPS[c.type as Capability] ?? "");
   if (a.kind === "update_available" || a.kind === "slicer_update") return String(c.version);
+  if (a.kind === "filament_review") return t("alerts:kindNames.filament_review");
   return String(c.name);
 }
 
@@ -216,6 +217,14 @@ export function AlertDetailPage() {
                 {a.kind === "update_available" && (
                   <Link to="/settings" hash="updates" className={buttonLink}>
                     {t("alerts:view.openUpdates")}
+                  </Link>
+                )}
+              </Write>
+              {/* The queue's assign needs prints write, as the alert itself does (roles.ts). */}
+              <Write can="prints">
+                {a.kind === "filament_review" && (
+                  <Link to="/prints/review" className={buttonLink}>
+                    {t("alerts:view.reviewFilament")}
                   </Link>
                 )}
               </Write>

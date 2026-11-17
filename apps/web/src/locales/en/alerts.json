@@ -26,6 +26,7 @@
     "viewSpool": "View spool",
     "editSpool": "Edit spool",
     "viewTask": "View task",
+    "reviewFilament": "Review filament",
     "undismiss": "Restore alert",
     "syncResult_one": "{{count}} new, {{updated}} updated",
     "syncResult_other": "{{count}} new, {{updated}} updated",
