@@ -8,14 +8,13 @@ Thanks for helping. Read [docs/architecture.md](docs/architecture.md) and the AD
 pnpm install
 pnpm dev            # server + web, watch mode
 pnpm test           # unit tests (Vitest)
-pnpm test:battery   # unit tests on a laptop running on battery (see below)
 pnpm test:e2e       # Playwright
 pnpm lint           # Biome
 pnpm typecheck
 pnpm i18n:check     # missing or unused translation keys
 ```
 
-On battery a laptop slows its CPU down a lot, and the heavier tests (files, git, SQLite, the mock slicer) then miss Vitest's 5 s default timeout. `pnpm test:battery` runs the same tests with a 240 s test and hook timeout and skips wall-clock speed checks (`TEST_BATTERY=1`). Use it only on battery: `pnpm test` stays the strict run that CI does, so run it plugged in before you push. To skip a speed check of your own on battery, guard it with `if (!process.env.TEST_BATTERY)`; a polling helper with its own deadline should wait the full 240 s when `TEST_BATTERY` is set.
+A slow or busy machine (a laptop on battery, say) can make the heavier tests (files, git, SQLite, the mock slicer) miss Vitest's 5 s default timeout. Run `pnpm speed:check` to see CPU load, memory and power, then set `TEST_TIMEOUT=<ms>` for longer timeouts or `TEST_TIMEOUT=0` for none (PowerShell: `$env:TEST_TIMEOUT=0; pnpm test`). It sets the test, hook and `expect.poll` timeouts and skips wall-clock speed checks. `pnpm test` without it stays the strict run that CI does, so run that before you push. Guard a speed check of your own with `if (!process.env.TEST_TIMEOUT)`; a polling helper with its own deadline should wait `Number(process.env.TEST_TIMEOUT) || Infinity` when it is set.
 
 Database changes go through Drizzle migrations only: `pnpm db:generate`, then `pnpm db:migrate`. Never edit a migration that was already applied.
 

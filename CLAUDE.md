@@ -43,7 +43,7 @@ docs/              ADRs (docs/adr), user docs
 - `pnpm dev` - server + web in watch mode
 - `pnpm start` - production build, one command for end users
 - `pnpm test` / `pnpm test:e2e`
-- `pnpm test:battery` - unit tests on a laptop on battery: 240s timeouts, speed checks skipped
+- `pnpm speed:check` - quick machine check (CPU load, memory, power, benchmark) before choosing test scope and timeouts
 - `pnpm screenshots` - regenerates `docs/images/*.png` for the README (not part of e2e or CI)
 - `pnpm lint` / `pnpm format`
 - `pnpm db:generate` / `pnpm db:migrate`
@@ -52,7 +52,11 @@ docs/              ADRs (docs/adr), user docs
 ## Workflow
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.
 - **Never read `BACKLOG.md`** unless the user asks; it's the user's private notes (gitignored).
-- **Before running the unit test suite, check whether the PC is on battery**, and if it is, run `pnpm test:battery` instead of `pnpm test` (also for `vitest run <files>`: add `--mode battery`). Windows: `(Get-CimInstance Win32_Battery).BatteryStatus` is `1` (no battery = plugged in); macOS: `pmset -g batt` says `Battery Power`; Linux: `/sys/class/power_supply/A*/online` is `0`. Say in the summary that the run was on battery; a battery run doesn't replace a plugged-in `pnpm test` before a release.
+- **Running unit tests (standing rule): never run them automatically, on any machine.** After finishing a step's code:
+  1. Run `pnpm speed:check` (~1.5 s: CPU load, memory use, power source, single-core benchmark).
+  2. Show its output and **ask the user**: full suite or only the tests affected by the change (`vitest related <changed files> --run`), and timeouts as they are, edited (which values) or removed.
+  3. Run exactly that. Edited timeouts: env `TEST_TIMEOUT=<ms>`; removed: `TEST_TIMEOUT=0` (PowerShell: `$env:TEST_TIMEOUT=0; pnpm test`). It also stretches polling helpers and skips speed checks. Don't re-run failures on your own to check whether they were timeouts; report them and ask.
+  - New tests follow the same timeout rules as the existing ones. Say in the summary which scope and timeouts were used; a run with edited or removed timeouts doesn't replace a plain `pnpm test` before a release.
 - Finish a step = tests pass, lint passes, `pnpm typecheck` passes (vitest does not typecheck; the release workflow fails on it), `pnpm i18n:check` passes, docs updated, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
 - **Docs follow the code, in the same commit.** A step that adds or changes something a user sees or does (a page, a field, a setup flow, a rule such as "one printer per source") or an API or design decision updates every doc that describes it: the user page in `docs/` (setup steps, what it reads, limits), `docs/hub.md` when the hub or a connector is involved, `docs/architecture.md` for APIs and data flow, the ADR it changes (amend it, saying which step), and README's feature list and support matrix. Search `docs/` and README for the feature's names and the UI labels it renames or removes; stale text found on the way, also from earlier steps, gets fixed too. Say in the summary which docs changed.
 - Release checklist (CONTRIBUTING.md#releases): CHANGELOG entry (it becomes the GitHub release notes via `scripts/release-notes.mjs`, so every release, pre-releases included, must list all changes since the last release), the same version in root, `apps/*` and `packages/*` `package.json`, `Version X.Y.Z.` on README's Status line, docs that name features or versions. `pnpm version:check` must pass before tagging. Never tag while README or docs still show the old version.

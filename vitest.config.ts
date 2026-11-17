@@ -3,20 +3,19 @@ import { configDefaults, defineConfig } from "vitest/config";
 // The dev data dir sits in the repo; a managed slicer unpacked there ships its own *.test.js.
 // 75% of the threads: one worker per thread starves the fs/git/SQLite-heavy tests on a laptop
 // (mostly efficiency cores) until they time out.
-// `pnpm test:battery` (--mode battery) is for a laptop on battery: 240s test, hook and
-// expect.poll timeouts, and TEST_BATTERY=1 so wall-clock speed checks skip.
-export default defineConfig(({ mode }) => {
-  const battery = mode === "battery";
-  return {
-    test: {
-      exclude: [...configDefaults.exclude, "data/**"],
-      maxWorkers: "75%",
-      ...(battery && {
-        testTimeout: 240_000,
-        hookTimeout: 240_000,
-        expect: { poll: { timeout: 240_000 } },
-        env: { TEST_BATTERY: "1" },
-      }),
-    },
-  };
+// TEST_TIMEOUT=<ms> sets the test, hook and expect.poll timeouts (0 = no timeout) and makes
+// polling helpers wait as long and wall-clock speed checks skip. Unset = the strict CI run.
+const raw = process.env.TEST_TIMEOUT;
+const ms = raw === undefined || raw === "" ? undefined : Number(raw) || 2_147_483_647;
+
+export default defineConfig({
+  test: {
+    exclude: [...configDefaults.exclude, "data/**"],
+    maxWorkers: "75%",
+    ...(ms !== undefined && {
+      testTimeout: ms,
+      hookTimeout: ms,
+      expect: { poll: { timeout: ms } },
+    }),
+  },
 });

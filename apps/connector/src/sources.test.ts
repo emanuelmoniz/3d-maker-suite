@@ -24,9 +24,10 @@ import { createLink } from "./hub.ts";
 import { openStore } from "./state.ts";
 
 const until = async (ok: () => boolean | Promise<boolean>, ms = 15_000) => {
-  // On battery (`pnpm test:battery`) the vitest timeout is 240s; wait as long.
+  // With TEST_TIMEOUT set (0 = none), wait as long as the vitest timeout.
   for (
-    const end = Date.now() + (process.env.TEST_BATTERY ? 240_000 : ms);
+    const end =
+      Date.now() + (process.env.TEST_TIMEOUT ? Number(process.env.TEST_TIMEOUT) || Infinity : ms);
     !(await ok());
     await new Promise((r) => setTimeout(r, 20))
   )
@@ -46,7 +47,7 @@ const snap = (state: PrinterSnapshot["state"], progress = 50): PrinterSnapshot =
 
 // Pairing, a sync through the connector and a hub restart take a few seconds each.
 describe("printers through a connector", {
-  timeout: process.env.TEST_BATTERY ? 240_000 : 60_000,
+  timeout: process.env.TEST_TIMEOUT ? Number(process.env.TEST_TIMEOUT) || 2_147_483_647 : 60_000,
 }, () => {
   const cleanup: (() => unknown)[] = [];
   afterEach(async () => {

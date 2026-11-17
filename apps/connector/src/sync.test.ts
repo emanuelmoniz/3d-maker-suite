@@ -23,9 +23,10 @@ import { openStore } from "./state.ts";
 import { folderName, type HubSync } from "./sync.ts";
 
 const until = async (ok: () => boolean | Promise<boolean>, ms = 20_000) => {
-  // On battery (`pnpm test:battery`) the vitest timeout is 240s; wait as long.
+  // With TEST_TIMEOUT set (0 = none), wait as long as the vitest timeout.
   for (
-    const end = Date.now() + (process.env.TEST_BATTERY ? 240_000 : ms);
+    const end =
+      Date.now() + (process.env.TEST_TIMEOUT ? Number(process.env.TEST_TIMEOUT) || Infinity : ms);
     !(await ok());
     await new Promise((r) => setTimeout(r, 50))
   )

@@ -11,7 +11,7 @@
     "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
     "start": "node scripts/start.mjs",
     "test": "vitest run",
-    "test:battery": "vitest run --mode battery",
+    "speed:check": "node scripts/speed-check.mjs",
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
