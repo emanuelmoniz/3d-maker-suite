@@ -1,6 +1,6 @@
 # ADR-0014: Hub and connector: central files, device roots, slice workers
 
-- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub (see the 2026-11-17 amendment).
+- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub, and a spool library, its first write on another system (see the two 2026-11-17 amendments).
 - Date: 2026-10-26, accepted 2026-10-27
 
 ## Context
@@ -274,3 +274,18 @@ A hub reaches printers on another network through a connector there (ADR-0015, "
 - **New fixed operations:** `printers.changed` (live notice: fetch the assignment again; a connect does too) and `printers.read` (live request: a source's `test`, `printers` or one page of `history`; a source it doesn't have answers ENOENT, an older connector ENOTSUP). Neither sends anything to a printer.
 - **Device → hub:** `POST /api/hub/device/printers/status` after every read (the latest only, no retry; 404 `not_assigned` for a source that isn't its own), and `POST /api/hub/device/printers/prints`, the job outbox: every print its tracker saw end stays in `printers.json` until the hub answers it in `done` (written, already there, invalid, or not this device's).
 - **Offline.** A device that goes away turns its printers offline; one in a print raises `printer_unreachable` after 2 minutes (ADR-0015, Alerts). Its connect runs the source's due syncs, so Moonraker's history backfills; the scheduled sync skips a source whose device is offline, with no error.
+
+## Amendment (2026-11-17): a spool library through a connector (6.0.0 Step 14b, ADR-0015)
+
+A hub on another network reaches Spoolman through a connector there, as it reaches printers (the amendment above). It is the connector's first write on another system, so the list of what it may write is fixed here.
+
+- **Assignment.** The same `integrations.device_id`, for an integration of kind `host` with `printerStatus`, `spools` or `spoolUsage` (Spoolman). It is in `GET /api/hub/device/printers` while its spools or usage line is on. The connector's registry runs `spoolmanAdapter`; `X-Printer-Adapters` lists it, so an older connector answers 409 `device_outdated`.
+- **Read.** `printers.read` gains op `spools`: the library's `listSpools`, checked by the hub as an adapter's. `test` works as for a printer.
+- **New fixed operation `spools.write`** (live request), with exactly two writes, to a spool library assigned to it:
+  - `usage` `{ spoolId, key, grams, sent }`: sets one spool's used weight and, in the same request, the app's marker field (**3D Maker Suite**) with the grams it holds for that print-slot key (`<printId>:<slot>`).
+  - `create` `{ spool }`: makes one spool of the app's there, finding or creating its vendor and filament, and the marker field definition the first time.
+  
+  Both are checked by the event schema (a key in `pushKey`'s form, finite grams). It never deletes, archives or edits anything else, and never writes to a printer: a source without `spoolUsage` answers ENOTSUP, one it doesn't have ENOENT, and any other op fails the schema and answers ENOTSUP.
+- **Exactly once.** The keys and the marker are the ones the hub uses on its own network: the adapter on the connector reads the marker, so a write the hub timed out on and sends again lands once. The connector runs one source's writes one after another, so a late write and the next one never read the same weight (one would undo the other).
+- **No outbox on the connector.** The hub's `spool_usage_pushes` is the outbox: what each spool should hold per key, minus what was confirmed. An edit or delete of a print changes that, so a write kept on the connector could go stale. Usage exists only once the hub has recorded a print, so while the hub is away there is nothing to keep; a print the connector's tracker held reaches the hub when it is back, and its usage follows. While the machine is offline, the write-back skips the library without an error and counts what waits; its connect kicks a run.
+- **Moonraker through the same machine** keeps `chargedAtSource`: its snapshots and ended prints carry it through the connector, so its jobs aren't written to Spoolman twice, and a spool it prints with waits as on the LAN.

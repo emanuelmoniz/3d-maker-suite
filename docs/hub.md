@@ -149,7 +149,7 @@ A hub on a VPS can't reach printers on your office or home network. A machine on
 
 **Set it up** (needs Hub management and Integrations rights):
 - When you add the printer in **Integrations**, pick the machine under **Reached from**. Enter the printer's address as the machine sees it (its LAN IP).
-- Or on the machine's page, under **Printers**, pick an existing printer and press **Reach through this machine**. **Reach from the server** moves it back. A printer reached through another machine moves.
+- Or on the machine's page, under **Printers and spool libraries**, pick an existing printer and press **Reach through this machine**. **Reach from the server** moves it back. A printer reached through another machine moves.
 
 The hub sends the machine the printer's address and key over its paired connection. The connector keeps them encrypted in its data folder, so it keeps watching through its own restart while the hub is away. Unpairing or revoking the machine deletes them there.
 
@@ -159,6 +159,14 @@ The hub sends the machine the printer's address and key over its paired connecti
 - **The printer stops answering** while the machine is online: **Printer offline**, as for a printer the hub reaches itself.
 
 A connector older than 6.0.0 can't reach printers: the hub refuses the pick until it updates (Update now on the machine page).
+
+### Spoolman through a connector
+
+[Spoolman](spoolman.md) on that network is reached the same way: pick the machine under **Reached from** when you add it, or on the machine's page under **Printers and spool libraries**. Use its address as the machine sees it. The hub imports its spools through the machine and writes back what each print used, exactly once ([spoolman.md](spoolman.md#how-a-print-is-written-only-once)).
+
+This is the only thing a connector ever writes outside its own folders, and only these two things: a Spoolman spool's used weight (with its **3D Maker Suite** field), and a spool of yours that Spoolman doesn't have yet. It never deletes or changes anything else there.
+
+While the machine is offline, the Spoolman card counts the charges waiting on the hub, and they are written when the machine is back. A Moonraker reached through the same machine that reports to Spoolman itself is never written twice. A connector older than the hub's version can't reach Spoolman: update it first.
 
 ## Slice workers
 
@@ -298,6 +306,6 @@ The machine page has **Restart connector** and **Stop connector**; both need it 
   | Linux | `~/.local/share/3d-maker-suite-connector/install` | `~/.local/share/3d-maker-suite-connector` |
 
 - **Network.** Outbound HTTPS (or HTTP on a LAN) from the device to the hub, plus GitHub release downloads for updates. The local page listens on `127.0.0.1:4301` only.
-- **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers, read the status and history of the printers the hub assigns to it). It never runs a command the hub sends and never sends a command to a printer. The device token and the printers' keys are stored encrypted and never logged.
-- **Network.** It only connects out: to the hub, and to the printers assigned to it on its own network (their web or MQTT port, as each printer's setup page says).
+- **What it can do.** It carries out a fixed list of operations (list, read and write files inside its own folders, report installed slicers, read the status and history of the printers the hub assigns to it, read a spool library's spools and write the filament prints used to it). It never runs a command the hub sends and never sends a command to a printer. The device token and the printers' keys are stored encrypted and never logged.
+- **Network.** It only connects out: to the hub, and to the printers and spool library assigned to it on its own network (their web or MQTT port, as each setup page says).
 - **Signing.** Nothing is code-signed yet; see ADR-0014, "Unsigned builds".

@@ -432,6 +432,41 @@ export const trackedPrintSchema = z.object({
   }),
 });
 
+/**
+ * A spool of the app's to make at a spool library (`SpoolUsageTarget.createSpool`), also as a hub
+ * sends it to a connector (`spools.write`, ADR-0015).
+ */
+export const spoolToCreateSchema = z.object({
+  appSpoolId: id,
+  brand: z.string().max(200).nullable(),
+  material: z.string().min(1).max(100),
+  name: z.string().max(200).nullable(),
+  colorHex: hexColor,
+  colorName: z.string().max(200).nullable(),
+  densityGcm3: z.number().nonnegative().nullable(),
+  /** Null = not known. */
+  initialGrams: z.number().nonnegative().nullable(),
+  remainingGrams: z.number().nullable(),
+  emptyWeightGrams: z.number().nonnegative().nullable(),
+});
+
+const grams = z.number().nonnegative().max(1_000_000);
+/**
+ * One spool's usage for one print slot (`SpoolUsageTarget.writeUsage`): `key` is core's `pushKey`
+ * (`<printId>:<slot>`, `-` for no slot). As a hub sends it to a connector (`spools.write`).
+ */
+export const spoolUsageWriteSchema = z.object({
+  spoolId: z.string().min(1).max(100),
+  key: z.string().regex(/^[\w-]{1,64}:(\d{1,3}|-)$/),
+  grams,
+  sent: grams,
+});
+/** A connector's answers to `spools.write`: as `writeUsage` and `createSpool` answer. */
+export const spoolUsageWrittenSchema = z.object({ gone: z.boolean().optional() });
+export const spoolCreatedSchema = z.object({ spoolId: z.string().min(1).max(100) });
+
+export type SpoolToCreate = z.infer<typeof spoolToCreateSchema>;
+export type SpoolUsageWrite = z.infer<typeof spoolUsageWriteSchema>;
 export type ExternalPrinter = z.infer<typeof externalPrinterSchema>;
 export type ExternalPrint = z.infer<typeof externalPrintSchema>;
 export type PrinterSnapshot = z.infer<typeof printerSnapshotSchema>;

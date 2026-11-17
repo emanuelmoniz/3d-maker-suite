@@ -11,6 +11,8 @@ import type {
   ExternalPrint,
   ExternalPrinter,
   PrinterSnapshot,
+  SpoolToCreate,
+  SpoolUsageWrite,
   TestResult,
 } from "../schemas/integrations.ts";
 import type { PresetSetting, SlicerPresetKind } from "../schemas/presets.ts";
@@ -174,29 +176,12 @@ export interface SpoolUsageTarget {
    * idempotent, so a retry after a lost answer never charges twice. `sent` is what the server last
    * knew the spool held for the key, for a source that forgot it. `gone`: no such spool any more.
    */
-  writeUsage(u: { spoolId: string; key: string; grams: number; sent: number }): Promise<{
-    gone?: boolean;
-  }>;
+  writeUsage(u: SpoolUsageWrite): Promise<{ gone?: boolean }>;
   /**
    * A spool of the app's, made at the source as it is now (its filament found or created by brand,
    * material, name and colour). Asked again for the same `appSpoolId`, it finds the one it made.
    */
   createSpool(s: SpoolToCreate): Promise<{ spoolId: string }>;
-}
-
-export interface SpoolToCreate {
-  appSpoolId: string;
-  brand: string | null;
-  material: string;
-  name: string | null;
-  /** `#rrggbb`. */
-  colorHex: string;
-  colorName: string | null;
-  densityGcm3: number | null;
-  /** Null = not known. */
-  initialGrams: number | null;
-  remainingGrams: number | null;
-  emptyWeightGrams: number | null;
 }
 
 /** A slicer's local presets and catalog. Read-only, no account; the server never writes to it. */

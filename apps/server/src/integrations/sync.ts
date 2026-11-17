@@ -1302,6 +1302,13 @@ export function createSyncer(
   const usageTarget = (id: string, signal: AbortSignal) =>
     instanceFor(rowOf(id), signal).spoolUsage;
 
+  /** False while the connector a source is reached through is offline (ADR-0015, LAN reach). */
+  function reachable(id: string) {
+    const row = rowOf(id);
+    const adapter = adapters.find((a) => a.id === row.adapterId);
+    return !(row.deviceId && bridge && bridgeable(adapter) && !bridge.online(row.deviceId));
+  }
+
   /**
    * The app spools one of the library's spools is suggested for and not linked to yet (another
    * library brought them in, or you entered them): its review waits for a person to link them, so
@@ -1325,6 +1332,7 @@ export function createSyncer(
     recordPrint,
     statusSource,
     usageTarget,
+    reachable,
     suggestedSpools,
     checkCatalogs,
     checkUserPresets,

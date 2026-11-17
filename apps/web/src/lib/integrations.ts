@@ -200,17 +200,21 @@ export const usePatchIntegration = (id: string) =>
   );
 
 /**
- * A printer on the network reached through a machine's connector, or by this server (`null`)
- * (ADR-0015, LAN reach).
+ * A printer or spool library on the network reached through a machine's connector, or by this
+ * server (`null`) (ADR-0015, LAN reach).
  */
 export const useAssignPrinter = () =>
   useInvalidating(({ id, deviceId }: { id: string; deviceId: string | null }) =>
     api<Integration>("PATCH", `/api/integrations/${id}`, { deviceId }),
   );
 
-/** A printer source a connector can reach for the hub: on the network, with a live status. */
-export const isPrinterHost = (a: Pick<AdapterInfo, "kind" | "capabilities">) =>
-  a.kind === "host" && a.capabilities.includes("printerStatus");
+/**
+ * A source a connector can reach for the hub: a printer on the network with a live status, or a
+ * spool library on the network (the server's `bridgeable`).
+ */
+export const isNetworkSource = (a: Pick<AdapterInfo, "kind" | "capabilities">) =>
+  a.kind === "host" &&
+  a.capabilities.some((c) => c === "printerStatus" || c === "spools" || c === "spoolUsage");
 
 export const useDeleteIntegration = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);

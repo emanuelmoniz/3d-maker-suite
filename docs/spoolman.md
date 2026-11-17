@@ -59,7 +59,11 @@ Spoolman's API has no idempotency key, so the app keeps one itself:
 
 A write reads the spool, then writes it. So that a report Moonraker sends in between is never lost, a Spoolman spool isn't written while a Klipper printer prints with it, nor in the minute after: its charges wait for the next try. This needs **Live status** on for that Moonraker; a Moonraker the app only reads by its history can't say what it prints. With several tools Moonraker doesn't say which spool each uses, so while it prints, nothing is written to Spoolman at all.
 
+### Spoolman on another network
+
+A hub on a VPS reaches a Spoolman on your LAN through a machine there: pick it under **Reached from** when you add Spoolman ([hub.md](hub.md#spoolman-through-a-connector)). The import and the write-back work as above, with the same keys, so nothing is written twice. While the machine is offline, the charges wait on the hub and go when it is back.
+
 ## Troubleshooting
 
-- **Can't be reached:** open `http://<address>/api/v1/info` in a browser on the server's machine; it answers with Spoolman's version. In Docker on a bridged network, use the IP, not a `.local` name.
+- **Can't be reached:** open `http://<address>/api/v1/info` in a browser on the server's machine (on the machine it is reached through, for a hub on another network); it answers with Spoolman's version. In Docker on a bridged network, use the IP, not a `.local` name.
 - **A charge keeps waiting:** the integrations log says why ([logs.md](logs.md)). A Spoolman spool you deleted is skipped, and the log names it.

@@ -9,7 +9,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { useDevices } from "../../lib/hub.ts";
 import {
-  isPrinterHost,
+  isNetworkSource,
   libraryOf,
   useAdapterName,
   useAdapters,
@@ -86,7 +86,7 @@ export function IntegrationCreatePage() {
   const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
   const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
-  const reach = hubOn && manageHub && !!adapter && isPrinterHost(adapter) && devices.length > 0;
+  const reach = hubOn && manageHub && !!adapter && isNetworkSource(adapter) && devices.length > 0;
   const label = (name: string) =>
     t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
   const anyOfError = missing

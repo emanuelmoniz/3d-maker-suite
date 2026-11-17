@@ -6,6 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Added
 - **Printers through a connector**: a hub on another network (a VPS) reaches Moonraker, Bambu LAN, PrusaLink and OctoPrint printers through the connector of a machine on the printer's network. Pick the machine under **Reached from** when you add the printer, or on the machine's page under **Printers**. The connector reads live status and history and never controls the printer; a print that ends while the hub is down is kept on the machine and recorded when the hub is back ([docs/hub.md](docs/hub.md#printers-through-a-connector))
+- **Spoolman through a connector**: a hub on another network imports the spools of a Spoolman on your LAN and writes each print's usage back, exactly once, through the connector of a machine there. Pick the machine under **Reached from** when you add Spoolman, or on the machine's page under **Printers and spool libraries**. Charges wait on the hub while the machine is offline. It is the connector's only write outside its folders: a spool's used weight and spools Spoolman doesn't have yet ([docs/hub.md](docs/hub.md#spoolman-through-a-connector))
 - **Printer unreachable** alert: the connector a printer is reached through went offline during a print. **Printer offline** stays for a printer that stops answering
 - Migration 0134 (a printer source's machine, the new alert kind). Connectors update to the hub's version; one older than this can't reach printers
 

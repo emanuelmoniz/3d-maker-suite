@@ -1,7 +1,8 @@
 // The printer bridge (ADR-0015, LAN reach): a real connector link against a real hub (the server's
 // buildApp on a port), with the mock printer as a printer on the network that only the connector
-// reads.
+// reads, and the fake Spoolman as a spool library only the connector reaches (Step 14b).
 
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,11 +12,13 @@ import {
   mockAdapter,
   mockHostAdapter,
 } from "@3d-maker-suite/adapter-mock";
-import { BUILT_IN_ROLE_IDS, type PrinterSnapshot } from "@3d-maker-suite/core";
+import { spoolmanAdapter } from "@3d-maker-suite/adapter-spoolman";
+import { type FakeSpoolman, fakeSpoolman } from "@3d-maker-suite/adapter-spoolman/src/fake.ts";
+import { BUILT_IN_ROLE_IDS, hubEventSchema, type PrinterSnapshot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLink } from "./hub.ts";
 import { openStore } from "./state.ts";
 
@@ -53,7 +56,7 @@ describe("printers through a connector", {
   const hub = async (state: MockState, dir: string, port = 0) => {
     const db = openDb(join(dir, "app.sqlite"));
     const app = await buildApp(db, { stream: { write: () => true } }, dir, {
-      adapters: [mockHostAdapter(state), mockAdapter(state)],
+      adapters: [mockHostAdapter(state), mockAdapter(state), spoolmanAdapter()],
     });
     const passwordHash = await hashPassword("password123");
     const user = (role: "admin" | "viewer") =>
@@ -125,7 +128,7 @@ describe("printers through a connector", {
       ...(printers && {
         printers: {
           dataDir: dir,
-          adapters: [mockHostAdapter(state)],
+          adapters: [mockHostAdapter(state), spoolmanAdapter()],
           pollMs: { busy: 30, idle: 30 },
         },
       }),
@@ -290,5 +293,231 @@ describe("printers through a connector", {
       deviceId: c.store.get().deviceId,
     });
     expect(cloud.json().error.code).toBe("not_printer_host");
+  });
+
+  describe("Spoolman through a connector", () => {
+    let spoolman: FakeSpoolman;
+    beforeEach(() => {
+      spoolman = fakeSpoolman();
+      // Spoolman answers at its address only; the hub and the connector talk as they always do.
+      const real = globalThis.fetch;
+      vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        return url.startsWith(spoolman.origin) ? spoolman.handle(url, init) : real(input, init);
+      });
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    const usedIn = (id: number) => spoolman.spools.find((s) => s.id === id)?.used_weight;
+    const patches = () => spoolman.writes().filter((w) => w.method === "PATCH");
+    type Hub = Awaited<ReturnType<typeof hub>>;
+    const pending = async (h: Hub, id: string) =>
+      (await h.send("GET", `/api/integrations/${id}`))
+        .json()
+        .policies.find((p: { type: string }) => p.type === "spoolUsage")?.pending;
+    const offline = (h: Hub) =>
+      until(async () => (await h.send("GET", "/api/hub/devices")).json()[0]?.online === false);
+
+    /** A paired connector, and a Spoolman with one spool reached through it and imported. */
+    const setup = async (state: MockState) => {
+      const h = await hub(state, folder("hub-"));
+      const devDir = folder("connector-");
+      const c = connector(state, devDir);
+      await c.link.pair(h.url, await h.code(), "WS-1");
+      await until(() => c.link.state().status === "online");
+      const deviceId = c.store.get().deviceId ?? "";
+      const vendor = spoolman.addSpool({ vendor: "Bambu Lab", colorHex: "ff8800", used: 100 });
+      const created = await h.send("POST", "/api/integrations", {
+        adapterId: "spoolman",
+        config: { host: "spoolman.local:7912" },
+        deviceId,
+      });
+      expect(created.statusCode).toBe(201);
+      const id = created.json().id as string;
+      const synced = await h.send("POST", `/api/integrations/${id}/sync`, { type: "spools" });
+      expect(synced.json()).toMatchObject({ created: 1 });
+      const mine = h.db.select().from(schema.spools).get()?.id;
+      return { h, c, devDir, deviceId, id, vendor, mine };
+    };
+
+    /** The hub's own printer (the mock account), which the hub reads itself. */
+    const hubPrinter = async (h: Hub) => {
+      const made = await h.send("POST", "/api/integrations", {
+        adapterId: "mock",
+        secrets: { token: "t" },
+      });
+      await h.send("POST", `/api/integrations/${made.json().id}/sync`, { type: "printers" });
+      h.app.printerStatus.refresh();
+    };
+    const at = (s: number) => new Date(Date.UTC(2026, 10, 17, 10, 0, s)).toISOString();
+    /** One job on the hub's own printer, from printing to finished: the hub records it. */
+    const hubPrint = async (h: Hub, state: MockState, job: string, grams: number, start = 0) => {
+      for (const [s, st] of [
+        [start, "printing"],
+        [start + 30, "finished"],
+        [start + 40, "idle"],
+      ] as const) {
+        const slot = { slot: 0, material: "PLA", colorHex: "#ff8800", gramsUsed: grams };
+        state.status = [
+          {
+            printerExternalId: "mock-1",
+            at: at(s),
+            state: st,
+            ...(st !== "idle" && {
+              job: { id: job, file: "benchy.gcode", progress: st === "finished" ? 100 : 50 },
+            }),
+            slots: [{ ...slot, active: st === "printing" }],
+          },
+        ];
+        await h.app.printerStatus.pollAll();
+      }
+    };
+
+    it("imports the spools of a Spoolman only the connector reaches", async () => {
+      const { h, c, id, mine } = await setup({ ...fixture() });
+      expect(mine).toBeDefined();
+      expect(h.db.select().from(schema.spools).get()).toMatchObject({ remainingGrams: 900 });
+      // Read only: nothing was written there.
+      expect(spoolman.writes()).toEqual([]);
+      // The hub has no way of its own: with the machine away, the import can't run.
+      c.link.close();
+      await offline(h);
+      const away = await h.send("POST", `/api/integrations/${id}/sync`, { type: "spools" });
+      expect(away.json()).toMatchObject({ errorCode: "unreachable" });
+    });
+
+    it("writes each print's usage back once, also when an answer was lost", async () => {
+      const state: MockState = { ...fixture(), prints: [], status: [] };
+      const { h, id, vendor } = await setup(state);
+      await hubPrinter(h);
+      await hubPrint(h, state, "j1", 12.5);
+      expect(h.db.select().from(schema.prints).all()).toHaveLength(1);
+      await h.app.spoolPush.run();
+      expect(usedIn(vendor.id)).toBe(112.5);
+      await h.app.spoolPush.run();
+      await h.app.spoolPush.run();
+      expect(patches()).toHaveLength(1);
+      // Spoolman took the next one, and its answer never came back.
+      await hubPrint(h, state, "j2", 10, 100);
+      spoolman.state.loseAnswers = 1;
+      await h.app.spoolPush.run();
+      expect(usedIn(vendor.id)).toBe(122.5);
+      expect(await pending(h, id)).toBe(1);
+      await h.app.spoolPush.run();
+      expect(usedIn(vendor.id)).toBe(122.5);
+      expect(patches()).toHaveLength(2);
+      expect(await pending(h, id)).toBe(0);
+    });
+
+    it("keeps what a print took while the machine is offline, and writes it once it's back", async () => {
+      const state: MockState = { ...fixture(), prints: [], status: [] };
+      const { h, c, devDir, id, vendor } = await setup(state);
+      await hubPrinter(h);
+      c.link.close();
+      await offline(h);
+      await hubPrint(h, state, "j1", 10);
+      await h.app.spoolPush.run();
+      expect(await pending(h, id)).toBe(1);
+      expect(patches()).toEqual([]);
+      const again = connector(state, devDir);
+      again.link.start();
+      await until(() => again.link.state().status === "online");
+      await h.app.spoolPush.run();
+      expect(usedIn(vendor.id)).toBe(110);
+      await h.app.spoolPush.run();
+      expect(patches()).toHaveLength(1);
+      expect(await pending(h, id)).toBe(0);
+    });
+
+    it("a printer through the same machine that reports to Spoolman isn't written twice", async () => {
+      const state: MockState = { ...fixture(), status: [snap("idle")] };
+      const { h, c, deviceId, vendor, mine } = await setup(state);
+      const printer = await h.send("POST", "/api/integrations", {
+        adapterId: "mock-host",
+        config: { host: "printer.lan" },
+        secrets: { token: SECRET },
+        deviceId,
+      });
+      await h.send("POST", `/api/integrations/${printer.json().id}/sync`, { type: "printers" });
+      h.app.printerStatus.refresh();
+      await until(() => c.link.printers?.watching() === 2);
+      const reported = (st: PrinterSnapshot["state"], progress = 50): PrinterSnapshot => ({
+        ...snap(st, progress),
+        slots: [
+          {
+            slot: 0,
+            material: "PLA",
+            colorHex: "#ff8800",
+            active: st === "printing",
+            gramsUsed: 8,
+            spoolId: `spoolman:${vendor.id}`,
+            chargedAtSource: true,
+          },
+        ],
+      });
+      state.status = [reported("printing")];
+      await until(() => h.app.printerStatus.all()[0]?.snapshot.state === "printing");
+      state.status = [reported("finished", 100)];
+      await until(() => h.prints().length === 1);
+      expect(h.db.select().from(schema.printFilamentUsages).get()).toMatchObject({
+        spoolId: mine,
+        chargedAtSource: true,
+      });
+      await h.app.spoolPush.run();
+      expect(patches()).toEqual([]);
+      expect(usedIn(vendor.id)).toBe(100);
+    });
+
+    it("the connector writes only usage and new spools, and only to its spool library", async () => {
+      const state: MockState = { ...fixture(), status: [snap("idle")] };
+      const { h, c, deviceId, id, vendor } = await setup(state);
+      const printer = await h.send("POST", "/api/integrations", {
+        adapterId: "mock-host",
+        config: { host: "printer.lan" },
+        secrets: { token: SECRET },
+        deviceId,
+      });
+      const write = (integrationId: string, w: object) =>
+        new Promise((done) =>
+          c.link.printers?.write(
+            { type: "spools.write", requestId: randomUUID(), integrationId, write: w as never },
+            async (body) => done(body),
+          ),
+        );
+      const usage = (key: string, grams: number) => ({
+        op: "usage",
+        spoolId: String(vendor.id),
+        key,
+        grams,
+        sent: 0,
+      });
+      const key = `${randomUUID()}:0`;
+      expect(await write(printer.json().id, usage(key, 5))).toEqual({ ok: false, code: "ENOTSUP" });
+      expect(await write(randomUUID(), usage(key, 5))).toEqual({ ok: false, code: "ENOENT" });
+      expect(patches()).toEqual([]);
+      // Anything but the two writes isn't an event it takes (it answers ENOTSUP).
+      const other = { type: "spools.write", requestId: randomUUID(), integrationId: id };
+      expect(
+        hubEventSchema.safeParse({ ...other, write: { op: "delete", spoolId: "1" } }).success,
+      ).toBe(false);
+      expect(hubEventSchema.safeParse({ ...other, write: usage("../spool", 5) }).success).toBe(
+        false,
+      );
+      // A late write and the next one at once: one after the other, so neither is lost.
+      const both = await Promise.all([
+        write(id, usage(key, 5)),
+        write(id, usage(`${randomUUID()}:1`, 7)),
+      ]);
+      expect(both).toEqual([
+        { ok: true, result: {} },
+        { ok: true, result: {} },
+      ]);
+      expect(usedIn(vendor.id)).toBe(112);
+      // The same again: already there.
+      expect(await write(id, usage(key, 5))).toEqual({ ok: true, result: {} });
+      expect(usedIn(vendor.id)).toBe(112);
+      expect(patches()).toHaveLength(2);
+      expect(h.app.printerStatus.all()).toHaveLength(0);
+    });
   });
 });

@@ -208,7 +208,7 @@
     "stopped": "Stopped. It shows offline in a few seconds.",
     "errors": {
       "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first.",
-      "hubOff": "Turn the hub on to reach printers through a machine."
+      "hubOff": "Turn the hub on to reach printers or a spool library through a machine."
     },
     "installInIntegrations": "Install or manage a slicer on this machine in Integrations",
     "useAsWorker": "Use slicer as server worker",
@@ -222,15 +222,15 @@
     "stopWorkerTitle": "Stop using {{name}} as a server worker?",
     "stopWorkerBody": "Its slicer installs in Integrations are removed, and a slicer the hub installed on it is uninstalled. What they imported stays. Turn this on again to set them up anew.",
     "stopWorker": "Stop using as worker",
-    "printers": "Printers",
-    "printersHint": "Printers on this machine's network that the server can't reach itself. The connector reads their status and prints for the server and never controls them.",
-    "noPrinters": "No printers are reached through this machine.",
+    "printers": "Printers and spool libraries",
+    "printersHint": "Printers and spool libraries on this machine's network that the server can't reach itself. The connector reads them for the server. It never controls a printer, and writes to a spool library only the filament your prints used and the spools they used that it doesn't have yet.",
+    "noPrinters": "Nothing is reached through this machine.",
     "printerAt": "{{name}} at {{host}}",
     "printerOn": "{{printer}} (through {{machine}})",
     "printerRemove": "Reach from the server",
     "printerRemoveNamed": "Reach {{name}} from the server",
-    "addPrinter": "Printer",
-    "pickPrinter": "Pick a printer",
+    "addPrinter": "Printer or spool library",
+    "pickPrinter": "Pick one",
     "addPrinterButton": "Reach through this machine"
   }
 }

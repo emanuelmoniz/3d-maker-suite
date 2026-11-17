@@ -348,6 +348,11 @@ export function createLink({
         if (!printers) return void reply(requestId, { ok: false, code: "ENOTSUP" });
         return void printers.read(event.data, (body) => reply(requestId, body));
       }
+      if (event.success && event.data.type === "spools.write") {
+        const { requestId } = event.data;
+        if (!printers) return void reply(requestId, { ok: false, code: "ENOTSUP" });
+        return void printers.write(event.data, (body) => reply(requestId, body));
+      }
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
       if (typeof requestId === "string" && /^[0-9a-f-]{36}$/i.test(requestId))

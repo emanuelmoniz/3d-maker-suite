@@ -26,7 +26,7 @@ import {
   useDevices,
 } from "../../lib/hub.ts";
 import {
-  isPrinterHost,
+  isNetworkSource,
   useAdapterName,
   useAdapters,
   useAssignPrinter,
@@ -547,9 +547,10 @@ function Projects({ device: d }: { device: Device }) {
 }
 
 /**
- * Printers on this machine's network that it reaches for the hub (ADR-0015, LAN reach): its
- * connector reads their status and history, never commands them. Who manages the hub and its
- * integrations moves one here, to another machine, or back to this server.
+ * Printers and spool libraries on this machine's network that it reaches for the hub (ADR-0015, LAN
+ * reach): its connector reads them, never commands a printer, and writes a spool library only what
+ * prints used. Who manages the hub and its integrations moves one here, to another machine, or back
+ * to this server.
  */
 function Printers({ device: d }: { device: Device }) {
   const { t } = useTranslation();
@@ -561,7 +562,7 @@ function Printers({ device: d }: { device: Device }) {
   const assign = useAssignPrinter();
   const [pick, setPick] = useState("");
   if (!may.integrations) return null;
-  const hosts = new Set(adapters.data?.filter(isPrinterHost).map((a) => a.id));
+  const hosts = new Set(adapters.data?.filter(isNetworkSource).map((a) => a.id));
   const printers = (integrations.data ?? []).filter((i) => hosts.has(i.adapterId));
   const here = printers.filter((i) => i.deviceId === d.id);
   const others = printers.filter((i) => i.deviceId !== d.id);

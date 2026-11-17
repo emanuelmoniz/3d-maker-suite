@@ -53,7 +53,7 @@ const codeOf = (e: unknown) => (e instanceof IntegrationError ? e.code : "unknow
 
 export function createSpoolPush(
   db: Db,
-  syncer: Pick<Syncer, "usageTarget" | "suggestedSpools">,
+  syncer: Pick<Syncer, "usageTarget" | "suggestedSpools" | "reachable">,
   adapters: IntegrationAdapter[],
   log: FastifyBaseLogger,
   /** Runs on its own after `kick`; off in tests, which call `run`. */
@@ -268,8 +268,11 @@ export function createSpoolPush(
     const prefix = `${library}:`;
     let error: unknown;
     let target: SpoolUsageTarget | undefined;
+    // Reached through a machine's connector that is offline (ADR-0015, LAN reach): nothing is
+    // failing, it all waits here (`spool_usage_pushes`) and goes when the machine is back.
+    const away = !syncer.reachable(row.id);
     try {
-      target = syncer.usageTarget(row.id, AbortSignal.timeout(TIMEOUT_MS));
+      target = away ? undefined : syncer.usageTarget(row.id, AbortSignal.timeout(TIMEOUT_MS));
       if (target) await createMissing(row, library, target);
     } catch (e) {
       error = e;
@@ -317,9 +320,11 @@ export function createSpoolPush(
           break;
         }
       }
-    const left = targets.length - done + (error ? toCreate(row, library).length : 0);
+    const left = targets.length - done + (error || away ? toCreate(row, library).length : 0);
     setPending(row.id, left);
-    if (error) {
+    if (away) {
+      if (left) log.debug({ integrationId: row.id, left }, "spool usage waits for its machine");
+    } else if (error) {
       if (!failing.has(row.id))
         log.warn({ integrationId: row.id, code: codeOf(error), left }, "spool usage not written");
       failing.add(row.id);

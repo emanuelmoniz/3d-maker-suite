@@ -7,6 +7,7 @@ import {
   mockAdapter,
   mockHostAdapter,
 } from "@3d-maker-suite/adapter-mock";
+import { spoolmanAdapter } from "@3d-maker-suite/adapter-spoolman";
 import { BUILT_IN_ROLE_IDS, type PrinterSnapshot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -31,7 +32,9 @@ const device = (token: string, method: "GET" | "POST", url: string, payload?: ob
 beforeEach(async () => {
   db = openDb(":memory:");
   state = { ...fixture(), status: [] };
-  app = await buildApp(db, false, "", { adapters: [mockHostAdapter(state), mockAdapter(state)] });
+  app = await buildApp(db, false, "", {
+    adapters: [mockHostAdapter(state), mockAdapter(state), spoolmanAdapter()],
+  });
   const passwordHash = await hashPassword("password123");
   for (const role of ["admin", "editor"] as const)
     db.insert(schema.users)
@@ -92,6 +95,35 @@ describe("printers through a connector, on the hub", () => {
     expect((await device(b.token, "GET", "/printers")).json()).toEqual([]);
     // A session is no device.
     expect((await send("GET", "/api/hub/device/printers")).statusCode).toBe(403);
+  });
+
+  it("a spool library on the network is assigned as a printer is, and nothing else of its", async () => {
+    const a = await pair("A");
+    const made = await send("POST", "/api/integrations", {
+      adapterId: "spoolman",
+      config: { host: "192.168.1.60:7912" },
+      deviceId: a.deviceId,
+    });
+    expect(made.statusCode).toBe(201);
+    expect(made.json()).toMatchObject({ deviceId: a.deviceId, viaDeviceName: "A" });
+    expect((await device(a.token, "GET", "/printers")).json()).toEqual([
+      {
+        integrationId: made.json().id,
+        adapterId: "spoolman",
+        config: { host: "192.168.1.60:7912" },
+        secrets: {},
+      },
+    ]);
+    // Both its lines off: the machine has nothing to reach for it, nor its address.
+    const id = made.json().id as string;
+    const off = await send("PATCH", `/api/integrations/${id}`, {
+      policies: [
+        { type: "spools", mode: "off" },
+        { type: "spoolUsage", mode: "off" },
+      ],
+    });
+    expect(off.statusCode).toBe(200);
+    expect((await device(a.token, "GET", "/printers")).json()).toEqual([]);
   });
 
   it("takes status and prints only from the device the printer is assigned to", async () => {

@@ -3427,7 +3427,7 @@ Then push dev, push the tag and confirm the pre-release is published.
 Do Step 14 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 14b - Spoolman through a connector  **[plan mode]**
+### [x] Step 14b - Spoolman through a connector  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - A hub on another network (a VPS) reaches a Spoolman on the LAN through a machine's connector, as Step 14's printers: assign the Spoolman integration to a machine (machine page → Printers or its own line, and **Reached from** in the add form).

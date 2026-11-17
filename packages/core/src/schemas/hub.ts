@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { id, isoDate } from "./entities.ts";
 import { SLICER_PRESET_KINDS } from "./enums.ts";
-import { slicerInstallStatusSchema } from "./integrations.ts";
+import {
+  slicerInstallStatusSchema,
+  spoolToCreateSchema,
+  spoolUsageWriteSchema,
+} from "./integrations.ts";
 import {
   devicePresetLibrarySchema,
   presetSwitchesSchema,
@@ -450,23 +454,39 @@ export const hubEventSchema = z.discriminatedUnion("type", [
    */
   z.object({ type: z.literal("folders.set"), folders: z.array(sharedFolderSchema).max(200) }),
   /**
-   * Live only (ADR-0015, LAN reach): the printer sources assigned to it changed. Fetch them again
-   * (`GET /api/hub/device/printers`); a connect fetches them too.
+   * Live only (ADR-0015, LAN reach): the sources assigned to it (printers, a spool library)
+   * changed. Fetch them again (`GET /api/hub/device/printers`); a connect fetches them too.
    */
   z.object({ type: z.literal("printers.changed") }),
   /**
-   * Read a printer source assigned to it, never a command to the printer: `test` answers a
+   * Read a source assigned to it, never a command to a printer: `test` answers a
    * `testResultSchema`, `printers` an `ExternalPrinter[]`, `history` one page of
-   * `listPrints` (`{ items, nextCursor? }`). A source it doesn't have answers ENOENT.
+   * `listPrints` (`{ items, nextCursor? }`), `spools` a spool library's `LibrarySpool[]`. A source
+   * it doesn't have answers ENOENT, one that can't do it ENOTSUP.
    */
   z.object({
     type: z.literal("printers.read"),
     requestId: id,
     integrationId: id,
-    op: z.enum(["test", "printers", "history"]),
+    op: z.enum(["test", "printers", "history", "spools"]),
     since: isoDate.optional(),
     until: isoDate.optional(),
     cursor: z.string().max(4096).optional(),
+  }),
+  /**
+   * The connector's only write on another system (ADR-0014 2026-11-17 amendment, Step 14b): to a
+   * spool library assigned to it, `usage` sets one spool's usage for one print slot (answers
+   * `{ gone? }`), `create` makes one spool of the app's there (answers `{ spoolId }`). A source it
+   * doesn't have answers ENOENT, one that takes no usage (a printer) ENOTSUP.
+   */
+  z.object({
+    type: z.literal("spools.write"),
+    requestId: id,
+    integrationId: id,
+    write: z.discriminatedUnion("op", [
+      spoolUsageWriteSchema.extend({ op: z.literal("usage") }),
+      z.object({ op: z.literal("create"), spool: spoolToCreateSchema }),
+    ]),
   }),
   /**
    * Slice workers: run `program` (the worker's `slicerPath`) with `args` in a work folder of the

@@ -96,7 +96,7 @@
     "takenSource": "Already set up: find its card on the Integrations page.",
     "secretHint": "Stored encrypted on this computer.",
     "reach": "Reached from",
-    "reachHint": "A printer on another network: a machine there reads it for the server through its connector.",
+    "reachHint": "A printer or spool library on another network: a machine there reaches it for the server through its connector.",
     "reachServer": "This server",
     "reachDevice": "{{name}}",
     "reachDeviceOffline": "{{name}} (offline)",

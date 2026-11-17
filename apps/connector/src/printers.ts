@@ -21,13 +21,15 @@ import { type Blob, decrypt, encrypt, loadKey } from "@3d-maker-suite/host";
 import { z } from "zod";
 import type { Request } from "./roots.ts";
 
-// The printers this connector reaches for its hub (ADR-0015, LAN reach). The hub assigns printer
-// sources to it (`GET /api/hub/device/printers`, with their keys); the connector runs each adapter
-// here, on the printer's network, and the core job tracker on what it reads. It posts the latest
-// status, and keeps every print the tracker saw end in `printers.json` until the hub has it: a
-// print that ends while the hub is away is never lost. The assignment is kept there too,
+// The printers and spool library this connector reaches for its hub (ADR-0015, LAN reach). The hub
+// assigns sources to it (`GET /api/hub/device/printers`, with their keys); the connector runs each
+// adapter here, on their network, and the core job tracker on what a printer reports. It posts the
+// latest status, and keeps every print the tracker saw end in `printers.json` until the hub has it:
+// a print that ends while the hub is away is never lost. The assignment is kept there too,
 // encrypted with `secret.key`, so it keeps watching through a restart while the hub is away.
-// Read only: nothing here sends a command to a printer.
+// Nothing here sends a command to a printer. Its one write is to a spool library, and only what
+// `spools.write` names (ADR-0014, 2026-11-17 Step 14b amendment): one spool's usage for one print
+// slot, or one spool of the app's made there. It keeps no outbox for them: the hub does.
 
 /** One ended print on its way to the hub. */
 type Held = { key: string; integrationId: string; print: TrackedPrint };
@@ -46,6 +48,8 @@ type Running = {
   /** Printers it reported: one missing from a later read is offline. */
   known: Set<string>;
   failing: boolean;
+  /** Writes to it, one after another: a late one and its retry never read the same weight. */
+  writing: Promise<unknown>;
 };
 
 /** Sent at most this many per request. */
@@ -158,7 +162,14 @@ export function createPrinterBridge({
         log: adapterLog(log, id),
         signal: abort.signal,
       });
-      running.set(id, { setup: setupOf(p), instance, abort, known: new Set(), failing: false });
+      running.set(id, {
+        setup: setupOf(p),
+        instance,
+        abort,
+        known: new Set(),
+        failing: false,
+        writing: Promise.resolve(),
+      });
       void poll(id);
     }
   }
@@ -269,11 +280,19 @@ export function createPrinterBridge({
   }
 
   type Read = Extract<HubEvent, { type: "printers.read" }>;
-  /** The hub asks for a source's test, printers or history; never a command to a printer. */
-  async function read(event: Read, reply: (body: unknown) => Promise<unknown>) {
+  type Write = Extract<HubEvent, { type: "spools.write" }>;
+  type Reply = (body: unknown) => Promise<unknown>;
+
+  /** The running source a request names; one the hub assigned since is fetched first. */
+  async function runningFor(integrationId: string) {
     await loading;
-    if (!running.has(event.integrationId)) await load();
-    const run = running.get(event.integrationId);
+    if (!running.has(integrationId)) await load();
+    return running.get(integrationId);
+  }
+
+  /** The hub asks for a source's test, printers, history or spools; never a command to a printer. */
+  async function read(event: Read, reply: Reply) {
+    const run = await runningFor(event.integrationId);
     if (!run) return void (await reply({ ok: false, code: "ENOENT" }));
     const { instance } = run;
     try {
@@ -282,14 +301,44 @@ export function createPrinterBridge({
           ? await instance.test()
           : event.op === "printers"
             ? ((await instance.printers?.listPrinters()) ?? [])
-            : instance.printHistory
-              ? await instance.printHistory.listPrints({
-                  since: event.since,
-                  until: event.until,
-                  cursor: event.cursor,
-                })
-              : undefined;
+            : event.op === "spools"
+              ? await instance.spools?.listSpools()
+              : instance.printHistory
+                ? await instance.printHistory.listPrints({
+                    since: event.since,
+                    until: event.until,
+                    cursor: event.cursor,
+                  })
+                : undefined;
       if (result === undefined) return void (await reply({ ok: false, code: "ENOTSUP" }));
+      await reply({ ok: true, result });
+    } catch (e) {
+      await reply({ ok: false, code: e instanceof IntegrationError ? e.code : "unknown" });
+    }
+  }
+
+  /**
+   * The hub writes what prints took to a spool library assigned to it: exactly the two writes of
+   * `SpoolUsageTarget`, each idempotent in the adapter. Anything else answers ENOTSUP.
+   */
+  async function write(event: Write, reply: Reply) {
+    const run = await runningFor(event.integrationId);
+    if (!run) return void (await reply({ ok: false, code: "ENOENT" }));
+    const target = run.instance.spoolUsage;
+    if (!target) return void (await reply({ ok: false, code: "ENOTSUP" }));
+    const w = event.write;
+    const done = run.writing.then(
+      (): Promise<unknown> =>
+        w.op === "usage"
+          ? target.writeUsage({ spoolId: w.spoolId, key: w.key, grams: w.grams, sent: w.sent })
+          : target.createSpool(w.spool),
+    );
+    run.writing = done.catch(() => {});
+    try {
+      const result = await done;
+      log(
+        `spools ${event.integrationId}: ${w.op === "usage" ? `usage ${w.key} on spool ${w.spoolId}` : "spool made"}`,
+      );
       await reply({ ok: true, result });
     } catch (e) {
       await reply({ ok: false, code: e instanceof IntegrationError ? e.code : "unknown" });
@@ -304,6 +353,7 @@ export function createPrinterBridge({
     adapterIds: () => adapters.map((a) => a.id),
     load,
     read,
+    write,
     flush,
     /** The prints waiting for the hub (tests, status). */
     held: () => outbox.length,

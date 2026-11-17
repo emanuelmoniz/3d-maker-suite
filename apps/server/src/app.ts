@@ -425,10 +425,13 @@ export async function buildApp(
   // missed with it (the prints it held come on their own).
   hub.onOffline((deviceId) => printerStatus.deviceOffline(deviceId));
   hub.onOnline((deviceId) => {
-    for (const { integrationId } of printerBridge.assigned(deviceId))
+    const assigned = printerBridge.assigned(deviceId);
+    for (const { integrationId } of assigned)
       void syncer
         .runDue(integrationId)
         .catch((err) => logFor("integrations").error({ err, integrationId }, "sync failed"));
+    // A spool library behind it: the usage that waited goes now (Step 14b).
+    if (assigned.length) spoolPush.kick();
   });
   await app.register(
     hubDevicePrintersRoutes(db, printerBridge, printerStatus, logFor("integrations")),
