@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { buildApp } from "./app.ts";
 import { createSyncer } from "./integrations/sync.ts";
+import { modelIdFor } from "./lib/catalog.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -889,5 +890,32 @@ describe("a spool's tag (Bambu AMS RFID)", () => {
     expect(tagOf(a.id)).toBeNull();
     record("p2", "TAG-C", at(100));
     expect(tagOf(a.id)).toBe("TAG-C");
+  });
+});
+
+describe("sort and filter by Monitoring (6.1.0 Step 3)", () => {
+  it("lists the printers by their live state, paged in SQL", async () => {
+    const mine = (
+      await app.inject({
+        method: "POST",
+        url: "/api/printers",
+        payload: { name: "Plain", modelId: modelIdFor(db, "Bambu Lab", "P1S") },
+      })
+    ).json();
+    await reads([snap(0)]);
+    const names = async (query: string) =>
+      ((await app.inject(`/api/printers?${query}`)).json().items as { id: string }[]).map(
+        (p) => p.id,
+      );
+    const live = (await statuses())[0]?.printerId as string;
+    // Printing is only the synced printer; the one nothing reads is not monitored.
+    expect(await names("monitoring=printing")).toEqual([live]);
+    expect(await names("monitoring=none")).toEqual([mine.id]);
+    expect(await names("monitoring=printing,none")).toHaveLength(2);
+    expect(await names("monitoring=offline")).toEqual([]);
+    // Not monitored ranks first, printing after it; descending reverses.
+    expect(await names("sort=monitoring")).toEqual([mine.id, live]);
+    expect(await names("sort=-monitoring")).toEqual([live, mine.id]);
+    expect((await app.inject("/api/printers?monitoring=bogus")).statusCode).toBe(400);
   });
 });

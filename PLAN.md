@@ -3643,7 +3643,7 @@ Do Step 1 of the 6.1.0 plan in PLAN.md.
 Do Step 2 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Sort and filter the printers by Monitoring
+### [x] Step 3 - Sort and filter the printers by Monitoring
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `printerSortFields` and `printerFilters` (`packages/core/src/schemas/printers.ts`) get `monitoring`. The filter values are Not monitored, Idle, Printing, Paused, Offline, Machine offline and Source error.

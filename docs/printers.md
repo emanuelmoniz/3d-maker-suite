@@ -20,7 +20,7 @@ A hub on another network, such as a VPS, reaches these printers through the conn
 
 ## Connection and monitoring
 
-The **Printers** list has a **Monitoring** column that says whether the app can see each printer right now. It updates by itself, and it can't be sorted or filtered: the live status is kept in memory, and the list comes from the database. The **State** column (working, in repair…) is separate and stays as you set it.
+The **Printers** list has a **Monitoring** column that says whether the app can see each printer right now. It updates by itself, and it can be sorted and filtered (Not monitored, Idle, Printing, Paused, Offline, Machine offline, Source error). Rows never move by themselves: while the list is sorted or filtered by Monitoring and a shown printer's state changes, a hint says so and **Refresh the list** reloads it. The **State** column (working, in repair…) is separate and stays as you set it.
 
 | Monitoring | Meaning | What to do |
 | --- | --- | --- |

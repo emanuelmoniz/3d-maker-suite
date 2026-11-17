@@ -262,6 +262,8 @@
     "offline": "Offline",
     "machineOffline": "Machine offline",
     "error": "Source error",
+    "changed": "Some printers' states changed.",
+    "refresh": "Refresh the list",
     "hints": {
       "none": "No source reads this printer, or its integration is paused. Add or resume one in Integrations.",
       "offline": "It doesn't answer: check that it is on, on the network, and that the address is right.",

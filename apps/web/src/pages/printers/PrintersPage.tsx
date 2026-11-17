@@ -1,14 +1,19 @@
 import {
   type Accessory,
   accessoryFilters,
+  MONITORING_FILTERS,
+  monitoringKey,
   monitoringOf,
   type PrinterRow,
   printerFilters,
 } from "@3d-maker-suite/core";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus, Printer as PrinterIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
+import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -27,6 +32,21 @@ import { addClass } from "./Catalog.tsx";
 import { MonitoringBadge } from "./MonitoringBadge.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
 
+/** The label of each Monitoring filter value; literal keys so `pnpm i18n:check` sees them. */
+function useMonitoringLabel() {
+  const { t } = useTranslation();
+  const labels: Record<(typeof MONITORING_FILTERS)[number], string> = {
+    none: t("printers:monitoring.none"),
+    idle: t("printers:status.states.idle"),
+    printing: t("printers:status.states.printing"),
+    paused: t("printers:status.states.paused"),
+    offline: t("printers:monitoring.offline"),
+    machine_offline: t("printers:monitoring.machineOffline"),
+    source_error: t("printers:monitoring.error"),
+  };
+  return (v: (typeof MONITORING_FILTERS)[number]) => labels[v];
+}
+
 export function PrintersPage() {
   const { t } = useTranslation();
   const stateLabel = useStateLabel();
@@ -37,6 +57,17 @@ export function PrintersPage() {
   const tagColumn = useTagColumn<PrinterRow>("printer");
   const models = useModelInfo();
   const live = usePrinterStatus().data ?? [];
+  const monitoringLabel = useMonitoringLabel();
+  const queryClient = useQueryClient();
+  // Sorted or filtered by Monitoring, rows never move by themselves: a change shows a hint instead.
+  const byMonitoring = query.sort?.replace(/^-/, "") === "monitoring" || !!query.monitoring;
+  const keysOf = (ids: string[]) => ids.map((id) => monitoringKey(monitoringOf(id, live))).join();
+  const [shown, setShown] = useState("");
+  useEffect(() => {
+    if (data) setShown(keysOf(data.items.map((p) => p.id)));
+  }, [data]);
+  const changed =
+    byMonitoring && !!data && !!shown && keysOf(data.items.map((p) => p.id)) !== shown;
 
   const add = (
     <span className="flex flex-wrap gap-2">
@@ -64,6 +95,14 @@ export function PrintersPage() {
       {isError && (
         <p role="alert" className="text-bad">
           {t("printers:loadError")}
+        </p>
+      )}
+      {changed && (
+        <p role="status" className="mb-3 flex flex-wrap items-center gap-3 text-muted">
+          {t("printers:monitoring.changed")}
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["printers", "list"] })}>
+            {t("printers:monitoring.refresh")}
+          </Button>
         </p>
       )}
       {data && !data.total && !Object.keys(query).length && !hasArchived ? (
@@ -113,11 +152,17 @@ export function PrintersPage() {
                 filter: "state",
                 filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
               },
-              // Live and display-only: the status is in memory, the list comes from the database.
+              // Live badge; sort and filter use the status the server holds in memory.
               {
                 id: "monitoring",
                 header: t("printers:list.columns.monitoring"),
                 cell: (p) => <MonitoringBadge monitoring={monitoringOf(p.id, live)} />,
+                sort: "monitoring",
+                filter: "monitoring",
+                filterOptions: MONITORING_FILTERS.map((v) => ({
+                  value: v,
+                  label: monitoringLabel(v),
+                })),
               },
               ...tagColumn,
               {

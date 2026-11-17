@@ -18,6 +18,31 @@ export type Monitoring =
   | { kind: "error" }
   | { kind: "checking" };
 
+/**
+ * The values of the Monitoring filter, in sort order (ADR-0015). `error` is the source's, not the
+ * printer's own error state.
+ */
+export const MONITORING_FILTERS = [
+  "none",
+  "idle",
+  "printing",
+  "paused",
+  "offline",
+  "machine_offline",
+  "source_error",
+] as const;
+
+/** A printer's Monitoring as the filter names it; states without a filter value are their own. */
+export function monitoringKey(m: Monitoring): string {
+  return m.kind === "online" ? m.state : m.kind === "error" ? "source_error" : m.kind;
+}
+
+/** Sort position of a monitoring key: the filter values in order, any other after them. */
+export function monitoringRank(key: string): number {
+  const i = (MONITORING_FILTERS as readonly string[]).indexOf(key);
+  return i < 0 ? MONITORING_FILTERS.length : i;
+}
+
 /** The best of a printer's sources first: online beats a source error beats offline. */
 const rank = (m: Monitoring) =>
   m.kind === "online"

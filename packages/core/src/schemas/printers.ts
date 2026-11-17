@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MONITORING_FILTERS } from "../services/monitoring.ts";
 import { printerSchema } from "./entities.ts";
 import { COMMENT_STATUSES } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
@@ -96,6 +97,7 @@ export const printerSortFields = [
   "createdAt",
   "model",
   "state",
+  "monitoring",
   "powerW",
   "runtimeSec",
   "prints",
@@ -107,6 +109,7 @@ export const printerFilters = {
   name: { kind: "text" },
   model: { kind: "text" },
   state: { kind: "select" },
+  monitoring: { kind: "select", options: MONITORING_FILTERS },
   tagId: { kind: "select" },
   powerW: { kind: "number" },
   prints: { kind: "number" },

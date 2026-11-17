@@ -4,6 +4,9 @@ import {
   dateRangeQuery,
   type IntegrationAdapter,
   listQuery,
+  monitoringKey,
+  monitoringOf,
+  monitoringRank,
   type Page,
   type Printer,
   type PrinterDetail,
@@ -25,7 +28,7 @@ import {
   summarizePrints,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, getTableColumns, isNull } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -151,8 +154,28 @@ export const printersRoutes =
           response: { 200: pageOf(printerRowSchema) },
         },
       },
-      async (req) =>
-        listPage(db, printers, req.query, {
+      async (req) => {
+        // The state is in memory, the list in the database: the ids are worked out per request, so
+        // the filter is an IN and the sort a CASE, and paging stays in SQL.
+        const live = app.printerStatus.all();
+        const keyOf = new Map<string, string>();
+        for (const { id } of db.select({ id: printers.id }).from(printers).all())
+          keyOf.set(id, monitoringKey(monitoringOf(id, live)));
+        const wanted = req.query.monitoring;
+        const matching =
+          wanted && [...keyOf].filter(([, k]) => wanted.includes(k)).map(([id]) => id);
+        const ranked = new Map<number, string[]>();
+        for (const [id, k] of keyOf) {
+          const r = monitoringRank(k);
+          if (r > 0) ranked.set(r, [...(ranked.get(r) ?? []), id]);
+        }
+        const monitoringSort = ranked.size
+          ? sql`CASE ${sql.join(
+              [...ranked].map(([r, ids]) => sql`WHEN ${inArray(printers.id, ids)} THEN ${r}`),
+              sql` `,
+            )} ELSE 0 END`
+          : sql`0`;
+        return listPage(db, printers, req.query, {
           select: { ...getTableColumns(printers), ...usage },
           sort: {
             // The name starts with the number: sorting by it sorts the name as shown (2 before 10).
@@ -160,6 +183,7 @@ export const printersRoutes =
             createdAt: printers.createdAt,
             model: brandModel,
             state: printers.state,
+            monitoring: monitoringSort,
             powerW: printers.powerW,
             runtimeSec: usage.runtimeSec,
             prints: usage.prints,
@@ -178,8 +202,10 @@ export const printersRoutes =
           where: [
             taggedWith(db, "printer", printers.id, req.query.tagId),
             archivedWhere(printers.archivedAt, req.query.archived),
+            matching && inArray(printers.id, matching),
           ],
-        }) as Page<PrinterRow>,
+        }) as Page<PrinterRow>;
+      },
     );
 
     app.post(

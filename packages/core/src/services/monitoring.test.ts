@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PrinterStatus } from "../schemas/integrations.ts";
-import { monitoringOf } from "./monitoring.ts";
+import { MONITORING_FILTERS, monitoringKey, monitoringOf, monitoringRank } from "./monitoring.ts";
 
 const status = (
   integrationId: string,
@@ -91,5 +91,21 @@ describe("monitoringOf", () => {
         status("b", "offline", { failing: "refused" }),
       ]),
     ).toEqual({ kind: "error" });
+  });
+});
+
+describe("monitoringKey and monitoringRank", () => {
+  it("names a state as the filter does", () => {
+    expect(monitoringKey({ kind: "none" })).toBe("none");
+    expect(monitoringKey({ kind: "online", state: "printing", progress: 4 })).toBe("printing");
+    expect(monitoringKey({ kind: "error" })).toBe("source_error");
+    expect(monitoringKey({ kind: "machine_offline", machine: "pc" })).toBe("machine_offline");
+  });
+
+  it("ranks the filter values in order, any other state last", () => {
+    const ranks = MONITORING_FILTERS.map(monitoringRank);
+    expect(ranks).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(monitoringRank("finished")).toBe(MONITORING_FILTERS.length);
+    expect(monitoringRank("checking")).toBe(MONITORING_FILTERS.length);
   });
 });
