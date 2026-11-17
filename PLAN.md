@@ -3574,7 +3574,7 @@ Do Step 19b of the 6.0.0 plan in PLAN.md.
 Do Step 19c of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 20 - Docs, push & v6.0.0 release
+### [x] Step 20 - Docs, push & v6.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (dashboard with live printer cards, printer page with loaded spools (one loaded by the printer) and its connection, Printers list with Monitoring), README, CHANGELOG, version `6.0.0`.

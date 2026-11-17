@@ -2,6 +2,23 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.0.0] - 2026-11-17
+
+Stable release. Everything in 6.0.0-alpha.1 to alpha.5 is included; nothing changed after alpha.5. Back up before updating. Migrations 0131 to 0137 apply as described in the pre-releases. Updating from 5.x keeps all data. Connectors update to the hub's version; one older than 6.0.0 can't reach printers.
+
+### Added
+- **Printers on the hub's network or through a connector**: Moonraker (Klipper), Bambu LAN, PrusaLink and OctoPrint join Bambu Cloud, with live status, prints and grams from the job file ([docs/printers.md](docs/printers.md), [docs/bambu-lan.md](docs/bambu-lan.md), [docs/moonraker.md](docs/moonraker.md), [docs/prusalink.md](docs/prusalink.md), [docs/octoprint.md](docs/octoprint.md))
+- **Printers through a connector** and **Spoolman through a connector**: a hub on another network (a VPS) reaches printers and imports and writes back Spoolman spools through a machine on your LAN ([docs/hub.md](docs/hub.md))
+- **Spoolman**: spools imported through the usual review, and each print's usage written back exactly once ([docs/spoolman.md](docs/spoolman.md))
+- **Loaded by the printer**: a printer that reports its slots loads the spool there with no click; **Accept** loads the likeliest one where several fit ([docs/printers.md](docs/printers.md#grams-and-spools))
+- **Faster printer status** for Bambu LAN: a change shows within about 2 seconds ([docs/bambu-lan.md](docs/bambu-lan.md))
+- **Connection and monitoring**: a live Monitoring column on the Printers list and a Connection section on each printer ([docs/printers.md](docs/printers.md#connection-and-monitoring))
+- **A spool linked to several libraries**, and an RFID tag on the spool page
+- **Supported printers** table in the README
+
+### Fixed
+- The spool on the back of a Bambu printer (and an AMS HT) can be loaded
+
 ## [6.0.0-alpha.5] - 2026-11-17
 
 Pre-release, fifth of 6.0.0. Lists what changed since 6.0.0-alpha.4. Back up before updating. Migration 0137 applies. Updating keeps all data. Connectors update to the hub's version.

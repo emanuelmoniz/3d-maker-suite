@@ -99,6 +99,9 @@ test("README screenshots", async ({ page, app }) => {
   await app.api("POST", "/api/accessories", { name: "Spare hotend 0.6", type: "Hotend" });
   // After the seeded printers, so they keep their numbers. Its live status is on the dashboard.
   await app.api("POST", `/api/integrations/${mock.id}/sync`, { type: "printers" });
+  // The printer page shows the mock printer: its connection and the spool its slot reads.
+  const printers = await app.api<{ items: { id: string; name: string }[] }>("GET", "/api/printers");
+  const mockPrinter = printers.items.find((p) => p.name.includes("Mock printer"));
 
   const others = [
     await app.api<{ id: string }>("POST", "/api/projects", { name: "Desk organizer" }),
@@ -154,7 +157,7 @@ test("README screenshots", async ({ page, app }) => {
   const shots: [string, string][] = [
     ["dashboard", "/"],
     ["printers", "/printers"],
-    ["printer", `/printers/${printer.id}`],
+    ["printer", `/printers/${mockPrinter?.id ?? printer.id}`],
     ["accessory", `/printers/accessories/${ams.id}`],
     ["maintenance", "/maintenance"],
     ["maintenance-type", `/maintenance/types/${type.id}`],
