@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures.ts";
 import { filamentOf, pick, seedFilament } from "./helpers.ts";
 
-// 6.0.0-alpha.2 fixes: the filament review alert's button to the queue, the queue's spool column
+// Fixed in 6.0.0-alpha.3: the filament review alert's button to the queue, the queue's spool column
 // wide enough for the picked spool, and the Started field's date and time side by side.
 const WIDTHS = [
   { name: "phone", width: 375, height: 800 },

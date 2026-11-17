@@ -4,6 +4,15 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [6.0.0-alpha.3] - 2026-11-17
+
+Pre-release, third of 6.0.0. Fixes only, since 6.0.0-alpha.2. No migrations. Updating keeps all data.
+
+### Fixed
+- The **Filament to review** alert has a **Review filament** button to the queue, like the other alerts, and its Task no longer reads "undefined"
+- In **Filament to review**, the spool column was too narrow to show the spool you picked
+- **Edit print**: the Started field's time took the whole row and squeezed the date to nothing, with the calendar button outside the field
+
 ## [6.0.0-alpha.2] - 2026-11-16
 
 Pre-release, second of 6.0.0. Lists what changed since 6.0.0-alpha.1. Back up before updating. Migrations 0131 (learned spool tags, a printer's several sources), 0132 (usage written back to Spoolman) and 0133 (a spool's links to its libraries) apply as described below. Updating keeps all data.
