@@ -21,7 +21,7 @@ let app: Awaited<ReturnType<typeof buildApp>>;
 let state: MockState;
 let cookie: string;
 
-const send = (method: "GET" | "POST" | "PATCH", url: string, payload?: object) =>
+const send = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
   app.inject({ method, url, payload, headers: { cookie } });
 const device = (token: string, method: "GET" | "POST", url: string, payload?: object) =>
   app.inject({
