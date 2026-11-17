@@ -7,22 +7,33 @@ import type { PrinterStatus } from "../schemas/integrations.ts";
  *  - `online`: it answers, with what it is doing (`state`, and `progress` in percent while it prints);
  *  - `offline`: it doesn't answer;
  *  - `machine_offline`: it is reached through a machine whose connector is offline;
- *  - `error`: its source fails as a whole (a wrong access code or key, signed out).
+ *  - `error`: its source refuses its access code or key (a wrong one, signed out);
+ *  - `checking`: its source has just started and hasn't read yet.
  */
 export type Monitoring =
   | { kind: "none" }
   | { kind: "online"; state: PrinterStatus["snapshot"]["state"]; progress?: number }
   | { kind: "offline" }
   | { kind: "machine_offline"; machine: string }
-  | { kind: "error" };
+  | { kind: "error" }
+  | { kind: "checking" };
 
 /** The best of a printer's sources first: online beats a source error beats offline. */
 const rank = (m: Monitoring) =>
-  m.kind === "online" ? 3 : m.kind === "error" ? 2 : m.kind === "machine_offline" ? 1 : 0;
+  m.kind === "online"
+    ? 4
+    : m.kind === "error"
+      ? 3
+      : m.kind === "checking"
+        ? 2
+        : m.kind === "machine_offline"
+          ? 1
+          : 0;
 
 /** One source's own reading of its printer. */
 export function monitoringOfSource(s: PrinterStatus): Monitoring {
-  if (s.failing) return { kind: "error" };
+  if (s.failing === "refused") return { kind: "error" };
+  if (s.pending) return { kind: "checking" };
   if (s.snapshot.state === "offline")
     return s.via && !s.via.online
       ? { kind: "machine_offline", machine: s.via.deviceName }

@@ -134,11 +134,22 @@ describe("monitoring (6.0.0 Step 18)", () => {
     state.fail = "auth_required";
     await app.printerStatus.pollAll();
     const [one] = await statuses();
-    expect(one).toMatchObject({ failing: true, snapshot: { state: "offline" } });
+    expect(one).toMatchObject({ failing: "refused", snapshot: { state: "offline" } });
+    // Any other failure is not a wrong key.
+    state.fail = "unreachable";
+    await app.printerStatus.pollAll();
+    expect((await statuses())[0]?.failing).toBe("other");
     // Read again: the flag goes.
     state.fail = undefined;
     await reads([snap(10)]);
     expect((await statuses())[0]?.failing).toBeUndefined();
+  });
+
+  it("a source that started and hasn't read yet is checking, not unmonitored", async () => {
+    const [one] = await statuses();
+    expect(one).toMatchObject({ pending: true, snapshot: { state: "offline" } });
+    await reads([snap(0)]);
+    expect((await statuses())[0]?.pending).toBeUndefined();
   });
 
   it("the connection names the source, its secrets and where it is reached from, never a value", async () => {

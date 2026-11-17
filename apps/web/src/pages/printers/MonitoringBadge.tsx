@@ -46,20 +46,22 @@ export function MonitoringBadge({ monitoring: m }: { monitoring: Monitoring }) {
   const [dot, text] =
     m.kind === "none"
       ? ["bg-border", t("printers:monitoring.none")]
-      : m.kind === "offline"
-        ? ["bg-border", t("printers:monitoring.offline")]
-        : m.kind === "machine_offline"
-          ? ["bg-warn", t("printers:monitoring.machineOffline")]
-          : m.kind === "error"
-            ? ["bg-bad", t("printers:monitoring.error")]
-            : m.progress != null
-              ? [
-                  DOT[m.state],
-                  t("printers:monitoring.printing", {
-                    percent: formatNumber(m.progress / 100, { style: "percent" }),
-                  }),
-                ]
-              : [DOT[m.state], t(STATES[m.state])];
+      : m.kind === "checking"
+        ? ["bg-border", t("printers:monitoring.checking")]
+        : m.kind === "offline"
+          ? ["bg-border", t("printers:monitoring.offline")]
+          : m.kind === "machine_offline"
+            ? ["bg-warn", t("printers:monitoring.machineOffline")]
+            : m.kind === "error"
+              ? ["bg-bad", t("printers:monitoring.error")]
+              : m.progress != null
+                ? [
+                    DOT[m.state],
+                    t("printers:monitoring.printing", {
+                      percent: formatNumber(m.progress / 100, { style: "percent" }),
+                    }),
+                  ]
+                : [DOT[m.state], t(STATES[m.state])];
   return (
     <span className={cx("inline-flex items-center gap-1.5", m.kind === "none" && "text-muted")}>
       <span className={cx("size-2 shrink-0 rounded-full", dot)} aria-hidden />

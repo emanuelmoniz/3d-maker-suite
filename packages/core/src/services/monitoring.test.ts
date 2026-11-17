@@ -52,8 +52,17 @@ describe("monitoringOf", () => {
     expect(monitoringOf("p1", [status("a", "offline", { via: { ...via, online: true } })])).toEqual(
       { kind: "offline" },
     );
-    expect(monitoringOf("p1", [status("a", "offline", { failing: true })])).toEqual({
+    expect(monitoringOf("p1", [status("a", "offline", { failing: "refused" })])).toEqual({
       kind: "error",
+    });
+  });
+
+  it("a source that fails for another reason, or hasn't read yet, is not a wrong key", () => {
+    expect(monitoringOf("p1", [status("a", "offline", { failing: "other" })])).toEqual({
+      kind: "offline",
+    });
+    expect(monitoringOf("p1", [status("a", "offline", { pending: true })])).toEqual({
+      kind: "checking",
     });
   });
 
@@ -62,7 +71,7 @@ describe("monitoringOf", () => {
       monitoringOf("p1", [
         status("cloud", "offline"),
         status("lan", "printing", {}, 10),
-        status("other", "offline", { failing: true }),
+        status("other", "offline", { failing: "refused" }),
       ]),
     ).toEqual({ kind: "online", state: "printing", progress: 10 });
     // Busy online beats idle online.
@@ -79,7 +88,7 @@ describe("monitoringOf", () => {
     expect(
       monitoringOf("p1", [
         status("a", "offline", { via }),
-        status("b", "offline", { failing: true }),
+        status("b", "offline", { failing: "refused" }),
       ]),
     ).toEqual({ kind: "error" });
   });

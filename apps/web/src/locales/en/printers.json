@@ -257,6 +257,7 @@
   },
   "monitoring": {
     "none": "Not monitored",
+    "checking": "Checking…",
     "printing": "Printing {{percent}}",
     "offline": "Offline",
     "machineOffline": "Machine offline",

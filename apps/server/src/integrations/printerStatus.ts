@@ -1,6 +1,7 @@
 import {
   type DevicePrinterStatus,
   type IntegrationAdapter,
+  isRefused,
   PRINTER_BUSY_STATES,
   PRINTER_POLL_MS,
   type PrinterSnapshot,
@@ -51,7 +52,7 @@ type Source = {
   timer?: NodeJS.Timeout;
   /** Printers it reported: one missing from a later read is offline. */
   known: Set<string>;
-  failing: boolean;
+  failing: false | "refused" | "other";
 };
 
 /** A source its connector reads (ADR-0015, LAN reach). */
@@ -61,8 +62,8 @@ type Bridged = {
   known: Set<string>;
   /** The printers whose job the connector's tracker follows, as it last said. */
   active: Set<string>;
-  /** The source failed whole on its connector (a wrong key). */
-  failing: boolean;
+  /** The source failed whole on its connector. */
+  failing: false | "refused" | "other";
 };
 
 /** Why a printer is silent during a print: it stopped answering, or its connector is away. */
@@ -136,9 +137,14 @@ export function createPrinterStatus(
     const ours = sourcePrinters(db);
     const names = new Map<string, string>();
     /** A source that fails whole (a wrong key) says so on each of its printers. */
-    const failed = (integrationId: string) => {
+    const failed = (integrationId: string): "refused" | "other" | undefined => {
       const b = bridged.get(integrationId);
-      return b ? b.failing && hub.online(b.deviceId) : !!sources.get(integrationId)?.failing;
+      const how = b
+        ? hub.online(b.deviceId)
+          ? b.failing
+          : false
+        : sources.get(integrationId)?.failing;
+      return how || undefined;
     };
     const viaOf = (integrationId: string) => {
       const b = bridged.get(integrationId);
@@ -160,15 +166,15 @@ export function createPrinterStatus(
           integrationId,
           snapshot,
           ...(via && { via }),
-          ...(failed(integrationId) && { failing: true }),
+          ...(failed(integrationId) && { failing: failed(integrationId) }),
         },
       ];
     });
-    // A source that never read its printer (a wrong key from the start) still has to say so.
+    // A source that never read its printer says why: it failed (a wrong key from the start), or it
+    // has only just started (checking, not "not monitored").
     const seen = new Set(out.map((s) => `${s.integrationId}:${s.printerId}`));
     const at = new Date().toISOString();
-    for (const id of new Set([...sources.keys(), ...bridged.keys()])) {
-      if (!failed(id)) continue;
+    for (const id of sources.keys()) {
       for (const [ext, printerId] of printersOfSource(db, id)) {
         if (seen.has(`${id}:${printerId}`) || archived.has(printerId)) continue;
         const via = viaOf(id);
@@ -177,7 +183,7 @@ export function createPrinterStatus(
           integrationId: id,
           snapshot: { printerExternalId: ext, at, state: "offline", slots: [] },
           ...(via && { via }),
-          failing: true,
+          ...(failed(id) ? { failing: failed(id) } : { pending: true }),
         });
       }
     }
@@ -300,7 +306,7 @@ export function createPrinterStatus(
     } catch (err) {
       // Logged once per outage; the source's own error is the adapter's to keep out of the log.
       if (!src.failing) log.warn({ integrationId: id, err }, "printer status not read");
-      src.failing = true;
+      src.failing = isRefused(err) ? "refused" : "other";
       read = [];
     }
     // The source stopped while it was reading.
@@ -344,7 +350,7 @@ export function createPrinterStatus(
       if (!answered.has(ext))
         read.push({ printerExternalId: ext, at, state: "offline", slots: [] });
     b.active = new Set(r.active);
-    b.failing = r.failing;
+    b.failing = r.failing ? (r.refused ? "refused" : "other") : false;
     for (const s of read) {
       const key = `${id}:${s.printerExternalId}`;
       latest.set(key, { integrationId: id, snapshot: s });

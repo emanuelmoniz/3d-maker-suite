@@ -8,6 +8,7 @@ import {
   type IntegrationAdapter,
   IntegrationError,
   type IntegrationInstance,
+  isRefused,
   type Logger,
   PRINTER_BUSY_STATES,
   PRINTER_POLL_MS,
@@ -50,7 +51,7 @@ type Running = {
   timer?: NodeJS.Timeout;
   /** Printers it reported: one missing from a later read is offline. */
   known: Set<string>;
-  failing: boolean;
+  failing: false | "refused" | "other";
   /** Writes to it, one after another: a late one and its retry never read the same weight. */
   writing: Promise<unknown>;
 };
@@ -196,7 +197,7 @@ export function createSourceBridge({
       // Once per outage; the adapter keeps its own error text free of keys.
       if (!run.failing)
         log(`printer ${id}: not read (${e instanceof IntegrationError ? e.code : "unknown"})`);
-      run.failing = true;
+      run.failing = isRefused(e) ? "refused" : "other";
       read = [];
     }
     if (running.get(id) !== run) return;
@@ -224,7 +225,13 @@ export function createSourceBridge({
     const active = [...run.known].filter((ext) => trackers.get(`${id}:${ext}`)?.phase === "active");
     void request("/sources/status", {
       method: "POST",
-      body: { integrationId: id, snapshots: read, active, failing: run.failing },
+      body: {
+        integrationId: id,
+        snapshots: read,
+        active,
+        failing: !!run.failing,
+        refused: run.failing === "refused",
+      },
     }).catch(() => {}); // the hub is away: the next read sends the latest
     if (outbox.length) void flush();
     if (stopped || running.get(id) !== run) return;

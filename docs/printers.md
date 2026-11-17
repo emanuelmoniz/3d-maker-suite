@@ -26,9 +26,10 @@ The **Printers** list has a **Monitoring** column that says whether the app can 
 | --- | --- | --- |
 | **Not monitored** | No source reads the printer, or its integration is paused. | Add the printer's integration, or resume it in **Settings → Integrations**. |
 | **Idle**, **Printing 45 %**, **Paused**… | The printer answers; this is what it is doing. | Nothing. |
-| **Offline** | The source works but the printer doesn't answer. | Check that it is on, on the network, and that the address is right. |
+| **Checking…** | The source has just started and hasn't read the printer yet; it clears in a few seconds. | Nothing. |
+| **Offline** | The printer doesn't answer, or its source fails for another reason (not a wrong key). | Check that it is on, on the network, and that the address is right. |
 | **Machine offline** | The printer is reached through a machine whose connector is offline. | Start the connector on that machine ([hub.md](hub.md#printers-through-a-connector)). The printer is read again as soon as it is back. |
-| **Source error** | The source can't be read: the access code or API key is wrong or has changed, or the account is signed out. | **Edit in Integrations** and enter the access code or key again. |
+| **Source error** | The source refuses its access code or API key: it is wrong or has changed, or the account is signed out. | **Edit in Integrations** and enter the access code or key again. |
 
 A printer with several sources, such as Bambu Cloud and Bambu LAN, shows the best one: a source that sees the printer wins over one that doesn't.
 

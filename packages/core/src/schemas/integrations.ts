@@ -168,8 +168,13 @@ export const printerStatusSchema = z.object({
   snapshot: printerSnapshotSchema,
   /** Reached through a connector (ADR-0015): which one, and whether it is online. */
   via: z.object({ deviceId: id, deviceName: z.string(), online: z.boolean() }).optional(),
-  /** The source itself fails (a wrong access code or key, signed out): its printers are out of reach. */
-  failing: z.boolean().optional(),
+  /**
+   * The source itself can't be read: `refused` = a wrong access code or key, signed out; `other` =
+   * any other failure. Its printers are out of reach either way.
+   */
+  failing: z.enum(["refused", "other"]).optional(),
+  /** Its source started and hasn't read yet: nothing is known of the printer. */
+  pending: z.boolean().optional(),
 });
 
 /**

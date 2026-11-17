@@ -321,6 +321,11 @@ export class IntegrationError extends Error {
   }
 }
 
+/** The codes that say a source refuses its key or sign-in (as opposed to being out of reach). */
+const REFUSED: readonly IntegrationErrorCode[] = ["auth_required", "auth_expired", "login_failed"];
+export const isRefused = (err: unknown) =>
+  err instanceof IntegrationError && REFUSED.includes(err.code);
+
 /** What a channel delivers. Plain text; channels don't know about alert kinds. */
 export interface Notification {
   title: string;

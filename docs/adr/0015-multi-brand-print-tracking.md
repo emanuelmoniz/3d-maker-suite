@@ -56,7 +56,7 @@ Each one is an adapter package in `packages/adapters/<id>` (ADR-0003), configure
 ### Live status
 - The latest snapshot per printer lives **in memory only**. Nothing is stored as telemetry history.
 - The server pushes it to the web app over SSE, the same channel pattern as ADR-0014. The dashboard shows a card per printer: state, progress, ETA, temperatures.
-- **Monitoring (amended in 6.0.0 Step 18).** The Printers list shows a display-only **Monitoring** column and a printer's page a **Connection** section, both from the same snapshots: not monitored (no source, or a paused integration), the printer's state, offline, machine offline (its connector is away), or source error (the source fails whole: a wrong key, signed out). A printer with several sources shows the best one. It isn't sortable or filterable: the status is in memory and the list is queried from the database. The Connection section shows no secret, only that one is set, and the host only to `integrations.manage`.
+- **Monitoring (amended in 6.0.0 Step 18).** The Printers list shows a display-only **Monitoring** column and a printer's page a **Connection** section, both from the same snapshots: not monitored (no source, or a paused integration), the printer's state, offline, machine offline (its connector is away), or source error (the source refuses its key or sign-in; any other failure of the source reads offline). A printer with several sources shows the best one. It isn't sortable or filterable: the status is in memory and the list is queried from the database. The Connection section shows no secret, only that one is set, and the host only to `integrations.manage`.
 - **No printer control.** Nothing pauses, stops or starts a print.
 
 ### One printer, several sources

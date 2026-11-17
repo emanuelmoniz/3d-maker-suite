@@ -650,6 +650,8 @@ export const devicePrinterStatusSchema = z.object({
   snapshots: z.array(z.unknown()).max(50),
   active: z.array(z.string().max(200)).max(50),
   failing: z.boolean(),
+  /** `failing` because the key or sign-in is refused; a connector that doesn't say is "other". */
+  refused: z.boolean().optional(),
 });
 /**
  * Prints a connector's job tracker saw end (`POST /api/hub/device/sources/prints`), kept on its
