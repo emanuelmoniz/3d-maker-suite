@@ -11,6 +11,7 @@ import {
   type MockState,
   mockAdapter,
   mockHostAdapter,
+  pushChange,
 } from "@3d-maker-suite/adapter-mock";
 import { spoolmanAdapter } from "@3d-maker-suite/adapter-spoolman";
 import { type FakeSpoolman, fakeSpoolman } from "@3d-maker-suite/adapter-spoolman/src/fake.ts";
@@ -133,7 +134,12 @@ describe("printers through a connector", {
     return dir;
   };
 
-  const connector = (state: MockState, dir: string, sources = true) => {
+  const connector = (
+    state: MockState,
+    dir: string,
+    sources = true,
+    pollMs = { busy: 30, idle: 30 },
+  ) => {
     const store = openStore(dir);
     const link = createLink({
       store,
@@ -143,7 +149,7 @@ describe("printers through a connector", {
         sources: {
           dataDir: dir,
           adapters: [mockHostAdapter(state), spoolmanAdapter()],
-          pollMs: { busy: 30, idle: 30 },
+          pollMs,
         },
       }),
     });
@@ -152,11 +158,11 @@ describe("printers through a connector", {
   };
 
   /** A paired, online connector and the mock printer assigned to it and imported on the hub. */
-  const setup = async (state: MockState) => {
+  const setup = async (state: MockState, pollMs?: { busy: number; idle: number }) => {
     const hubDir = folder("hub-");
     const devDir = folder("connector-");
     const h = await hub(state, hubDir);
-    const c = connector(state, devDir);
+    const c = connector(state, devDir, true, pollMs);
     await c.link.pair(h.url, await h.code(), "WS-1");
     h.reach();
     await until(() => c.link.state().status === "online");
@@ -193,6 +199,15 @@ describe("printers through a connector", {
     expect(h.prints()[0]).toMatchObject({ outcome: "success", title: "Cube" });
     expect(h.alerts("print_finished")).toHaveLength(1);
     expect(c.link.sources?.held()).toBe(0);
+  });
+
+  it("reads a printer that pushes a change at once, not on its timer (Step 19c)", async () => {
+    const state: MockState = { ...fixture(), status: [snap("idle")], push: new Set() };
+    const { h } = await setup(state, { busy: 600_000, idle: 600_000 });
+    await until(() => state.push?.size === 1);
+    state.status = [snap("printing")];
+    pushChange(state);
+    await until(() => h.app.printerStatus.all()[0]?.snapshot.state === "printing", 5_000);
   });
 
   it("loads the spool the printer reads in a slot, through the connector (Step 19b)", async () => {

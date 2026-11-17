@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readJobTotals } from "@3d-maker-suite/3mf";
-import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
+import { fixture, type MockState, mockAdapter, pushChange } from "@3d-maker-suite/adapter-mock";
 import type { PrinterSnapshot, PrinterStatus } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { loadKey } from "@3d-maker-suite/host";
@@ -126,6 +126,28 @@ describe("live status", () => {
     });
     app.printerStatus.refresh();
     expect(await statuses()).toEqual([]);
+  });
+});
+
+describe("a printer that pushes a change (Step 19c)", () => {
+  it("is read at once, a burst once, and no more after it is switched off", async () => {
+    state.push = new Set();
+    app.printerStatus.refresh(); // unchanged setup: still the source made without push
+    await app.close();
+    app = await build();
+    app.printerStatus.refresh();
+    expect(state.push.size).toBe(1);
+    state.status = [snap(0)];
+    for (let i = 0; i < 5; i++) pushChange(state);
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await statuses())[0]?.snapshot.state).toBe("printing");
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${integrationId}`,
+      payload: { policies: [{ type: "printerStatus", mode: "off" }] },
+    });
+    app.printerStatus.refresh();
+    expect(state.push.size).toBe(0);
   });
 });
 

@@ -352,3 +352,38 @@ it("tells the setup form that the IP or the serial is needed, and checks it", ()
   expect(adapter.configSchema.safeParse({ name: "Becas" }).success).toBe(false);
   expect(adapter.configSchema.safeParse({ serial: SERIAL }).success).toBe(true);
 });
+
+describe("Bambu LAN onChange (Step 19c)", () => {
+  it("tells when the snapshot changed, not for a report that changes nothing", async () => {
+    const { src, links } = setup();
+    const changed = vi.fn();
+    const off = src.status?.onChange?.(changed);
+    await src.status?.readStatus(); // connects, full report
+    const link = links[0];
+    if (!link) throw new Error("not connected");
+    expect(changed).toHaveBeenCalled();
+    changed.mockClear();
+    link.send(json("pushall-idle.json")); // the same again
+    link.send({ print: { command: "push_status", wifi_signal: "-40dBm" } });
+    expect(changed).not.toHaveBeenCalled();
+    link.send({ print: { command: "push_status", gcode_state: "PAUSE" } });
+    expect(changed).toHaveBeenCalledTimes(1);
+    link.emit("close");
+    expect(changed).toHaveBeenCalledTimes(2);
+    off?.();
+    link.emit("connect");
+    link.send({ print: { command: "push_status", gcode_state: "IDLE" } });
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
+  it("tells when the key is refused", async () => {
+    const { src, links } = setup({
+      onConnect: (l) => l.emit("error", Object.assign(new Error("no"), { code: 5 })),
+    });
+    const changed = vi.fn();
+    src.status?.onChange?.(changed);
+    await src.status?.readStatus().catch(() => {});
+    expect(links).toHaveLength(1);
+    expect(changed).toHaveBeenCalled();
+  });
+});

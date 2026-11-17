@@ -20,6 +20,11 @@ export type MockState = {
   spools?: LibrarySpool[];
   /** What the printers are doing now; unset = `liveStatus`, a print that loops with the clock. */
   status?: PrinterSnapshot[];
+  /**
+   * Set it (`new Set()`) and the fake printer pushes like Bambu LAN: its status has `onChange`, and
+   * `pushChange(state)` calls what listens, as a printer that reports a change does.
+   */
+  push?: Set<() => void>;
   /** Every call throws this code. */
   fail?: IntegrationErrorCode;
   /** The fake slicer fails with this text. */
@@ -126,6 +131,11 @@ export function liveSource(cycleSec: number) {
 
 export const PAGE_SIZE = 2;
 
+/** The fake printer reports a change (`state.push`). */
+export function pushChange(state: MockState) {
+  for (const l of state.push ?? []) l();
+}
+
 export function fixture(): MockState {
   const print = (n: number, outcome: ExternalPrint["outcome"] = "success"): ExternalPrint => ({
     externalId: `job-${n}`,
@@ -218,6 +228,12 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
             await check();
             return state.status ?? [live()];
           },
+          ...(state.push && {
+            onChange: (listener: () => void) => {
+              state.push?.add(listener);
+              return () => void state.push?.delete(listener);
+            },
+          }),
         },
         spools: {
           listSpools: async () => {

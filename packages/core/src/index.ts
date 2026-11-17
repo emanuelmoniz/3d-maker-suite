@@ -45,6 +45,7 @@ export * from "./services/monitoring.ts";
 export * from "./services/printerStats.ts";
 export * from "./services/printMatch.ts";
 export * from "./services/printSources.ts";
+export * from "./services/readGate.ts";
 export * from "./services/reviewPolicy.ts";
 export * from "./services/spoolImportMatch.ts";
 export * from "./services/spoolMatch.ts";

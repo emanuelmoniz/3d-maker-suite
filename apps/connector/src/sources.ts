@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  createReadGate,
   type DeviceSource,
   devicePrintsResultSchema,
   deviceSourceSchema,
@@ -48,6 +49,9 @@ type Running = {
   setup: string;
   instance: IntegrationInstance;
   abort: AbortController;
+  /** Reads one at a time; a change the source pushes asks it for one (`onChange`). */
+  gate: ReturnType<typeof createReadGate>;
+  unsubscribe?: () => void;
   timer?: NodeJS.Timeout;
   /** Printers it reported: one missing from a later read is offline. */
   known: Set<string>;
@@ -127,6 +131,8 @@ export function createSourceBridge({
     const run = running.get(id);
     if (!run) return;
     clearTimeout(run.timer);
+    run.unsubscribe?.();
+    run.gate.close();
     run.abort.abort();
     running.delete(id);
   }
@@ -168,15 +174,18 @@ export function createSourceBridge({
         log: adapterLog(log, id),
         signal: abort.signal,
       });
-      running.set(id, {
+      const run: Running = {
         setup: setupOf(p),
         instance,
         abort,
+        gate: createReadGate(() => poll(id)),
         known: new Set(),
         failing: false,
         writing: Promise.resolve(),
-      });
-      void poll(id);
+      };
+      running.set(id, run);
+      run.unsubscribe = instance.status?.onChange?.(() => run.gate.request());
+      void run.gate.now();
     }
   }
 
@@ -236,7 +245,7 @@ export function createSourceBridge({
     if (outbox.length) void flush();
     if (stopped || running.get(id) !== run) return;
     const busy = read.some((s) => PRINTER_BUSY_STATES.has(s.state));
-    run.timer = setTimeout(() => void poll(id), busy ? pollMs.busy : pollMs.idle);
+    run.timer = setTimeout(() => void run.gate.now(), busy ? pollMs.busy : pollMs.idle);
     run.timer.unref();
   }
 

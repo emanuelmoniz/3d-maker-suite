@@ -31,6 +31,8 @@ The serial number belongs to the printer: its page shows it, read-only while Bam
 
 ## What it reads
 
+**How fast it shows:** the printer pushes each change over its local connection, and the app reads it within about a second: a swapped tray, a print that starts or ends, a connection that drops. The app also reads on a timer (every 3 s during a print, 15 s otherwise) in case a report is missed. Through a connector it is the same, plus the time to reach the hub.
+
 - **Live status:** state, progress, time left, layer, nozzle and bed temperatures (and the chamber where the printer has a sensor), and every AMS slot and the spool on the back with its material, colour and RFID tag.
 - **Prints:** the title, plate, start (the cloud's own start for a cloud print) and outcome. A print stopped on the screen or in the app is **cancelled**; any other stop is **failed**, with the printer's error code (`0300-8001`), which Bambu's wiki explains.
 - **Grams:** the printer reports none. The app reads the print's 3MF from the printer once per print (a few hundred KB, a few seconds) and takes the slicer's grams per filament, on the AMS slot each filament was printed from. A cancelled or failed print gets those grams times the share of the layers it reached, marked **estimated**. When the file can't be read, the grams come from the project's plate or wait in Filament to review ([printers.md](printers.md#grams-and-spools)).

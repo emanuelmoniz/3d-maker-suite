@@ -2,10 +2,13 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [6.0.0-alpha.5] - 2026-11-17
+
+Pre-release, fifth of 6.0.0. Lists what changed since 6.0.0-alpha.4. Back up before updating. Migration 0137 applies. Updating keeps all data. Connectors update to the hub's version.
 
 ### Added
 - **Loaded by the printer**: a printer that says what is in each slot (Bambu LAN, also when idle, also through a connector) loads the spool there with no click. It loads the spool whose tag it reads, or the only spool of that material and colour. Where several fit, the printer's page shows the likeliest one and **Accept** loads it. A spool you pick stays until the printer reads another spool's tag there, and an emptied tray unloads only a spool the printer loaded. Moonraker loads the Spoolman spool a job names, never the job file's colours ([docs/printers.md](docs/printers.md#grams-and-spools))
+- **Faster printer status**: a Bambu LAN printer is read the moment it reports a change, not on the next timer tick, so a swapped spool (and its auto-load) shows within about 2 seconds instead of up to 15, also through a connector. Other printers are read as before ([docs/bambu-lan.md](docs/bambu-lan.md))
 - Migration 0137 (who loaded a spool; spools loaded until now count as yours)
 
 ### Fixed

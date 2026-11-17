@@ -3558,7 +3558,7 @@ Do Step 19 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fi
 Do Step 19b of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 19c - Read a printer when it pushes a change
+### [x] Step 19c - Read a printer when it pushes a change
 **Model:** Sonnet · **Effort:** Medium
 **Why:** Bambu LAN already gets each change pushed over MQTT (a tray swapped, a print started), but the server or connector reads the adapter only on its timer (`PRINTER_POLL_MS`: 15 s idle, 3 s busy). So a swapped spool, and Step 19b's auto-load, shows up to 15 s late. A source the printer pushes to should say "read me now".
 **Scope:**

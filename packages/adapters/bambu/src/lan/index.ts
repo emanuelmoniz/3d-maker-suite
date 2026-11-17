@@ -101,7 +101,13 @@ const versionSchema = z.object({
 });
 
 /** One connection to the printer, with what it reported so far. */
-function link(ctx: IntegrationContext, deps: LanDeps, code: string) {
+function link(
+  ctx: IntegrationContext,
+  deps: LanDeps,
+  code: string,
+  /** Told when what a read would return changed (not for the read time alone). */
+  onChange: () => void = () => {},
+) {
   const config = ctx.config as Config;
   const { log } = ctx;
   let serial = config.serial || undefined;
@@ -124,6 +130,22 @@ function link(ctx: IntegrationContext, deps: LanDeps, code: string) {
     for (const w of waiting) w();
   };
   const abort = new AbortController();
+  /** What a read would return, without its time and without using up a pending end. */
+  const look = () => {
+    if (authFailed) return "refused";
+    if (!serial) return "";
+    if (pendingEnd) return JSON.stringify({ ...pendingEnd, at: "" });
+    if (!connected || typeof report.gcode_state !== "string") return "offline";
+    return JSON.stringify(toSnapshot(serial, report, "", job, model));
+  };
+  let signalled = look();
+  /** Calls `onChange` when the snapshot differs from the one last signalled. */
+  const signal = () => {
+    const now = look();
+    if (now === signalled) return;
+    signalled = now;
+    onChange();
+  };
 
   function onPrint(print: Report) {
     const start = startOf(print);
@@ -180,6 +202,7 @@ function link(ctx: IntegrationContext, deps: LanDeps, code: string) {
             Number((report.ams as { tray_now?: unknown } | undefined)?.tray_now),
           );
           if (jobNo === forJob) job = { ...job, totals };
+          signal();
           return;
         }
         log.debug({ tries }, "bambu job file not on the printer");
@@ -210,6 +233,7 @@ function link(ctx: IntegrationContext, deps: LanDeps, code: string) {
       if (name) model = name.replace(/^Bambu Lab\s+/i, "");
     }
     changed();
+    signal();
   }
 
   function open(at: string) {
@@ -233,6 +257,7 @@ function link(ctx: IntegrationContext, deps: LanDeps, code: string) {
       const request = (body: object) => c.publish(`device/${serial}/request`, JSON.stringify(body));
       request({ info: { sequence_id: "0", command: "get_version" } });
       request({ pushing: { sequence_id: "0", command: "pushall" } });
+      signal();
     });
     c.on("message", (_topic, payload) => {
       if (client === c) onMessage(payload);
@@ -242,12 +267,14 @@ function link(ctx: IntegrationContext, deps: LanDeps, code: string) {
       if (e.code === 4 || e.code === 5) authFailed = true;
       log.debug({ code: e.code ?? (e as Error).name }, "bambu printer connection failed");
       changed();
+      signal();
     });
     for (const event of ["close", "offline"] as const)
       c.on(event, () => {
         if (client !== c) return;
         connected = false;
         changed();
+        signal();
       });
   }
 
@@ -334,6 +361,7 @@ export function bambuLanAdapter(deps: Partial<LanDeps> = {}): IntegrationAdapter
       const code = () => ctx.secrets.get("accessCode");
       /** The live feed, kept for status reads until the source stops. */
       let live: ReturnType<typeof link> | undefined;
+      const listeners = new Set<() => void>();
       ctx.signal.addEventListener("abort", () => live?.close(), { once: true });
 
       /** A short connection for a test or a listing: the full report and the model, then closed. */
@@ -380,12 +408,18 @@ export function bambuLanAdapter(deps: Partial<LanDeps> = {}): IntegrationAdapter
             if (!live) {
               const key = await code();
               if (!key) throw new IntegrationError("auth_required");
-              live = link(ctx, use, key);
+              live = link(ctx, use, key, () => {
+                for (const l of listeners) l();
+              });
               if (ctx.signal.aborted) live.close();
               await live.until(live.ready, FIRST_READ_MS);
             }
             const snap = live.snapshot();
             return snap ? [snap] : [];
+          },
+          onChange: (listener: () => void) => {
+            listeners.add(listener);
+            return () => void listeners.delete(listener);
           },
         },
       };

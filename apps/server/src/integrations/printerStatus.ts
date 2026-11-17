@@ -1,4 +1,5 @@
 import {
+  createReadGate,
   type DevicePrinterStatus,
   type IntegrationAdapter,
   isRefused,
@@ -47,6 +48,9 @@ const setupOf = (row: { config: unknown; secrets: unknown; deviceId: string | nu
 type Source = {
   status: PrinterStatusSource;
   abort: AbortController;
+  /** Reads one at a time; a change the source pushes asks it for one (`onChange`). */
+  gate: ReturnType<typeof createReadGate>;
+  unsubscribe?: () => void;
   /** The setup it was made with (`setupOf`): a changed address or key gets a new instance. */
   version: string;
   timer?: NodeJS.Timeout;
@@ -343,7 +347,7 @@ export function createPrinterStatus(
     const busy = [...src.known].some((ext) =>
       PRINTER_BUSY_STATES.has(latest.get(`${id}:${ext}`)?.snapshot.state ?? "idle"),
     );
-    src.timer = setTimeout(() => void poll(id), busy ? POLL_MS.busy : POLL_MS.idle).unref();
+    src.timer = setTimeout(() => void src.gate.now(), busy ? POLL_MS.busy : POLL_MS.idle).unref();
   }
 
   /**
@@ -406,6 +410,8 @@ export function createPrinterStatus(
     const src = sources.get(id);
     if (src) {
       clearTimeout(src.timer);
+      src.unsubscribe?.();
+      src.gate.close();
       src.abort.abort();
       sources.delete(id);
     }
@@ -477,14 +483,18 @@ export function createPrinterStatus(
       try {
         const status = syncer.statusSource(id, abort.signal);
         if (!status) continue;
-        sources.set(id, {
+        const src: Source = {
           status,
           abort,
+          gate: createReadGate(() => poll(id)),
           version: versionOf(r),
           known: new Set(),
           failing: false,
-        });
-        if (auto) void poll(id);
+        };
+        sources.set(id, src);
+        // A source the printer pushes to is read when it says it changed, the timer as fallback.
+        src.unsubscribe = status.onChange?.(() => src.gate.request());
+        if (auto) void src.gate.now();
       } catch (err) {
         log.warn({ err, integrationId: id }, "printer status source not started");
       }
@@ -513,7 +523,8 @@ export function createPrinterStatus(
     recordTracked,
     deviceOffline,
     /** Reads every source once, now. */
-    pollAll: () => Promise.all([...sources.keys()].map(poll)).then(() => undefined),
+    pollAll: () =>
+      Promise.all([...sources.values()].map((s) => s.gate.now())).then(() => undefined),
     /** Called with every printer's status whenever one changes; returns the unsubscribe. */
     subscribe(l: (all: PrinterStatus[]) => void) {
       listeners.add(l);

@@ -167,8 +167,8 @@ export interface PrintHistorySource {
 }
 
 /**
- * What each printer is doing now (ADR-0015). The server asks every few seconds and the job tracker
- * turns what it sees into prints; needs the `printerStatus` capability. Read-only: nothing here
+ * What each printer is doing now (ADR-0015). The server asks every few seconds (at once when the
+ * source says it changed, `onChange`) and the job tracker turns what it sees into prints; needs the `printerStatus` capability. Read-only: nothing here
  * controls a printer.
  */
 export interface PrinterStatusSource {
@@ -179,6 +179,13 @@ export interface PrinterStatusSource {
    * least once, also when the printer is idle again before the next read.
    */
   readStatus(): Promise<PrinterSnapshot[]>;
+  /**
+   * Optional, for a source the printer pushes to: calls `listener` when what `readStatus` would
+   * return changed (a slot, a state, a connection; not the read time alone), so the caller reads at
+   * once instead of waiting for its timer. Returns the unsubscribe. A source without it is read on
+   * the timer only.
+   */
+  onChange?(listener: () => void): () => void;
 }
 
 /** Your spools as the vendor's account keeps them (e.g. Bambu's filament manager). */
