@@ -31,6 +31,7 @@ import {
   useAdapters,
   useIntegrations,
 } from "../../lib/integrations.ts";
+import { usePrinters } from "../../lib/printers.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
 import { useUsers } from "../../lib/users.ts";
 import { SourceBadge, SyncSources } from "../settings/Sources.tsx";
@@ -560,6 +561,8 @@ function Reach({ device: d, kind }: { device: Device; kind: "printers" | "spoolL
   const adapterName = useAdapterName();
   const [confirm, setConfirm] = useState(false);
   const printers = kind === "printers";
+  // A printer is named by its own name; one not imported yet, or a spool library, by its adapter.
+  const known = usePrinters({ archived: "all" }).data?.items ?? [];
   const on = printers ? d.reachPrinters : d.reachSpoolLibraries;
   const set = (value: boolean) =>
     slicers.mutate(
@@ -577,8 +580,10 @@ function Reach({ device: d, kind }: { device: Device; kind: "printers" | "spoolL
   const label = (i: (typeof here)[number]) => {
     const host = (i.config as { host?: unknown } | undefined)?.host;
     const name = adapterName(i.adapterId);
+    const printer = printers ? known.find((p) => p.integrationId === i.id)?.name : undefined;
     const text =
-      typeof host === "string" && host ? t("hub:machine.sourceAt", { name, host }) : name;
+      printer ??
+      (typeof host === "string" && host ? t("hub:machine.sourceAt", { name, host }) : name);
     return i.enabled ? text : t("hub:machine.sourcePaused", { label: text });
   };
   const name = t(
