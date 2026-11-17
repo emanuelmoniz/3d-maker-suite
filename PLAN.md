@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0 and 6.0.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0 and 6.1.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -3601,6 +3601,325 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 
 ---
 
+# Plan 6.1.0 - Sync from the page, tidier integrations, machine info
+
+Minor release, agreed on 2026-11-17. Starts after the 6.0.0 release. One DB migration (Step 10b: a network source's printer name moves to its printer), one new preference, and system info is kept in memory. No new dependency. Skills: `frontend-design` for the collapsible card and the system info block; `webapp-testing` for browser checks.
+
+Design:
+- **Sync from the page:** one click syncs, for that page's data type, every enabled source whose type is on **Auto** and that the user may sync (`editorSync`). Manual and Off sources are skipped. The button is hidden when no such source exists. The schedule isn't touched: a page sync is a sync now, as Sync now in Settings → Sources is.
+- **Integrations shows what is set up:** a card exists only for a source or slicer with at least one row. Add integration is the one way to add one, a slicer on a machine included. **Remove integration** removes the whole card. Imported printers, prints and spools stay, unlinked, as a single delete does today.
+- **Cards fold:** collapsed by default, remembered per browser (localStorage, a convenience only), and open by themselves when something needs attention (an error).
+- **System info is live, never stored:** a connector reports it every ~30 s while connected. The hub keeps the last report in memory and drops it on disconnect, as printer status does.
+- **Brand:** an uploaded logo always wins. With no upload, the name switch picks icon + name or the horizontal logo.
+- **The name belongs to the printer:** a network printer source asks for a name only when it creates a new printer. After that the name is the printer's, renamed on the printer page, never in Integrations.
+- **Sign in where you set up:** a Bambu Cloud account signs in inside its Add and Edit forms. It is saved only once sign-in works, and there's no separate sign-in page.
+- **Synced is not live:** a source with no live status (Bambu Cloud) says it syncs on its schedule, not that nothing reads the printer.
+
+## Phase 47 - Pages
+
+### [ ] Step 1 - Total print time in the project's production cost
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `estimateSlicedPlates` (`apps/web/src/lib/cost.ts`) returns `printTimeSeconds`: the sum over the same sliced plates it costs (the app's slice result, else the 3MF's saved slice).
+- `SlicedEstimate` (`ProjectDetailPage.tsx`): a **Print time** line above `MaterialUsage`, with `formatDuration`. With only some plates sliced, the existing partial warning covers it.
+- Unit test in the cost tests.
+
+**Done when:** a project with two sliced plates shows their summed time before the material usage; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 1 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Scan folders in the header
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Projects page: **Scan folders** moves into the `PageHeader` actions, next to **Add project**, with the same permission as today and `busy` while scanning (`useScan`).
+- `ScanPanel` keeps only the progress and the last result or error below the header. It renders nothing when there is nothing to report.
+- `docs/projects.md` where it says where Scan folders is.
+
+**Done when:** the button is next to Add project at desktop and phone width; progress still shows while scanning; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 2 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Sort and filter the printers by Monitoring
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `printerSortFields` and `printerFilters` (`packages/core/src/schemas/printers.ts`) get `monitoring`. The filter values are Not monitored, Idle, Printing, Paused, Offline, Machine offline and Source error.
+- Server (`routes/printers.ts`): the route reads each printer's state from the in-memory status with `monitoringOf`. The filter becomes an `inArray` on the matching ids, and the sort a `CASE` rank, so `listPage` keeps paging in SQL.
+- Web: the Monitoring column gets `sort` and `filter`. Badges stay live (SSE). While the list is sorted or filtered by Monitoring and a shown printer's state changes, a small "States changed, refresh" hint appears and re-queries on click. Rows never move by themselves.
+- Amend Step 18's note (display-only) in `docs/printers.md`; `docs/architecture.md` (the sort and filter field).
+
+**Done when:** filtering on Printing lists only printing printers; sorting groups by state; a state change shows the hint instead of moving rows; tests cover the rank and the filter; lint, tests and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 3b - Synced sources on the printer page: not "not monitored"
+**Model:** Sonnet · **Effort:** Low
+**Why:** a printer from Bambu Cloud shows "No source reads this printer, or its integration is paused. Add or resume one in Integrations." in its Connection block. Bambu Cloud has no live status (`printerStatus`); it syncs printers and prints on its schedule, so the hint for a printer with no source at all is wrong there and suggests something is missing.
+**Scope:**
+- `ConnectionSection.tsx`: a source whose adapter lacks `printerStatus` doesn't show the Monitoring badge. It shows **Synced** with its last sync (`lastSyncAt`, relative) and the hint "Syncs this printer and its prints on its schedule; it gives no live status. For live status, add a LAN source (for a Bambu printer: Bambu LAN)." The LAN hint comes from an adapter that can read the same printer, not a hard-coded brand in the component.
+- Printers list: a printer whose only enabled sources are sync-only shows **Synced only**, not Not monitored, with the same hint. Step 3's filter gets that value. "Not monitored" keeps its hint, for no source or a paused one only.
+- `docs/printers.md` (Monitoring states), `docs/bambu-cloud.md` (no live status, Bambu LAN for it).
+
+**Done when:** a Cloud-only printer shows Synced with its last sync on its page and Synced only in the list; a printer with no source still says Not monitored; tests cover the choice; lint, tests and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3b of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 4 - Copy the pairing code
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- New `CopyButton` component (`apps/web/src/components`). It uses `navigator.clipboard` when present, and a hidden textarea with `execCommand("copy")` otherwise, because a hub opened at `http://<lan-ip>` isn't a secure context. It shows "Copied" briefly and announces it in an `aria-live` region; on failure it says to select the code by hand.
+- Pairing code dialog (`HubPage.tsx`): a **Copy code** button next to the code. Use it too for any other one-time code the UI shows (for example the connector's change-user code).
+
+**Done when:** the code copies on localhost and over a LAN address; keyboard and screen reader work; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 4 of the 6.1.0 plan in PLAN.md.
+```
+
+## Phase 48 - Sync from the page
+
+### [ ] Step 5 - Sync by data type: server  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- `POST /api/integrations/sync` with body `{ types: SyncType[] }` (min 1). It runs, now, every enabled integration whose policy for one of the types resolves to `auto`, where the caller may sync it (`mayTask(..., "editorSync")`). The policy is resolved the way `runDueRow` does: sparse rows plus `defaultPolicy`. It runs one integration after another, types in adapter order (catalog: brands before models before presets), and ignores whether the run is due.
+- An integration already syncing is reported as skipped (`sync_running`) and doesn't fail the rest. Each result is `{ integrationId, type, status: ok | error | skipped, code?, updated, pending }`.
+- Reuse `syncer.run(id, "manual", { type })`. No new sync logic.
+- `docs/architecture.md` (the endpoint).
+
+**Done when:** tests cover auto vs manual vs off, rights per row, a running sync skipped, an error in one source not stopping the others, and catalog type order; lint, tests and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 5 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 6 - Sync buttons on Printers, Filament, Prints and Catalog
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `SyncButton types={[...]}`: hidden when no enabled source has one of the types on Auto for this user. It is computed from `useIntegrations` policies and `useMayTask`, so no extra request. `busy` while running.
+- Feedback follows Sync now (`useRunPolicy`, `PolicyRow.tsx`). With one result left pending, it goes to that review queue. Otherwise a short result lists what synced, what waits for review (with links) and what failed. ICU plurals.
+- Placement:
+  - Printers: next to **Add printer**, type `printers`.
+  - Filament: next to **Add spool** in the Spools section, type `spools`.
+  - Prints: next to **Add print**, type `prints`.
+  - Catalog: every table gets Sync for its type (brands, printer models, machine, process and filament presets, filament brands, materials), next to its Add button where there is one.
+  - Catalog: **Sync all** at the top, next to the gear, with every catalog type.
+- Docs: `docs/printers.md`, `docs/filament.md`, `docs/prints.md` and `docs/catalog.md` (where each Sync is and that it runs Auto sources only); README feature list.
+
+**Done when:** each button syncs only its type's Auto sources and hides with none; an editor without the sync task doesn't see it; e2e for one page and Catalog's Sync all; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 6 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 7 - Docs, push & v6.1.0-alpha.1
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- CHANGELOG, version `6.1.0-alpha.1`, `pnpm version:check`.
+- Commit on `dev`, push, tag `v6.1.0-alpha.1` on `dev`. Check the run and the release.
+
+**Done when:** the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 7 of the 6.1.0 plan in PLAN.md. Push dev, push the tag and confirm the pre-release.
+```
+
+## Phase 49 - Integrations page
+
+### [ ] Step 8 - Collapsible cards, add button labels
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- One card frame for `AccountsCard` and `LibraryCard`.
+  - The header is a button with `aria-expanded` and shows the name, a count ("3 printers", "2 accounts", "2 installs", ICU plurals), and an error or paused badge.
+  - Collapsed by default. A card with an error opens by itself.
+  - Open or closed is kept in localStorage per card (try/catch, per-viewer convenience only).
+  - `/integrations#<library>` or `?via=<deviceId>` opens the matching cards and scrolls to the first.
+- Add button by source:
+  - an account (Bambu Cloud): **Add another account**;
+  - a network printer source (Bambu LAN, Moonraker, PrusaLink, OctoPrint): **Add another printer**;
+  - a spool library (Spoolman): **Add another source**, hidden while the one-per-adapter rule (`form.takenSource`) blocks a second. The card and the form share one helper for that rule.
+- When the page was opened with `?via=`, the add buttons pass it on.
+- `docs/integrations.md` (or wherever the page is described).
+
+**Done when:** the page opens with every healthy card folded, an erroring one open; state survives a reload; the labels match the source; Spoolman shows no add button once set up; keyboard works; browser check in both themes and at phone width; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8 of the 6.1.0 plan in PLAN.md. Use frontend-design for the card header.
+```
+
+### [ ] Step 9 - A card only when set up; Add integration asks where  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- `IntegrationsPage.tsx`: drop the `onMachines` empty slicer cards. A card shows only for a library or adapter with at least one row the viewer sees. Find why an empty **Bambu Cloud** card can show (Bambu Cloud's user presets group under `bambu-studio`) and apply the same rule.
+- Add integration → OrcaSlicer or Bambu Studio gets **Where**:
+  - **This server**: today's local, or download if no config folder.
+  - **A machine**: those with "Use slicer as server worker" on, with installed or managed as the card's Set up offers today. Reuse `HubSlicer`'s set-up logic, don't copy it.
+  - A taken place is disabled with its reason. A machine with the switch off links to its machine page. `?via=` preselects a machine.
+- Machine page: the Slicers section's link goes to `/integrations/new?product=…&via=<id>` when that slicer isn't set up there, else to its card.
+- The card's own **Add a machine** stays.
+- Amend ADR-0022 (cards only when set up, Step 9). Update `docs/hub.md` and the slicer docs where they say a card appears once a machine is paired.
+
+**Done when:** a fresh hub with a paired machine shows no slicer card; adding Orca on a machine from Add integration creates the worker install and the card; Bambu Cloud has no empty card; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 9 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 10 - Remove an integration
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Server: `DELETE /api/integrations?library=<id>` (`integrations.manage`). It first checks every row of the card: any one syncing gives 409 `sync_running` and removes nothing. Then each row goes through `removeIntegration` (managed installs removed, workers re-synced, avatars dropped). It returns the removed ids.
+- Web: a **Remove integration** item on the card's top-right menu, admins only. A `ConfirmDialog` names every row (accounts, printers, installs per machine) and says what stays (imported printers, prints and spools, unlinked) and what goes (credentials, schedules, sync log, slicer installs). After removal the card is gone (Step 9), and Add integration brings it back.
+- A removed default slicer behaves as deleting its last row does today. Say so in the dialog if it is the default.
+- `docs/integrations.md`, `docs/architecture.md` (the endpoint).
+
+**Done when:** removing a card with three Moonraker printers keeps the printers unlinked; a running sync blocks it and removes nothing; tests cover both and a slicer card with machine installs; e2e; lint, tests and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 10 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 10b - A network printer's name is the printer's  **[plan mode]**
+**Model:** Sonnet · **Effort:** Medium
+**Why:** the add and edit forms of a network printer source (Bambu LAN, Moonraker, PrusaLink, OctoPrint) have a Name field (`config.name`) next to the **Printer** pick (6.0.0 Step 17). With one of your printers picked, the field can name it differently; after setup, Integrations can rename a printer that the printer page owns.
+**Scope:**
+- Add form: **Name** shows only with **New printer from this source**. Left empty, the name is what the printer announces, as today. With an existing printer picked, the field is gone and its current name shows read-only.
+- Save: a new printer is created with that name in the database. The name isn't kept in the source's `config`.
+- Edit page: no Name field. The linked printer's name shows read-only with a link to its page ("Rename on the printer page").
+- Server: `config.name` leaves the four adapters' config schemas as a stored field. It is only an input at create (the create body or a create-only field), so a PATCH can't rename. The importer never overwrites a linked printer's name from its source (check Step 17's "keeps its own name").
+- Migration: `config.name` is removed from integrations linked to a printer (the printer keeps its name); an unlinked one keeps it until it is linked. Back up the DB first.
+- `docs/bambu-lan.md`, `docs/moonraker.md`, `docs/prusalink.md`, `docs/octoprint.md` (setup steps), `docs/printers.md` (renaming), amend ADR-0015 (Step 10b).
+
+**Done when:** picking an existing printer hides Name and shows its name; a new printer gets the typed name; the Edit page can't rename it and links to the printer page; renaming on the printer page sticks after a sync; tests cover the create, the PATCH refusal and the migration; lint, tests, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 10b of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 10c - Bambu Cloud: sign in inside the Add and Edit forms  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Why:** adding a Bambu Cloud account saves the row first and then opens a separate sign-in page (`/integrations/$id/login`), so a failed or cancelled sign-in leaves a signed-out account behind. The card's **Sign in again** button is a second way into the same page.
+**Scope:**
+- Server: sign-in before the row exists. `POST /api/integrations/login` with `{ adapterId, config, email, password }` starts it, and the pending challenge (emailed code, TOTP) is kept against a short-lived opaque token in memory, as today's pending step is. `{ token, code }` finishes it. On success the integration is created with its secrets; on failure, cancel or expiry nothing is saved.
+- The existing `/:id/login` stays for a saved account (the Edit page). Same account twice: today's `integration_exists`. Secrets are never logged or returned.
+- Add form (`IntegrationFormPage.tsx`): for an adapter with `login`, the form shows region and the other config, email and password, then the code step in place (same form, no navigation). **Save** finishes sign-in and creates the account. **Test** isn't shown, because sign-in is the test.
+- Edit page: a **Sign in** block (email, password, code step) that signs the saved account in again; the account's other fields save as today.
+- Card (`AccountCard.tsx`): **Sign in** / **Sign in again** removed. The **Signed out** badge links to the Edit page, and so does the signed-out alert's call to action.
+- `IntegrationLoginPage.tsx` and its route are removed; an old `/integrations/$id/login` link redirects to `/integrations/$id/edit`.
+- `docs/bambu-cloud.md` (setup and signing in again), `docs/architecture.md` (the endpoint), the ADR that describes the login step (amend it, Step 10c).
+
+**Done when:** a Bambu Cloud account is added with the emailed code without leaving the form; a wrong password or a cancel saves nothing; a signed-out account is fixed from its Edit page through the badge; the old login link redirects; tests cover the token flow (ok, challenge, expiry, wrong code, duplicate); e2e with the mock adapter's login; lint, tests, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 10c of the 6.1.0 plan in PLAN.md.
+```
+
+## Phase 50 - Machines and brand
+
+### [ ] Step 11 - Machine page: links by what exists
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- The `Reach` sections (Printers, Spool libraries; `MachinePage.tsx`) each decide on their own:
+  - With no source of that kind through this machine: **Set up in Integrations** → `/integrations/new?via=<id>` (as today).
+  - With one or more: **Open in Integrations** → `/integrations?via=<id>`, which opens and scrolls to those cards (Step 8), whose add buttons carry `via`.
+- `docs/hub.md` (machine page).
+
+**Done when:** a machine with a Moonraker printer and no Spoolman links Printers to its card and Spool libraries to Add integration; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 11 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 12 - System info for machines and this server  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Core: `systemInfoSchema`, with `cpuPercent`, `cores`, `memory { total, used }`, `disks [{ label, total, free }]`, `addresses` (non-internal IPv4) and `at`.
+- `packages/host`: `readSystemInfo(paths)`.
+  - CPU % comes from two `os.cpus()` samples, since Windows has no load average.
+  - Memory comes from `totalmem` and `freemem`.
+  - Disks come from `fs.statfs` for the data folder and each shared folder, deduplicated by drive (`stat().dev`).
+  - Addresses: move `detectedIps()` here from `apps/server/src/config.ts` and share it.
+- Connector: while connected, `PUT /api/hub/device/system` every ~30 s.
+- Hub: keeps the last report per device in memory, plus the address it sees the connector from, and drops it on disconnect. No DB column.
+- `GET /api/hub/devices/:id/system`, with the machine page's rights.
+- Machine page: a **System** section (CPU, memory, each disk as used/total with a bar, IPs, updated time). It refreshes every 30 s while open. An offline machine shows its last-seen state, not stale numbers.
+- Settings → Server: the same block for **This server** (`GET /api/server/system`, admin), with the data dir and the server's project folders. In Docker, with no address detected, it says the host's address isn't visible from the container.
+- Locale-aware numbers and bytes.
+- Docs: `docs/hub.md`, `docs/configuration.md` (Settings → Server), `docs/architecture.md` (report, endpoints, in memory).
+
+**Done when:** a Windows connector and the server show CPU, memory, disks and IPs that match the OS tools within a minute; a stopped connector's section shows offline; tests cover `readSystemInfo` (mocked `os`/`fs`), the in-memory store dropping on disconnect, and rights; lint, tests, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 12 of the 6.1.0 plan in PLAN.md. Use frontend-design for the System section.
+```
+
+### [ ] Step 13 - Show the app name in the sidebar
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `brandShowName` in `schemas/preferences.ts`, default `true`, in the branding permission group (`lib/auth.ts`). Update the defaults in `app.test.ts`.
+- Branding section (`BrandingFields.tsx`): a **Show app name in sidebar** switch below App name.
+- `Brand` (`AppShell.tsx`):
+  - An uploaded logo always shows: with the name on, logo + name as today; off, the logo alone, `h-8 w-auto`, so a wide logo isn't squashed.
+  - No upload, name on: icon + name, as today.
+  - No upload, name off: the horizontal logo. Copy `docs/brand/logo-color-horizontal.svg` to `apps/web/public/logo.svg`; it is teal only, so it reads on both themes.
+  - The horizontal logo shows in the wide sidebar (lg+) and the mobile header. The narrow sidebar keeps the icon. `alt` is the app name.
+- `docs/configuration.md` or the branding doc.
+
+**Done when:** each of the four combinations (upload or not × name on or off) shows as above in both themes, wide, narrow and phone; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 13 of the 6.1.0 plan in PLAN.md.
+```
+
+## Phase 51 - Release
+
+### [ ] Step 14 - Real test, docs, push & v6.1.0-alpha.2
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- The sync buttons with Auto, Manual and Off sources and as an editor.
+- Integrations on a fresh hub: Orca added on a machine from Add integration; removing a card with printers; folded cards after a reload.
+- A Bambu LAN source linked to an existing printer (no Name field) and one creating a new printer; renaming it on the printer page.
+- A Bambu Cloud account added with the emailed code inside the form; a cancelled sign-in leaving nothing; signing in again from Edit; a Cloud-only printer showing Synced.
+- System info on the Windows PC, through a connector and on this server.
+- The pairing code copied over a LAN address.
+- Monitoring sort and filter while a print starts.
+- The logo combinations.
+- Fix anything found. CHANGELOG, version `6.1.0-alpha.2`, `pnpm version:check`; commit on `dev`, push, tag `v6.1.0-alpha.2` on `dev`.
+
+**Done when:** every scenario worked; the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 14 of the 6.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 15 - Docs, push & v6.1.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` (Integrations with folded cards, the machine page with System, the Printers list), README, CHANGELOG, version `6.1.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.1.0` on `main`. Check the run, the release and the images.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; updating 6.0.0 to 6.1.0 works.
+**Prompt:**
+```
+Do Step 15 of the 6.1.0 plan in PLAN.md. Only document what changed since the last 6.1.0 pre-release.
+Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release.
+```
+
+## Out of scope for 6.1.0 (later plans)
+- Several Spoolman sources (spools are keyed by the adapter today).
+- Page Sync for Manual sources (agreed: Auto only).
+- Live re-sorting of the printers by Monitoring.
+- System info history, charts, and alerts (disk almost full).
+- The sign-in and connector pages following the sidebar logo switch.
+
+---
+
 ## Backlog mapping
 | Backlog item | Plan · Step |
 |---|---|
@@ -3673,3 +3992,19 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 | users and roles can be switched off (single user) | 5.6 · 5 |
 | users and roles on their own page | 5.6 · 4 |
 | logo: favicon, app, installers, README | 5.6 · 6 |
+| project page: total print time in production cost | 6.1 · 1 |
+| projects: Scan folders next to Add project | 6.1 · 2 |
+| printers table: sort and filter by Monitoring | 6.1 · 3 |
+| pairing code: copy button | 6.1 · 4 |
+| Sync button on Printers, Filament, Prints, Catalog (auto sources) | 6.1 · 5, 6 |
+| catalog: Sync all next to settings | 6.1 · 5, 6 |
+| integrations: collapsible cards | 6.1 · 8 |
+| integrations: Add another source (Spoolman), Add another printer (network printers) | 6.1 · 8 (Spoolman hidden while one exists) |
+| integrations: hide Orca, Bambu Studio, Bambu Cloud cards until set up | 6.1 · 9 |
+| integrations: remove a whole integration | 6.1 · 10 |
+| machine page: links to new integration or to its card | 6.1 · 9, 11 |
+| machine page: system info (CPU, memory, IP, disk) | 6.1 · 12 (also this server) |
+| branding: show app name in sidebar, horizontal logo | 6.1 · 13 |
+| printer page: confusing "No source reads this printer" on a Bambu Cloud printer | 6.1 · 3b |
+| integrations: printer name only for a new printer, not editable after | 6.1 · 10b |
+| bambu cloud: sign in inside Add and Edit, no "Sign in again" button | 6.1 · 10c |
