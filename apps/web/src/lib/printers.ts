@@ -4,6 +4,7 @@ import type {
   Page,
   Printer,
   PrinterComment,
+  PrinterConnection,
   PrinterDetail,
   PrinterInput,
   PrinterPatch,
@@ -39,6 +40,13 @@ export const usePrinter = (id: string) =>
   useQuery({
     queryKey: ["printers", id],
     queryFn: () => api<PrinterDetail>("GET", `/api/printers/${id}`),
+  });
+
+/** Where a printer is read from (the Connection section). */
+export const usePrinterConnection = (id: string) =>
+  useQuery({
+    queryKey: ["printers", id, "connection"],
+    queryFn: () => api<PrinterConnection>("GET", `/api/printers/${id}/connection`),
   });
 
 export const usePrinterStats = (id: string, period: Period) =>

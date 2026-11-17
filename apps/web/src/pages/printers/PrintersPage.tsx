@@ -1,6 +1,7 @@
 import {
   type Accessory,
   accessoryFilters,
+  monitoringOf,
   type PrinterRow,
   printerFilters,
 } from "@3d-maker-suite/core";
@@ -19,9 +20,11 @@ import { textLink } from "../../lib/cx.ts";
 import { formatDuration, formatNumber } from "../../lib/format.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { usePrinterStatus } from "../../lib/printerStatus.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { useTagColumn } from "../../lib/tags.ts";
 import { addClass } from "./Catalog.tsx";
+import { MonitoringBadge } from "./MonitoringBadge.tsx";
 import { StateBadge, useStateLabel } from "./StateBadge.tsx";
 
 export function PrintersPage() {
@@ -33,6 +36,7 @@ export function PrintersPage() {
   const hasArchived = useHasArchived(["printers", "list"], "/api/printers");
   const tagColumn = useTagColumn<PrinterRow>("printer");
   const models = useModelInfo();
+  const live = usePrinterStatus().data ?? [];
 
   const add = (
     <span className="flex flex-wrap gap-2">
@@ -108,6 +112,12 @@ export function PrintersPage() {
                 sort: "state",
                 filter: "state",
                 filterOptions: states.map((s) => ({ value: s, label: stateLabel(s) })),
+              },
+              // Live and display-only: the status is in memory, the list comes from the database.
+              {
+                id: "monitoring",
+                header: t("printers:list.columns.monitoring"),
+                cell: (p) => <MonitoringBadge monitoring={monitoringOf(p.id, live)} />,
               },
               ...tagColumn,
               {

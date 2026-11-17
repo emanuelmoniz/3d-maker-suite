@@ -168,7 +168,30 @@ export const printerStatusSchema = z.object({
   snapshot: printerSnapshotSchema,
   /** Reached through a connector (ADR-0015): which one, and whether it is online. */
   via: z.object({ deviceId: id, deviceName: z.string(), online: z.boolean() }).optional(),
+  /** The source itself fails (a wrong access code or key, signed out): its printers are out of reach. */
+  failing: z.boolean().optional(),
 });
+
+/**
+ * Where a printer is read from, for its page (`GET /api/printers/:id/connection`): one block per
+ * source. `host` and the names of the stored `secrets` (never their values) are the setup's, so
+ * `integrations.manage` only (ADR-0012); a connector's name is not.
+ */
+export const printerConnectionSchema = z.object({
+  sources: z.array(
+    z.object({
+      integrationId: id,
+      adapterId: z.string(),
+      enabled: z.boolean(),
+      /** Reached through this machine's connector; null = this server reaches it. */
+      deviceId: id.nullable(),
+      deviceName: z.string().nullable(),
+      host: z.string().nullable().optional(),
+      secrets: z.array(z.string()).optional(),
+    }),
+  ),
+});
+export type PrinterConnection = z.infer<typeof printerConnectionSchema>;
 
 /**
  * The printer a printer on the network is (ADR-0015): `new` = made at save from what it says, else

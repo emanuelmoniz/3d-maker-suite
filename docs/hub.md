@@ -156,7 +156,7 @@ The hub sends the machine the printer's address and key over its paired connecti
 
 **When something is away:**
 - **The hub is down** (an update, a restart): the connector keeps watching. A print that ends meanwhile is kept on the machine and recorded when the hub is back, also on a printer with no history of its own (PrusaLink, OctoPrint, Bambu LAN without the cloud).
-- **The machine or its connector is offline:** its printers show offline, with the reason on their card. A print that was running raises **Printer unreachable** after 2 minutes ([alerts.md](alerts.md#printer-alerts)). When the machine is back, the hub reads the history it missed (Moonraker) and the connector sends the prints it saw end.
+- **The machine or its connector is offline:** its printers show offline, with the reason on their card. The Printers list's **Monitoring** column says **Machine offline**, and the printer's **Connection** section names the machine ([printers.md](printers.md#connection-and-monitoring)). A print that was running raises **Printer unreachable** after 2 minutes ([alerts.md](alerts.md#printer-alerts)). When the machine is back, the hub reads the history it missed (Moonraker) and the connector sends the prints it saw end.
 - **The printer stops answering** while the machine is online: **Printer offline**, as for a printer the hub reaches itself.
 
 A connector older than 6.0.0 can't reach printers: the hub refuses the pick until it updates (Update now on the machine page).

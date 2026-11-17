@@ -41,6 +41,7 @@ export * from "./services/jobGrams.ts";
 export * from "./services/jobTracker.ts";
 export * from "./services/maintenanceDue.ts";
 export * from "./services/managedSlicer.ts";
+export * from "./services/monitoring.ts";
 export * from "./services/printerStats.ts";
 export * from "./services/printMatch.ts";
 export * from "./services/printSources.ts";

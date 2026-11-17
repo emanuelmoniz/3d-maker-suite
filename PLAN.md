@@ -3497,7 +3497,7 @@ Do Step 16 of the 6.0.0 plan in PLAN.md.
 Do Step 17 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 18 - Connection on the printer page, Monitoring column
+### [x] Step 18 - Connection on the printer page, Monitoring column
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Printer page: a **Connection** section, one block per source. It shows the source (adapter name), the host, "Access code: set" (never the secret), **Reached from: this server** or the machine with its online state, and the Monitoring state below. **Edit in Integrations** links to the integration's Edit page, with `integrations.manage` only. Nothing here is editable.

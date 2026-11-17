@@ -17,7 +17,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { capableRows } from "./capabilities.ts";
-import { sourceConfig, sourcePrinters } from "./printerSources.ts";
+import { printersOfSource, sourceConfig, sourcePrinters } from "./printerSources.ts";
 import { bridgeable } from "./sourceBridge.ts";
 import type { Syncer } from "./sync.ts";
 
@@ -61,6 +61,8 @@ type Bridged = {
   known: Set<string>;
   /** The printers whose job the connector's tracker follows, as it last said. */
   active: Set<string>;
+  /** The source failed whole on its connector (a wrong key). */
+  failing: boolean;
 };
 
 /** Why a printer is silent during a print: it stopped answering, or its connector is away. */
@@ -133,19 +135,53 @@ export function createPrinterStatus(
     );
     const ours = sourcePrinters(db);
     const names = new Map<string, string>();
-    return [...latest].flatMap(([key, { integrationId, snapshot }]) => {
-      const printerId = ours.get(key);
-      if (!printerId || archived.has(printerId)) return [];
+    /** A source that fails whole (a wrong key) says so on each of its printers. */
+    const failed = (integrationId: string) => {
       const b = bridged.get(integrationId);
-      if (!b) return [{ printerId, integrationId, snapshot }];
+      return b ? b.failing && hub.online(b.deviceId) : !!sources.get(integrationId)?.failing;
+    };
+    const viaOf = (integrationId: string) => {
+      const b = bridged.get(integrationId);
+      if (!b) return undefined;
       if (!names.has(b.deviceId)) names.set(b.deviceId, deviceName(b.deviceId));
-      const via = {
+      return {
         deviceId: b.deviceId,
         deviceName: names.get(b.deviceId) ?? "",
         online: hub.online(b.deviceId),
       };
-      return [{ printerId, integrationId, snapshot, via }];
+    };
+    const out = [...latest].flatMap(([key, { integrationId, snapshot }]) => {
+      const printerId = ours.get(key);
+      if (!printerId || archived.has(printerId)) return [];
+      const via = viaOf(integrationId);
+      return [
+        {
+          printerId,
+          integrationId,
+          snapshot,
+          ...(via && { via }),
+          ...(failed(integrationId) && { failing: true }),
+        },
+      ];
     });
+    // A source that never read its printer (a wrong key from the start) still has to say so.
+    const seen = new Set(out.map((s) => `${s.integrationId}:${s.printerId}`));
+    const at = new Date().toISOString();
+    for (const id of new Set([...sources.keys(), ...bridged.keys()])) {
+      if (!failed(id)) continue;
+      for (const [ext, printerId] of printersOfSource(db, id)) {
+        if (seen.has(`${id}:${printerId}`) || archived.has(printerId)) continue;
+        const via = viaOf(id);
+        out.push({
+          printerId,
+          integrationId: id,
+          snapshot: { printerExternalId: ext, at, state: "offline", slots: [] },
+          ...(via && { via }),
+          failing: true,
+        });
+      }
+    }
+    return out;
   }
 
   /** Tells the listeners when something besides the read time changed. */
@@ -308,6 +344,7 @@ export function createPrinterStatus(
       if (!answered.has(ext))
         read.push({ printerExternalId: ext, at, state: "offline", slots: [] });
     b.active = new Set(r.active);
+    b.failing = r.failing;
     for (const s of read) {
       const key = `${id}:${s.printerExternalId}`;
       latest.set(key, { integrationId: id, snapshot: s });
@@ -367,7 +404,13 @@ export function createPrinterStatus(
     const ours = [...sourcePrinters(db).keys()]
       .filter((k) => k.startsWith(`${id}:`))
       .map((k) => k.slice(id.length + 1));
-    const b: Bridged = { deviceId, version, known: new Set(ours), active: new Set() };
+    const b: Bridged = {
+      deviceId,
+      version,
+      known: new Set(ours),
+      active: new Set(),
+      failing: false,
+    };
     bridged.set(id, b);
     if (hub.online(deviceId)) return;
     const at = new Date().toISOString();

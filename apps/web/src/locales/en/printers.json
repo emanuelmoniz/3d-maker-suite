@@ -15,7 +15,8 @@
       "name": "Name",
       "model": "Model",
       "state": "State",
-      "power": "Power"
+      "power": "Power",
+      "monitoring": "Monitoring"
     }
   },
   "form": {
@@ -253,6 +254,44 @@
     "offlineHint": "Not answering. Its last print is kept until it is back.",
     "connectorOffline": "Can't be reached: the connector on {{machine}} is offline. A print that ends meanwhile is recorded when it is back.",
     "through": "Through {{machine}}"
+  },
+  "monitoring": {
+    "none": "Not monitored",
+    "printing": "Printing {{percent}}",
+    "offline": "Offline",
+    "machineOffline": "Machine offline",
+    "error": "Source error",
+    "hints": {
+      "none": "No source reads this printer, or its integration is paused. Add or resume one in Integrations.",
+      "offline": "It doesn't answer: check that it is on, on the network, and that the address is right.",
+      "machineOffline": "The connector on {{machine}} is offline. Start it there; the printer is read again as soon as it is back.",
+      "error": "The source is refused or signed out: the access code or key is wrong or has changed. Edit it in Integrations."
+    }
+  },
+  "connection": {
+    "title": "Connection",
+    "description": "Where this printer is read from. Change it in Integrations.",
+    "none": "No source reads this printer.",
+    "source": "Source",
+    "host": "Address",
+    "secret": "Credentials",
+    "secrets": {
+      "accessCode": "Access code: set",
+      "apiKey": "API key: set",
+      "password": "Password: set",
+      "token": "Signed in",
+      "other": "Credentials: set"
+    },
+    "noSecret": "None set",
+    "reachedFrom": "Reached from",
+    "thisServer": "This server",
+    "machineOnline": "{{machine}} (online)",
+    "machineOffline": "{{machine}} (offline)",
+    "machineUnknown": "{{machine}}",
+    "paused": "Paused",
+    "monitoring": "Monitoring",
+    "edit": "Edit in Integrations",
+    "loadError": "The connection couldn't be loaded."
   },
   "loaded": {
     "title": "Loaded spools",

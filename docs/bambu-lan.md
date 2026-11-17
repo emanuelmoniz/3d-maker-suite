@@ -18,7 +18,7 @@ The Bambu LAN integration reads a Bambu Lab printer on your network: its live st
    - With both, the IP is where it starts, and the app follows the printer by its serial when its IP changes.
    - A printer you picked gives its own serial: the IP is optional then, unless it has none yet.
 4. Optional: a name for a new printer (else the name it announces).
-5. Press **Test**, then **Add**. Saving asks the printer what it is, as Test does: if it doesn't answer, nothing is saved. Then switch on **Live status** on the card.
+5. Press **Test**, then **Add**. Saving asks the printer what it is, as Test does: if it doesn't answer, nothing is saved. Then switch on **Live status** on the card. The printer's page shows where it is read from and whether it answers ([Connection and monitoring](printers.md#connection-and-monitoring)).
 
 The serial number belongs to the printer: its page shows it, read-only while Bambu LAN or Bambu Cloud gives it. One integration is one printer, linked when you add it: there is no **Printers** sync for it, so a printer you added by hand never comes back twice. To link it to another printer, open **Edit** on its card and pick another **Printer**; the one it had stays, unlinked. Removing the integration keeps the printer. Add one integration per printer. The access code is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
 

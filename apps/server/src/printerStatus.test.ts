@@ -129,6 +129,48 @@ describe("live status", () => {
   });
 });
 
+describe("monitoring (6.0.0 Step 18)", () => {
+  it("a source that fails whole says so on its printers, also before it ever read one", async () => {
+    state.fail = "auth_required";
+    await app.printerStatus.pollAll();
+    const [one] = await statuses();
+    expect(one).toMatchObject({ failing: true, snapshot: { state: "offline" } });
+    // Read again: the flag goes.
+    state.fail = undefined;
+    await reads([snap(10)]);
+    expect((await statuses())[0]?.failing).toBeUndefined();
+  });
+
+  it("the connection names the source, its secrets and where it is reached from, never a value", async () => {
+    const printer = db.select().from(schema.printers).get();
+    const body = (await app.inject(`/api/printers/${printer?.id}/connection`)).json();
+    expect(body.sources).toEqual([
+      expect.objectContaining({
+        integrationId,
+        adapterId: "mock",
+        enabled: true,
+        deviceId: null,
+        deviceName: null,
+        host: null,
+        secrets: ["token"],
+      }),
+    ]);
+    expect(JSON.stringify(body)).not.toContain('"t"');
+    await app.inject({
+      method: "PATCH",
+      url: `/api/integrations/${integrationId}`,
+      payload: { enabled: false },
+    });
+    expect(
+      (await app.inject(`/api/printers/${printer?.id}/connection`)).json().sources[0].enabled,
+    ).toBe(false);
+    expect(
+      (await app.inject("/api/printers/00000000-0000-4000-8000-000000000000/connection"))
+        .statusCode,
+    ).toBe(404);
+  });
+});
+
 describe("prints from the job tracker", () => {
   it("a print is written once, when it ends; a sure spool is charged", async () => {
     const orange = await spool("#ff8800");

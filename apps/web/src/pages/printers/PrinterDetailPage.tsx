@@ -28,6 +28,7 @@ import {
   useUsage,
 } from "../../lib/printers.ts";
 import { Comments } from "./Comments.tsx";
+import { ConnectionSection } from "./ConnectionSection.tsx";
 import { useCostInfo } from "./CostFields.tsx";
 import { LoadedSpools } from "./LoadedSpools.tsx";
 import { PrinterAccessories } from "./PrinterAccessories.tsx";
@@ -118,7 +119,8 @@ export function PrinterDetailPage() {
   const costInfo = useCostInfo(printer, "printer");
   const usage = useUsage(`/api/printers/${id}`).data;
   const [correcting, setCorrecting] = useState(false);
-  const live = usePrinterStatus().data?.find((s) => s.printerId === id);
+  const allLive = usePrinterStatus().data ?? [];
+  const live = allLive.find((s) => s.printerId === id);
 
   if (isError)
     return (
@@ -230,6 +232,8 @@ export function PrinterDetailPage() {
             </dl>
           </div>
         </section>
+
+        {!archived && <ConnectionSection printerId={id} live={allLive} />}
 
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

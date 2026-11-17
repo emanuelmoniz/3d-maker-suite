@@ -11,6 +11,7 @@ import {
   type PrinterRow,
   pageOf,
   printerCommentSchema,
+  printerConnectionSchema,
   printerDetailSchema,
   printerFilters,
   printerInputSchema,
@@ -29,6 +30,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { sourcesOfPrinter } from "../integrations/printerSources.ts";
+import { readSecrets } from "../integrations/secrets.ts";
 import {
   alertTasks,
   archivedAtOf,
@@ -46,6 +48,8 @@ import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 
 const {
+  devices,
+  integrations,
   printers,
   printerComments,
   printerModels,
@@ -62,7 +66,13 @@ const usage = printerUsageColumns();
 const notFound = { 404: apiErrorSchema };
 
 export const printersRoutes =
-  (db: Db, dataDir: string, adapters: IntegrationAdapter[] = []): FastifyPluginAsyncZod =>
+  (
+    db: Db,
+    dataDir: string,
+    adapters: IntegrationAdapter[] = [],
+    /** Only to name the secrets a source has stored. */
+    key?: Buffer,
+  ): FastifyPluginAsyncZod =>
   async (app) => {
     /**
      * Where a printer comes from (ADR-0015). Its serial is a source's while one supplies it: one
@@ -197,6 +207,47 @@ export const printersRoutes =
       "/:id",
       { schema: { params, response: { 200: printerDetailSchema, ...notFound } } },
       async (req) => detail(get(req.params.id)),
+    );
+
+    // Where the printer is read from (ADR-0015). Nothing here is editable and no secret leaves: only
+    // the names of the stored ones, with the host, for `integrations.manage` (ADR-0012).
+    app.get(
+      "/:id/connection",
+      { schema: { params, response: { 200: printerConnectionSchema, ...notFound } } },
+      async (req) => {
+        get(req.params.id);
+        const admin = !req.user || req.user.rights.permissions["integrations.manage"];
+        const sources = sourcesOfPrinter(db, req.params.id).flatMap((s) => {
+          const row = db
+            .select()
+            .from(integrations)
+            .where(eq(integrations.id, s.integrationId))
+            .get();
+          if (!row) return [];
+          const host = (row.config as { host?: unknown } | null)?.host;
+          const device = row.deviceId
+            ? db
+                .select({ name: devices.name })
+                .from(devices)
+                .where(eq(devices.id, row.deviceId))
+                .get()
+            : undefined;
+          return [
+            {
+              integrationId: row.id,
+              adapterId: row.adapterId,
+              enabled: row.enabled,
+              deviceId: row.deviceId,
+              deviceName: device?.name ?? null,
+              ...(admin && {
+                host: typeof host === "string" && host.trim() ? host.trim() : null,
+                secrets: row.secrets && key ? Object.keys(readSecrets(db, key, row.id)) : [],
+              }),
+            },
+          ];
+        });
+        return { sources };
+      },
     );
 
     // `archived` archives/restores.

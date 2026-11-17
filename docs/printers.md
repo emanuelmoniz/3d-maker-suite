@@ -18,6 +18,22 @@ The **serial number** belongs to the printer. While a source gives it, Bambu LAN
 
 A hub on another network, such as a VPS, reaches these printers through the connector of a machine on the printer's network: [printers through a connector](hub.md#printers-through-a-connector). The card then says which machine, and when that machine's connector is offline it says so instead of only "offline".
 
+## Connection and monitoring
+
+The **Printers** list has a **Monitoring** column that says whether the app can see each printer right now. It updates by itself, and it can't be sorted or filtered: the live status is kept in memory, and the list comes from the database. The **State** column (working, in repair…) is separate and stays as you set it.
+
+| Monitoring | Meaning | What to do |
+| --- | --- | --- |
+| **Not monitored** | No source reads the printer, or its integration is paused. | Add the printer's integration, or resume it in **Settings → Integrations**. |
+| **Idle**, **Printing 45 %**, **Paused**… | The printer answers; this is what it is doing. | Nothing. |
+| **Offline** | The source works but the printer doesn't answer. | Check that it is on, on the network, and that the address is right. |
+| **Machine offline** | The printer is reached through a machine whose connector is offline. | Start the connector on that machine ([hub.md](hub.md#printers-through-a-connector)). The printer is read again as soon as it is back. |
+| **Source error** | The source can't be read: the access code or API key is wrong or has changed, or the account is signed out. | **Edit in Integrations** and enter the access code or key again. |
+
+A printer with several sources, such as Bambu Cloud and Bambu LAN, shows the best one: a source that sees the printer wins over one that doesn't.
+
+A printer's page has a **Connection** section, one block per source: the source, its address, whether a credential is set (for example "Access code: set", never its value), **Reached from** (this server, or the machine with its online state) and the same Monitoring state, with what to do about it. Nothing there is editable. **Edit in Integrations** opens the source's Edit page; you need the **Integrations** right for it, and without it the address and the credentials line are left out.
+
 ## How prints are recorded
 
 When a printer's job ends (finished, cancelled or failed) the app records it as a print, once, at once. Nothing is held back for you to review first:
