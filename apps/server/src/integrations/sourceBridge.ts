@@ -24,6 +24,7 @@ import { HttpError } from "../errors.ts";
 import type { HubChannel } from "../lib/hubChannel.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { capableRows } from "./capabilities.ts";
+import { sourceConfig } from "./printerSources.ts";
 import { readSecrets } from "./secrets.ts";
 
 // Printers and a spool library a hub reaches through a connector (ADR-0015, LAN reach). The
@@ -189,12 +190,13 @@ export function createSourceBridge(
               bridgeable(adapter) &&
               deviceReaches(db, deviceId, adapter),
           )
-          .map(({ row }) => [row.id, row]),
+          .map((r) => [r.row.id, r]),
       );
-      return [...rows.values()].map((row) => ({
+      return [...rows.values()].map(({ row, adapter }) => ({
         integrationId: row.id,
         adapterId: row.adapterId,
-        config: row.config as DeviceSource["config"],
+        // A source that reads its printer's serial gets it from the printer (ADR-0015).
+        config: sourceConfig(db, row, adapter) as DeviceSource["config"],
         secrets: readSecrets(db, key, row.id),
       }));
     },

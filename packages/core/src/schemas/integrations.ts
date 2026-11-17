@@ -170,6 +170,13 @@ export const printerStatusSchema = z.object({
   via: z.object({ deviceId: id, deviceName: z.string(), online: z.boolean() }).optional(),
 });
 
+/**
+ * The printer a printer on the network is (ADR-0015): `new` = made at save from what it says, else
+ * one of yours that no network source has yet.
+ */
+export const printerChoiceSchema = z.union([z.literal("new"), id]);
+export type PrinterChoice = z.infer<typeof printerChoiceSchema>;
+
 /** `config` and `secrets` are checked against the adapter's own schemas by the server. */
 export const integrationInputSchema = z.object({
   adapterId: z.string().min(1),
@@ -178,14 +185,17 @@ export const integrationInputSchema = z.object({
   deviceId: id.nullable().optional(),
   config: z.record(z.string(), z.json()).default({}),
   secrets: z.record(z.string(), z.string()).default({}),
+  /** A printer on the network: required, it is one printer, linked at save. */
+  printer: printerChoiceSchema.optional(),
 });
 
 /**
  * Test a source before saving it (or an edit before saving it): nothing is stored. `integrationId`:
- * the saved one being edited, whose stored secrets fill in the ones left empty.
+ * the saved one being edited, whose stored secrets fill in the ones left empty. `printer`: whose
+ * serial a source that reads it uses.
  */
 export const sourceTestInputSchema = integrationInputSchema
-  .pick({ adapterId: true, deviceId: true, config: true, secrets: true })
+  .pick({ adapterId: true, deviceId: true, config: true, secrets: true, printer: true })
   .extend({ integrationId: id.optional() });
 
 /** Any subset. `secrets` keys that are sent replace the stored ones; others are kept. */
@@ -196,6 +206,8 @@ export const integrationPatchSchema = z
     secrets: z.record(z.string(), z.string()),
     /** As `integrationInputSchema.deviceId`: null = this server reaches it. */
     deviceId: id.nullable(),
+    /** A printer on the network: another printer, and the link moves to it. */
+    printer: printerChoiceSchema,
     slicerConfigDir: z.string().trim().nullable(),
     slicerPath: z.string().trim().nullable(),
     /** A local slicer receives the hub's catalog (ADR-0022); 409 `hub_slicer` on the hub's slicer. */
@@ -417,12 +429,10 @@ export const testResultSchema = z.union([
 ]);
 
 /** A printer a test found: one for a printer on the network, all of an account's. */
-export const foundPrinterSchema = externalPrinterSchema.pick({
-  name: true,
-  brand: true,
-  model: true,
-  serial: true,
-});
+export const foundPrinterSchema = externalPrinterSchema
+  .pick({ name: true, brand: true, model: true, serial: true })
+  // Its id in the source, which links it at save; unset from a connector older than 6.0.0.
+  .extend({ externalId: z.string().min(1).optional() });
 /** Most found printers a test answers with. */
 export const FOUND_PRINTERS_MAX = 20;
 /** A test of a source that isn't saved (yet), with what it found (`tryOut`). */

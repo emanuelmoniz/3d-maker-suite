@@ -4,6 +4,7 @@ import type {
   Page,
   Printer,
   PrinterComment,
+  PrinterDetail,
   PrinterInput,
   PrinterPatch,
   PrintStats,
@@ -37,7 +38,7 @@ export const usePrinters = (o: { state?: string; archived: boolean | "all"; tagI
 export const usePrinter = (id: string) =>
   useQuery({
     queryKey: ["printers", id],
-    queryFn: () => api<Printer>("GET", `/api/printers/${id}`),
+    queryFn: () => api<PrinterDetail>("GET", `/api/printers/${id}`),
   });
 
 export const usePrinterStats = (id: string, period: Period) =>

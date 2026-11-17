@@ -1,4 +1,10 @@
-import type { AdapterInfo, Integration, SourceTestResult } from "@3d-maker-suite/core";
+import {
+  type AdapterInfo,
+  type Integration,
+  isNetworkPrinter,
+  PRINTER_SERIAL_FIELD,
+  type SourceTestResult,
+} from "@3d-maker-suite/core";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +26,7 @@ import {
   useTryIntegration,
 } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { printerName, usePrinters } from "../../lib/printers.ts";
 import { ERRORS } from "./integrationLabels.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
@@ -56,9 +63,15 @@ const FORM_ERRORS: Record<string, string> = {
   device_offline: "integrations:form.errors.device_offline",
   hub_off: "integrations:form.errors.hub_off",
   integration_exists: "integrations:form.errors.integration_exists",
+  printer_required: "integrations:form.errors.printer_required",
+  printer_has_source: "integrations:form.errors.printer_has_source",
+  no_printer: "integrations:form.errors.no_printer",
 };
+/** A save's error, or (a printer on the network that didn't answer at save) the test's. */
 const errorKey = (error: unknown) =>
-  error instanceof ApiError && error.code ? FORM_ERRORS[error.code] : undefined;
+  error instanceof ApiError && error.code
+    ? (FORM_ERRORS[error.code] ?? ERRORS[error.code as keyof typeof ERRORS])
+    : undefined;
 
 export const tileClass =
   "flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 has-checked:border-accent has-disabled:cursor-not-allowed has-disabled:opacity-60";
@@ -79,7 +92,24 @@ function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
   const allDevices = useDevices(hubOn && manageHub).data ?? [];
   const slicer = adapter?.kind === "local" || adapter?.kind === "server";
 
-  const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
+  // A printer on the network is one printer (ADR-0015): a new one from what it says, or one of
+  // yours that no other network source is. Yours keeps its name, model and costs.
+  const network = isNetworkPrinter(adapter);
+  const readsSerial =
+    network && PRINTER_SERIAL_FIELD in ((adapter?.config.properties ?? {}) as object);
+  const printers = usePrinters({ archived: false }).data?.items ?? [];
+  const integrations = useIntegrations().data ?? [];
+  const taken = new Set(
+    integrations.filter((i) => i.id !== saved?.id && i.printerId).map((i) => i.printerId),
+  );
+  // The saved link until another is picked (the row may arrive after the first render).
+  const [picked, setPrinter] = useState<string>();
+  const printer = picked ?? saved?.printerId ?? "new";
+  const chosen = printers.find((p) => p.id === printer);
+  // Its serial is the printer's: asked for a new printer only.
+  const ownField = (f: Field) =>
+    !(readsSerial && printer !== "new" && f.name === PRINTER_SERIAL_FIELD);
+  const config = adapter && !slicer ? fieldsOf(adapter.config).filter(ownField) : [];
   const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
   const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
   // Only a machine with the matching switch on: Reach printers, or Reach spool libraries. The one
@@ -92,22 +122,25 @@ function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
   const reach = hubOn && manageHub && !!adapter && isNetworkSource(adapter) && devices.length > 0;
   const label = (name: string) =>
     t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
-  const anyOfError = missing
-    ? t(`integrations:adapters.${adapter?.id}.anyOf`, {
-        defaultValue: t("integrations:form.anyOf", {
-          fields: new Intl.ListFormat(i18n.language, { type: "disjunction" }).format(
-            anyOf.map(label),
-          ),
-        }),
-      })
-    : undefined;
+  const anyOfError = !missing
+    ? undefined
+    : readsSerial && printer !== "new"
+      ? t("integrations:form.anyOfPrinter")
+      : t(`integrations:adapters.${adapter?.id}.anyOf`, {
+          defaultValue: t("integrations:form.anyOf", {
+            fields: new Intl.ListFormat(i18n.language, { type: "disjunction" }).format(
+              anyOf.map(label),
+            ),
+          }),
+        });
   const stored = (saved?.config ?? {}) as Record<string, unknown>;
 
   /** What the form holds; undefined (and said) when none of `configAnyOf` is filled in. */
   const values = (form: HTMLFormElement) => {
     const f = new FormData(form);
     const cfg = read(f, "config", config);
-    if (anyOf.length && !anyOf.some((k) => cfg[k] !== undefined)) {
+    const printerSerial = readsSerial && printer !== "new" && !!chosen?.serial?.trim();
+    if (anyOf.length && !printerSerial && !anyOf.some((k) => cfg[k] !== undefined)) {
       setMissing(true);
       return undefined;
     }
@@ -116,6 +149,7 @@ function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
       // Empty ones aren't sent: the stored ones stay.
       secrets: read(f, "secrets", secrets) as Record<string, string>,
       deviceId: reach ? String(f.get("deviceId") ?? "") || null : (saved?.deviceId ?? null),
+      ...(network && { printer }),
     };
   };
 
@@ -186,6 +220,31 @@ function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
 
   const fields = (
     <div className="grid gap-4 sm:max-w-md">
+      {network && (
+        <FormField
+          key={`${adapter?.id}-printer`}
+          label={t("integrations:form.printer")}
+          hint={t("integrations:form.printerHint")}
+        >
+          {(p) => (
+            <Combobox
+              {...p}
+              value={printer}
+              onChange={(v) => {
+                setPrinter(v);
+                setMissing(false);
+                if (tryOut.data || tryOut.isError) tryOut.reset();
+              }}
+              options={[
+                { value: "new", label: t("integrations:form.printerNew") },
+                ...printers
+                  .filter((x) => !taken.has(x.id))
+                  .map((x) => ({ value: x.id, label: printerName(t, x) })),
+              ]}
+            />
+          )}
+        </FormField>
+      )}
       {config.map((field) => input("config", field))}
       {secrets.map((field) => input("secrets", field))}
       {reach ? (
@@ -342,6 +401,7 @@ export function IntegrationCreatePage() {
         config: v.config,
         secrets: v.secrets,
         ...(v.deviceId && { deviceId: v.deviceId }),
+        ...(v.printer && { printer: v.printer }),
       },
       {
         onSuccess: (row) =>
@@ -448,6 +508,8 @@ export function IntegrationEditPage() {
         ...(Object.keys(v.secrets).length > 0 && { secrets: v.secrets }),
         // Only a new machine: picking one is hub.manage, and the one it has may be switched off.
         ...(v.deviceId !== (saved.deviceId ?? null) && { deviceId: v.deviceId }),
+        // Another printer moves the link; a source with none yet gets one.
+        ...(v.printer && v.printer !== saved.printerId && { printer: v.printer }),
       },
       { onSuccess: () => navigate({ to: "/integrations", hash: `integration-${saved.id}` }) },
     );

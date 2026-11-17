@@ -2,13 +2,16 @@ import {
   apiErrorSchema,
   archivedFilter,
   dateRangeQuery,
+  type IntegrationAdapter,
   listQuery,
   type Page,
   type Printer,
+  type PrinterDetail,
   type PrinterPatch,
   type PrinterRow,
   pageOf,
   printerCommentSchema,
+  printerDetailSchema,
   printerFilters,
   printerInputSchema,
   printerPatchSchema,
@@ -16,6 +19,7 @@ import {
   printerSchema,
   printerSortFields,
   printStatsSchema,
+  readsPrinterSerial,
   spoolLoadSchema,
   summarizePrints,
 } from "@3d-maker-suite/core";
@@ -24,6 +28,7 @@ import { and, eq, getTableColumns, isNull } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
+import { sourcesOfPrinter } from "../integrations/printerSources.ts";
 import {
   alertTasks,
   archivedAtOf,
@@ -57,8 +62,25 @@ const usage = printerUsageColumns();
 const notFound = { 404: apiErrorSchema };
 
 export const printersRoutes =
-  (db: Db, dataDir: string): FastifyPluginAsyncZod =>
+  (db: Db, dataDir: string, adapters: IntegrationAdapter[] = []): FastifyPluginAsyncZod =>
   async (app) => {
+    /**
+     * Where a printer comes from (ADR-0015). Its serial is a source's while one supplies it: one
+     * that reads it from the printer (Bambu LAN), else the account that brought it in with it.
+     */
+    const detail = (row: PrinterRecord): PrinterDetail => {
+      const sources = sourcesOfPrinter(db, row.id);
+      const adapterOf = (id: string) => adapters.find((a) => a.id === id);
+      const from =
+        sources.find((s) => readsPrinterSerial(adapterOf(s.adapterId))) ??
+        (row.serial?.trim() && row.integrationId
+          ? sources.find(
+              (s) =>
+                s.integrationId === row.integrationId && adapterOf(s.adapterId)?.kind === "cloud",
+            )
+          : undefined);
+      return { ...(row as Printer), sources, serialFrom: from?.integrationId ?? null };
+    };
     const get = (id: string) => {
       const row = db.select().from(printers).where(eq(printers.id, id)).get();
       if (!row) throw new HttpError(404, "not_found", "Printer not found");
@@ -154,7 +176,7 @@ export const printersRoutes =
       {
         schema: {
           body: printerInputSchema,
-          response: { 201: printerSchema, 409: apiErrorSchema },
+          response: { 201: printerDetailSchema, 409: apiErrorSchema },
         },
       },
       async (req, reply) => {
@@ -167,14 +189,14 @@ export const printersRoutes =
           .values({ ...withMachine(req.body), number: req.body.number ?? nextNumber(printers) })
           .returning()
           .get();
-        return reply.status(201).send(row as Printer);
+        return reply.status(201).send(detail(row));
       },
     );
 
     app.get(
       "/:id",
-      { schema: { params, response: { 200: printerSchema, ...notFound } } },
-      async (req) => get(req.params.id) as Printer,
+      { schema: { params, response: { 200: printerDetailSchema, ...notFound } } },
+      async (req) => detail(get(req.params.id)),
     );
 
     // `archived` archives/restores.
@@ -184,18 +206,24 @@ export const printersRoutes =
         schema: {
           params,
           body: printerPatchSchema,
-          response: { 200: printerSchema, 409: apiErrorSchema, ...notFound },
+          response: { 200: printerDetailSchema, 409: apiErrorSchema, ...notFound },
         },
       },
       async (req) => {
         const cur = get(req.params.id);
         const { archived, ...fields } = req.body;
+        if (
+          fields.serial !== undefined &&
+          (fields.serial?.trim() || null) !== (cur.serial?.trim() || null) &&
+          detail(cur).serialFrom
+        )
+          throw new HttpError(409, "serial_from_source", "Its source gives this printer's serial");
         checkState(fields.state);
         checkModel(fields.modelId, cur.modelId);
         checkProcessPreset(fields.processPresetId, cur.processPresetId);
         assertNumberFree(db, printers, "printer", fields.number, req.params.id);
         if (archived) assertNoAccessories(req.params.id);
-        return db.transaction((tx) => {
+        const row = db.transaction((tx) => {
           const row = tx
             .update(printers)
             .set({ ...withMachine(fields, cur), archivedAt: archivedAtOf(archived) })
@@ -203,8 +231,9 @@ export const printersRoutes =
             .returning()
             .get();
           if (archived) resolveItemAlerts(tx, alertTasks.printer(row.id));
-          return row as Printer;
+          return row;
         });
+        return detail(row);
       },
     );
 

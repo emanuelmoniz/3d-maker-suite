@@ -9,6 +9,7 @@ import {
   isSlicerKind,
   SLICER_FILE_TYPES,
   SLICER_ZIP_TYPES,
+  syncTypes,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -131,7 +132,7 @@ function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[]
   const slicerApp =
     !!program &&
     (adapter.kind === "worker" ? !!workerDevice(db, row)?.sliceWorker : existsSync(program));
-  return adapter.capabilities.filter(
+  return syncTypes(adapter).filter(
     (c) =>
       policyOf(db, row.id, c).mode !== "off" &&
       // Only slicing needs the program; a printer's status is a switch on its source.
@@ -230,6 +231,9 @@ export function capableRow(db: Db, adapters: IntegrationAdapter[], id: string, c
   return found;
 }
 
-/** Supported and not switched off, set up or not (sync still reports a missing sign-in). */
+/**
+ * Supported and not switched off, set up or not (sync still reports a missing sign-in). A printer
+ * on the network never syncs printers: it is linked at save (ADR-0015).
+ */
 export const switchedOn = (db: Db, row: Row, adapter: IntegrationAdapter, cap: Capability) =>
-  adapter.capabilities.includes(cap) && policyOf(db, row.id, cap).mode !== "off";
+  syncTypes(adapter).includes(cap) && policyOf(db, row.id, cap).mode !== "off";

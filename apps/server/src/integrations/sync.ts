@@ -84,7 +84,7 @@ type SyncBridge = { instance: SourceBridge["instance"]; online: SourceBridge["on
 
 import { mergeUserPresets, userPresetFiles } from "./presetLibrary.ts";
 import { ownRows, releaseRoute } from "./presetRoutes.ts";
-import { linkSourcePrinters } from "./printerSources.ts";
+import { linkSourcePrinters, sourceConfig } from "./printerSources.ts";
 import { secretStore } from "./secrets.ts";
 import {
   activeSpools,
@@ -282,7 +282,7 @@ export function createSyncer(
       return bridge.instance({ ...row, deviceId }, adapter);
     if (!adapter.create) throw new HttpError(409, "capability_unavailable", "No account to reach");
     return adapter.create({
-      config: adapter.configSchema.parse(row.config),
+      config: adapter.configSchema.parse(sourceConfig(db, row, adapter)),
       secrets: secretStore(db, key, row.id),
       log: log.child({ integrationId: row.id, adapterId: row.adapterId }),
       signal,

@@ -116,6 +116,10 @@
     "testFoundSerial": "Connection works. Found {{printer}}, serial {{serial}}.",
     "testFoundMany_one": "Connection works. Found {{count}} printer.",
     "testFoundMany_other": "Connection works. Found {{count}} printers.",
+    "printer": "Printer",
+    "printerNew": "New printer from this source",
+    "printerHint": "A printer you already have keeps its name, model and costs. Saving asks the printer what it is, as Test does.",
+    "anyOfPrinter": "This printer has no serial number yet. Enter its IP.",
     "errors": {
       "invalid_config": "Some fields aren't valid. Check the address and the other fields.",
       "invalid_secrets": "Fill in the key or access code.",
@@ -123,7 +127,10 @@
       "device_outdated": "The connector on that machine is too old for this source. Update it to the hub's version.",
       "device_offline": "That machine is offline. Try again once it is online.",
       "hub_off": "The hub is off. Turn it on to reach a source through a machine.",
-      "integration_exists": "This source is already set up. Find its card on the Integrations page."
+      "integration_exists": "This source is already set up. Find its card on the Integrations page.",
+      "printer_required": "Pick the printer this is, or a new printer.",
+      "printer_has_source": "Another network source is already that printer. Pick another one.",
+      "no_printer": "The source answered but names no printer."
     }
   },
   "adapters": {
@@ -131,6 +138,14 @@
       "name": "Demo data (mock)",
       "fields": {
         "label": "Label",
+        "liveCycleSec": "Live print loop (seconds)",
+        "token": "Token"
+      }
+    },
+    "mock-host": {
+      "name": "Demo printer on the network (mock)",
+      "fields": {
+        "host": "Address",
         "liveCycleSec": "Live print loop (seconds)",
         "token": "Token"
       }

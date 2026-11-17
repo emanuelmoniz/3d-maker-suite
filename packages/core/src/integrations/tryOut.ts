@@ -57,7 +57,13 @@ export async function tryOut(
       : [];
     const printers: FoundPrinter[] = found
       .slice(0, FOUND_PRINTERS_MAX)
-      .map(({ name, brand, model, serial }) => ({ name, brand, model, ...(serial && { serial }) }));
+      .map(({ externalId, name, brand, model, serial }) => ({
+        externalId,
+        name,
+        brand,
+        model,
+        ...(serial && { serial }),
+      }));
     return { ok: true, printers };
   } catch (err) {
     return { ok: false, code: err instanceof IntegrationError ? err.code : "unknown" };

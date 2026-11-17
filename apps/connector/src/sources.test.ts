@@ -166,16 +166,15 @@ describe("printers through a connector", {
       config: { host: "printer.lan" },
       secrets: { token: SECRET },
       deviceId,
+      printer: "new",
     });
     expect(created.statusCode).toBe(201);
     const integrationId = created.json().id as string;
     expect(created.json()).toMatchObject({ deviceId, viaDeviceName: "WS-1" });
-    // The hub has no way to the printer: the connector reads it for the import.
-    const synced = await h.send("POST", `/api/integrations/${integrationId}/sync`, {
-      type: "printers",
-    });
-    expect(synced.statusCode).toBe(200);
-    expect(h.db.select().from(schema.printers).all()).toHaveLength(1);
+    // The hub has no way to the printer: the connector asks it what it is, and it is made at save.
+    expect(h.db.select().from(schema.printers).all()).toMatchObject([
+      { name: "Mock printer", serial: "MOCK0001", integrationId, externalId: "mock-1" },
+    ]);
     h.app.printerStatus.refresh();
     return { h, c, hubDir, devDir, deviceId, integrationId };
   };
@@ -259,14 +258,19 @@ describe("printers through a connector", {
     await until(() => c.link.state().status === "online");
     c.link.close();
     await until(async () => (await h.send("GET", "/api/hub/devices")).json()[0]?.online === false);
-    // Assigned while the machine is away: nothing is read, nothing fails.
+    // Assigned while the machine is away: nothing is read, nothing fails. Saving asks the
+    // printer what it is, so it is set up where the hub reaches it, then moved.
     const created = await h.send("POST", "/api/integrations", {
       adapterId: "mock-host",
       config: { host: "printer.lan" },
       secrets: { token: SECRET },
-      deviceId: c.store.get().deviceId,
+      printer: "new",
     });
     expect(created.statusCode).toBe(201);
+    const moved = await h.send("PATCH", `/api/integrations/${created.json().id}`, {
+      deviceId: c.store.get().deviceId,
+    });
+    expect(moved.statusCode).toBe(200);
     const runs = () => h.db.select().from(schema.syncRuns).all();
     expect(runs()).toEqual([]);
     const again = connector(state, devDir);
@@ -300,6 +304,7 @@ describe("printers through a connector", {
       config: { host: "printer.lan" },
       secrets: { token: SECRET },
       deviceId: c.store.get().deviceId,
+      printer: "new",
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe("device_outdated");
@@ -355,7 +360,15 @@ describe("printers through a connector", {
       const ok = await h.send("POST", "/api/integrations/test", body(deviceId));
       expect(ok.json()).toEqual({
         ok: true,
-        printers: [{ name: "Mock printer", brand: "Mock", model: "M1", serial: "MOCK0001" }],
+        printers: [
+          {
+            externalId: "mock-1",
+            name: "Mock printer",
+            brand: "Mock",
+            model: "M1",
+            serial: "MOCK0001",
+          },
+        ],
       });
       const wrong = await h.send("POST", "/api/integrations/test", body(deviceId, "wrong"));
       expect(wrong.json()).toEqual({ ok: false, code: "auth_required" });
@@ -546,8 +559,9 @@ describe("printers through a connector", {
         config: { host: "printer.lan" },
         secrets: { token: SECRET },
         deviceId,
+        printer: "new",
       });
-      await h.send("POST", `/api/integrations/${printer.json().id}/sync`, { type: "printers" });
+      expect(printer.statusCode).toBe(201);
       h.app.printerStatus.refresh();
       await until(() => c.link.sources?.watching() === 2);
       const reported = (st: PrinterSnapshot["state"], progress = 50): PrinterSnapshot => ({
@@ -585,6 +599,7 @@ describe("printers through a connector", {
         config: { host: "printer.lan" },
         secrets: { token: SECRET },
         deviceId,
+        printer: "new",
       });
       const write = (integrationId: string, w: object) =>
         new Promise((done) =>

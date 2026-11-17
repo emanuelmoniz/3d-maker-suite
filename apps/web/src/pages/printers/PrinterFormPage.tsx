@@ -1,4 +1,4 @@
-import type { Printer, PrinterInput, ProcessPreset } from "@3d-maker-suite/core";
+import type { Printer, PrinterDetail, PrinterInput, ProcessPreset } from "@3d-maker-suite/core";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import { ReviewLevelField } from "../../components/ReviewLevelField.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict, useCatalogPicker, useModelInfo } from "../../lib/catalog.ts";
 import { dateInputToIso, formatNumber, isoToDateInput } from "../../lib/format.ts";
+import { useAdapterName } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { useCreatePrinter, usePatchPrinter, usePrinter } from "../../lib/printers.ts";
 import { useTagEditor } from "../../lib/tags.ts";
@@ -24,8 +25,11 @@ const date = (v: string) => (v ? dateInputToIso(v) : null);
 const int = (v: string, scale = 1) => (v ? Math.round(Number(v) * scale) : null);
 
 /** Create (no `printer`) or edit. Uncontrolled inputs, read from FormData on submit. */
-function PrinterForm({ printer }: { printer?: Printer }) {
+function PrinterForm({ printer }: { printer?: PrinterDetail }) {
   const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  // A source gives its serial (ADR-0015): read-only here, and never sent.
+  const serialFrom = printer?.sources.find((s) => s.integrationId === printer.serialFrom);
   const navigate = useNavigate();
   const stateLabel = useStateLabel();
   const prefs = usePreferences().data?.values;
@@ -63,7 +67,7 @@ function PrinterForm({ printer }: { printer?: Printer }) {
       number: text(f, "number") ? Number(text(f, "number")) : undefined,
       name: text(f, "name"),
       modelId: text(f, "modelId"),
-      serial: orNull(text(f, "serial")),
+      ...(!serialFrom && { serial: orNull(text(f, "serial")) }),
       state: text(f, "state"),
       powerW: int(text(f, "powerW")),
       purchasedAt: date(text(f, "purchasedAt")),
@@ -170,9 +174,22 @@ function PrinterForm({ printer }: { printer?: Printer }) {
           />
         )}
       </FormField>
-      <FormField label={t("printers:form.serial")}>
+      <FormField
+        label={t("printers:form.serial")}
+        hint={
+          serialFrom
+            ? t("printers:form.serialFrom", { source: adapterName(serialFrom.adapterId) })
+            : undefined
+        }
+      >
         {(p) => (
-          <input {...p} name="serial" className={inputClass} defaultValue={printer?.serial ?? ""} />
+          <input
+            {...p}
+            name="serial"
+            readOnly={!!serialFrom}
+            className={inputClass}
+            defaultValue={printer?.serial ?? ""}
+          />
         )}
       </FormField>
       <FormField label={t("printers:form.state")}>

@@ -11,14 +11,16 @@ The Bambu LAN integration reads a Bambu Lab printer on your network: its live st
 ## Connect
 
 1. Open **Integrations**, press **Add** and choose **Bambu Lab printer (LAN)**.
-2. Enter the access code and the printer's **IP**, or its **serial number** (on the screen under the device info, or in Bambu Studio's device page), or both:
-   - With the IP, the app reads the serial from the printer.
+2. Under **Printer**, pick the printer if you already have it (added by hand, for example), else **New printer from this source**. A printer you pick keeps its own name, model and costs. Pick your Bambu Cloud printer to have one printer with both sources.
+3. Enter the access code and the printer's **IP**. A new printer can have its **serial number** (on the screen under the device info, or in Bambu Studio's device page) instead, or both:
+   - With the IP, the app reads the serial from the printer and writes it to the printer.
    - With the serial alone, the app finds the printer by the broadcast it sends every 10 seconds. That needs the server on the same network segment; a server in Docker on a bridged network doesn't hear it, so give it the IP.
    - With both, the IP is where it starts, and the app follows the printer by its serial when its IP changes.
-3. Optional: a name for the printer (else the name it announces).
-4. Press **Test connection** on the new card, then sync **Printers** once and switch on **Live status**.
+   - A printer you picked gives its own serial: the IP is optional then, unless it has none yet.
+4. Optional: a name for a new printer (else the name it announces).
+5. Press **Test**, then **Add**. Saving asks the printer what it is, as Test does: if it doesn't answer, nothing is saved. Then switch on **Live status** on the card.
 
-One integration is one printer. Add one per printer. The access code is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
+The serial number belongs to the printer: its page shows it, read-only while Bambu LAN or Bambu Cloud gives it. One integration is one printer, linked when you add it: there is no **Printers** sync for it, so a printer you added by hand never comes back twice. To link it to another printer, open **Edit** on its card and pick another **Printer**; the one it had stays, unlinked. Removing the integration keeps the printer. Add one integration per printer. The access code is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
 
 **Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration, or on the machine's page under **Printers**. See [printers through a connector](hub.md#printers-through-a-connector).
 

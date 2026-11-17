@@ -49,7 +49,9 @@ test("finds the printer and aborts afterwards", async () => {
   const secrets = { key: "right" };
   expect(await tryOut(a, { config: { host: "h" }, secrets, log })).toEqual({
     ok: true,
-    printers: [{ name: "Voron 0", brand: "Klipper", model: "Voron 2.4", serial: "S0" }],
+    printers: [
+      { externalId: "p0", name: "Voron 0", brand: "Klipper", model: "Voron 2.4", serial: "S0" },
+    ],
   });
   expect(a.seen.signal?.aborted).toBe(true);
   // The caller's keys are never changed.

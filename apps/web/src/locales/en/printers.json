@@ -33,6 +33,7 @@
     "processPresetForModel": "For this model",
     "processPresetOther": "Other process presets",
     "serial": "Serial number",
+    "serialFrom": "From {{source}}: it gives this printer's serial.",
     "state": "State",
     "power": "Typical power (W)",
     "powerHint": "Used to estimate energy for prints without a measurement.",

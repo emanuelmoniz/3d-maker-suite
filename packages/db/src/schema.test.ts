@@ -2511,3 +2511,79 @@ describe("migration 0135", () => {
     });
   });
 });
+
+describe("migration 0136", () => {
+  it("switches off a network printer's printers line and moves Bambu LAN's serial to its printer", () => {
+    const now = migrateAcross(135, (sqlite) => {
+      sqlite.exec(`
+        insert into brands (id, name, created_at, updated_at) values ('b', 'Acme', 'x', 'x');
+        insert into printer_models (id, brand_id, model, created_at, updated_at) values ('m', 'b', 'X1', 'x', 'x');
+        insert into integrations (id, adapter_id, config, created_at, updated_at) values
+          ('klipper', 'moonraker', '{"host":"k.lan"}', 'x', 'x'),
+          ('cloud', 'bambu-cloud', '{}', 'x', 'x'),
+          ('lanOwn', 'bambu-lan', '{"host":"a.lan","serial":"SA"}', 'x', 'x'),
+          ('lanLinked', 'bambu-lan', '{"serial":"SB"}', 'x', 'x'),
+          ('lanKept', 'bambu-lan', '{"host":"c.lan","serial":"SC"}', 'x', 'x'),
+          ('lanNone', 'bambu-lan', '{"serial":"SD"}', 'x', 'x');
+        insert into sync_policies (integration_id, type, mode, frequency, last_run_at) values
+          ('klipper', 'printers', 'auto', '1d', 'r'), ('klipper', 'prints', 'auto', '1h', null),
+          ('cloud', 'printers', 'auto', '1d', null), ('lanOwn', 'printers', 'manual', '1d', null);
+        insert into printers (id, number, name, model_id, state, serial, origin, integration_id, external_id, created_at, updated_at) values
+          ('pa', 1, 'A', 'm', 'working', null, 'integration', 'lanOwn', 'SA', 'x', 'x'),
+          ('pb', 2, 'B', 'm', 'working', 'SB', 'integration', 'cloud', 'SB', 'x', 'x'),
+          ('pc', 3, 'C', 'm', 'working', 'sc', 'manual', null, null, 'x', 'x');
+        insert into printer_sources (id, printer_id, integration_id, external_id, created_at, updated_at) values
+          ('l1', 'pb', 'lanLinked', 'SB', 'x', 'x'), ('l2', 'pc', 'lanKept', 'SC', 'x', 'x');
+      `);
+    });
+    const modes = now
+      .select({
+        id: s.syncPolicies.integrationId,
+        type: s.syncPolicies.type,
+        mode: s.syncPolicies.mode,
+      })
+      .from(s.syncPolicies)
+      .all();
+    expect(modes).toEqual(
+      expect.arrayContaining([
+        { id: "klipper", type: "printers", mode: "off" },
+        { id: "klipper", type: "prints", mode: "auto" },
+        { id: "cloud", type: "printers", mode: "auto" },
+        { id: "lanOwn", type: "printers", mode: "off" },
+      ]),
+    );
+    // The data stays.
+    expect(
+      now
+        .select()
+        .from(s.syncPolicies)
+        .all()
+        .find((p) => p.integrationId === "klipper" && p.type === "printers")?.lastRunAt,
+    ).toBe("r");
+    const serials = Object.fromEntries(
+      now
+        .select()
+        .from(s.printers)
+        .all()
+        .map((p) => [p.id, p.serial]),
+    );
+    // Moved where the printer had none; a printer's own serial stays.
+    expect(serials).toEqual({ pa: "SA", pb: "SB", pc: "sc" });
+    const configs = Object.fromEntries(
+      now
+        .select()
+        .from(s.integrations)
+        .all()
+        .map((i) => [i.id, i.config]),
+    );
+    expect(configs).toEqual({
+      klipper: { host: "k.lan" },
+      cloud: {},
+      lanOwn: { host: "a.lan" },
+      lanLinked: {},
+      lanKept: { host: "c.lan" },
+      // No printer yet: it keeps it until one is linked.
+      lanNone: { serial: "SD" },
+    });
+  });
+});

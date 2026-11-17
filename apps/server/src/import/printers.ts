@@ -193,7 +193,8 @@ export const printerImport = {
     }
     const modelId = modelIdFor(db, str(v.brand) ?? "", str(v.model) ?? "");
     const nozzleDiameterMm = num(v.nozzleDiameterMm) ?? DEFAULT_NOZZLE;
-    db.insert(printers)
+    return db
+      .insert(printers)
       .values({
         ...(source && { ...source, origin: "integration" as const }),
         // A number another printer has ("import as new" of an exported row) gets the next free one.
@@ -209,7 +210,8 @@ export const printerImport = {
         powerW: num(v.powerW),
         ...costColumns(v),
       })
-      .run();
+      .returning({ id: printers.id })
+      .get().id;
   },
 
   /** Writes `patch` (only the values that change) to the printer. */

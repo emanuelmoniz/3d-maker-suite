@@ -3483,7 +3483,7 @@ Do Step 15 of the 6.0.0 plan in PLAN.md.
 Do Step 16 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 17 - One printer per network source  **[plan mode]**
+### [x] Step 17 - One printer per network source  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - The add and edit forms of a network printer source get a **Printer** field: **New printer from this source** (made at save from what Test found) or one of your printers that no network source has yet. An existing printer is linked in `printer_sources` and keeps its own name, model and costs. Today a printer added by hand comes back twice, because Moonraker, PrusaLink and OctoPrint have no serial to match on. On the Edit page, picking another printer moves the link. Deleting the integration keeps the printer, unlinked.

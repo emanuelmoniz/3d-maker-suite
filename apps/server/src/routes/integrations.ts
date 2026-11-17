@@ -14,6 +14,7 @@ import {
   integrationSchema,
   isAction,
   isCatalogType,
+  isNetworkPrinter,
   isSlicerKind,
   isUserPresetType,
   type LoginInput,
@@ -22,6 +23,8 @@ import {
   loginInputSchema,
   loginResultSchema,
   type Page,
+  PRINTER_SERIAL_FIELD,
+  type PrinterChoice,
   pageOf,
   type SyncRun,
   slicerCheckSchema,
@@ -35,6 +38,7 @@ import {
   syncRunFilters,
   syncRunSchema,
   syncRunSortFields,
+  syncTypes,
   testResultSchema,
   tryOut,
   workerConfigSchema,
@@ -57,6 +61,12 @@ import {
 import { pickHubSlicer } from "../integrations/catalogSource.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
+import {
+  type FoundLink,
+  linkedPrinter,
+  linkNetworkPrinter,
+  sourceConfig,
+} from "../integrations/printerSources.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { ServerPresets } from "../integrations/serverPresets.ts";
 import type { SourceBridge } from "../integrations/sourceBridge.ts";
@@ -185,7 +195,9 @@ export const integrationsRoutes =
             : null,
         status: syncer.running.has(row.id) ? "syncing" : local || row.status,
         capabilities: activeCapabilities(db, syncer.adapters, full),
-        policies: (adapter?.capabilities ?? []).map((type) => {
+        ...(isNetworkPrinter(adapter) && { printerId: linkedPrinter(db, row.id)?.id ?? null }),
+        // A printer on the network has no printers line: it is one printer (ADR-0015).
+        policies: (adapter ? syncTypes(adapter) : []).map((type) => {
           const p = policyOf(db, row.id, type);
           const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = p;
           const { scope, merge, newWeight, newOpenedAt, atMinute, atHour, atWeekday, atDay } = p;
@@ -298,6 +310,67 @@ export const integrationsRoutes =
       bridge.check(adapter, deviceId);
     };
 
+    /**
+     * Tries a source out with these values (`tryOut`), here or through the machine it is reached
+     * from: Test before saving, and the save of a printer on the network. `printer`: whose serial
+     * a source that reads it uses; `saved`: the source being edited, linked to one already.
+     */
+    const probe = async (
+      adapter: (typeof syncer.adapters)[number],
+      config: unknown,
+      keys: Record<string, string>,
+      deviceId: string | null,
+      printer?: PrinterChoice,
+      saved?: typeof integrations.$inferSelect,
+    ) => {
+      const values = parse(
+        adapter.configSchema,
+        sourceConfig(db, { id: saved?.id, config }, adapter, printer),
+        "invalid_config",
+      );
+      if (!deviceId)
+        return tryOut(adapter, {
+          config: values,
+          secrets: keys,
+          log: app.log.child({ adapterId: adapter.id }),
+        });
+      if (!bridge) throw new HttpError(409, "hub_off", "The hub is off");
+      bridge.check(adapter, deviceId);
+      return bridge.test(deviceId, adapter, values, keys);
+    };
+
+    /**
+     * What a printer on the network says it is, to link it at save (ADR-0015). Nothing is saved
+     * when it doesn't answer: 422 with the source's error code, as Test shows it.
+     */
+    const foundPrinter = async (...args: Parameters<typeof probe>): Promise<FoundLink> => {
+      const result = await probe(...args);
+      if (!result.ok) throw new HttpError(422, result.code, "The printer didn't answer");
+      const [found] = result.printers;
+      if (!found) throw new HttpError(422, "no_printer", "The source names no printer");
+      if (!found.externalId)
+        throw new HttpError(409, "device_outdated", "The connector is too old for this source");
+      return { ...found, externalId: found.externalId };
+    };
+
+    /**
+     * The serial belongs to the printer (ADR-0015): once the printer has one, a source that reads
+     * it doesn't keep its own.
+     */
+    const withoutSerial = (
+      adapter: (typeof syncer.adapters)[number],
+      config: Record<string, unknown>,
+      printerId: string,
+    ) => {
+      if (
+        !(PRINTER_SERIAL_FIELD in config) ||
+        !sourceConfig(db, { config: {} }, adapter, printerId)[PRINTER_SERIAL_FIELD]
+      )
+        return config;
+      const { [PRINTER_SERIAL_FIELD]: _, ...rest } = config;
+      return rest;
+    };
+
     app.get("/", { schema: { response: { 200: z.array(integrationSchema) } } }, async (req) =>
       db
         .select()
@@ -318,26 +391,51 @@ export const integrationsRoutes =
       {
         schema: {
           body: integrationInputSchema,
-          response: { 201: integrationSchema, 409: apiErrorSchema },
+          response: { 201: integrationSchema, 409: apiErrorSchema, 422: apiErrorSchema },
         },
       },
       async (req, reply) => {
-        const { adapterId, enabled, config, secrets, deviceId: via } = req.body;
+        const { adapterId, enabled, config, secrets, deviceId: via, printer } = req.body;
         const adapter = adapterOf(adapterId);
         if (via) checkVia(req, adapter, via);
+        // A printer on the network is one printer, linked now (ADR-0015).
+        const network = isNetworkPrinter(adapter);
+        if (network && !printer)
+          throw new HttpError(400, "printer_required", "Pick the printer it is, or a new one");
         const values = {
           adapterId,
           enabled,
-          config: parse(adapter.configSchema, config, "invalid_config"),
+          config: parse(
+            adapter.configSchema,
+            network ? sourceConfig(db, { config }, adapter, printer) : config,
+            "invalid_config",
+          ),
           ...(via && { deviceId: via }),
         };
         const plain = parse(adapter.secretsSchema, secrets, "invalid_secrets");
         const deviceId = workerDeviceId(adapter.kind, values.config);
         slicerExists(adapter, deviceId);
         usageTargetExists(adapter);
+        const found =
+          network && printer
+            ? await foundPrinter(
+                adapter,
+                config,
+                plain as Record<string, string>,
+                via ?? null,
+                printer,
+              )
+            : undefined;
         const id = db.transaction(() => {
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);
+          if (found && printer) {
+            const printerId = linkNetworkPrinter(db, syncer.adapters, row.id, found, printer);
+            db.update(integrations)
+              .set({ config: withoutSerial(adapter, values.config, printerId) })
+              .where(eq(integrations.id, row.id))
+              .run();
+          }
           // Spool weights from a vendor are estimates: not tracked until you opt in. Without a
           // row a type follows `defaultPolicy`, so integrations added before keep their setting.
           if (adapter.capabilities.includes("spools"))
@@ -373,12 +471,18 @@ export const integrationsRoutes =
         schema: {
           params,
           body: integrationPatchSchema,
-          response: { 200: integrationSchema, ...notFound, 409: apiErrorSchema },
+          response: {
+            200: integrationSchema,
+            ...notFound,
+            409: apiErrorSchema,
+            422: apiErrorSchema,
+          },
         },
       },
       async (req) => {
         const cur = get(req.params.id);
-        const { config, secrets, slicerConfigDir, slicerPath, policies, ...fields } = req.body;
+        const { config, secrets, slicerConfigDir, slicerPath, policies, printer, ...fields } =
+          req.body;
         // ADR-0020, ADR-0023: catalog import cards (presets too) need catalog manage, everything
         // else integrations.manage.
         const rights = req.user?.rights;
@@ -423,7 +527,15 @@ export const integrationsRoutes =
         const kept = accountConfigOf(cur.config);
         const nextConfig =
           config && adapter
-            ? { ...parse(adapter.configSchema, config, "invalid_config"), ...kept }
+            ? {
+                ...parse(
+                  adapter.configSchema,
+                  // Checked with its printer's serial, which isn't kept (`withoutSerial`).
+                  sourceConfig(db, { id: cur.id, config }, adapter, printer),
+                  "invalid_config",
+                ),
+                ...kept,
+              }
             : undefined;
         // A worker moved to another machine: that one may have this slicer already.
         if (nextConfig && adapter?.kind === "worker") {
@@ -431,8 +543,39 @@ export const integrationsRoutes =
           if (to !== workerDeviceId(adapter.kind, cur.config)) slicerExists(adapter, to, cur.id);
         }
         for (const p of policies ?? [])
-          if (!adapter?.capabilities.includes(p.type) || (isAction(p.type) && p.mode === "auto"))
+          if (
+            !(adapter && syncTypes(adapter).includes(p.type)) ||
+            (isAction(p.type) && p.mode === "auto")
+          )
             throw new HttpError(400, "invalid_policy", `No such policy for "${p.type}"`);
+        // A printer on the network (ADR-0015): another printer moves the link; one with no link
+        // yet gets one with its new setup. Either way it is asked what it is first.
+        const source = adapterOf(cur.adapterId);
+        const network = isNetworkPrinter(source);
+        if (printer !== undefined && !network)
+          throw new HttpError(
+            400,
+            "not_printer_host",
+            "Only a printer on the network is one printer",
+          );
+        const unlinked = network && !linkedPrinter(db, cur.id);
+        if (unlinked && config !== undefined && printer === undefined)
+          throw new HttpError(400, "printer_required", "Pick the printer it is, or a new one");
+        const relink = printer ?? (unlinked && config !== undefined ? "new" : undefined);
+        const found = relink
+          ? await foundPrinter(
+              source,
+              nextConfig ?? cur.config,
+              parse(
+                source.secretsSchema,
+                { ...readSecrets(db, key, cur.id), ...secrets },
+                "invalid_secrets",
+              ) as Record<string, string>,
+              fields.deviceId !== undefined ? fields.deviceId : cur.deviceId,
+              relink,
+              cur,
+            )
+          : undefined;
         db.transaction(() => {
           for (const { type, ...set } of policies ?? [])
             if (Object.keys(set).length)
@@ -467,6 +610,19 @@ export const integrationsRoutes =
             parse(adapter.secretsSchema, merged, "invalid_secrets");
             writeSecrets(db, key, cur.id, merged);
           }
+          if (found && relink) linkNetworkPrinter(db, syncer.adapters, cur.id, found, relink);
+          const printerId = network && linkedPrinter(db, cur.id)?.id;
+          if (printerId)
+            db.update(integrations)
+              .set({
+                config: withoutSerial(
+                  source,
+                  get(cur.id).config as Record<string, unknown>,
+                  printerId,
+                ),
+              })
+              .where(eq(integrations.id, cur.id))
+              .run();
         });
         // Another device: the old one may stop slicing, the new one starts.
         if (config && adapter?.kind === "worker") {
@@ -604,14 +760,13 @@ export const integrationsRoutes =
         },
       },
       async (req) => {
-        const { adapterId, integrationId, deviceId = null, config, secrets } = req.body;
+        const { adapterId, integrationId, deviceId = null, config, secrets, printer } = req.body;
         const adapter = adapterOf(adapterId);
         if (isSlicerKind(adapter.kind) || !adapter.create)
           throw new HttpError(409, "capability_unavailable", "Nothing to test");
         const saved = integrationId ? get(integrationId) : undefined;
         if (saved && saved.adapterId !== adapterId)
           throw new HttpError(400, "adapter_mismatch", "Another kind of source");
-        const values = parse(adapter.configSchema, config, "invalid_config");
         // A key left empty on the Edit page is the stored one: it never goes to the browser.
         const keys = parse(
           adapter.secretsSchema,
@@ -619,15 +774,7 @@ export const integrationsRoutes =
           "invalid_secrets",
         ) as Record<string, string>;
         if (deviceId !== (saved?.deviceId ?? null)) mayPickMachine(req);
-        if (!deviceId)
-          return tryOut(adapter, {
-            config: values,
-            secrets: keys,
-            log: app.log.child({ adapterId }),
-          });
-        if (!bridge) throw new HttpError(409, "hub_off", "The hub is off");
-        bridge.check(adapter, deviceId);
-        return bridge.test(deviceId, adapter, values, keys);
+        return probe(adapter, config, keys, deviceId, printer, saved);
       },
     );
 

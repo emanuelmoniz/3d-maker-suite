@@ -59,6 +59,27 @@ export interface IntegrationAdapter {
   login?(ctx: Omit<IntegrationContext, "secrets">, input: LoginInput): Promise<LoginStep>;
 }
 
+type AdapterKindCaps = Pick<IntegrationAdapter, "kind" | "capabilities">;
+
+/**
+ * A printer on the network (ADR-0015): an address with a live status. It is one printer, linked
+ * when it is saved, never by a printers sync.
+ */
+export const isNetworkPrinter = (adapter?: AdapterKindCaps) =>
+  adapter?.kind === "host" && adapter.capabilities.includes("printerStatus");
+
+/**
+ * The config field a source names its printer by, when it reads it from the printer it is linked
+ * to (Bambu LAN): the serial belongs to the printer, not to the source.
+ */
+export const PRINTER_SERIAL_FIELD = "serial";
+export const readsPrinterSerial = (adapter?: Pick<IntegrationAdapter, "kind" | "configSchema">) =>
+  adapter?.kind === "host" && PRINTER_SERIAL_FIELD in adapter.configSchema.shape;
+
+/** The types a source syncs: a printer on the network lists no printers, it is one. */
+export const syncTypes = (adapter: AdapterKindCaps): Capability[] =>
+  adapter.capabilities.filter((c) => c !== "printers" || !isNetworkPrinter(adapter));
+
 export type LoginInput = { email: string; password: string } | { code: string; state: string };
 export type LoginStep =
   | { secrets: Record<string, string> }

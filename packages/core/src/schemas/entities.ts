@@ -185,8 +185,10 @@ export const integrationSchema = z.object({
   presetInstall: presetInstallSlicerSchema.nullable().optional(),
   /** Supported, switched on and set up: the only thing the UI looks at to offer actions. */
   capabilities: z.array(z.enum(CAPABILITIES)),
-  /** One per capability the adapter supports, in its order. */
+  /** One per type it syncs, in the adapter's order (a printer on the network: no printers). */
   policies: z.array(syncPolicySchema),
+  /** A printer on the network: the one printer it is (ADR-0015); null = none linked yet. */
+  printerId: id.nullable().optional(),
   status: z.enum(INTEGRATION_STATUSES),
   lastSyncAt: isoDate.nullable(),
   lastError: z.enum(INTEGRATION_ERROR_CODES).nullable(),
@@ -294,6 +296,14 @@ export const printerSchema = z.object({
   archivedAt: isoDate.nullable(),
   ...imported,
   ...timestamps,
+});
+
+/** One printer, as its page reads it: where it comes from (ADR-0015, one printer, several sources). */
+export const printerDetailSchema = printerSchema.extend({
+  /** The source that brought it in, then the ones linked to it. */
+  sources: z.array(z.object({ integrationId: id, adapterId: z.string() })),
+  /** The source its serial comes from, read-only while there is one; null = you edit it. */
+  serialFrom: id.nullable(),
 });
 
 export const printerCommentSchema = z.object({
@@ -608,6 +618,7 @@ export type PrinterModel = z.infer<typeof printerModelSchema>;
 export type MachinePreset = z.infer<typeof machinePresetSchema>;
 export type ProcessPreset = z.infer<typeof processPresetSchema>;
 export type Printer = z.infer<typeof printerSchema>;
+export type PrinterDetail = z.infer<typeof printerDetailSchema>;
 export type PrinterComment = z.infer<typeof printerCommentSchema>;
 export type Accessory = z.infer<typeof accessorySchema>;
 export type AccessoryComment = z.infer<typeof accessoryCommentSchema>;

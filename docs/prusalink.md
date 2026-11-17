@@ -14,15 +14,16 @@ The PrusaLink integration reads a Prusa printer through PrusaLink, the web inter
 1. Open **Integrations**, press **Add** and choose **PrusaLink (Prusa)**.
 2. Enter the address and the password (or the API key).
 3. Optional: a name for the printer (else its host name) and its model.
-4. Press **Test connection** on the new card, then sync **Printers** once and switch on **Live status**.
+4. Under **Printer**, pick the printer if you already have it (added by hand, for example), else **New printer from this source**. A printer you pick keeps its own name, model and costs.
+5. Press **Test**, then **Add**. Saving asks the printer what it is, as Test does: if it doesn't answer, nothing is saved. Then switch on **Live status** on the card.
 
-One integration is one printer. Add one per Prusa printer. The password and key are stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
+One integration is one printer, linked when you add it: there is no **Printers** sync for it, so a printer you added by hand never comes back twice. To link it to another printer, open **Edit** on its card and pick another **Printer**; the one it had stays, unlinked. Removing the integration keeps the printer. Add one per Prusa printer. The password and key are stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
 
 **Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration, or on the machine's page under **Printers**. See [printers through a connector](hub.md#printers-through-a-connector).
 
 ## What it reads
 
-- **Printer:** the printer itself, from the **Printers** source, with its serial number and nozzle size.
+- **Printer:** the one you picked when you added it, or a new one made from what the printer reports then, with its serial number and nozzle size.
 - **Live status:** state, progress, time left, nozzle and bed temperatures, the file being printed and the loaded material where the printer says it. PrusaLink doesn't report layers. A printer waiting for you (filament out, a door open) shows as paused.
 - **No print history.** PrusaLink keeps none: a print that ends while the app isn't running is missed. Keep the app running (a server, a NAS) to catch every print.
 

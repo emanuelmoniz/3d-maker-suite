@@ -75,20 +75,26 @@ async function pair(name: string, reach = true) {
   return paired;
 }
 
-const printer = (deviceId?: string | null) =>
-  send("POST", "/api/integrations", {
+/**
+ * A printer on the network, linked to a new printer at save (ADR-0015). Saving asks the printer
+ * what it is: here, as these machines' connectors aren't connected; then it moves to `deviceId`.
+ */
+async function printer(deviceId?: string | null) {
+  const made = await send("POST", "/api/integrations", {
     adapterId: "mock-host",
     config: { host: "printer.lan" },
     secrets: { token: "secret" },
-    ...(deviceId !== undefined && { deviceId }),
+    printer: "new",
   });
+  return deviceId ? send("PATCH", `/api/integrations/${made.json().id}`, { deviceId }) : made;
+}
 
 describe("printers through a connector, on the hub", () => {
   it("a device reads only its own printers, keys included, and nobody else gets the keys", async () => {
     const a = await pair("A");
     const b = await pair("B");
     const made = await printer(a.deviceId);
-    expect(made.statusCode).toBe(201);
+    expect(made.statusCode).toBe(200);
     expect(made.json()).toMatchObject({ deviceId: a.deviceId, viaDeviceName: "A" });
     expect(JSON.stringify(made.json())).not.toContain("secret");
     const mine = await device(a.token, "GET", "/sources");
@@ -222,7 +228,7 @@ describe("printers through a connector, on the hub", () => {
       .set({ reachPrinters: true })
       .where(eq(schema.devices.id, a.deviceId))
       .run();
-    expect((await printer(a.deviceId)).statusCode).toBe(201);
+    expect((await printer(a.deviceId)).statusCode).toBe(200);
   });
 
   it("turning a switch off pauses its sources, which keep the machine; the connector hears nothing of them", async () => {
@@ -288,7 +294,15 @@ describe("test before saving", () => {
   it("tests on this server: what it found, or the key it refused; nothing is saved", async () => {
     expect((await tryOut({ ...host, secrets: { token: "secret" } })).json()).toEqual({
       ok: true,
-      printers: [{ name: "Mock printer", brand: "Mock", model: "M1", serial: "MOCK0001" }],
+      printers: [
+        {
+          externalId: "mock-1",
+          name: "Mock printer",
+          brand: "Mock",
+          model: "M1",
+          serial: "MOCK0001",
+        },
+      ],
     });
     expect((await tryOut({ ...host, secrets: { token: "wrong" } })).json()).toEqual({
       ok: false,

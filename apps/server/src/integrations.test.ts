@@ -1046,13 +1046,20 @@ describe("capabilities", () => {
     const host: IntegrationAdapter = { ...mockAdapter(state), id: "host", kind: "host" };
     app = await buildApp(db, false, "", { adapters: [host] });
     const created = (
-      await send("POST", "/api/integrations", { adapterId: "host", secrets: { token: "key" } })
+      await send("POST", "/api/integrations", {
+        adapterId: "host",
+        secrets: { token: "key" },
+        printer: "new",
+      })
     ).json();
     // Not "ok"/"unavailable" as an install is, and it has an account block for its Sources tab.
     expect(created).toMatchObject({ kind: "host", status: "new" });
     expect(created.account).not.toBeNull();
-    expect(created.capabilities).toContain("printers");
-    expect(await syncType(created.id, "printers")).toMatchObject({ status: "ok", created: 1 });
+    // A printer on the network is one printer, made at save: it syncs prints, never printers.
+    expect(db.select().from(schema.printers).all()).toHaveLength(1);
+    expect(created.capabilities).toContain("prints");
+    expect(created.capabilities).not.toContain("printers");
+    expect(await syncType(created.id, "prints")).toMatchObject({ status: "ok" });
     // Switched off it does nothing; a slicer install keeps working.
     const off = await send("PATCH", `/api/integrations/${created.id}`, { enabled: false });
     expect(off.json().capabilities).toEqual([]);

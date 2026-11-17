@@ -17,7 +17,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { capableRows } from "./capabilities.ts";
-import { sourcePrinters } from "./printerSources.ts";
+import { sourceConfig, sourcePrinters } from "./printerSources.ts";
 import { bridgeable } from "./sourceBridge.ts";
 import type { Syncer } from "./sync.ts";
 
@@ -382,22 +382,26 @@ export function createPrinterStatus(
   function refresh() {
     const rows = capableRows(db, adapters, "printerStatus");
     const now = new Map(rows.map((r) => [r.row.id, r]));
+    // A source that reads its printer's serial starts again when the printer's changes.
+    const versionOf = (r: (typeof rows)[number]) =>
+      setupOf({ ...r.row, config: sourceConfig(db, r.row, r.adapter) });
     const via = (id: string) => {
       const r = now.get(id);
       return r && bridgeable(r.adapter) ? r.row.deviceId : null;
     };
     for (const [id, src] of [...sources, ...bridged]) {
-      const row = now.get(id)?.row;
-      if (row && setupOf(row) === src.version) continue;
+      const r = now.get(id);
+      const row = r?.row;
+      if (r && versionOf(r) === src.version) continue;
       const before = bridged.get(id)?.deviceId ?? null;
       stop(id);
       if (!row || before !== via(id)) forgetTrackers(id);
     }
-    for (const [id, { row }] of now) {
+    for (const [id, r] of now) {
       if (sources.has(id) || bridged.has(id)) continue;
       const deviceId = via(id);
       if (deviceId) {
-        startBridged(id, deviceId, setupOf(row));
+        startBridged(id, deviceId, versionOf(r));
         continue;
       }
       const abort = new AbortController();
@@ -407,7 +411,7 @@ export function createPrinterStatus(
         sources.set(id, {
           status,
           abort,
-          version: setupOf(row),
+          version: versionOf(r),
           known: new Set(),
           failing: false,
         });

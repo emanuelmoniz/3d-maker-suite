@@ -13,15 +13,16 @@ The Moonraker integration reads a Klipper printer through Moonraker, the API beh
 1. Open **Integrations**, press **Add** and choose **Moonraker (Klipper)**.
 2. Enter the address, and the API key if you need one.
 3. Optional: a name for the printer (else Klipper's host name), its brand and its model. Without a model the app takes the one your slicer wrote in the newest job file.
-4. Press **Test connection** on the new card.
+4. Under **Printer**, pick the printer if you already have it (added by hand, for example), else **New printer from this source**. A printer you pick keeps its own name, model and costs.
+5. Press **Test**, then **Add**. Saving asks the printer what it is, as Test does: if it doesn't answer, nothing is saved. Then switch on **Live status** on the card.
 
-One integration is one printer. Add one per Klipper printer. The API key is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)).
+One integration is one printer, linked when you add it: there is no **Printers** sync for it, so a printer you added by hand never comes back twice. To link it to another printer, open **Edit** on its card and pick another **Printer**; the one it had stays, unlinked. Removing the integration keeps the printer. Add one per Klipper printer. The API key is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)).
 
 **Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration, or on the machine's page under **Printers**. See [printers through a connector](hub.md#printers-through-a-connector).
 
 ## What it reads
 
-- **Printer:** the printer itself, from the **Printers** source.
+- **Printer:** the one you picked when you added it, or a new one made from what Klipper reports then.
 - **Live status:** state, progress, time left, layer, nozzle and bed temperatures, and the filament from the job file. Switch it on with **Live status** on the card. Klipper only knows the layer when the slicer sends it (`SET_PRINT_STATS_INFO`); otherwise the app works it out from the height and the file's layer heights.
 - **Print history:** jobs that ended while the app was off, from Moonraker's history. A job the app watched live and the same job in the history are one print.
 

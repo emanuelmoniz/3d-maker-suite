@@ -41,7 +41,7 @@ Hub management, Integrations, Catalog and the connector each work, but a person 
 
 | Data type | Settings page | Share to the hub | Receive from the hub |
 |---|---|---|---|
-| Printers | `/printers/settings` | Accounts with Allow printers: one line | None |
+| Printers | `/printers/settings` | Accounts with Allow printers: one line. A printer on the network: none, it is linked to one printer at setup (ADR-0015) | None |
 | Prints | `/prints/settings` | Accounts with Allow prints: one line | None |
 | Spools | `/filament/settings` (no longer a redirect) | Accounts with Allow spools: one line | None |
 | Catalog (brands, models, materials) | `/catalog/settings` | Per library, the server's slicer and machines with Catalog Share: printer brands, printer models, filament brands, filament materials. Only the library's catalog source (ADR-0020) syncs; the others offer **Use as catalog source** | Machines with Catalog Receive, per slicer: the `system/` folder |
