@@ -1,6 +1,6 @@
 // The hub's side of printers reached through a connector (ADR-0015, LAN reach): who may assign
 // one, what a device may read and post. A real connector against this hub: apps/connector's
-// printers.test.ts.
+// sources.test.ts.
 import {
   fixture,
   type MockState,
@@ -83,7 +83,7 @@ describe("printers through a connector, on the hub", () => {
     expect(made.statusCode).toBe(201);
     expect(made.json()).toMatchObject({ deviceId: a.deviceId, viaDeviceName: "A" });
     expect(JSON.stringify(made.json())).not.toContain("secret");
-    const mine = await device(a.token, "GET", "/printers");
+    const mine = await device(a.token, "GET", "/sources");
     expect(mine.json()).toEqual([
       {
         integrationId: made.json().id,
@@ -92,9 +92,9 @@ describe("printers through a connector, on the hub", () => {
         secrets: { token: "secret" },
       },
     ]);
-    expect((await device(b.token, "GET", "/printers")).json()).toEqual([]);
+    expect((await device(b.token, "GET", "/sources")).json()).toEqual([]);
     // A session is no device.
-    expect((await send("GET", "/api/hub/device/printers")).statusCode).toBe(403);
+    expect((await send("GET", "/api/hub/device/sources")).statusCode).toBe(403);
   });
 
   it("a spool library on the network is assigned as a printer is, and nothing else of its", async () => {
@@ -106,7 +106,7 @@ describe("printers through a connector, on the hub", () => {
     });
     expect(made.statusCode).toBe(201);
     expect(made.json()).toMatchObject({ deviceId: a.deviceId, viaDeviceName: "A" });
-    expect((await device(a.token, "GET", "/printers")).json()).toEqual([
+    expect((await device(a.token, "GET", "/sources")).json()).toEqual([
       {
         integrationId: made.json().id,
         adapterId: "spoolman",
@@ -123,7 +123,7 @@ describe("printers through a connector, on the hub", () => {
       ],
     });
     expect(off.statusCode).toBe(200);
-    expect((await device(a.token, "GET", "/printers")).json()).toEqual([]);
+    expect((await device(a.token, "GET", "/sources")).json()).toEqual([]);
   });
 
   it("takes status and prints only from the device the printer is assigned to", async () => {
@@ -138,8 +138,8 @@ describe("printers through a connector, on the hub", () => {
       slots: [],
     };
     const status = { integrationId: id, snapshots: [snap], active: [], failing: false };
-    expect((await device(b.token, "POST", "/printers/status", status)).statusCode).toBe(404);
-    expect((await device(a.token, "POST", "/printers/status", status)).statusCode).toBe(204);
+    expect((await device(b.token, "POST", "/sources/status", status)).statusCode).toBe(404);
+    expect((await device(a.token, "POST", "/sources/status", status)).statusCode).toBe(204);
     const item = {
       key: "k1",
       integrationId: id,
@@ -158,13 +158,13 @@ describe("printers through a connector, on the hub", () => {
       },
     };
     // Not B's: done (so it doesn't wait for good), and nothing written.
-    const fromB = await device(b.token, "POST", "/printers/prints", { items: [item] });
+    const fromB = await device(b.token, "POST", "/sources/prints", { items: [item] });
     expect(fromB.json()).toEqual({ done: ["k1"] });
     expect(db.select().from(schema.prints).all()).toEqual([]);
     const invalid = { ...item, key: "k2", print: { nope: true } };
-    expect(
-      (await device(a.token, "POST", "/printers/prints", { items: [invalid] })).json(),
-    ).toEqual({ done: ["k2"] });
+    expect((await device(a.token, "POST", "/sources/prints", { items: [invalid] })).json()).toEqual(
+      { done: ["k2"] },
+    );
   });
 
   it("assigns only a printer on the network, with the hub on; a revoked machine gives it back", async () => {

@@ -203,7 +203,7 @@ export const usePatchIntegration = (id: string) =>
  * A printer or spool library on the network reached through a machine's connector, or by this
  * server (`null`) (ADR-0015, LAN reach).
  */
-export const useAssignPrinter = () =>
+export const useAssignSource = () =>
   useInvalidating(({ id, deviceId }: { id: string; deviceId: string | null }) =>
     api<Integration>("PATCH", `/api/integrations/${id}`, { deviceId }),
   );

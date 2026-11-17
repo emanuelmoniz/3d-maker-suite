@@ -648,7 +648,7 @@ export const hubRoutes =
         write: (f: string) => res.write(f),
         end: () => res.end(),
         port: port.success ? port.data : null,
-        printerAdapters: String(req.headers["x-printer-adapters"] ?? "")
+        sourceAdapters: String(req.headers["x-source-adapters"] ?? "")
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)

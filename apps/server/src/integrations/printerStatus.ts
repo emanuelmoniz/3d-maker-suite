@@ -17,8 +17,8 @@ import type { FastifyBaseLogger } from "fastify";
 import { raise } from "../alerts/evaluate.ts";
 import { printerTitle } from "../lib/numbers.ts";
 import { capableRows } from "./capabilities.ts";
-import { bridgeable } from "./printerBridge.ts";
 import { sourcePrinters } from "./printerSources.ts";
+import { bridgeable } from "./sourceBridge.ts";
 import type { Syncer } from "./sync.ts";
 
 // Live status of every printer whose source has `printerStatus` (ADR-0015). Snapshots are kept in
@@ -285,7 +285,7 @@ export function createPrinterStatus(
   }
 
   /**
-   * What a connector read of a source assigned to it (`POST /api/hub/device/printers/status`).
+   * What a connector read of a source assigned to it (`POST /api/hub/device/sources/status`).
    * False when that source isn't its own (moved to another machine meanwhile).
    */
   function relay(deviceId: string, r: DevicePrinterStatus) {

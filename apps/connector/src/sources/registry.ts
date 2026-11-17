@@ -11,7 +11,7 @@ import type { IntegrationAdapter } from "@3d-maker-suite/core";
 // library's reads and its usage writes (ADR-0014, 2026-11-17 Step 14b amendment). A printer or
 // spool library adapter added to the server is added here too, or a hub can't reach it through a
 // connector.
-export const printerAdapters = (): IntegrationAdapter[] => [
+export const sourceAdapters = (): IntegrationAdapter[] => [
   bambuLanAdapter(),
   moonrakerAdapter(),
   octoprintAdapter(),

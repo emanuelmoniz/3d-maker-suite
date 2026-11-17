@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  type DevicePrinter,
-  devicePrinterSchema,
+  type DeviceSource,
   devicePrintsResultSchema,
+  deviceSourceSchema,
   type HubEvent,
   type IntegrationAdapter,
   IntegrationError,
@@ -22,9 +22,9 @@ import { z } from "zod";
 import type { Request } from "./roots.ts";
 
 // The printers and spool library this connector reaches for its hub (ADR-0015, LAN reach). The hub
-// assigns sources to it (`GET /api/hub/device/printers`, with their keys); the connector runs each
+// assigns sources to it (`GET /api/hub/device/sources`, with their keys); the connector runs each
 // adapter here, on their network, and the core job tracker on what a printer reports. It posts the
-// latest status, and keeps every print the tracker saw end in `printers.json` until the hub has it:
+// latest status, and keeps every print the tracker saw end in `sources.json` until the hub has it:
 // a print that ends while the hub is away is never lost. The assignment is kept there too,
 // encrypted with `secret.key`, so it keeps watching through a restart while the hub is away.
 // Nothing here sends a command to a printer. Its one write is to a spool library, and only what
@@ -34,7 +34,7 @@ import type { Request } from "./roots.ts";
 /** One ended print on its way to the hub. */
 type Held = { key: string; integrationId: string; print: TrackedPrint };
 type Saved = {
-  /** `{ printers: <JSON of DevicePrinter[]> }`, encrypted. */
+  /** `{ printers: <JSON of DeviceSource[]> }`, encrypted. */
   assigned?: Blob;
   trackers?: Record<string, TrackerState>;
   outbox?: Held[];
@@ -56,8 +56,8 @@ type Running = {
 const BATCH = 100;
 /** A hub that never takes them: the oldest go first, so the file can't grow for ever. */
 const OUTBOX_MAX = 1000;
-const FILE = "printers.json";
-const setupOf = (p: DevicePrinter) => JSON.stringify([p.adapterId, p.config, p.secrets]);
+const FILE = "sources.json";
+const setupOf = (p: DeviceSource) => JSON.stringify([p.adapterId, p.config, p.secrets]);
 
 /** The adapter's log, as lines: only its message and an error's text, never its objects (keys). */
 function adapterLog(log: (line: string) => void, id: string): Logger {
@@ -71,7 +71,7 @@ function adapterLog(log: (line: string) => void, id: string): Logger {
   return { debug: () => {}, info: line("info"), warn: line("warn"), error: line("error") };
 }
 
-export function createPrinterBridge({
+export function createSourceBridge({
   dataDir,
   request,
   adapters,
@@ -80,7 +80,7 @@ export function createPrinterBridge({
 }: {
   dataDir: string;
   request: Request;
-  /** The printer adapters this connector runs (printers/registry.ts). */
+  /** The printer adapters this connector runs (sources/registry.ts). */
   adapters: IntegrationAdapter[];
   log: (line: string) => void;
   /** The read pace (tests); the server's by default. */
@@ -93,11 +93,11 @@ export function createPrinterBridge({
   try {
     saved = JSON.parse(readFileSync(file, "utf8"));
   } catch {} // none yet, or damaged: the hub sends the assignment again
-  let assigned: DevicePrinter[] = [];
+  let assigned: DeviceSource[] = [];
   try {
     if (saved.assigned)
       assigned = z
-        .array(devicePrinterSchema)
+        .array(deviceSourceSchema)
         .parse(JSON.parse(decrypt(key, saved.assigned).printers ?? "[]"));
   } catch {} // another `secret.key`: the same
   const trackers = new Map(Object.entries(saved.trackers ?? {}));
@@ -217,7 +217,7 @@ export function createPrinterBridge({
     // On disk before anything is sent: a crash now still delivers it.
     if (changed) save();
     const active = [...run.known].filter((ext) => trackers.get(`${id}:${ext}`)?.phase === "active");
-    void request("/printers/status", {
+    void request("/sources/status", {
       method: "POST",
       body: { integrationId: id, snapshots: read, active, failing: run.failing },
     }).catch(() => {}); // the hub is away: the next read sends the latest
@@ -232,7 +232,7 @@ export function createPrinterBridge({
     try {
       while (outbox.length) {
         const batch = outbox.slice(0, BATCH);
-        const res = await request("/printers/prints", { method: "POST", body: { items: batch } });
+        const res = await request("/sources/prints", { method: "POST", body: { items: batch } });
         if (!res.ok) return;
         const { done } = devicePrintsResultSchema.parse(await res.json());
         const gone = new Set(done);
@@ -258,9 +258,9 @@ export function createPrinterBridge({
 
   async function fetchAssigned() {
     try {
-      const res = await request("/printers");
+      const res = await request("/sources");
       if (!res.ok) return;
-      const list = z.array(devicePrinterSchema).safeParse(await res.json());
+      const list = z.array(deviceSourceSchema).safeParse(await res.json());
       if (!list.success) return;
       assigned = list.data;
       save();
@@ -279,7 +279,7 @@ export function createPrinterBridge({
     return loading;
   }
 
-  type Read = Extract<HubEvent, { type: "printers.read" }>;
+  type Read = Extract<HubEvent, { type: "sources.read" }>;
   type Write = Extract<HubEvent, { type: "spools.write" }>;
   type Reply = (body: unknown) => Promise<unknown>;
 
@@ -349,7 +349,7 @@ export function createPrinterBridge({
   apply();
 
   return {
-    /** The adapters it runs, for the hub (`X-Printer-Adapters`). */
+    /** The adapters it runs, for the hub (`X-Source-Adapters`). */
     adapterIds: () => adapters.map((a) => a.id),
     load,
     read,
@@ -375,4 +375,4 @@ export function createPrinterBridge({
   };
 }
 
-export type PrinterBridge = ReturnType<typeof createPrinterBridge>;
+export type SourceBridge = ReturnType<typeof createSourceBridge>;

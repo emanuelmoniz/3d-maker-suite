@@ -9,14 +9,14 @@ import { readPreferences } from "./preferences.ts";
 const { hubEvents } = schema;
 
 /**
- * `port`: the connector's status page port it reported (`X-Connector-Port`); `printerAdapters`:
- * the printer sources it can run (`X-Printer-Adapters`, ADR-0015), none from an older connector.
+ * `port`: the connector's status page port it reported (`X-Connector-Port`); `sourceAdapters`:
+ * the printer and spool library adapters it can run (`X-Source-Adapters`, ADR-0015).
  */
 type Stream = {
   write: (frame: string) => void;
   end: () => void;
   port?: number | null;
-  printerAdapters?: string[];
+  sourceAdapters?: string[];
 };
 type Waiting = {
   deviceId: string;
@@ -49,10 +49,10 @@ export function createHubChannel(db: Db) {
     /** An online device's status page port, for the project page's probe; null = not reported. */
     port: (deviceId: string) => [...(streams.get(deviceId) ?? [])].at(-1)?.port ?? null,
 
-    /** The printer sources an online device's connector runs; undefined while it's offline. */
-    printerAdapters: (deviceId: string) =>
+    /** The source adapters an online device's connector runs; undefined while it's offline. */
+    sourceAdapters: (deviceId: string) =>
       online(deviceId)
-        ? ([...(streams.get(deviceId) ?? [])].at(-1)?.printerAdapters ?? [])
+        ? ([...(streams.get(deviceId) ?? [])].at(-1)?.sourceAdapters ?? [])
         : undefined,
 
     /** Queues an event for a device and sends it now if the device is connected. */

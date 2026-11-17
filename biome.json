@@ -21,7 +21,7 @@
             "patterns": [
               {
                 "group": ["@3d-maker-suite/adapter-*"],
-                "message": "Vendor adapters are imported only by the two registries, apps/server/src/integrations/registry.ts and apps/connector/src/printers/registry.ts (ADR-0003, ADR-0015)."
+                "message": "Vendor adapters are imported only by the two registries, apps/server/src/integrations/registry.ts and apps/connector/src/sources/registry.ts (ADR-0003, ADR-0015)."
               }
             ]
           }
@@ -33,7 +33,7 @@
     {
       "includes": [
         "apps/server/src/integrations/registry.ts",
-        "apps/connector/src/printers/registry.ts",
+        "apps/connector/src/sources/registry.ts",
         "apps/server/src/**/*.test.ts",
         "apps/connector/src/**/*.test.ts"
       ],

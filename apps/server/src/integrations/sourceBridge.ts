@@ -1,5 +1,5 @@
 import {
-  type DevicePrinter,
+  type DeviceSource,
   type ExternalPrint,
   type ExternalPrinter,
   type HubEvent,
@@ -25,8 +25,8 @@ import { readSecrets } from "./secrets.ts";
 
 // Printers and a spool library a hub reaches through a connector (ADR-0015, LAN reach). The
 // connector runs the adapter on its own network, and its job tracker for a printer; the hub asks it
-// for a test, the printers, history and spools (`printers.read`), and takes the live status and
-// ended prints it posts (`hubDevicePrinters.ts`). Nothing here or there sends a command to a
+// for a test, the printers, history and spools (`sources.read`), and takes the live status and
+// ended prints it posts (`hubDeviceSources.ts`). Nothing here or there sends a command to a
 // printer. The one write: what prints took, to a spool library's spools (`spools.write`, Step 14b).
 
 const { devices, integrations } = schema;
@@ -55,16 +55,16 @@ const codeOf = (code: string): IntegrationErrorCode =>
     ? (code as IntegrationErrorCode)
     : "unknown";
 
-export function createPrinterBridge(
+export function createSourceBridge(
   db: Db,
   channel: HubChannel,
   key: Buffer,
   adapters: IntegrationAdapter[],
 ) {
-  type Read = Extract<HubEvent, { type: "printers.read" }>;
+  type Read = Extract<HubEvent, { type: "sources.read" }>;
   type Write = Extract<HubEvent, { type: "spools.write" }>["write"];
 
-  /** A read (`printers.read`) or a spool write (`spools.write`) of one source, on its connector. */
+  /** A read (`sources.read`) or a spool write (`spools.write`) of one source, on its connector. */
   async function ask<T extends z.ZodType>(
     row: Row & { deviceId: string },
     what: { read: Read["op"]; q?: Pick<Read, "since" | "until" | "cursor"> } | { write: Write },
@@ -79,7 +79,7 @@ export function createPrinterBridge(
         (requestId): HubEvent =>
           "write" in what
             ? { type: "spools.write", requestId, integrationId, write: what.write }
-            : { type: "printers.read", requestId, integrationId, op: what.read, ...what.q },
+            : { type: "sources.read", requestId, integrationId, op: what.read, ...what.q },
         result,
         {
           ...(ms && { ms }),
@@ -153,7 +153,7 @@ export function createPrinterBridge(
      * The sources a device runs: working ones assigned to it, a printer with its status on, a
      * spool library with its spools or usage line on.
      */
-    assigned(deviceId: string): DevicePrinter[] {
+    assigned(deviceId: string): DeviceSource[] {
       const rows = new Map(
         (["printerStatus", "spools", "spoolUsage"] as const)
           .flatMap((cap) => capableRows(db, adapters, cap))
@@ -163,7 +163,7 @@ export function createPrinterBridge(
       return [...rows.values()].map((row) => ({
         integrationId: row.id,
         adapterId: row.adapterId,
-        config: row.config as DevicePrinter["config"],
+        config: row.config as DeviceSource["config"],
         secrets: readSecrets(db, key, row.id),
       }));
     },
@@ -185,14 +185,14 @@ export function createPrinterBridge(
         throw new HttpError(409, "hub_off", "Turn the hub on to reach a source through a machine");
       if (!db.select({ id: devices.id }).from(devices).where(eq(devices.id, deviceId)).get())
         throw new HttpError(400, "unknown_device", "No such machine");
-      const runs = channel.printerAdapters(deviceId);
+      const runs = channel.sourceAdapters(deviceId);
       if (runs && !runs.includes(adapter.id))
         throw new HttpError(409, "device_outdated", "The connector is too old for this source");
     },
 
     /** The assignment changed: the connector fetches it again (a connect does too). */
-    tell: (deviceId: string) => void channel.tell(deviceId, { type: "printers.changed" }),
+    tell: (deviceId: string) => void channel.tell(deviceId, { type: "sources.changed" }),
   };
 }
 
-export type PrinterBridge = ReturnType<typeof createPrinterBridge>;
+export type SourceBridge = ReturnType<typeof createSourceBridge>;

@@ -6,7 +6,7 @@ import { arch, release, type } from "node:os";
 import { join } from "node:path";
 import { createAutostart } from "@3d-maker-suite/host";
 import { createLink } from "./hub.ts";
-import { printerAdapters } from "./printers/registry.ts";
+import { sourceAdapters } from "./sources/registry.ts";
 import {
   dataDir,
   localHub,
@@ -50,7 +50,7 @@ const link = createLink({
   onHubVersion: updater.follow,
   updateFailure: updater.failure,
   sync: { dataDir: dir, syncDir: syncDir() },
-  printers: { dataDir: dir, adapters: printerAdapters() },
+  sources: { dataDir: dir, adapters: sourceAdapters() },
   settings: {
     get: () => ({ port, autostart: startAtLogin }),
     set: async (patch) => {

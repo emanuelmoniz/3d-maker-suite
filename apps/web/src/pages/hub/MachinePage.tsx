@@ -29,7 +29,7 @@ import {
   isNetworkSource,
   useAdapterName,
   useAdapters,
-  useAssignPrinter,
+  useAssignSource,
   useIntegrations,
 } from "../../lib/integrations.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
@@ -559,7 +559,7 @@ function Printers({ device: d }: { device: Device }) {
   const adapters = useAdapters();
   const integrations = useIntegrations(may.integrations);
   const adapterName = useAdapterName();
-  const assign = useAssignPrinter();
+  const assign = useAssignSource();
   const [pick, setPick] = useState("");
   if (!may.integrations) return null;
   const hosts = new Set(adapters.data?.filter(isNetworkSource).map((a) => a.id));

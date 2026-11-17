@@ -54,9 +54,9 @@ import {
 import { pickHubSlicer } from "../integrations/catalogSource.ts";
 import type { DeviceCatalog } from "../integrations/deviceCatalog.ts";
 import type { SlicerInstaller } from "../integrations/managedSlicer.ts";
-import type { PrinterBridge } from "../integrations/printerBridge.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { ServerPresets } from "../integrations/serverPresets.ts";
+import type { SourceBridge } from "../integrations/sourceBridge.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
 import { mayTask } from "../lib/auth.ts";
@@ -122,7 +122,7 @@ export const integrationsRoutes =
     /** This server's own install receives user presets (5.5.0 Step 11i). */
     presets: Pick<ServerPresets, "pass"> = { pass: async () => {} },
     /** Printers reached through a connector (ADR-0015, LAN reach). */
-    bridge?: Pick<PrinterBridge, "check">,
+    bridge?: Pick<SourceBridge, "check">,
   ): FastifyPluginAsyncZod =>
   async (app) => {
     /** A worker's slicer is on its device; a server's is here. */

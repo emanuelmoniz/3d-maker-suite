@@ -22,9 +22,9 @@ import { createCatalogSend } from "./catalog.ts";
 import { createCatalogInstall } from "./catalogInstall.ts";
 import { createPresetInstall } from "./presetInstall.ts";
 import { createPresetShare, openPresetState } from "./presets.ts";
-import { createPrinterBridge } from "./printers.ts";
 import { createRootSync, type Request } from "./roots.ts";
 import { createSlicers } from "./slicers.ts";
+import { createSourceBridge } from "./sources.ts";
 import type { Store } from "./state.ts";
 import { createHubSync } from "./sync.ts";
 
@@ -116,10 +116,10 @@ type Options = {
     stop: () => void;
   };
   /**
-   * The printers it reaches for the hub (ADR-0015, LAN reach): the adapters it runs and the data
-   * folder for `printers.json`; none = it reaches none. `pollMs`: the read pace (tests).
+   * The printers and spool library it reaches for the hub (ADR-0015, LAN reach): the adapters it
+   * runs and the data folder for `sources.json`; none = it reaches none. `pollMs`: the read pace.
    */
-  printers?: {
+  sources?: {
     dataDir: string;
     adapters: IntegrationAdapter[];
     pollMs?: { busy: number; idle: number };
@@ -144,7 +144,7 @@ export function createLink({
   presetHooks,
   slicers: slicerHooks,
   settings,
-  printers: printersAt,
+  sources: sourcesAt,
   log = () => {},
 }: Options) {
   let status: LinkStatus = store.token() ? "connecting" : "unpaired";
@@ -237,7 +237,7 @@ export function createLink({
   const reply = (requestId: string, body: unknown) =>
     request(`/replies/${requestId}`, { method: "POST", body }).catch(() => {});
   // Starts watching what it was given last time, before the hub answers or without it.
-  const printers = printersAt && createPrinterBridge({ request, log, ...printersAt });
+  const sources = sourcesAt && createSourceBridge({ request, log, ...sourcesAt });
   /** A request about a code to change this device's user, with the same errors as pairing. */
   const askWithCode = async <T extends z.ZodType>(path: string, body: unknown, result: T) => {
     const res = await request(path, { method: "POST", body }).catch(() => {
@@ -342,16 +342,16 @@ export function createLink({
         void catalogInstall?.set(event.data.libraries);
         return;
       }
-      if (event.success && event.data.type === "printers.changed") return void printers?.load();
-      if (event.success && event.data.type === "printers.read") {
+      if (event.success && event.data.type === "sources.changed") return void sources?.load();
+      if (event.success && event.data.type === "sources.read") {
         const { requestId } = event.data;
-        if (!printers) return void reply(requestId, { ok: false, code: "ENOTSUP" });
-        return void printers.read(event.data, (body) => reply(requestId, body));
+        if (!sources) return void reply(requestId, { ok: false, code: "ENOTSUP" });
+        return void sources.read(event.data, (body) => reply(requestId, body));
       }
       if (event.success && event.data.type === "spools.write") {
         const { requestId } = event.data;
-        if (!printers) return void reply(requestId, { ok: false, code: "ENOTSUP" });
-        return void printers.write(event.data, (body) => reply(requestId, body));
+        if (!sources) return void reply(requestId, { ok: false, code: "ENOTSUP" });
+        return void sources.write(event.data, (body) => reply(requestId, body));
       }
       if (event.success) return toRoots(event.data);
       const requestId = (json as { requestId?: unknown })?.requestId;
@@ -404,7 +404,7 @@ export function createLink({
           "x-connector-os": os,
           "x-connector-system": JSON.stringify(systemInfo()),
           ...(port && { "x-connector-port": String(port) }),
-          ...(printers && { "x-printer-adapters": printers.adapterIds().join(",") }),
+          ...(sources && { "x-source-adapters": sources.adapterIds().join(",") }),
           ...(failure && { "x-connector-update": JSON.stringify(failure) }),
           ...(store.get().cursor && { "last-event-id": String(store.get().cursor) }),
         },
@@ -414,12 +414,12 @@ export function createLink({
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       if (signal.aborted) return "offline";
       let libraries: unknown;
-      let sources: unknown;
+      let catalogSources: unknown;
       let dirs: unknown;
       let installs: unknown;
       try {
         libraries = JSON.parse(res.headers.get("x-preset-libraries") ?? "{}");
-        sources = JSON.parse(res.headers.get("x-catalog-sources") ?? "{}");
+        catalogSources = JSON.parse(res.headers.get("x-catalog-sources") ?? "{}");
         dirs = JSON.parse(res.headers.get("x-catalog-dirs") ?? "{}");
         installs = JSON.parse(res.headers.get("x-catalog-install") ?? "{}");
       } catch {}
@@ -443,13 +443,13 @@ export function createLink({
         void presets?.start();
         void presetInstall?.start();
         void catalog?.set(
-          catalogSourcesSchema.catch({}).parse(sources),
+          catalogSourcesSchema.catch({}).parse(catalogSources),
           catalogDirsSchema.catch({}).parse(dirs),
         );
         void catalogInstall?.set(catalogSourcesSchema.catch({}).parse(installs));
       });
       void slicers.prune();
-      void printers?.load();
+      void sources?.load();
       void loadBranding(hub, token, signal);
       const parse = sseParser(handle);
       const text = new TextDecoder();
@@ -524,7 +524,7 @@ export function createLink({
       log(`${status}${error ? `: ${error}` : ""}`);
       if (status === "revoked") {
         branding = {};
-        printers?.forget();
+        sources?.forget();
         return store.forget();
       }
       // It was online this round: a drop starts the backoff over.
@@ -550,7 +550,7 @@ export function createLink({
       presetInstall?.stop();
       catalog?.stop();
       catalogInstall?.stop();
-      printers?.stop();
+      sources?.stop();
     },
     state: () => ({ status, error }),
     branding: () => branding,
@@ -567,7 +567,7 @@ export function createLink({
       presetInstall?.stop();
       catalog?.stop();
       catalogInstall?.stop();
-      printers?.forget();
+      sources?.forget();
       store.forget();
       branding = {};
       userName = undefined;
@@ -579,7 +579,7 @@ export function createLink({
     roots,
     sync,
     slicers,
-    printers,
+    sources,
     /** Who a code would change this device's user to; the code stays unused. */
     checkUser: (code: string) => askWithCode("/user/check", { code }, deviceUserPreviewSchema),
 

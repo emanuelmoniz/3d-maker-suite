@@ -55,7 +55,7 @@ const PRODUCTS = {
     port: 4301,
     apps: ["connector"],
     packages: ["3mf", "core", "host", "slicer-presets", "adapters"],
-    // What it reaches for a hub (ADR-0015): apps/connector/src/printers/registry.ts.
+    // What it reaches for a hub (ADR-0015): apps/connector/src/sources/registry.ts.
     adapters: ["bambu", "moonraker", "octoprint", "prusalink", "spoolman"],
     // It only helps while it runs: the installer always registers it.
     alwaysStart: true,

@@ -77,10 +77,10 @@ import { catalogCards, catalogSource } from "./catalogSource.ts";
 import { deleteCloudCopy, fetchCloudPresets, placeCloudPresets } from "./cloudPresets.ts";
 import { libraryOf } from "./imports.ts";
 import { linkLibraries } from "./managedSlicer.ts";
-import { bridgeable, type PrinterBridge } from "./printerBridge.ts";
+import { bridgeable, type SourceBridge } from "./sourceBridge.ts";
 
 /** What the syncer needs of the printer bridge (`Pick` is a core type here). */
-type SyncBridge = { instance: PrinterBridge["instance"]; online: PrinterBridge["online"] };
+type SyncBridge = { instance: SourceBridge["instance"]; online: SourceBridge["online"] };
 
 import { mergeUserPresets, userPresetFiles } from "./presetLibrary.ts";
 import { ownRows, releaseRoute } from "./presetRoutes.ts";

@@ -1,4 +1,4 @@
-// The printer bridge (ADR-0015, LAN reach): a real connector link against a real hub (the server's
+// The source bridge (ADR-0015, LAN reach): a real connector link against a real hub (the server's
 // buildApp on a port), with the mock printer as a printer on the network that only the connector
 // reads, and the fake Spoolman as a spool library only the connector reaches (Step 14b).
 
@@ -119,14 +119,14 @@ describe("printers through a connector", {
     return dir;
   };
 
-  const connector = (state: MockState, dir: string, printers = true) => {
+  const connector = (state: MockState, dir: string, sources = true) => {
     const store = openStore(dir);
     const link = createLink({
       store,
       version: "6.0.0-test",
       os: "TestOS x64",
-      ...(printers && {
-        printers: {
+      ...(sources && {
+        sources: {
           dataDir: dir,
           adapters: [mockHostAdapter(state), spoolmanAdapter()],
           pollMs: { busy: 30, idle: 30 },
@@ -178,7 +178,7 @@ describe("printers through a connector", {
     expect(h.prints()).toHaveLength(1);
     expect(h.prints()[0]).toMatchObject({ outcome: "success", title: "Cube" });
     expect(h.alerts("print_finished")).toHaveLength(1);
-    expect(c.link.printers?.held()).toBe(0);
+    expect(c.link.sources?.held()).toBe(0);
   });
 
   it("keeps a print that ends while the hub is down and records it when the hub is back", async () => {
@@ -188,14 +188,14 @@ describe("printers through a connector", {
     await until(() => h.app.printerStatus.all()[0]?.snapshot.state === "printing");
     await h.close();
     state.status = [snap("finished", 100)];
-    await until(() => c.link.printers?.held() === 1);
+    await until(() => c.link.sources?.held() === 1);
     // On disk, without the printer's key in it.
-    const file = readFileSync(join(devDir, "printers.json"), "utf8");
+    const file = readFileSync(join(devDir, "sources.json"), "utf8");
     expect(file).toContain("job-x");
     expect(file).not.toContain(SECRET);
     expect(file).not.toContain("printer.lan");
     const back = await hub(state, hubDir, h.port);
-    await until(() => back.prints().length === 1 && c.link.printers?.held() === 0, 60_000);
+    await until(() => back.prints().length === 1 && c.link.sources?.held() === 0, 60_000);
     expect(back.alerts("print_finished")).toHaveLength(1);
   });
 
@@ -207,9 +207,9 @@ describe("printers through a connector", {
     await h.close();
     c.link.close();
     const again = connector(state, devDir);
-    await until(() => again.link.printers?.watching() === 1);
+    await until(() => again.link.sources?.watching() === 1);
     state.status = [snap("cancelled", 40)];
-    await until(() => again.link.printers?.held() === 1);
+    await until(() => again.link.sources?.held() === 1);
     const back = await hub(state, hubDir, h.port);
     again.link.start();
     await until(() => back.prints().length === 1, 60_000);
@@ -262,14 +262,14 @@ describe("printers through a connector", {
   it("stops reading a printer moved back to the server, and keeps no key for it", async () => {
     const state: MockState = { ...fixture(), status: [snap("idle")] };
     const { h, c, devDir, integrationId } = await setup(state);
-    await until(() => c.link.printers?.watching() === 1);
+    await until(() => c.link.sources?.watching() === 1);
     const moved = await h.send("PATCH", `/api/integrations/${integrationId}`, { deviceId: null });
     expect(moved.json()).toMatchObject({ deviceId: null, viaDeviceName: null });
     h.app.printerStatus.refresh();
-    await until(() => c.link.printers?.watching() === 0);
-    expect(readFileSync(join(devDir, "printers.json"), "utf8")).not.toContain(SECRET);
+    await until(() => c.link.sources?.watching() === 0);
+    expect(readFileSync(join(devDir, "sources.json"), "utf8")).not.toContain(SECRET);
     c.link.unpair();
-    expect(() => readFileSync(join(devDir, "printers.json"))).toThrow();
+    expect(() => readFileSync(join(devDir, "sources.json"))).toThrow();
   });
 
   it("refuses a printer for a connector that can't run it", async () => {
@@ -440,7 +440,7 @@ describe("printers through a connector", {
       });
       await h.send("POST", `/api/integrations/${printer.json().id}/sync`, { type: "printers" });
       h.app.printerStatus.refresh();
-      await until(() => c.link.printers?.watching() === 2);
+      await until(() => c.link.sources?.watching() === 2);
       const reported = (st: PrinterSnapshot["state"], progress = 50): PrinterSnapshot => ({
         ...snap(st, progress),
         slots: [
@@ -479,7 +479,7 @@ describe("printers through a connector", {
       });
       const write = (integrationId: string, w: object) =>
         new Promise((done) =>
-          c.link.printers?.write(
+          c.link.sources?.write(
             { type: "spools.write", requestId: randomUUID(), integrationId, write: w as never },
             async (body) => done(body),
           ),

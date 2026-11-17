@@ -1,9 +1,9 @@
 import {
   apiErrorSchema,
-  devicePrinterSchema,
   devicePrinterStatusSchema,
   devicePrintsResultSchema,
   devicePrintsSchema,
+  deviceSourceSchema,
   trackedPrintSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -12,8 +12,8 @@ import type { FastifyBaseLogger } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import type { PrinterBridge } from "../integrations/printerBridge.ts";
 import type { PrinterStatusRunner } from "../integrations/printerStatus.ts";
+import type { SourceBridge } from "../integrations/sourceBridge.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { deviceOf } from "./hubDevice.ts";
 
@@ -24,10 +24,10 @@ const { integrations } = schema;
  * assigned to it (with their keys: the one API answer that has them, and only for that device),
  * their live status, and the prints its job tracker saw end. Under `/api/hub/device`.
  */
-export const hubDevicePrintersRoutes =
+export const hubDeviceSourcesRoutes =
   (
     db: Db,
-    bridge: Pick<PrinterBridge, "assigned">,
+    bridge: Pick<SourceBridge, "assigned">,
     status: Pick<PrinterStatusRunner, "relay" | "recordTracked">,
     log: FastifyBaseLogger,
   ): FastifyPluginAsyncZod =>
@@ -37,13 +37,13 @@ export const hubDevicePrintersRoutes =
     });
 
     app.get(
-      "/printers",
-      { schema: { response: { 200: z.array(devicePrinterSchema), 403: apiErrorSchema } } },
+      "/sources",
+      { schema: { response: { 200: z.array(deviceSourceSchema), 403: apiErrorSchema } } },
       async (req) => bridge.assigned(deviceOf(req)),
     );
 
     app.post(
-      "/printers/status",
+      "/sources/status",
       {
         schema: {
           body: devicePrinterStatusSchema,
@@ -59,7 +59,7 @@ export const hubDevicePrintersRoutes =
 
     // Done: written, there already, invalid, or no longer this device's (it would wait for good).
     app.post(
-      "/printers/prints",
+      "/sources/prints",
       {
         schema: {
           body: devicePrintsSchema,
