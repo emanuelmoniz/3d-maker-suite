@@ -3333,7 +3333,7 @@ Each adapter: a `host` package in `packages/adapters/<id>` (its Step 1 fixtures 
 Do Step 8 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Bambu LAN
+### [x] Step 9 - Bambu LAN
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - MQTT over TLS with the access code (new dependency `mqtt`, see ADR-0015); status from the push reports (a full one on `pushall`, then only what changed); AMS RFID → spool. Reading needs no Developer mode and works while the printer is on the cloud (A1, Step 1).
@@ -3442,32 +3442,107 @@ Do Step 14 of the 6.0.0 plan in PLAN.md.
 Do Step 14b of the 6.0.0 plan in PLAN.md.
 ```
 
-## Phase 45 - Release
+## Phase 45 - Printer integrations
 
-### [ ] Step 15 - Real test: one printer per adapter
+Agreed on 2026-11-17. A network source (`host` kind: Moonraker, PrusaLink, OctoPrint, Bambu LAN, Spoolman) is set up and edited in one place, Integrations; a machine reaches one only when it is allowed to; one network printer source is one printer, linked at setup; the Printers list shows what each printer is doing.
+
+Design:
+- **A machine reaches the LAN only when allowed.** Two switches on the machine page, **Reach printers** and **Reach spool libraries**, set by `hub.manage` only. Off, the machine isn't offered in **Reached from** and the hub doesn't relay for it.
+- **Integrations is the one place to set up a source:** add, edit, test, and pick the machine it is reached from. The machine page lists what goes through it and links there.
+- **A network printer source has no printers sync.** One address is one printer: it is created or linked when the integration is saved, never by a schedule. Accounts (Bambu Cloud) keep their printers sync, with its schedule and review. The Prints line stays for a source with history (Moonraker).
+- **The serial belongs to the printer.** A source that needs it (Bambu LAN) reads it from its printer. The printer page shows it read-only when a source supplies it.
+- **Secrets are never shown,** also on the printer page: "Access code: set".
+- No printer control, as before.
+
+### [ ] Step 15 - Machine switches for printers and spool libraries
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `devices`: `reachPrinters` and `reachSpoolLibraries` booleans (Drizzle migration). The migration turns each one on for a machine that already reaches a source of that kind, so nothing in use stops.
+- Machine page: today's **Printers** section splits into **Printers** and **Spool libraries** (the name stays brand-neutral; the list shows the adapters' names). Each section has its switch, `hub.manage` only (others see its value as text, ADR-0021). Below it are the sources reached through this machine (name, host), read-only, and a **Set up in Integrations** link to `/integrations/new?via=<deviceId>`, which fills in **Reached from**. The add/remove dropdown leaves the machine page.
+- A switch turned off while sources go through the machine: a `ConfirmDialog` names them; they are paused (`enabled = false`) and keep their machine, so a hub on a VPS never starts reaching a LAN address by itself.
+- Integrations add form: **Reached from** offers only the machines with the matching switch on (printer adapters → Reach printers, spool library adapters → Reach spool libraries); `?via=` preselects one. Create and PATCH with a machine whose switch is off → 409 `device_not_reaching`.
+- The bridge relays only for a machine with the matching switch on (server check, not only the UI).
+- Note the opt-in in ADR-0014 and ADR-0015 (LAN reach).
+
+**Done when:** a machine with Reach printers off isn't in Reached from and can't be assigned through the API; turning it off pauses its printers after the confirm; an existing assignment still works after the migration; tests cover the 409, the migration and the pause.
+**Prompt:**
+```
+Do Step 15 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 16 - Edit an integration, test before saving  **[plan mode]**
+**Model:** Opus (or Fable) · **Effort:** High
+**Scope:**
+- An **Edit** page for a network source or account (`/integrations/$id/edit`, from the card): the add form's fields, secrets left empty keep the stored ones, **Reached from**, **Test**. The API's PATCH already takes `config`, `secrets` and `deviceId`.
+- `POST /api/integrations/test` (`integrations.manage`): tests an adapter with unsaved `config`, `secrets` and `deviceId`. It returns ok or the error code, and what it found (a printer's name, model and serial). Nothing is saved and secrets are never logged. The add and edit forms get **Test**.
+- Through a machine: a new fixed connector operation, `test`. It is read-only and one-shot, uses the adapter's own protocol on the given host, and works only on a machine with the matching Reach switch on; the connector refuses anything else. Amend ADR-0014's fixed list with exactly this.
+
+**Done when:** a Klipper printer on another network is tested through a machine from the add form before saving, and a wrong key says so there; a saved integration's host, key and machine are changed on its Edit page; the connector refuses a `test` for a machine with the switch off; tests run a real connector against a test hub.
+**Prompt:**
+```
+Do Step 16 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 17 - One printer per network source  **[plan mode]**
+**Model:** Opus (or Fable) · **Effort:** High
+**Scope:**
+- The add and edit forms of a network printer source get a **Printer** field: **New printer from this source** (made at save from what Test found) or one of your printers that no network source has yet. An existing printer is linked in `printer_sources` and keeps its own name, model and costs. Today a printer added by hand comes back twice, because Moonraker, PrusaLink and OctoPrint have no serial to match on. On the Edit page, picking another printer moves the link. Deleting the integration keeps the printer, unlinked.
+- No **Printers** line, and no printers sync or schedule, for a network source on Printers settings → Sources. Its existing printers policy rows go to `off` in a migration, and the data stays. The **Prints** line stays for a source with history (Moonraker). Accounts are unchanged. Amend ADR-0015 ("a `host` source is synced … as an account is") and ADR-0021's Printers row.
+- Serial: Bambu LAN reads the serial of its linked printer. The form asks for one only for a new printer with no IP (found by its broadcast). A serial the printer gives (its certificate) is written to the printer. A migration moves `config.serial` to the linked printer.
+- Printer page: the serial is read-only when a source supplies it ("From Bambu LAN"); only a printer with no source edits it. Matching Cloud and LAN by serial keeps working.
+
+**Done when:** a Klipper printer added by hand is linked to its Moonraker integration at setup and never imported twice; a new Bambu LAN printer is created at save with the serial it gave; no network source has a printers schedule; tests cover linking, moving the link, the migrations and the read-only serial.
+**Prompt:**
+```
+Do Step 17 of the 6.0.0 plan in PLAN.md.
+```
+
+### [ ] Step 18 - Connection on the printer page, Monitoring column
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Printer page: a **Connection** section, one block per source. It shows the source (adapter name), the host, "Access code: set" (never the secret), **Reached from: this server** or the machine with its online state, and the Monitoring state below. **Edit in Integrations** links to the integration's Edit page, with `integrations.manage` only. Nothing here is editable.
+- Printers list: a **Monitoring** column, live (SSE), display-only (no sort or filter: the status is in memory, the list is queried from the database):
+  - **Not monitored:** no source, or its integration is paused;
+  - **Idle**, **Printing 45 %**, **Paused**: online, with what it is doing;
+  - **Offline:** the printer doesn't answer;
+  - **Machine offline:** reached through a machine whose connector is offline;
+  - **Source error:** wrong access code or key, signed out.
+  - A printer with several sources (Cloud + LAN) shows the best one: online beats offline.
+- The existing **State** column (working, in repair…) stays as it is.
+
+**Done when:** each Monitoring state shows in the list (a printer unplugged, a connector stopped, a wrong access code, a paused integration, a print running); the printer page shows where a printer is reached from and never a secret; tests cover how the state is chosen from several sources.
+**Prompt:**
+```
+Do Step 18 of the 6.0.0 plan in PLAN.md.
+```
+
+## Phase 46 - Release
+
+### [ ] Step 19 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A Klipper printer, a Bambu printer (LAN, and LAN + cloud), a Prusa printer, an OctoPrint printer, Spoolman.
 - A full print, a cancelled and a failed print (estimated grams where the printer reports none), the app restarted during a print, each review policy, loaded spools, a hub with a connector bridge.
 - The finished and failed alerts on a phone (ntfy or email), a printer unplugged during a print, a Bambu Cloud print whose title matches no project.
+- Phase 45: a printer added by hand, linked at setup; Test before saving, through a machine; a machine's Reach switch turned off; each Monitoring state; editing a source's host and key.
 
-Fix anything found and note it in the CHANGELOG (alpha.3 if needed).
+Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 **Done when:** every scenario worked; fixes released.
 **Prompt:**
 ```
-Do Step 15 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 19 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 16 - Docs, push & v6.0.0 release
+### [ ] Step 20 - Docs, push & v6.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `pnpm screenshots` (dashboard with live printer cards, printer page with loaded spools), README, CHANGELOG, version `6.0.0`.
+- `pnpm screenshots` (dashboard with live printer cards, printer page with loaded spools and its connection, Printers list with Monitoring), README, CHANGELOG, version `6.0.0`.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.0.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; updating 5.x to 6.0.0 works.
 **Prompt:**
 ```
-Do Step 16 of the 6.0.0 plan in PLAN.md. Only document what changed since the last 6.0.0 pre-release.
+Do Step 20 of the 6.0.0 plan in PLAN.md. Only document what changed since the last 6.0.0 pre-release.
 Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release.
 ```
 
