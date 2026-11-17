@@ -4,6 +4,31 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## Unreleased
 
+## [6.0.0-alpha.2] - 2026-11-16
+
+Pre-release, second of 6.0.0. Lists what changed since 6.0.0-alpha.1. Back up before updating. Migrations 0131 (learned spool tags, a printer's several sources), 0132 (usage written back to Spoolman) and 0133 (a spool's links to its libraries) apply as described below. Updating keeps all data.
+
+**Not yet checked on real printers:** PrusaLink and OctoPrint follow printer messages others published, and Bambu LAN with LAN Only mode on, and a print started over LAN, is still to try on a real printer. Tell us how they work for you.
+
+### Added
+- **Moonraker** (Klipper printers): live status, history backfill and prints recorded when a job ends; grams from the file's totals per tool, or the length really extruded for a cancelled print; the Spoolman spool a job names goes on its slot ([docs/moonraker.md](docs/moonraker.md))
+- **Bambu LAN**: Bambu Lab printers on your network, with the access code; no Developer mode needed, and it works while the printer is on the cloud. Live status and AMS slots with their RFID tag; grams from the job's 3MF, read once per print; the printer is found by its broadcast and followed when its IP changes. One printer can have Bambu Cloud and Bambu LAN, and each print is recorded once ([docs/bambu-lan.md](docs/bambu-lan.md))
+- **PrusaLink** (Prusa MK4, XL, MINI, MK3): live status and prints, with grams from the job file's totals ([docs/prusalink.md](docs/prusalink.md))
+- **OctoPrint**: live status and prints through its push socket, with grams from the job file's totals; a cancel is one cancelled print ([docs/octoprint.md](docs/octoprint.md))
+- **Spoolman**: import its spools through the usual review and write what each print takes back to the Spoolman spool, exactly once, with retries and restarts safe. A print Moonraker already reported to Spoolman isn't written again. **Write usage back** and the number of charges waiting are on the integration's card ([docs/spoolman.md](docs/spoolman.md))
+- **A spool linked to several libraries**: the same roll in Bambu Cloud's filament manager and in Spoolman is one spool. A spool another library brought in is suggested as the one you have (**Maybe a spool you have: update links it**) and never made twice. The spool's page lists each library it is in, and **Unlink** keeps the others
+- **RFID tag on the spool page**: a spool learns the tag of a slot charged to it, and a print naming the tag then charges that spool. **Forget tag** drops it
+- **Supported printers** table in the README
+
+### Changed
+- The double-tracking warning is server-wide: it shows when two spools lines, or a prints and a spools line, track usage
+- Deleting a spool marks every library it was linked to, so none of them brings it back
+
+### Fixed
+- One Moonraker job could be recorded twice, by its start and by its history id
+- The Bambu LAN setup form says on the field, translated, to enter the IP or the serial, instead of a generic save error
+- The spool page named a Bambu Cloud spool's source by a missing key
+
 ## [6.0.0-alpha.1] - 2026-11-16
 
 Pre-release, first of 6.0.0. Lists everything since 5.6.2. Back up before updating. Migrations 0127 (printer alerts), 0128 (where a usage's grams came from), 0129 (loaded spool per printer slot) and 0130 (review policy) apply as described below. Updating keeps all data.

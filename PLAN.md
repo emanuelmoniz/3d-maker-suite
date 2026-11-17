@@ -3397,7 +3397,7 @@ Do Step 12 of the 6.0.0 plan in PLAN.md. Show me how double charging is prevente
 Do Step 12b of the 6.0.0 plan in PLAN.md. Show me first how a spool from two libraries is matched and linked.
 ```
 
-### [ ] Step 13 - Docs, push & v6.0.0-alpha.2
+### [x] Step 13 - Docs, push & v6.0.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A setup page per adapter and Spoolman; the README support matrix (printer, what it provides).

@@ -20,7 +20,8 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Quotes**: numbered quotes from a project or typed in, with notes, client and markup on cost
 - **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
 - **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
-- **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer (on your PC, or installed on a server or NAS from the app), with a sync mode and frequency per data type
+- **Live printers** (optional): status on the dashboard and each printer's page, and prints recorded by themselves when a job ends, from Klipper (Moonraker), Bambu Lab (cloud or your network), Prusa (PrusaLink) and OctoPrint printers; see the [support matrix](#supported-printers)
+- **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer (on your PC, or installed on a server or NAS from the app), and Spoolman (import spools, write usage back), with a sync mode and frequency per data type
 - **Import**: 16 types as spreadsheets (your things, money, maintenance, printer and filament catalogs) and slicer catalogs from a zip, reviewed row by row before anything is saved; every type exports in the same format
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
 - **Logs** (optional): what the app does, by module and level, with retention limits; off by default
@@ -72,13 +73,29 @@ To update, use **Settings → About & updates → Update**: the app backs up, in
 
 ## Connect Bambu Cloud (optional)
 
-Sign in with your Bambu account on the Integrations page. The app syncs print history every hour and printers every day by default (mode and frequency are set per type), and you can sync each type or a date range by hand. Prints an automatic sync cannot match to one spool wait for your review, with a **Sync needs review** alert. Manual entry works without an account.
+Sign in with your Bambu account on the Integrations page. The app syncs print history every hour and printers every day by default (mode and frequency are set per type), and you can sync each type or a date range by hand. Every new print is recorded at once; a filament slot the app isn't sure about waits in **Prints → Filament to review**. Manual entry works without an account.
 
 Details, region choice and troubleshooting: [docs/bambu-cloud.md](docs/bambu-cloud.md).
 
 ## Using it from another device
 
 By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `HOST` (or the host in Settings → Network) and create accounts for the people who use it ([docs/users.md](docs/users.md)). Running it on a NAS? See [docs/install.md](docs/install.md#docker). See [docs/configuration.md](docs/configuration.md).
+
+## Supported printers
+
+A printer is added by its address (and key) and is read-only: the app never controls a printer. Prints are recorded when a job ends, once, also when two sources report the same printer.
+
+| Printer | Source | Live status | Prints recorded | Grams | Spool |
+|---|---|---|---|---|---|
+| Klipper | [Moonraker](docs/moonraker.md) | yes | live, and its history | file totals per tool; the length really extruded for a cancelled print | the Spoolman spool a job names |
+| Bambu Lab | [Bambu LAN](docs/bambu-lan.md) | yes | live | the job's 3MF, per AMS slot | AMS RFID tag |
+| Bambu Lab | [Bambu Cloud](docs/bambu-cloud.md) | no | history | from the cloud | the cloud's filament manager |
+| Prusa (MK4, XL, MINI, MK3) | [PrusaLink](docs/prusalink.md) | yes | live | the job file's totals | loaded spool |
+| Any printer behind OctoPrint | [OctoPrint](docs/octoprint.md) | yes | live | the job file's totals | loaded spool |
+
+Bambu Cloud and Bambu LAN can both be set up for one printer: it stays one printer and each print is recorded once. [Spoolman](docs/spoolman.md) is a spool library, not a printer source: it imports your spools and gets each print's usage written back.
+
+PrusaLink and OctoPrint follow printer messages others published, and Bambu LAN with LAN Only mode on is untried: none of them is checked on a real printer yet.
 
 ## Documentation
 
@@ -107,7 +124,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Status
 
-Version 6.0.0-alpha.1. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 6.0.0-alpha.2. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 
