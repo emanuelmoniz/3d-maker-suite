@@ -3603,7 +3603,7 @@ Then fast-forward main to dev, push, push the v6.0.0 tag and confirm the release
 
 # Plan 6.1.0 - Sync from the page, tidier integrations, machine info
 
-Minor release, agreed on 2026-11-17. Starts after the 6.0.0 release. One DB migration (Step 10b: a network source's printer name moves to its printer), one new preference, and system info is kept in memory. No new dependency. Skills: `frontend-design` for the collapsible card and the system info block; `webapp-testing` for browser checks.
+Minor release, agreed on 2026-11-17. Starts after the 6.0.0 release. One DB migration (Step 10b: a network source's printer name moves to its printer), one new preference, one public read of the branding (Step 13b: name, show-name and logo, for the sign-in page), and system info is kept in memory. No new dependency. Skills: `frontend-design` for the collapsible card and the system info block; `webapp-testing` for browser checks.
 
 Design:
 - **Sync from the page:** one click syncs, for that page's data type, every enabled source whose type is on **Auto** and that the user may sync (`editorSync`). Manual and Off sources are skipped. The button is hidden when no such source exists. The schedule isn't touched: a page sync is a sync now, as Sync now in Settings → Sources is.
@@ -3617,7 +3617,7 @@ Design:
 
 ## Phase 47 - Pages
 
-### [ ] Step 1 - Total print time in the project's production cost
+### [x] Step 1 - Total print time in the project's production cost
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `estimateSlicedPlates` (`apps/web/src/lib/cost.ts`) returns `printTimeSeconds`: the sum over the same sliced plates it costs (the app's slice result, else the 3MF's saved slice).
@@ -3877,6 +3877,27 @@ Do Step 12 of the 6.1.0 plan in PLAN.md. Use frontend-design for the System sect
 Do Step 13 of the 6.1.0 plan in PLAN.md.
 ```
 
+### [ ] Step 13b - Sign-in and connector pages follow the sidebar logo  **[plan mode]**
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- One rule for all three places: a small `brandMark({ logo, showName })` helper in `apps/web/src/lib/branding.ts` that `Brand` (Step 13) and `AuthCard` both use, so the four combinations can't drift.
+- Sign-in, setup and other `AuthCard` pages (`AuthPages.tsx`): today they show `/icon.svg` + `common:appName` and ignore branding, since `/api/branding` and preferences need a session (`lib/auth.ts`).
+  - Server: a public, read-only `GET /api/branding/public` returning only `{ appName, showName, logo }` (logo = version or null), and the logo image readable without a session. Nothing else from preferences leaks; add both to the rights table in `auth.test.ts` as public.
+  - `AuthCard` uses it: uploaded logo (alone or with the name), icon + name, or the horizontal `/logo.svg`, exactly as the wide sidebar. While it loads, the icon + default name, no flash of the wrong logo.
+  - Layout on the card: the logo is wider than today's 32 px icon, with `max-h-[150px]` and `max-w-full` (never wider than the card, `object-contain`). Logo + name are centered in the card, side by side; when the name is hidden (show-name off), the logo alone is centered.
+- Connector status page (`status.ts`, `hub.ts`):
+  - `loadBranding` also reads `brandShowName`.
+  - Header: uploaded logo + name, uploaded logo alone, icon + name, or the horizontal logo. Embed `docs/brand/logo-color-horizontal.svg` like `icon.ts` (served at `/logo.svg`).
+  - The `<title>` keeps the name either way, so the tab still says which hub it is.
+  - Unpaired or hub unreachable: the connector's own icon + name, as today.
+- Docs: `docs/configuration.md` (or the branding doc) says branding also applies to sign-in and the connector page; `docs/hub.md` (connector page); `docs/architecture.md` (the public branding endpoint and what it exposes).
+
+**Done when:** each of the four combinations shows the same on the sidebar, the sign-in page and a paired connector's page, in both themes and on a phone; a signed-out request to `/api/branding/public` returns only those three fields; the sign-in logo never exceeds 150 px in height or the card's width and is centered (with the name, or alone when the name is hidden); tests cover the helper, the endpoint's fields and rights, and the connector header for each combination; lint, tests, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 13b of the 6.1.0 plan in PLAN.md.
+```
+
 ## Phase 51 - Release
 
 ### [ ] Step 14 - Real test, docs, push & v6.1.0-alpha.2
@@ -3889,7 +3910,7 @@ Do Step 13 of the 6.1.0 plan in PLAN.md.
 - System info on the Windows PC, through a connector and on this server.
 - The pairing code copied over a LAN address.
 - Monitoring sort and filter while a print starts.
-- The logo combinations.
+- The logo combinations, on the sidebar, the sign-in page and a connector's page.
 - Fix anything found. CHANGELOG, version `6.1.0-alpha.2`, `pnpm version:check`; commit on `dev`, push, tag `v6.1.0-alpha.2` on `dev`.
 
 **Done when:** every scenario worked; the tag is pushed and the workflow is green.
@@ -3916,7 +3937,6 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 - Page Sync for Manual sources (agreed: Auto only).
 - Live re-sorting of the printers by Monitoring.
 - System info history, charts, and alerts (disk almost full).
-- The sign-in and connector pages following the sidebar logo switch.
 
 ---
 
@@ -4005,6 +4025,7 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 | machine page: links to new integration or to its card | 6.1 · 9, 11 |
 | machine page: system info (CPU, memory, IP, disk) | 6.1 · 12 (also this server) |
 | branding: show app name in sidebar, horizontal logo | 6.1 · 13 |
+| branding: sign-in and connector pages follow the sidebar logo | 6.1 · 13b |
 | printer page: confusing "No source reads this printer" on a Bambu Cloud printer | 6.1 · 3b |
 | integrations: printer name only for a new printer, not editable after | 6.1 · 10b |
 | bambu cloud: sign in inside Add and Edit, no "Sign in again" button | 6.1 · 10c |
