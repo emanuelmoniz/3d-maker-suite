@@ -3509,8 +3509,9 @@ Do Step 17 of the 6.0.0 plan in PLAN.md.
   - **Source error:** wrong access code or key, signed out.
   - A printer with several sources (Cloud + LAN) shows the best one: online beats offline.
 - The existing **State** column (working, in repair…) stays as it is.
+- Docs (CLAUDE.md, docs follow the code): `docs/printers.md` (the Connection section, each Monitoring state and what to do about it), `docs/hub.md` (Machine offline), the printer setup pages where they say where to see a printer's connection, `docs/architecture.md` for any new API field.
 
-**Done when:** each Monitoring state shows in the list (a printer unplugged, a connector stopped, a wrong access code, a paused integration, a print running); the printer page shows where a printer is reached from and never a secret; tests cover how the state is chosen from several sources.
+**Done when:** each Monitoring state shows in the list (a printer unplugged, a connector stopped, a wrong access code, a paused integration, a print running); the printer page shows where a printer is reached from and never a secret; tests cover how the state is chosen from several sources; the docs above describe it.
 **Prompt:**
 ```
 Do Step 18 of the 6.0.0 plan in PLAN.md.

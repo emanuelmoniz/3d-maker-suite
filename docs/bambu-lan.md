@@ -22,7 +22,7 @@ The Bambu LAN integration reads a Bambu Lab printer on your network: its live st
 
 The serial number belongs to the printer: its page shows it, read-only while Bambu LAN or Bambu Cloud gives it. One integration is one printer, linked when you add it: there is no **Printers** sync for it, so a printer you added by hand never comes back twice. To link it to another printer, open **Edit** on its card and pick another **Printer**; the one it had stays, unlinked. Removing the integration keeps the printer. Add one integration per printer. The access code is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)) and never logged.
 
-**Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration, or on the machine's page under **Printers**. See [printers through a connector](hub.md#printers-through-a-connector).
+**Hub on another network** (a VPS): the hub can't reach the printer, so a machine on the printer's network reaches it through its connector. Pick that machine under **Reached from** when you add the integration (it needs **Reach printers** on, on its page, whose **Set up in Integrations** opens the add form with the machine picked). Test and saving reach the printer through that machine, so it must be online. See [printers through a connector](hub.md#printers-through-a-connector).
 
 ## With Bambu Cloud, or alone
 

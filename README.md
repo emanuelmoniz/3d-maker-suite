@@ -83,7 +83,7 @@ By default the app only answers on this PC. To reach it from your phone or anoth
 
 ## Supported printers
 
-A printer is added by its address (and key) and is read-only: the app never controls a printer. Prints are recorded when a job ends, once, also when two sources report the same printer.
+A printer on your network is added by its address (and key) in Integrations, linked to a printer you already have or a new one, and is read-only: the app never controls a printer. Prints are recorded when a job ends, once, also when two sources report the same printer.
 
 | Printer | Source | Live status | Prints recorded | Grams | Spool |
 |---|---|---|---|---|---|

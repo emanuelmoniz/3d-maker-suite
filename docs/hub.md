@@ -148,9 +148,9 @@ A file deleted on a device moves to the root's trash on the hub, never a hard de
 A hub on a VPS can't reach printers on your office or home network. A machine on that network reaches them for it: its connector reads each printer's live status and history and keeps the prints it sees end. It never sends a command to a printer. Works with [Moonraker](moonraker.md), [Bambu LAN](bambu-lan.md), [PrusaLink](prusalink.md) and [OctoPrint](octoprint.md).
 
 **Set it up** (needs Hub management and Integrations rights):
-- When you add the printer in **Integrations**, pick the machine under **Reached from**. Enter the printer's address as the machine sees it (its LAN IP).
+- When you add the printer in **Integrations**, pick the machine under **Reached from**. Enter the printer's address as the machine sees it (its LAN IP). **Test** checks it through the machine before anything is saved, and saving asks the printer what it is the same way: the machine must be online, and nothing is saved if the printer doesn't answer.
 - A machine is offered there only after you turn on **Reach printers** on its page (Hub management → the machine). The page lists the printers that go through it, and **Set up in Integrations** opens the add form with the machine already picked. Turning the switch off asks first, then pauses those printers; they keep the machine, so nothing starts reaching a printer again on its own.
-- To move a printer, edit its **Reached from**; **This server** moves it back.
+- To move a printer, or change its address or key, open **Edit** on its card in Integrations and change **Reached from**; **This server** moves it back. Moving it doesn't ask the printer again: it stays linked to the same printer.
 
 The hub sends the machine the printer's address and key over its paired connection. The connector keeps them encrypted in its data folder, so it keeps watching through its own restart while the hub is away. Unpairing or revoking the machine deletes them there.
 
