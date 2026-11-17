@@ -58,6 +58,8 @@ test("prices each slot by its spool, else its material, on each plate's printer"
   );
   expect(out.cost.material).toBe(500 + 200 + 300 + 300);
   expect(out.cost.wear).toBe(300 + 300 + 100);
+  // Three sliced plates, an hour each; the unsliced one adds nothing.
+  expect(out.printTimeSeconds).toBe(3 * 3600);
   expect(out.spools).toEqual([
     { spool: red, grams: 100 },
     { spool: unpaid, grams: 100 },

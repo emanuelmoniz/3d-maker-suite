@@ -181,6 +181,8 @@ export function changePlates(
 
 export type SlicedEstimate = {
   cost: CostBreakdown;
+  /** Seconds of print time over the sliced plates. */
+  printTimeSeconds: number;
   /** Grams per picked spool, over all plates, in the order first used. */
   spools: { spool: Spool; grams: number }[];
   /** Grams per material (upper case), spools or not. */
@@ -199,10 +201,12 @@ export function estimateSlicedPlates(
 ): SlicedEstimate {
   const spools = new Map<string, { spool: Spool; grams: number }>();
   const materials = new Map<string, number>();
+  let printTimeSeconds = 0;
   const costs = plates.flatMap((p) => {
     if (!p.result) return [];
     const { printer, rates } = printerRates(p.printerId ?? catalog.fallbackPrinterId, ctx);
     const seconds = p.result.printTimeSeconds;
+    printTimeSeconds += seconds;
     const filaments = p.result.filaments.map((f) => {
       const spool = catalog.spools.find((s) => s.id === p.spools[f.slot - 1]);
       const preset = catalog.presets.find((x) => x.id === p.filaments[f.slot - 1]);
@@ -228,6 +232,7 @@ export function estimateSlicedPlates(
   });
   return {
     cost: sumCosts(costs),
+    printTimeSeconds,
     spools: [...spools.values()],
     materials: [...materials].map(([material, grams]) => ({ material, grams })),
   };

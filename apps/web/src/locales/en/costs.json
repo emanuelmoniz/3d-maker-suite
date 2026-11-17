@@ -87,6 +87,7 @@
     "onePrintHint": "According to print setup settings, using {{printer}}.",
     "onePrintHintNoPrinter": "From the sliced plates, with the chosen spools' or filaments' prices (else the average per material). Add a printer to include energy and wear.",
     "partial": "{{sliced}} of {{total}} plates are sliced; the estimate only counts those.",
+    "printTime": "Print time",
     "onePrintHintPrinters": "According to print setup settings, using multiple printers.",
     "materialTotal": "Total {{material}}"
   }

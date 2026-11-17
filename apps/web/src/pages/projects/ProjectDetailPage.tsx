@@ -325,6 +325,10 @@ function SlicedEstimate({ project }: { project: ProjectDetail }) {
         </p>
       )}
       <div className="grid gap-3">
+        <p>
+          <span className="text-muted">{t("costs:project.printTime")}: </span>
+          {formatDuration(estimate.printTimeSeconds)}
+        </p>
         <MaterialUsage estimate={estimate} />
         <ProductionCost cost={estimate.cost} />
       </div>
