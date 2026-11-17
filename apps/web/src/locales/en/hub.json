@@ -90,6 +90,7 @@
   "code": {
     "title": "Pairing code",
     "body": "Enter this code on the connector's local page. It works once, until {{time}}, and isn't shown again.",
+    "copy": "Copy code",
     "done": "Done"
   },
   "settings": {

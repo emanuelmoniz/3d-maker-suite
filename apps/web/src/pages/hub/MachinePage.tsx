@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { CopyButton } from "../../components/CopyButton.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -169,6 +170,9 @@ function ChangeUserDialogs({
         <p className="select-all text-center font-mono text-2xl font-semibold tracking-widest">
           {made?.code}
         </p>
+        <div className="mt-3">
+          <CopyButton value={made?.code ?? ""} label={t("hub:code.copy")} />
+        </div>
       </ConfirmDialog>
     </>
   );

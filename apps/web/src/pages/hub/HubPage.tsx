@@ -8,6 +8,7 @@ import type { BulkRow } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { CopyButton } from "../../components/CopyButton.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
@@ -296,6 +297,12 @@ export function HubPage() {
         <p className="select-all text-center font-mono text-2xl font-semibold tracking-widest">
           {dialog?.kind === "code" && dialog.code}
         </p>
+        <div className="mt-3">
+          <CopyButton
+            value={dialog?.kind === "code" ? dialog.code : ""}
+            label={t("hub:code.copy")}
+          />
+        </div>
       </ConfirmDialog>
     </>
   );

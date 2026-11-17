@@ -16,6 +16,10 @@
     "more": "More",
     "moduleSettings": "{{module}} settings"
   },
+  "copy": {
+    "copied": "Copied",
+    "failed": "Couldn't copy. Select the code and copy it by hand."
+  },
   "viewer": {
     "close": "Close",
     "previous": "Previous image",

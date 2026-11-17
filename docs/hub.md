@@ -18,7 +18,7 @@ If the hub is switched off again, connectors show "The hub is turned off on this
 
 Only admins pair devices.
 
-1. In **Hub management**, choose **Pair a device**, pick the user the device will act as, and copy the pairing code. It works once, for 10 minutes, and is shown once.
+1. In **Hub management**, choose **Pair a device**, pick the user the device will act as, and copy the pairing code with **Copy code** (or select it by hand, if the browser blocks the copy). It works once, for 10 minutes, and is shown once.
 2. On the device, install the connector (below) and open it from the start menu or app menu (or <http://127.0.0.1:4301>). Not paired yet, it shows the pair screen.
 3. Enter the hub's address (the one you open the web app at), the code and a device name, then **Pair**.
 4. The device shows **Online** in Hub management, and the browser goes on to its machine page on the hub.
@@ -58,7 +58,7 @@ The port, start at login, Restart and Stop need the connector online. The other 
 
 The local page and the device's card in Hub management show the user a connector acts as. To change it without pairing again:
 
-1. In **Hub management**, open the connector's edit page, choose **Change user**, pick the user and copy the code. It works once, for 10 minutes, only on this connector, and is shown once. Nothing changes yet.
+1. In **Hub management**, open the connector's edit page, choose **Change user**, pick the user and copy the code with **Copy code**. It works once, for 10 minutes, only on this connector, and is shown once. Nothing changes yet.
 2. On the connector's local page, choose **Change user** and enter the code. The hub has to be online. After 5 wrong codes, wait 15 minutes.
 3. Choose what happens to the projects in this connector's folders: **Move to the new user**, or **Stay with their owner**. An owner who stays may no longer be able to edit them, and the new user may not see them. Then confirm.
 

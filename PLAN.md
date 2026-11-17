@@ -3671,7 +3671,7 @@ Do Step 3 of the 6.1.0 plan in PLAN.md.
 Do Step 3b of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 4 - Copy the pairing code
+### [x] Step 4 - Copy the pairing code
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - New `CopyButton` component (`apps/web/src/components`). It uses `navigator.clipboard` when present, and a hidden textarea with `execCommand("copy")` otherwise, because a hub opened at `http://<lan-ip>` isn't a secure context. It shows "Copied" briefly and announces it in an `aria-live` region; on failure it says to select the code by hand.
