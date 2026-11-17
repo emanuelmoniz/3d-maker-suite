@@ -2,7 +2,11 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## [6.0.0-alpha.4] - 2026-11-17
+
+Pre-release, fourth of 6.0.0. Lists what changed since 6.0.0-alpha.3. Back up before updating. Migration 0134 applies as described below. Updating keeps all data. Connectors update to the hub's version.
+
+**Not yet checked on real printers or a real Spoolman:** the printer scenarios of the real test run on simulated printers first. Tell us how they work for you.
 
 ### Added
 - **Printers through a connector**: a hub on another network (a VPS) reaches Moonraker, Bambu LAN, PrusaLink and OctoPrint printers through the connector of a machine on the printer's network. Pick the machine under **Reached from** when you add the printer, or on the machine's page under **Printers**. The connector reads live status and history and never controls the printer; a print that ends while the hub is down is kept on the machine and recorded when the hub is back ([docs/hub.md](docs/hub.md#printers-through-a-connector))
