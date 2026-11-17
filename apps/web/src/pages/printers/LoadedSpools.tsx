@@ -10,12 +10,14 @@ import { useCan } from "../../lib/auth.ts";
 import { textLink } from "../../lib/cx.ts";
 import { spoolName, useLoadSpool, useSpools } from "../../lib/filament.ts";
 import { formatWeight } from "../../lib/format.ts";
+import { slotName } from "../../lib/printerStatus.ts";
 
 const same = (a?: string, b?: string) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
 /**
  * The spool in each slot (ADR-0015): a new print on a slot charges it. The slots the printer
- * reports, those with a spool, and at least one.
+ * reports, those with a spool, and at least one; slots of a unit up to the last of them. A printer
+ * that reads its slots loads its spools itself (Step 19b), or suggests one where several fit.
  */
 export function LoadedSpools({ printerId, live }: { printerId: string; live?: PrinterStatus }) {
   const { t } = useTranslation();
@@ -25,10 +27,19 @@ export function LoadedSpools({ printerId, live }: { printerId: string; live?: Pr
     (s) => !s.archivedAt && s.status !== "empty",
   );
   const reported = live?.snapshot.slots ?? [];
+  const suggestions = live?.suggestions ?? [];
   const [more, setMore] = useState(0);
-  const used = [0, ...reported.map((s) => s.slot)];
+  const used = [...reported.map((s) => s.slot)];
   for (const s of spools) if (s.loadedPrinterId === printerId) used.push(s.loadedSlot ?? 0);
-  const count = Math.min(Math.max(...used) + 1 + more, PRINT_MAX_SLOTS);
+  // A unit's slots are counted from 0; one of its own (128 and up, the back spool) stands alone.
+  const unit = used.filter((s) => s < PRINT_MAX_SLOTS);
+  // A printer with only a spool of its own (an A1 without an AMS) shows only that one.
+  const first = unit.length ? Math.max(...unit) + 1 : used.length ? 0 : 1;
+  const count = Math.min(first + more, PRINT_MAX_SLOTS);
+  const slots = [
+    ...Array.from({ length: count }, (_, i) => i),
+    ...[...new Set(used.filter((s) => s >= PRINT_MAX_SLOTS))].sort((a, b) => a - b),
+  ];
 
   return (
     <Section
@@ -50,12 +61,15 @@ export function LoadedSpools({ printerId, live }: { printerId: string; live?: Pr
         </p>
       )}
       <ul className="grid gap-3">
-        {Array.from({ length: count }, (_, slot) => {
+        {slots.map((slot) => {
           const r = reported.find((s) => s.slot === slot);
           const spool = spools.find(
             (s) => s.loadedPrinterId === printerId && s.loadedSlot === slot,
           );
-          const label = t("printers:loaded.slot", { slot: slot + 1 });
+          const idea = spool
+            ? undefined
+            : spools.find((s) => s.id === suggestions.find((x) => x.slot === slot)?.spoolId);
+          const label = slotName(t, slot);
           // The material the printer reports for the slot first.
           const options = [...spools].sort(
             (a, b) => Number(same(b.material, r?.material)) - Number(same(a.material, r?.material)),
@@ -73,31 +87,53 @@ export function LoadedSpools({ printerId, live }: { printerId: string; live?: Pr
                 )}
                 {r?.material ?? (r ? t("printers:status.unknownMaterial") : "")}
               </span>
-              {can ? (
-                <Combobox
-                  aria-label={t("printers:loaded.pick", { slot: label })}
-                  value={spool?.id ?? ""}
+              <div className="grid gap-1">
+                {can ? (
+                  <Combobox
+                    aria-label={t("printers:loaded.pick", { slot: label })}
+                    value={spool?.id ?? ""}
+                    disabled={load.isPending}
+                    onChange={(v) => load.mutate({ slot, spoolId: v || null })}
+                    options={[
+                      { value: "", label: t("printers:loaded.none") },
+                      ...options.map((s) => ({
+                        value: s.id,
+                        label: t("prints:form.spoolOption", {
+                          name: spoolName(t, s),
+                          weight: formatWeight(s.remainingGrams),
+                        }),
+                      })),
+                    ]}
+                  />
+                ) : spool ? (
+                  <Link to="/filament/spools/$id" params={{ id: spool.id }} className={textLink}>
+                    {spoolName(t, spool)}
+                  </Link>
+                ) : (
+                  <span className="text-muted">{t("printers:loaded.none")}</span>
+                )}
+                {spool?.loadedBy === "printer" && (
+                  <span className="text-muted text-sm">{t("printers:loaded.byPrinter")}</span>
+                )}
+                {idea && (
+                  <span className="text-muted text-sm">
+                    {t("printers:loaded.suggested", { name: spoolName(t, idea) })}
+                  </span>
+                )}
+              </div>
+              {can && idea ? (
+                <Button
+                  variant="ghost"
                   disabled={load.isPending}
-                  onChange={(v) => load.mutate({ slot, spoolId: v || null })}
-                  options={[
-                    { value: "", label: t("printers:loaded.none") },
-                    ...options.map((s) => ({
-                      value: s.id,
-                      label: t("prints:form.spoolOption", {
-                        name: spoolName(t, s),
-                        weight: formatWeight(s.remainingGrams),
-                      }),
-                    })),
-                  ]}
-                />
-              ) : spool ? (
-                <Link to="/filament/spools/$id" params={{ id: spool.id }} className={textLink}>
-                  {spoolName(t, spool)}
-                </Link>
-              ) : (
-                <span className="text-muted">{t("printers:loaded.none")}</span>
-              )}
-              {can && spool ? (
+                  aria-label={t("printers:loaded.acceptSlot", {
+                    slot: label,
+                    name: spoolName(t, idea),
+                  })}
+                  onClick={() => load.mutate({ slot, spoolId: idea.id })}
+                >
+                  {t("printers:loaded.accept")}
+                </Button>
+              ) : can && spool ? (
                 <Button
                   variant="ghost"
                   disabled={load.isPending}

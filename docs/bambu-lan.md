@@ -35,6 +35,7 @@ The serial number belongs to the printer: its page shows it, read-only while Bam
 - **Prints:** the title, plate, start (the cloud's own start for a cloud print) and outcome. A print stopped on the screen or in the app is **cancelled**; any other stop is **failed**, with the printer's error code (`0300-8001`), which Bambu's wiki explains.
 - **Grams:** the printer reports none. The app reads the print's 3MF from the printer once per print (a few hundred KB, a few seconds) and takes the slicer's grams per filament, on the AMS slot each filament was printed from. A cancelled or failed print gets those grams times the share of the layers it reached, marked **estimated**. When the file can't be read, the grams come from the project's plate or wait in Filament to review ([printers.md](printers.md#grams-and-spools)).
 - **Spools:** a Bambu spool's RFID tag is learned by the app's spool the first time that slot is charged to it; after that, a print from that spool charges it for sure ([printers.md](printers.md#grams-and-spools)).
+- **Loaded spools:** the printer says what is in each tray, also when idle, so the app loads the spools itself. It picks the tagged spool, or the only spool of that material and colour. Where several fit, it suggests one for you to accept. A tray that goes empty unloads the spool the printer loaded there ([printers.md](printers.md#grams-and-spools)). The spool on the back is the slot **External spool**, and an AMS HT is a **Single-slot unit**.
 
 ## Troubleshooting
 

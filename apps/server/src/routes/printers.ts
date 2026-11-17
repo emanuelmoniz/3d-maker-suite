@@ -46,6 +46,7 @@ import { dateRange, listPage, taggedWith } from "../lib/list.ts";
 import { printerUsageColumns, usageRoutes } from "../lib/maintenance.ts";
 import { assertNumberFree, nextNumber } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { loadSpool } from "../lib/spoolLoad.ts";
 
 const {
   devices,
@@ -337,30 +338,13 @@ export const printersRoutes =
       async (req, reply) => {
         const printer = get(req.params.id);
         const { slot, spoolId } = req.body;
-        const inSlot = and(eq(spools.loadedPrinterId, printer.id), eq(spools.loadedSlot, slot));
-        const there = db.select({ id: spools.id }).from(spools).where(inSlot).get();
-        // Already there: keeps its `loadedAt`, so prints since then still charge it.
-        if (there?.id === spoolId) return reply.status(204).send(null);
         if (spoolId) {
           const s = db.select().from(spools).where(eq(spools.id, spoolId)).get();
           if (!s || s.archivedAt)
             throw new HttpError(400, "invalid_reference", "Unknown or archived spool");
         }
-        db.transaction((tx) => {
-          tx.update(spools)
-            .set({ loadedPrinterId: null, loadedSlot: null, loadedAt: null })
-            .where(inSlot)
-            .run();
-          if (spoolId)
-            tx.update(spools)
-              .set({
-                loadedPrinterId: printer.id,
-                loadedSlot: slot,
-                loadedAt: new Date().toISOString(),
-              })
-              .where(eq(spools.id, spoolId))
-              .run();
-        });
+        // Yours from now on: only a tag the printer reads replaces it (Step 19b).
+        loadSpool(db, printer.id, slot, spoolId, "user");
         return reply.status(204).send(null);
       },
     );

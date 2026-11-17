@@ -152,6 +152,8 @@ A hub on a VPS can't reach printers on your office or home network. A machine on
 - A machine is offered there only after you turn on **Reach printers** on its page (Hub management → the machine). The page lists the printers that go through it, and **Set up in Integrations** opens the add form with the machine already picked. Turning the switch off asks first, then pauses those printers; they keep the machine, so nothing starts reaching a printer again on its own.
 - To move a printer, or change its address or key, open **Edit** on its card in Integrations and change **Reached from**; **This server** moves it back. Moving it doesn't ask the printer again: it stays linked to the same printer.
 
+The spools a printer reads in its slots are loaded on the hub as for a printer it reaches itself ([printers.md](printers.md#grams-and-spools)). The connector only passes the slots on in the live status, and keeps no spools of its own.
+
 The hub sends the machine the printer's address and key over its paired connection. The connector keeps them encrypted in its data folder, so it keeps watching through its own restart while the hub is away. Unpairing or revoking the machine deletes them there.
 
 **When something is away:**

@@ -33,6 +33,7 @@ One integration is one printer, linked when you add it: there is no **Printers**
 - When Moonraker reports to **Spoolman** (its `[spoolman]` section), a job names the Spoolman spool it used, and the print's slot keeps it. If you imported that spool from [Spoolman](spoolman.md), the slot is charged to your spool for sure. Moonraker already charged the spool in Spoolman itself, so the app never writes that print to Spoolman again. A job that names no Spoolman spool is written back like any other printer's.
 - **Moonraker reports to another Spoolman** (a checkbox in the setup): tick it when Moonraker's `[spoolman]` points at a different Spoolman than the one set up in the app. The spool a job names is then not one of yours, and the app's Spoolman wasn't charged, so the print is written back to it. It applies to prints recorded after you change it.
 - The app's own spool is matched as for any printer ([printers.md](printers.md#grams-and-spools)), and is always charged.
+- **Loaded spools:** while a job runs, the Spoolman spool it names is loaded in its slot by the printer, when you imported that spool from Spoolman. The job file's material and colour load nothing, because they describe the file, not the spool in the printer. Set any other loaded spool on the printer's page.
 
 ## Troubleshooting
 

@@ -308,6 +308,15 @@ A spool has one link per spool library (Bambu Cloud, Spoolman): `spool_sources` 
 - **Delete:** `deleteItem` marks every key the spool is linked by.
 - **Prints:** `matchPrint` finds a slot's named library spool (`spoolId`) by any of a spool's links.
 
+### Loaded spools from the printer (`autoLoad`, Step 19b)
+
+A spool's slot is on the spool row (`loaded_printer_id`, `loaded_slot`, `loaded_at`) with `loaded_by`: `user` (`PUT /api/printers/:id/slots`, which takes any slot 0-255) or `printer`. The route and the reconciler share `loadSpool` (`apps/server/src/lib/spoolLoad.ts`), which clears the slot, then sets the spool there and takes it out of its old slot. A spool already there keeps its `loaded_at`, and confirming it by hand makes it `user`.
+
+- **Snapshot:** `physicalSlots` on a printer snapshot says its `slots` are what is physically loaded and the list is complete, also when idle. Bambu LAN sets it once its report has the trays. Moonraker doesn't, because its slots come from the job file.
+- **Match:** `matchLoaded(slot, spools, recent)` in `packages/core/src/services/spoolMatch.ts` takes the tag or library spool check of `matchPrint` first (`tagged`, sure, wherever the spool is). For a physical slot it then runs `matchSpool` as of today with no grams, among the spools not loaded `elsewhere`.
+- **Reconciler:** `apps/server/src/integrations/autoLoad.ts` is a `printerStatus.subscribe` listener. It also runs after any successful API write. On each run it goes over every online printer's reported slots against the database, so a restart needs nothing kept. A tagged spool is loaded by the printer and replaces any spool, also a `user` one. A `user` spool stays otherwise. The one sure match (no twin tray of the same material and colour) is loaded by the printer. A `printer` spool that no longer fits the reading is unloaded. A physical tray that went empty unloads a `printer` spool. A slot you cleared stays empty while the reading stays the same (memory only). A tag is still learned only when a slot is charged.
+- **Live status:** `printerStatus.annotate` adds `loaded` (the slot, spool and `by`, as stored) and `suggestions` (several fit: `spoolHistory().before`'s last in the slot, else the oldest, kept in memory) to each `PrinterStatus`. When the reconciler changes either, it calls `printerStatus.changed()`, and the SSE stream sends the list again. The web refetches its spools when `loaded` changes. A printer through a connector gets the same: the connector posts the snapshot with `physicalSlots`, and the hub reconciles.
+
 ### Writing usage back (`spoolUsage`)
 
 A spool library that is also a target (Spoolman, ADR-0015) gets what each print took, exactly once. Nothing is sent when a print is recorded. The runner (`apps/server/src/integrations/spoolPush.ts`) works out what each library spool should hold per print slot from `print_filament_usages`, compares it with what it last confirmed (`spool_usage_pushes`), and sends only the differences (`pushTargets` in `packages/core/src/services/spoolPush.ts`). Retries, restarts, edits and deletes all come down to the same comparison.

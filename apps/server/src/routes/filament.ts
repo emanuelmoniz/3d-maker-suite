@@ -45,6 +45,7 @@ import {
 import { deleteItem, presetUsed } from "../lib/dependents.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
+import { UNLOADED } from "../lib/spoolLoad.ts";
 import { unlinkSpool } from "../lib/spoolSources.ts";
 import { createSpool, round, setRemaining } from "../lib/spools.ts";
 
@@ -244,7 +245,7 @@ export const filamentRoutes =
               ...fields,
               archivedAt: archivedAtOf(archived),
               // An archived spool leaves its printer slot.
-              ...(archived && { loadedPrinterId: null, loadedSlot: null, loadedAt: null }),
+              ...(archived && UNLOADED),
             })
             .where(eq(spools.id, req.params.id))
             .returning()

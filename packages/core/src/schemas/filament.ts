@@ -7,8 +7,7 @@ import {
   id,
   spoolSchema,
 } from "./entities.ts";
-import { SPOOL_STATUSES } from "./enums.ts";
-import { PRINT_MAX_SLOTS } from "./import.ts";
+import { PRINTER_MAX_SLOT, SPOOL_STATUSES } from "./enums.ts";
 import type { ColumnFilter } from "./list.ts";
 
 // Filament brands and materials. Fields the user edits; `PATCH` takes any subset, plus `archived`.
@@ -86,13 +85,12 @@ export const spoolAdjustSchema = z.object({
   note: z.string().min(1).nullable().optional(),
 });
 
-/** Put a spool in a printer slot (numbered as a print's filaments), or empty it with `null`. */
+/**
+ * Put a spool in a printer slot, or empty it with `null`. Numbered as the printer's live status
+ * numbers them: any slot an adapter reports (Bambu's back spool is 254, an AMS HT 128 and up).
+ */
 export const spoolLoadSchema = z.object({
-  slot: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(PRINT_MAX_SLOTS - 1),
+  slot: z.number().int().nonnegative().max(PRINTER_MAX_SLOT),
   spoolId: id.nullable(),
 });
 

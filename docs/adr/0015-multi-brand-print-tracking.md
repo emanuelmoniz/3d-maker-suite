@@ -84,9 +84,18 @@ A cancelled or failed print whose printer doesn't report the grams really used g
 ### Which spool
 The first that answers wins:
 1. the printer says: AMS or CFS RFID, the Spoolman spool a Moonraker job names. A spool learns its tag the first time a slot with it is charged to it (a sure match, a loaded spool, or a person's pick in the review); the latest charge wins, so a wrong pick is mended by the next;
-2. the **loaded spool per printer slot**, which the user sets on the printer page. One whose material differs from what the printer reported for the slot isn't sure;
+2. the **loaded spool per printer slot**, which the user sets on the printer page, or the printer loads by itself (amended in 6.0.0 Step 19b, below). One whose material differs from what the printer reported for the slot isn't sure;
 3. a sure material + colour match, as Bambu Cloud prints are matched today (`matchPrint`);
 4. the review queue (Filament to review): a `print_filament_usages` row with `spoolId` null, as today.
+
+**Loaded by the printer (amendment, 6.0.0 Step 19b).** A printer that reports what is in each slot no longer needs a spool picked by hand. Any adapter that fills the live slots gets this, also through a connector. The slot numbers are any the adapter reports (0-255): Bambu's back spool is 254, an AMS HT 128 and up. A snapshot flag (`physicalSlots`) says the slots are what is physically loaded and the list is complete (Bambu LAN). While a printer is online, the server works out each reported slot against the database:
+- A tag or library spool match is loaded by the printer, from any other slot, replacing any spool there, also one the user set.
+- A spool the user set stays otherwise. A material mismatch is handled at print end, as before.
+- One sure material + colour match among spools not loaded elsewhere is loaded, for physical slots only. A job file's colours (Moonraker) say nothing of the spool.
+- Several fit: a suggestion in the live status, accepted with one click as the user's.
+- A tray that went empty unloads a spool the printer loaded, never one the user set.
+
+`spools.loaded_by` (`user` | `printer`) tells the two apart. A tag is still learned only when a slot is charged, so a wrong load never teaches a tag.
 
 **Review policy** `never` · `unmatched` · `always` (in the UI: Never · When unsure · Always), set globally and overridden per source and per printer; the most specific setting wins. It applies to prints recorded automatically, from any source.
 - **Unsure** means: no spool, a guess among several, a loaded spool that contradicts the printer, or estimated grams.

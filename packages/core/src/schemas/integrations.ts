@@ -11,6 +11,7 @@ import {
   LOGIN_CHALLENGES,
   PRINT_OUTCOMES,
   PRINTER_STATES,
+  SPOOL_LOADERS,
   SYNC_LEFT_REASONS,
   SYNC_LOG_EVENTS,
   SYNC_RUN_STATUSES,
@@ -159,7 +160,15 @@ export const printerSnapshotSchema = z.object({
       }),
     )
     .default([]),
+  /**
+   * `slots` is what is physically loaded and the list is complete, also when idle (Bambu LAN): a
+   * slot missing is an empty tray. Unset when the slots come from the job file (Moonraker).
+   */
+  physicalSlots: z.boolean().optional(),
 });
+
+/** A spool the app puts in a printer's slot by itself, or suggests there (Step 19b, `autoLoad`). */
+const slotSpool = z.object({ slot: z.number().int().nonnegative(), spoolId: id });
 
 /** A printer's live status as the API sends it: which printer, from which source. */
 export const printerStatusSchema = z.object({
@@ -175,6 +184,13 @@ export const printerStatusSchema = z.object({
   failing: z.enum(["refused", "other"]).optional(),
   /** Its source started and hasn't read yet: nothing is known of the printer. */
   pending: z.boolean().optional(),
+  /**
+   * The spools in its slots, as stored, and who loaded each: a page refetches its spools when the
+   * printer loaded or unloaded one. Unset when none is loaded.
+   */
+  loaded: z.array(slotSpool.extend({ by: z.enum(SPOOL_LOADERS) })).optional(),
+  /** Several spools fit a slot the printer reports: the likeliest, one click loads it. Memory only. */
+  suggestions: z.array(slotSpool).optional(),
 });
 
 /**

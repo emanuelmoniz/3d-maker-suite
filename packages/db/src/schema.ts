@@ -38,6 +38,7 @@ import {
   type SharedFolder,
   SLICER_PRESET_KINDS,
   type SlicerSystem,
+  SPOOL_LOADERS,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
   SYNC_MERGES,
@@ -670,6 +671,9 @@ export const spools = sqliteTable(
     loadedPrinterId: text().references(() => printers.id, { onDelete: "set null" }),
     loadedSlot: integer(),
     loadedAt: text(),
+    // Who loaded it (Step 19b): `printer` = the printer's reading of the slot, which may replace or
+    // unload it; `user` = you, which only a tag replaces. Null when not loaded.
+    loadedBy: text({ enum: SPOOL_LOADERS }),
     // The tag a printer read on it (Bambu AMS `tray_uuid`), learned the first time a slot with
     // that tag is charged to it; a print naming the tag is then this spool for sure (ADR-0015).
     rfid: text(),

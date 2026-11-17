@@ -20,7 +20,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Quotes**: numbered quotes from a project or typed in, with notes, client and markup on cost
 - **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
 - **Costs and stats**: cost per print snapshotted at record time (printer, counted accessories, filament, energy, labour), charts by period, filters by material and outcome
-- **Live printers** (optional): status on the dashboard and each printer's page, and prints recorded by themselves when a job ends, from Klipper (Moonraker), Bambu Lab (cloud or your network), Prusa (PrusaLink) and OctoPrint printers; see the [support matrix](#supported-printers)
+- **Live printers** (optional): status on the dashboard and each printer's page, and prints recorded by themselves when a job ends, from Klipper (Moonraker), Bambu Lab (cloud or your network), Prusa (PrusaLink) and OctoPrint printers; a printer that reads its trays (Bambu LAN) loads its spools by itself; see the [support matrix](#supported-printers)
 - **Integrations** (optional): Bambu Cloud, Bambu Studio and OrcaSlicer (on your PC, or installed on a server or NAS from the app), and Spoolman (import spools, write usage back), with a sync mode and frequency per data type
 - **Import**: 16 types as spreadsheets (your things, money, maintenance, printer and filament catalogs) and slicer catalogs from a zip, reviewed row by row before anything is saved; every type exports in the same format
 - **Backups**: scheduled online SQLite backups, restore, CSV, JSON and spreadsheet export
@@ -88,7 +88,7 @@ A printer on your network is added by its address (and key) in Integrations, lin
 | Printer | Source | Live status | Prints recorded | Grams | Spool |
 |---|---|---|---|---|---|
 | Klipper | [Moonraker](docs/moonraker.md) | yes | live, and its history | file totals per tool; the length really extruded for a cancelled print | the Spoolman spool a job names |
-| Bambu Lab | [Bambu LAN](docs/bambu-lan.md) | yes | live | the job's 3MF, per AMS slot | AMS RFID tag |
+| Bambu Lab | [Bambu LAN](docs/bambu-lan.md) | yes | live | the job's 3MF, per AMS slot | AMS RFID tag; trays loaded by themselves |
 | Bambu Lab | [Bambu Cloud](docs/bambu-cloud.md) | no | history | from the cloud | the cloud's filament manager |
 | Prusa (MK4, XL, MINI, MK3) | [PrusaLink](docs/prusalink.md) | yes | live | the job file's totals | loaded spool |
 | Any printer behind OctoPrint | [OctoPrint](docs/octoprint.md) | yes | live | the job file's totals | loaded spool |

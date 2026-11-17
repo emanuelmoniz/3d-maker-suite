@@ -1,3 +1,4 @@
+import type { SpoolLoader } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { and, eq, getTableColumns, isNull, or, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 
@@ -276,6 +277,8 @@ export const spoolColumns = {
   brand: spoolBrand,
   material: spoolMaterial,
   sources: spoolLibraries,
+  // A printer deleted unloads its spools by FK (`set null`), which leaves who loaded it behind.
+  loadedBy: sql<SpoolLoader | null>`CASE WHEN ${spools.loadedPrinterId} IS NULL THEN NULL ELSE ${spools.loadedBy} END`,
 };
 
 /** A printer's display name, "02-Bambu A1". Fixed here: import files match printers by it. */

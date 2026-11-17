@@ -2,6 +2,15 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **Loaded by the printer**: a printer that says what is in each slot (Bambu LAN, also when idle, also through a connector) loads the spool there with no click. It loads the spool whose tag it reads, or the only spool of that material and colour. Where several fit, the printer's page shows the likeliest one and **Accept** loads it. A spool you pick stays until the printer reads another spool's tag there, and an emptied tray unloads only a spool the printer loaded. Moonraker loads the Spoolman spool a job names, never the job file's colours ([docs/printers.md](docs/printers.md#grams-and-spools))
+- Migration 0137 (who loaded a spool; spools loaded until now count as yours)
+
+### Fixed
+- The spool on the back of a Bambu printer (and an AMS HT) can be loaded: a slot is any the printer reports, not only 1-16. The printer's page names them **External spool** and **Single-slot unit**
+
 ## [6.0.0-alpha.4] - 2026-11-17
 
 Pre-release, fourth of 6.0.0. Lists what changed since 6.0.0-alpha.3. Back up before updating. Migration 0134 applies as described below. Updating keeps all data. Connectors update to the hub's version.

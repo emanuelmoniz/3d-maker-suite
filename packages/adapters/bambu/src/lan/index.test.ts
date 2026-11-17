@@ -10,7 +10,7 @@ import {
 } from "@3d-maker-suite/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bambuLanAdapter, type LanDeps, type MqttLink } from "./index.ts";
-import { totalsOnSlots } from "./map.ts";
+import { toSnapshot, totalsOnSlots } from "./map.ts";
 import { type Announce, parseNotify } from "./ssdp.ts";
 
 // The Step 1 fixtures (fixtures/lan/SOURCE.md) played through a fake MQTT link, as the A1 sent
@@ -281,6 +281,26 @@ describe("Bambu LAN connection", () => {
     const logged = JSON.stringify(Object.values(log).flatMap((f) => f.mock.calls));
     expect(logged).not.toContain("SECRET99");
     expect(logged).not.toContain(CODE);
+  });
+});
+
+describe("toSnapshot's slots", () => {
+  it("are what is loaded, the back spool 254 and an AMS HT by its id; complete once reported", () => {
+    const report = {
+      gcode_state: "IDLE",
+      ams: {
+        ams: [
+          { id: 0, tray: [{ id: 0, tray_type: "PLA", tray_color: "FF8800FF" }, { id: 1 }] },
+          { id: 128, tray: [{ id: 0, tray_type: "PETG", tray_color: "000000FF" }] },
+        ],
+      },
+      vt_tray: { tray_type: "TPU", tray_color: "FFFFFFFF" },
+    };
+    const s = toSnapshot(SERIAL, report, "2026-11-17T10:00:00.000Z", {});
+    expect(s.physicalSlots).toBe(true);
+    expect(s.slots.map((t) => t.slot)).toEqual([0, 128, 254]);
+    // A report without its trays yet says nothing of them.
+    expect(toSnapshot(SERIAL, { gcode_state: "IDLE" }, s.at, {}).physicalSlots).toBeUndefined();
   });
 });
 

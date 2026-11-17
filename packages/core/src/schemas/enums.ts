@@ -58,6 +58,13 @@ export const PERMISSION_LEVELS = ["none", "read", "write", "manage"] as const;
 export const ROOT_EDIT_BY = ["roles", "admins", "users", "none"] as const;
 export const COMMENT_STATUSES = ["open", "resolved"] as const;
 export const SPOOL_STATUSES = ["new", "in_use", "empty"] as const;
+// Who put a spool in its printer slot (Step 19b): you, or the printer's own reading of the slot.
+export const SPOOL_LOADERS = ["user", "printer"] as const;
+/**
+ * The highest printer slot number: a slot is whatever an adapter reports (Bambu's back spool is
+ * 254, an AMS HT 128 and up). A print's filaments stay at `PRINT_MAX_SLOTS`.
+ */
+export const PRINTER_MAX_SLOT = 255;
 // Why a spool's remaining weight changed. "print" entries are written by prints (Step 9+).
 export const WEIGHT_ENTRY_KINDS = ["manual", "print", "correction"] as const;
 // Project fields the user can edit. A re-scan only rewrites the ones NOT listed in `editedFields`.
@@ -207,6 +214,7 @@ export type AlertModule = (typeof ALERT_MODULES)[number];
 export type TaggableType = (typeof TAGGABLE_TYPES)[number];
 export type MaintenanceTarget = (typeof MAINTENANCE_TARGETS)[number];
 export type SpoolStatus = (typeof SPOOL_STATUSES)[number];
+export type SpoolLoader = (typeof SPOOL_LOADERS)[number];
 export type WeightEntryKind = (typeof WEIGHT_ENTRY_KINDS)[number];
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 export type IntegrationErrorCode = (typeof INTEGRATION_ERROR_CODES)[number];

@@ -294,10 +294,18 @@
     "edit": "Edit in Integrations",
     "loadError": "The connection couldn't be loaded."
   },
+  "slots": {
+    "external": "External spool",
+    "single": "Single-slot unit {{n}}"
+  },
   "loaded": {
     "title": "Loaded spools",
-    "description": "A new print on a slot uses up the spool loaded in it. If the printer reports another material for the slot, the print waits in Filament to review.",
+    "description": "A new print on a slot uses up the spool loaded in it. If the printer reports another material for the slot, the print waits in Filament to review. A printer that reads its slots loads the matching spool itself; a spool you pick stays until the printer reads another spool's tag there.",
     "slot": "Slot {{slot}}",
+    "byPrinter": "Loaded by the printer",
+    "suggested": "Probably {{name}}",
+    "accept": "Accept",
+    "acceptSlot": "Accept {{name}} in {{slot}}",
     "pick": "Spool in {{slot}}",
     "none": "Nothing loaded",
     "clear": "Clear",

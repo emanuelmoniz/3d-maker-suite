@@ -101,10 +101,14 @@ export function createPrinterStatus(
   /** Printers that went silent while a job was active, by key: when it was first missed, and why. */
   const silentSince = new Map<string, { at: number; reason: Silent["reason"] }>();
   const listeners = new Set<(all: PrinterStatus[]) => void>();
+  /** Adds what others know of a printer to its status (its loaded spools: `autoLoad`). */
+  let annotate: () => (printerId: string) => Partial<PrinterStatus> = () => () => ({});
   let refreshTimer: NodeJS.Timeout | undefined;
   let closed = false;
   let sent = "";
   let alerted = "";
+  let notifying = false;
+  let again = false;
 
   const saveTrackers = () => {
     const value = Object.fromEntries(trackers);
@@ -135,6 +139,7 @@ export function createPrinterStatus(
         .map((p) => p.id),
     );
     const ours = sourcePrinters(db);
+    const extra = annotate();
     const names = new Map<string, string>();
     /** A source that fails whole (a wrong key) says so on each of its printers. */
     const failed = (integrationId: string): "refused" | "other" | undefined => {
@@ -187,16 +192,31 @@ export function createPrinterStatus(
         });
       }
     }
-    return out;
+    return out.map((s) => ({ ...s, ...extra(s.printerId) }));
   }
 
-  /** Tells the listeners when something besides the read time changed. */
+  /**
+   * Tells the listeners when something besides the read time changed. A listener that changes
+   * something itself (`autoLoad` loading a spool) calls it again: they hear the newer list after.
+   */
   function notify() {
-    const now = all();
-    const key = JSON.stringify(now.map((s) => ({ ...s, snapshot: { ...s.snapshot, at: "" } })));
-    if (key === sent) return;
-    sent = key;
-    for (const l of listeners) l(now);
+    if (notifying) {
+      again = true;
+      return;
+    }
+    notifying = true;
+    try {
+      do {
+        again = false;
+        const now = all();
+        const key = JSON.stringify(now.map((s) => ({ ...s, snapshot: { ...s.snapshot, at: "" } })));
+        if (key === sent) continue;
+        sent = key;
+        for (const l of listeners) l(now);
+      } while (again);
+    } finally {
+      notifying = false;
+    }
   }
 
   /** The alert check after a read: only when who is silent for too long changed. */
@@ -499,6 +519,12 @@ export function createPrinterStatus(
       listeners.add(l);
       return () => listeners.delete(l);
     },
+    /** What each printer's status carries besides its source's read (`autoLoad.annotate`). */
+    annotate(fn: typeof annotate) {
+      annotate = fn;
+    },
+    /** Something `annotate` adds changed: the listeners hear it. */
+    changed: () => notify(),
     start() {
       refresh();
       refreshTimer = setInterval(refresh, REFRESH_MS).unref();

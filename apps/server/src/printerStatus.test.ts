@@ -346,6 +346,109 @@ describe("the spool loaded in a slot", () => {
   });
 });
 
+describe("spools loaded by the printer (Step 19b)", () => {
+  const printerId = () => db.select().from(schema.printers).get()?.id ?? "";
+  const load = (slot: number, spoolId: string | null) =>
+    app.inject({
+      method: "PUT",
+      url: `/api/printers/${printerId()}/slots`,
+      payload: { slot, spoolId },
+    });
+  const row = (id: string) => db.select().from(schema.spools).where(eq(schema.spools.id, id)).get();
+  const placeOf = (id: string) => {
+    const s = row(id);
+    return [s?.loadedSlot ?? null, s?.loadedBy ?? null];
+  };
+  type Tray = PrinterSnapshot["slots"][number];
+  const tray = (slot: number, over: Partial<Tray> = {}): Tray => ({
+    slot,
+    material: "PLA",
+    colorHex: "#ff8800",
+    ...over,
+  });
+  /** An idle printer that reads its trays (Bambu LAN). */
+  const trays = (...slots: Tray[]) =>
+    reads([snap(0, { state: "idle", job: undefined, slots, physicalSlots: true })]);
+  const tag = (id: string, rfid: string) =>
+    db.update(schema.spools).set({ rfid }).where(eq(schema.spools.id, id)).run();
+
+  it("the only spool that fits is loaded with no click, and the status says so", async () => {
+    const a = await spool("#ff8800");
+    await spool("#0000ff");
+    await trays(tray(0));
+    expect(placeOf(a.id)).toEqual([0, "printer"]);
+    expect((await statuses())[0]?.loaded).toEqual([{ slot: 0, spoolId: a.id, by: "printer" }]);
+    expect((await app.inject(`/api/filament/spools/${a.id}`)).json().loadedBy).toBe("printer");
+  });
+
+  it("the back spool (254) is loaded, by the printer or by hand", async () => {
+    const a = await spool("#ff8800");
+    await trays(tray(254));
+    expect(placeOf(a.id)).toEqual([254, "printer"]);
+    expect((await load(254, null)).statusCode).toBe(204);
+    expect((await load(254, a.id)).statusCode).toBe(204);
+    expect(placeOf(a.id)).toEqual([254, "user"]);
+    expect((await load(256, a.id)).statusCode).toBe(400);
+  });
+
+  it("several fit: a suggestion one click accepts, as yours", async () => {
+    const [a, b] = [await spool("#ff8800"), await spool("#ff8800")];
+    await trays(tray(0));
+    expect(placeOf(a.id)).toEqual([null, null]);
+    const [s] = await statuses();
+    expect(s?.suggestions).toHaveLength(1);
+    const idea = s?.suggestions?.[0]?.spoolId ?? "";
+    expect([a.id, b.id]).toContain(idea);
+    await load(0, idea);
+    expect(placeOf(idea)).toEqual([0, "user"]);
+    expect((await statuses())[0]?.suggestions).toBeUndefined();
+  });
+
+  it("a spool set by hand is replaced only by a tag, from wherever the tagged one is", async () => {
+    const [mine, tagged] = [await spool("#0000ff"), await spool("#ff8800")];
+    await load(0, mine.id);
+    await load(1, tagged.id);
+    // Another colour, no tag: yours stays.
+    await trays(tray(0), tray(1, { colorHex: "#00ff00" }));
+    expect(placeOf(mine.id)).toEqual([0, "user"]);
+    tag(tagged.id, "T1");
+    await trays(tray(0, { rfid: "T1" }));
+    expect(placeOf(tagged.id)).toEqual([0, "printer"]);
+    expect(placeOf(mine.id)).toEqual([null, null]);
+  });
+
+  it("an emptied tray unloads only a spool the printer loaded", async () => {
+    const [a, mine] = [await spool("#ff8800"), await spool("#0000ff")];
+    await trays(tray(0));
+    await load(1, mine.id);
+    await trays();
+    expect(placeOf(a.id)).toEqual([null, null]);
+    expect(placeOf(mine.id)).toEqual([1, "user"]);
+  });
+
+  it("a slot you empty stays empty until the printer reads something else there", async () => {
+    const a = await spool("#ff8800");
+    await trays(tray(0));
+    await load(0, null);
+    await trays(tray(0, { colorHex: "#ff8800" }));
+    expect(placeOf(a.id)).toEqual([null, null]);
+    await trays();
+    await trays(tray(0));
+    expect(placeOf(a.id)).toEqual([0, "printer"]);
+  });
+
+  it("a job file's colours (Moonraker) load nothing; its Spoolman spool does", async () => {
+    const a = await spool("#ff8800");
+    await reads([snap(0, { slots: [tray(0)] })]);
+    expect(placeOf(a.id)).toEqual([null, null]);
+    db.insert(schema.spoolSources)
+      .values({ spoolId: a.id, library: "spoolman", source: "spoolman:9" })
+      .run();
+    await reads([snap(10, { slots: [tray(0, { spoolId: "spoolman:9" })] })]);
+    expect(placeOf(a.id)).toEqual([0, "printer"]);
+  });
+});
+
 describe("printer alerts", () => {
   // The setup sync raised its own.
   const mine = () =>

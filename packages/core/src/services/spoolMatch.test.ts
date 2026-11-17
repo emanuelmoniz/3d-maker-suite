@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { matchPrint, matchSpool, type SpoolCandidate, usableOn } from "./spoolMatch.ts";
+import {
+  matchLoaded,
+  matchPrint,
+  matchSpool,
+  type SpoolCandidate,
+  usableOn,
+} from "./spoolMatch.ts";
 
-const spool = (id: string, over: Partial<SpoolCandidate> = {}): SpoolCandidate => ({
+const spool = (
+  id: string,
+  over: Partial<SpoolCandidate & { elsewhere: boolean }> = {},
+): SpoolCandidate & { elsewhere?: boolean } => ({
   id,
   number: null,
   material: "PLA",
@@ -177,6 +186,42 @@ describe("matchPrint", () => {
     ).toEqual([sure("a")]);
     // One the app doesn't have: the colour match, and the named one isn't taken by another slot.
     expect(matchPrint([{ ...slot, spoolId: "spoolman:9" }], [spool("b")])).toEqual([sure("b")]);
+  });
+});
+
+describe("matchLoaded", () => {
+  const now = "2026-02-01T08:00:00.000Z";
+  const tray = { material: "PLA", colorHex: "#ff8800", physical: true };
+  const tagged = (id: string | null) => ({ id, sure: true, tagged: true });
+  const match = (m: { id: string | null; sure: boolean }) => ({ ...m, tagged: false });
+
+  it("the tagged or named spool for sure, also one loaded elsewhere, any material", () => {
+    const spools = [spool("a"), spool("b", { rfid: "T1", material: "PETG", elsewhere: true })];
+    expect(matchLoaded({ ...tray, rfid: "T1" }, spools, [], now)).toEqual(tagged("b"));
+    const named = [spool("a"), spool("b", { sources: ["spoolman:9"] })];
+    expect(matchLoaded({ spoolId: "spoolman:9" }, named, [], now)).toEqual(tagged("b"));
+  });
+
+  it("one material + colour match among the spools not loaded elsewhere is sure", () => {
+    const spools = [spool("a", { elsewhere: true }), spool("b")];
+    expect(matchLoaded(tray, spools, [], now)).toEqual(match(sure("b")));
+  });
+
+  it("several: the last used in the slot, else the oldest; not sure", () => {
+    const spools = [spool("a"), spool("b", { status: "in_use" })];
+    expect(matchLoaded(tray, spools, [], now)).toEqual(match(guess("b")));
+    expect(matchLoaded(tray, spools, ["a"], now)).toEqual(match(guess("a")));
+  });
+
+  it("a job file's colour (not physical) loads nothing", () => {
+    expect(matchLoaded({ ...tray, physical: false }, [spool("a")], [], now)).toEqual(
+      match(guess(null)),
+    );
+  });
+
+  it("a spool bought after today doesn't fit", () => {
+    const later = spool("a", { purchasedAt: "2026-03-01T12:00:00.000Z" });
+    expect(matchLoaded(tray, [later], [], now)).toEqual(match(guess(null)));
   });
 });
 

@@ -195,6 +195,32 @@ describe("printers through a connector", {
     expect(c.link.sources?.held()).toBe(0);
   });
 
+  it("loads the spool the printer reads in a slot, through the connector (Step 19b)", async () => {
+    const state: MockState = { ...fixture(), status: [{ ...snap("idle"), physicalSlots: true }] };
+    const { h } = await setup(state);
+    const material = (await h.send("POST", "/api/filament-materials", { name: "PLA" })).json() as {
+      id: string;
+    };
+    const spool = (
+      await h.send("POST", "/api/filament/spools", {
+        materialId: material.id,
+        colorHex: "#ff8800",
+        initialGrams: 1000,
+      })
+    ).json() as { id: string };
+    const loaded = () =>
+      h.db
+        .select()
+        .from(schema.spools)
+        .all()
+        .find((s) => s.id === spool.id);
+    await until(() => loaded()?.loadedBy === "printer");
+    expect(loaded()).toMatchObject({ loadedSlot: 0, loadedBy: "printer" });
+    // The tray emptied: the printer's spool leaves it.
+    state.status = [{ ...snap("idle"), slots: [], physicalSlots: true }];
+    await until(() => loaded()?.loadedPrinterId === null);
+  });
+
   it("keeps a print that ends while the hub is down and records it when the hub is back", async () => {
     const state: MockState = { ...fixture(), status: [snap("idle")] };
     const { h, c, hubDir, devDir } = await setup(state);

@@ -14,6 +14,7 @@ import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
 import { useAdapterName } from "../../lib/integrations.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { slotName } from "../../lib/printerStatus.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
 import { usePrints } from "../../lib/prints.ts";
 import { useTagsEnabled, useTagsOf } from "../../lib/tags.ts";
@@ -41,7 +42,7 @@ function LoadedIn({ printerId, slot }: { printerId: string; slot: number }) {
   if (!printer) return null;
   return (
     <Link to="/printers/$id" params={{ id: printerId }} className={textLink}>
-      {t("filament:detail.loadedIn", { printer: printerName(t, printer), slot: slot + 1 })}
+      {t("filament:detail.loadedIn", { printer: printerName(t, printer), slot: slotName(t, slot) })}
     </Link>
   );
 }

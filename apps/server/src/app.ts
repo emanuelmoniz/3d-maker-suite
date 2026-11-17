@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IntegrationAdapter, LogModule } from "@3d-maker-suite/core";
+import type { IntegrationAdapter, LogModule, PrinterStatus, SpoolLoad } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { type Autostart, loadKey } from "@3d-maker-suite/host";
 // Types only: reply.sendFile below; main.ts registers the plugin when it serves the web build.
@@ -21,6 +21,7 @@ import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
 import { type Config, linkBase } from "./config.ts";
 import { HttpError } from "./errors.ts";
+import { createAutoLoad } from "./integrations/autoLoad.ts";
 import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
 import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlicer.ts";
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
@@ -440,6 +441,24 @@ export async function buildApp(
   );
   // A spool a printer's host reports to (Moonraker to Spoolman) waits while it prints.
   printerStatus.subscribe((all) => spoolPush.watch(all));
+  // The spools a printer reads in its slots are loaded with no click (Step 19b).
+  const autoLoad = createAutoLoad(db, logFor("integrations"));
+  printerStatus.annotate(autoLoad.annotate);
+  const reload = (all: PrinterStatus[]) => {
+    if (autoLoad.watch(all)) printerStatus.changed();
+  };
+  printerStatus.subscribe(reload);
+  // A spool added, archived or set by hand: the slots are worked out again, and pages hear of it.
+  app.addHook("onResponse", async (req, reply) => {
+    if (req.method === "GET" || reply.statusCode >= 400 || req.headers[BULK_ROW_HEADER]) return;
+    if (req.routeOptions.url === "/api/printers/:id/slots") {
+      const { id } = req.params as { id: string };
+      const { slot, spoolId } = req.body as SpoolLoad;
+      if (!spoolId) autoLoad.cleared(id, slot);
+    }
+    reload(printerStatus.all());
+    printerStatus.changed();
+  });
   if (opts.printerStatus) app.addHook("onReady", async () => printerStatus.start());
   app.addHook("onClose", async () => printerStatus.close());
   await app.register(printerStatusRoutes(printerStatus), { prefix: "/api/printers/status" });

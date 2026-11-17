@@ -96,6 +96,48 @@ export function matchSpool(
   return { id: last ?? [...hits].sort(oldest)[0]?.id ?? null, sure: false };
 }
 
+/** The spool whose tag the printer read, or that was imported from the library spool it named. */
+function taggedIn<T extends SpoolCandidate>(
+  s: { rfid?: string | null; spoolId?: string | null },
+  spools: T[],
+): T | undefined {
+  const { rfid, spoolId } = s;
+  return (
+    (rfid ? spools.find((c) => !!c.rfid && c.rfid === rfid) : undefined) ??
+    (spoolId ? spools.find((c) => !!c.sources?.includes(spoolId)) : undefined)
+  );
+}
+
+/** A slot as the printer reports it now, in its live status. */
+export type LoadedSlot = {
+  material?: string;
+  colorHex?: string;
+  rfid?: string | null;
+  spoolId?: string | null;
+  /** What is physically in the slot (`physicalSlots`), not the job file's filament (Moonraker). */
+  physical?: boolean;
+};
+
+/**
+ * The spool in a slot the printer reports now, for the app to load by itself (Step 19b). The spool
+ * whose tag the printer read, or the library spool it named, as in `matchPrint`: sure, `tagged`,
+ * wherever it is loaded now. Else, for a `physical` slot only, `matchSpool`'s material + colour
+ * match as of today (no grams) among the spools not loaded `elsewhere`: a job file's colour says
+ * nothing of the spool. Pass active spools only; `recent` as `matchSpool`.
+ */
+export function matchLoaded(
+  slot: LoadedSlot,
+  spools: (SpoolCandidate & { elsewhere?: boolean })[],
+  recent: string[] = [],
+  now = new Date().toISOString(),
+): SpoolMatch & { tagged: boolean } {
+  const t = taggedIn(slot, spools);
+  if (t) return { id: t.id, sure: true, tagged: true };
+  if (!slot.physical) return { id: null, sure: false, tagged: false };
+  const free = spools.filter((s) => !s.elsewhere);
+  return { ...matchSpool({ ...slot, grams: 0, startedAt: now }, free, recent), tagged: false };
+}
+
 /**
  * `matchSpool` for every slot of one print. A spool goes to one slot only. Two slots of the same
  * material + colour are two spools (the AMS switched to a second roll when the first ran out), so
@@ -112,9 +154,7 @@ export function matchPrint(
   recent: (slot: number | null | undefined) => string[] = () => [],
   loaded: (slot: number | null | undefined) => string | undefined = () => undefined,
 ): SpoolMatch[] {
-  const taggedOf = (s: SlotToMatch) =>
-    (s.rfid ? spools.find((c) => !!c.rfid && c.rfid === s.rfid) : undefined) ??
-    (s.spoolId ? spools.find((c) => !!s.spoolId && !!c.sources?.includes(s.spoolId)) : undefined);
+  const taggedOf = (s: SlotToMatch) => taggedIn(s, spools);
   const loadedOf = (s: { slot?: number | null }) => {
     const id = loaded(s.slot);
     return id ? spools.find((c) => c.id === id) : undefined;

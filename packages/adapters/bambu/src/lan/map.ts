@@ -234,5 +234,7 @@ export function toSnapshot(
     ...(jobPart && Object.keys(jobPart).length && { job: jobPart }),
     ...(Object.keys(temperatures).length && { temperatures }),
     slots: slotsOf(r),
+    // The trays as they are, also when idle; until the report has them, nothing is known.
+    ...(("ams" in r || "vt_tray" in r) && { physicalSlots: true }),
   };
 }

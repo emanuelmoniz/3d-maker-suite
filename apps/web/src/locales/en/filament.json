@@ -94,7 +94,7 @@
     "rfidNone": "None learned yet",
     "rfidHint": "Learned from a print. A print that reads this tag charges this spool.",
     "rfidForget": "Forget tag",
-    "loadedIn": "{{printer}} · slot {{slot}}",
+    "loadedIn": "{{printer}} · {{slot}}",
     "source": "Source",
     "linkedSince": "{{source}} · linked {{date}}",
     "manual": "Added by hand",

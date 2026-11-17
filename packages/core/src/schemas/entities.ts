@@ -16,6 +16,7 @@ import {
   PRINT_OUTCOMES,
   REVIEW_POLICIES,
   SLICER_PRESET_KINDS,
+  SPOOL_LOADERS,
   SPOOL_STATUSES,
   SYNC_FREQUENCIES,
   SYNC_MERGES,
@@ -488,6 +489,8 @@ export const spoolSchema = z.object({
   loadedPrinterId: id.nullable(),
   loadedSlot: z.number().int().nonnegative().nullable(),
   loadedAt: isoDate.nullable(),
+  /** Who loaded it: you, or the printer's reading of the slot (Step 19b). Null when not loaded. */
+  loadedBy: z.enum(SPOOL_LOADERS).nullable(),
   /** The tag a printer read on it, learned when a slot with it was charged to it. Read only. */
   rfid: z.string().nullable(),
   archivedAt: isoDate.nullable(),

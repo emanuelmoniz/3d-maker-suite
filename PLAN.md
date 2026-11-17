@@ -3534,7 +3534,7 @@ Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 Do Step 19 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 19b - Loaded spools from the printer
+### [x] Step 19b - Loaded spools from the printer
 **Model:** Opus · **Effort:** Medium
 **Why:** a printer that reports what is in each slot (Bambu LAN: material, colour and RFID tag, also when idle) still shows no loaded spool until one is picked by hand. Brand-agnostic: any adapter that fills the live slots gets it, through a connector too. Found in the Step 19 real test: the back spool (slot 254) can't be loaded at all.
 **Scope:**

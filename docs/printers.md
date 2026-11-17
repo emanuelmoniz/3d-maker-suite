@@ -53,7 +53,17 @@ Automatic Bambu Cloud syncs follow the same rule: they record every new print in
 
 A spool learns its **RFID tag** (a Bambu AMS reads it from Bambu spools) the first time a slot with that tag is charged to it: by a sure match, a loaded spool, or the spool you pick or accept in Filament to review. From then on a print that names the tag charges that spool, even when other spools of the same colour would fit. The spool's page shows its tag. If a tag ever lands on the wrong spool, pick the right one in Filament to review or on the print: the tag moves to it. **Forget tag** on the spool's page drops it; the next print charged to a spool teaches it again.
 
-On a printer's page, each filament slot has a **loaded spool**: set, change or clear it. The spool's page says where it is loaded, and archiving a spool takes it out of its slot. A loaded spool is only charged when it was loaded before the print ended. If its material differs from what the printer reported for the slot, or it can't hold the grams, nothing is charged and the slot waits in Filament to review.
+On a printer's page, each filament slot has a **loaded spool**: set, change or clear it. The spool's page says where it is loaded, and archiving a spool takes it out of its slot. A loaded spool is only charged when it was loaded before the print ended. If its material differs from what the printer reported for the slot, or it can't hold the grams, nothing is charged and the slot waits in Filament to review. Slots are named as the printer numbers them: **Slot 1** and up for a spool unit's slots, **Single-slot unit 1** and up for a unit with one slot (Bambu's AMS HT), and **External spool** for the spool outside any unit (Bambu's spool on the back).
+
+**Loaded by the printer.** A printer that reports what is in each slot loads the spools itself, also when idle, with no click. The page marks such a spool **Loaded by the printer**. While the printer is online, for each slot it reports:
+
+- The spool whose RFID tag it reads, or the Spoolman spool it names, is loaded there: moved from any other slot, and replacing what was there, also a spool you picked.
+- A spool you picked stays otherwise. If its material doesn't match, the print waits in Filament to review as above.
+- When exactly one spool of the slot's material and colour isn't loaded elsewhere, it is loaded. This needs a printer that reads the spool itself ([Bambu LAN](bambu-lan.md)). A colour that comes from the job file ([Moonraker](moonraker.md)) loads nothing.
+- When several spools fit, the slot shows the likeliest one: the spool last used in that slot, else the oldest. **Accept** loads it, as your pick.
+- When a tray goes empty, a spool the printer loaded there is unloaded. A spool you picked stays.
+
+If you clear a slot the printer filled, it stays empty until the printer reads something else there. This also works for a printer reached [through a connector](hub.md). Each slot reads again whenever the printer's status changes, and after a restart.
 
 ## Review level
 
