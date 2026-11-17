@@ -3534,10 +3534,34 @@ Fix anything found and note it in the CHANGELOG (alpha.4 if needed).
 Do Step 19 of the 6.0.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
+### [ ] Step 19b - Loaded spools from the printer
+**Model:** Opus · **Effort:** Medium
+**Why:** a printer that reports what is in each slot (Bambu LAN: material, colour and RFID tag, also when idle) still shows no loaded spool until one is picked by hand. Brand-agnostic: any adapter that fills the live slots gets it, through a connector too. Found in the Step 19 real test: the back spool (slot 254) can't be loaded at all.
+**Scope:**
+- **Slot numbers:** `spoolLoadSchema` takes every slot an adapter reports (0-255), not only 0-15: Bambu's back spool is 254, an AMS HT 128 and up. The printer page names those slots. `PRINT_MAX_SLOTS` (print usages, imports) stays.
+- **Snapshot:** an optional flag on the printer snapshot: its slots are what is physically loaded and the list is complete. Bambu LAN sets it. Moonraker doesn't (its slots come from the job file); its Spoolman spool id still counts.
+- **Core:** a pure `matchLoaded(slot, spools, recent)` in `spoolMatch.ts`: the tag or library spool check of `matchPrint`, then `matchSpool` (no grams, today), material + colour only for physical slots. Returns `{ id, sure }`.
+- **DB:** migration adds `spools.loaded_by` (`user` | `printer`); existing rows are `user`. `PUT /api/printers/:id/slots` sets `user`. The clear-then-set transaction becomes one helper the route and the reconciler share.
+- **Server:** `integrations/autoLoad.ts`, a `printerStatus.subscribe` listener (as `spoolPush`). On each change, per online printer, per slot, against the database (idempotent, nothing to diff, a restart is fine):
+  - tag or library spool match: loaded by the printer, moved from any other slot, replacing any spool there, also one set by hand;
+  - a spool loaded by hand stays (a material mismatch is handled at print end, as today);
+  - one sure material + colour match among spools not loaded elsewhere: loaded by the printer;
+  - several fit: a suggestion (last used in that slot, `spoolHistory().before`, else the oldest), in memory, sent with the live status;
+  - a tray that went empty (physical slots only): a spool the printer loaded there is unloaded; one set by hand stays.
+  - A tag is still learned when a slot is charged, not on load.
+- **Web:** `LoadedSpools.tsx` marks a spool **Loaded by the printer**, and shows a suggestion with **Accept** (sets it as yours). i18n keys only.
+- Docs (CLAUDE.md, docs follow the code): `docs/printers.md` (Grams and spools), `docs/bambu-lan.md` (what it reads, the back spool), `docs/moonraker.md` (only its Spoolman spool loads), `docs/hub.md` (through a connector), `docs/architecture.md` (snapshot flag, `loaded_by`, the live suggestion), amend ADR-0015 (Step 19b), README feature list, CHANGELOG (the slot-254 fix).
+
+**Done when:** a Bambu LAN printer, direct and through a connector, gets its tagged and its only-match spools loaded with no click; several matches show a suggestion one click accepts; a spool set by hand is replaced only by a tag; an emptied tray unloads only a spool the printer loaded; the back spool can be loaded; Moonraker's file colours load nothing; tests cover each; lint, tests and `pnpm i18n:check` pass; the docs above describe it.
+**Prompt:**
+```
+Do Step 19b of the 6.0.0 plan in PLAN.md.
+```
+
 ### [ ] Step 20 - Docs, push & v6.0.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `pnpm screenshots` (dashboard with live printer cards, printer page with loaded spools and its connection, Printers list with Monitoring), README, CHANGELOG, version `6.0.0`.
+- `pnpm screenshots` (dashboard with live printer cards, printer page with loaded spools (one loaded by the printer) and its connection, Printers list with Monitoring), README, CHANGELOG, version `6.0.0`.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.0.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; updating 5.x to 6.0.0 works.
