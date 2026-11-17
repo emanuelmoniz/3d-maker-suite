@@ -69,7 +69,10 @@ import {
   PrintsConfigPage,
   ProjectsConfigPage,
 } from "./pages/settings/ConfigPages.tsx";
-import { IntegrationCreatePage } from "./pages/settings/IntegrationFormPage.tsx";
+import {
+  IntegrationCreatePage,
+  IntegrationEditPage,
+} from "./pages/settings/IntegrationFormPage.tsx";
 import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { MyAccountPage } from "./pages/settings/MyAccountPage.tsx";
@@ -649,6 +652,7 @@ const routes: AnyRoute[] = [
     ["/integrations", IntegrationsPage],
     ["/integrations/new", IntegrationCreatePage],
     ["/integrations/$id/login", IntegrationLoginPage],
+    ["/integrations/$id/edit", IntegrationEditPage],
   ].map(([path, component]) =>
     createRoute({
       getParentRoute: () => root,

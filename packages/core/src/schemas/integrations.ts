@@ -180,6 +180,14 @@ export const integrationInputSchema = z.object({
   secrets: z.record(z.string(), z.string()).default({}),
 });
 
+/**
+ * Test a source before saving it (or an edit before saving it): nothing is stored. `integrationId`:
+ * the saved one being edited, whose stored secrets fill in the ones left empty.
+ */
+export const sourceTestInputSchema = integrationInputSchema
+  .pick({ adapterId: true, deviceId: true, config: true, secrets: true })
+  .extend({ integrationId: id.optional() });
+
 /** Any subset. `secrets` keys that are sent replace the stored ones; others are kept. */
 export const integrationPatchSchema = z
   .object({
@@ -408,6 +416,21 @@ export const testResultSchema = z.union([
   z.object({ ok: z.literal(false), code: z.enum(INTEGRATION_ERROR_CODES) }),
 ]);
 
+/** A printer a test found: one for a printer on the network, all of an account's. */
+export const foundPrinterSchema = externalPrinterSchema.pick({
+  name: true,
+  brand: true,
+  model: true,
+  serial: true,
+});
+/** Most found printers a test answers with. */
+export const FOUND_PRINTERS_MAX = 20;
+/** A test of a source that isn't saved (yet), with what it found (`tryOut`). */
+export const sourceTestResultSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), printers: z.array(foundPrinterSchema).max(FOUND_PRINTERS_MAX) }),
+  z.object({ ok: z.literal(false), code: z.enum(INTEGRATION_ERROR_CODES) }),
+]);
+
 /**
  * A print the job tracker saw end (`TrackedPrint`), as a connector sends it to the hub (ADR-0015,
  * LAN reach). `print` is checked again by the hub's `recordPrint`.
@@ -480,6 +503,9 @@ export type SyncLogEntry = z.infer<typeof syncLogEntrySchema>;
 export type SyncResult = z.infer<typeof syncResultSchema>;
 export type SyncPolicy = z.infer<typeof syncPolicySchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
+export type SourceTestInput = z.input<typeof sourceTestInputSchema>;
+export type SourceTestResult = z.infer<typeof sourceTestResultSchema>;
+export type FoundPrinter = z.infer<typeof foundPrinterSchema>;
 export type LoginRequest = z.infer<typeof loginInputSchema>;
 export type LoginResult = z.infer<typeof loginResultSchema>;
 export type SlicerRelease = z.infer<typeof slicerReleaseSchema>;

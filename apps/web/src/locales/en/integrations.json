@@ -44,6 +44,7 @@
     "test": "Test connection",
     "testOk": "Connection works.",
     "delete": "Delete",
+    "edit": "Edit",
     "actionError": "That didn't work. Try again.",
     "signIn": "Sign in",
     "signInAgain": "Sign in again",
@@ -102,7 +103,28 @@
     "reachDeviceOffline": "{{name}} (offline)",
     "save": "Add",
     "error": "Couldn't add the integration. Check the fields.",
-    "anyOf": "Fill in at least one of: {{fields}}."
+    "anyOf": "Fill in at least one of: {{fields}}.",
+    "editTitle": "Edit {{name}}",
+    "saveChanges": "Save changes",
+    "editError": "Couldn't save the changes. Check the fields.",
+    "notEditable": "This integration can't be edited here.",
+    "secretKept": "Saved. Leave empty to keep it.",
+    "test": "Test",
+    "testing": "Testing…",
+    "printerModel": "{{name}} ({{model}})",
+    "testFound": "Connection works. Found {{printer}}.",
+    "testFoundSerial": "Connection works. Found {{printer}}, serial {{serial}}.",
+    "testFoundMany_one": "Connection works. Found {{count}} printer.",
+    "testFoundMany_other": "Connection works. Found {{count}} printers.",
+    "errors": {
+      "invalid_config": "Some fields aren't valid. Check the address and the other fields.",
+      "invalid_secrets": "Fill in the key or access code.",
+      "device_not_reaching": "That machine doesn't reach this kind of source. Turn its switch on on the machine page first.",
+      "device_outdated": "The connector on that machine is too old for this source. Update it to the hub's version.",
+      "device_offline": "That machine is offline. Try again once it is online.",
+      "hub_off": "The hub is off. Turn it on to reach a source through a machine.",
+      "integration_exists": "This source is already set up. Find its card on the Integrations page."
+    }
   },
   "adapters": {
     "mock": {

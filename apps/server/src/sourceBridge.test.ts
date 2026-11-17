@@ -278,3 +278,123 @@ describe("printers through a connector, on the hub", () => {
     expect(db.select().from(schema.prints).all()).toEqual([]);
   });
 });
+
+// 6.0.0 Step 16: the add and edit forms test what they hold; nothing is saved.
+describe("test before saving", () => {
+  const tryOut = (body: object) => send("POST", "/api/integrations/test", body);
+  const host = { adapterId: "mock-host", config: { host: "printer.lan" } };
+  const count = () => db.select().from(schema.integrations).all().length;
+
+  it("tests on this server: what it found, or the key it refused; nothing is saved", async () => {
+    expect((await tryOut({ ...host, secrets: { token: "secret" } })).json()).toEqual({
+      ok: true,
+      printers: [{ name: "Mock printer", brand: "Mock", model: "M1", serial: "MOCK0001" }],
+    });
+    expect((await tryOut({ ...host, secrets: { token: "wrong" } })).json()).toEqual({
+      ok: false,
+      code: "auth_required",
+    });
+    const bad = await tryOut({ ...host, config: {}, secrets: { token: "secret" } });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().error.code).toBe("invalid_config");
+    expect((await tryOut({ ...host, secrets: {} })).json().error.code).toBe("invalid_secrets");
+    expect(count()).toBe(0);
+  });
+
+  it("an edit tests with the stored key where it is left empty, and never another adapter's", async () => {
+    const id = (await printer()).json().id as string;
+    expect((await tryOut({ ...host, secrets: {}, integrationId: id })).json()).toMatchObject({
+      ok: true,
+    });
+    // A key typed in wins over the stored one.
+    expect(
+      (await tryOut({ ...host, secrets: { token: "wrong" }, integrationId: id })).json(),
+    ).toEqual({ ok: false, code: "auth_required" });
+    const other = await tryOut({ adapterId: "mock", secrets: {}, integrationId: id });
+    expect(other.json().error.code).toBe("adapter_mismatch");
+    // The stored key is never answered, and the row is as it was.
+    const row = (await send("GET", `/api/integrations/${id}`)).json();
+    expect(row).toMatchObject({ storedKeys: ["token"], config: { host: "printer.lan" } });
+    expect(JSON.stringify(row)).not.toContain('"secret"');
+  });
+
+  it("through a machine: only one whose switch is on, and only an online one", async () => {
+    const off = await pair("Off", false);
+    const res = await tryOut({ ...host, secrets: { token: "secret" }, deviceId: off.deviceId });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("device_not_reaching");
+    const on = await pair("On");
+    // Paired, but its connector isn't connected.
+    const away = await tryOut({ ...host, secrets: { token: "secret" }, deviceId: on.deviceId });
+    expect(away.statusCode).toBe(409);
+    expect(away.json().error.code).toBe("device_offline");
+    expect(count()).toBe(0);
+  });
+
+  it("needs integrations.manage", async () => {
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: "editor@x.io", password: "password123" },
+    });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/integrations/test",
+      payload: { ...host, secrets: { token: "secret" } },
+      headers: { cookie: String(login.headers["set-cookie"]).split(";")[0] ?? "" },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("a machine learns the kinds of source its switches allow (X-Reach)", async () => {
+    const a = await pair("A");
+    const reach = async () => (await device(a.token, "GET", "/sources")).headers["x-reach"];
+    expect(await reach()).toBe("printers,spool-libraries");
+    await send("PATCH", `/api/hub/devices/${a.deviceId}`, { reachPrinters: false });
+    expect(await reach()).toBe("spool-libraries");
+    await send("PATCH", `/api/hub/devices/${a.deviceId}`, { reachSpoolLibraries: false });
+    expect(await reach()).toBe("");
+  });
+
+  it("never logs the keys it tests with", async () => {
+    const lines: string[] = [];
+    const logged = await buildApp(
+      openDb(":memory:"),
+      { stream: { write: (l: string) => lines.push(l) } },
+      "",
+      { adapters: [mockHostAdapter({ ...fixture(), fail: "unreachable" })] },
+    );
+    const res = await logged.inject({
+      method: "POST",
+      url: "/api/integrations/test",
+      payload: { ...host, secrets: { token: "t0p-s3cr3t" } },
+    });
+    expect(res.json()).toEqual({ ok: false, code: "unreachable" });
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.join("\n")).not.toContain("t0p-s3cr3t");
+    await logged.close();
+  });
+});
+
+describe("edit a source", () => {
+  it("changes its host, key and machine at once; a key left out stays", async () => {
+    const a = await pair("A");
+    const id = (await printer()).json().id as string;
+    const edit = await send("PATCH", `/api/integrations/${id}`, {
+      config: { host: "printer2.lan" },
+      secrets: { token: "new-key" },
+      deviceId: a.deviceId,
+    });
+    expect(edit.statusCode).toBe(200);
+    expect(edit.json()).toMatchObject({ config: { host: "printer2.lan" }, deviceId: a.deviceId });
+    const sources = () => device(a.token, "GET", "/sources").then((r) => r.json());
+    expect(await sources()).toMatchObject([
+      { config: { host: "printer2.lan" }, secrets: { token: "new-key" } },
+    ]);
+    // The Edit page sends no key it left empty.
+    await send("PATCH", `/api/integrations/${id}`, { config: { host: "printer3.lan" } });
+    expect(await sources()).toMatchObject([
+      { config: { host: "printer3.lan" }, secrets: { token: "new-key" } },
+    ]);
+  });
+});

@@ -348,6 +348,11 @@ export function createLink({
         if (!sources) return void reply(requestId, { ok: false, code: "ENOTSUP" });
         return void sources.read(event.data, (body) => reply(requestId, body));
       }
+      if (event.success && event.data.type === "sources.test") {
+        const { requestId } = event.data;
+        if (!sources) return void reply(requestId, { ok: false, code: "ENOTSUP" });
+        return void sources.test(event.data, (body) => reply(requestId, body));
+      }
       if (event.success && event.data.type === "spools.write") {
         const { requestId } = event.data;
         if (!sources) return void reply(requestId, { ok: false, code: "ENOTSUP" });

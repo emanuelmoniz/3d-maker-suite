@@ -9,9 +9,12 @@ import {
   type IntegrationErrorCode,
   type IntegrationInstance,
   type LibrarySpool,
+  type SourceTestResult,
+  sourceTestResultSchema,
   spoolCreatedSchema,
   spoolUsageWrittenSchema,
   type TestResult,
+  TRY_OUT_MS,
   testResultSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -36,6 +39,8 @@ type Row = typeof integrations.$inferSelect;
 const LONG_MS = 30_000;
 /** A write is a few requests to the library on the connector's side, and waits for the one before. */
 const WRITE_MS = 30_000;
+/** A test before saving: the adapter on the connector gives up first (`TRY_OUT_MS`). */
+const TEST_MS = TRY_OUT_MS + 5_000;
 const historyPage = z.object({
   items: z.array(z.unknown()).max(1000),
   nextCursor: z.string().max(4096).optional(),
@@ -226,6 +231,67 @@ export function createSourceBridge(
       const runs = channel.sourceAdapters(deviceId);
       if (runs && !runs.includes(adapter.id))
         throw new HttpError(409, "device_outdated", "The connector is too old for this source");
+    },
+
+    /** The kinds of source a machine may reach (`X-Reach` on `GET /api/hub/device/sources`). */
+    reachOf(deviceId: string) {
+      const row = db
+        .select({ printers: devices.reachPrinters, spoolLibraries: devices.reachSpoolLibraries })
+        .from(devices)
+        .where(eq(devices.id, deviceId))
+        .get();
+      return [row?.printers && "printers", row?.spoolLibraries && "spool-libraries"].filter(
+        (k): k is string => !!k,
+      );
+    },
+
+    /**
+     * Tests a source that isn't saved (yet) on the machine it will be reached from (`sources.test`,
+     * ADR-0014): its `check` passed. The connector refuses a kind its switch is off for (409
+     * `device_not_reaching`) and an adapter it doesn't run (409 `device_outdated`); an offline
+     * machine is 409 `device_offline`, no answer in time unreachable. The keys go in a live request
+     * only.
+     */
+    async test(
+      deviceId: string,
+      adapter: IntegrationAdapter,
+      config: Record<string, unknown>,
+      secrets: Record<string, string>,
+    ): Promise<SourceTestResult> {
+      try {
+        return await channel.ask(
+          deviceId,
+          (requestId): HubEvent => ({
+            type: "sources.test",
+            requestId,
+            adapterId: adapter.id,
+            config: config as DeviceSource["config"],
+            secrets,
+          }),
+          sourceTestResultSchema,
+          {
+            ms: TEST_MS,
+            error: (err) =>
+              err.code === "EACCES"
+                ? new HttpError(
+                    409,
+                    "device_not_reaching",
+                    "The machine doesn't reach this kind of source",
+                  )
+                : err.code === "EINVAL"
+                  ? new HttpError(400, "invalid_config", "The connector can't read this setup")
+                  : new HttpError(
+                      409,
+                      "device_outdated",
+                      "The connector is too old for this source",
+                    ),
+          },
+        );
+      } catch (err) {
+        if (err instanceof HttpError && err.code === "device_timeout")
+          return { ok: false, code: "unreachable" };
+        throw err;
+      }
     },
 
     /** The assignment changed: the connector fetches it again (a connect does too). */

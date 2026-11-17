@@ -1,11 +1,12 @@
-import type { AdapterInfo } from "@3d-maker-suite/core";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import type { AdapterInfo, Integration, SourceTestResult } from "@3d-maker-suite/core";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
-import { FormField, inputClass } from "../../components/FormField.tsx";
+import { type ControlProps, FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
 import { useDevices } from "../../lib/hub.ts";
 import {
@@ -15,8 +16,11 @@ import {
   useAdapters,
   useCreateIntegration,
   useIntegrations,
+  usePatchIntegration,
+  useTryIntegration,
 } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
+import { ERRORS } from "./integrationLabels.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -43,26 +47,267 @@ function read(f: FormData, prefix: string, fields: Field[]) {
   return out;
 }
 
+// Literal keys so `pnpm i18n:check` sees them: what the server says about a save or a test.
+const FORM_ERRORS: Record<string, string> = {
+  invalid_config: "integrations:form.errors.invalid_config",
+  invalid_secrets: "integrations:form.errors.invalid_secrets",
+  device_not_reaching: "integrations:form.errors.device_not_reaching",
+  device_outdated: "integrations:form.errors.device_outdated",
+  device_offline: "integrations:form.errors.device_offline",
+  hub_off: "integrations:form.errors.hub_off",
+  integration_exists: "integrations:form.errors.integration_exists",
+};
+const errorKey = (error: unknown) =>
+  error instanceof ApiError && error.code ? FORM_ERRORS[error.code] : undefined;
+
 export const tileClass =
   "flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 has-checked:border-accent has-disabled:cursor-not-allowed has-disabled:opacity-60";
 
-/** Add an account, or a slicer on this server:the one installed here if found, else a download. */
-export function IntegrationCreatePage() {
+/**
+ * A source's fields, its machine and a Test of what is typed in (6.0.0 Step 16): the add form's
+ * and the Edit page's. On the Edit page, `saved` fills in the config; a secret is never shown, and
+ * left empty it keeps the stored one.
+ */
+function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
-  const adapterName = useAdapterName();
   /** None of the adapter's `configAnyOf` fields was filled in. */
   const [missing, setMissing] = useState(false);
+  const tryOut = useTryIntegration();
+  // A printer on another network is reached through a machine's connector (ADR-0015, LAN reach).
+  const hubOn = !!usePreferences().data?.values.hubEnabled;
+  const manageHub = useCan("hub.manage");
+  const allDevices = useDevices(hubOn && manageHub).data ?? [];
+  const slicer = adapter?.kind === "local" || adapter?.kind === "server";
+
+  const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
+  const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
+  const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
+  // Only a machine with the matching switch on: Reach printers, or Reach spool libraries. The one
+  // it is reached from now stays, also when its switch went off (it is paused then).
+  const devices = allDevices.filter(
+    (d) =>
+      d.id === saved?.deviceId ||
+      (adapter?.capabilities.includes("printerStatus") ? d.reachPrinters : d.reachSpoolLibraries),
+  );
+  const reach = hubOn && manageHub && !!adapter && isNetworkSource(adapter) && devices.length > 0;
+  const label = (name: string) =>
+    t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
+  const anyOfError = missing
+    ? t(`integrations:adapters.${adapter?.id}.anyOf`, {
+        defaultValue: t("integrations:form.anyOf", {
+          fields: new Intl.ListFormat(i18n.language, { type: "disjunction" }).format(
+            anyOf.map(label),
+          ),
+        }),
+      })
+    : undefined;
+  const stored = (saved?.config ?? {}) as Record<string, unknown>;
+
+  /** What the form holds; undefined (and said) when none of `configAnyOf` is filled in. */
+  const values = (form: HTMLFormElement) => {
+    const f = new FormData(form);
+    const cfg = read(f, "config", config);
+    if (anyOf.length && !anyOf.some((k) => cfg[k] !== undefined)) {
+      setMissing(true);
+      return undefined;
+    }
+    return {
+      config: cfg,
+      // Empty ones aren't sent: the stored ones stay.
+      secrets: read(f, "secrets", secrets) as Record<string, string>,
+      deviceId: reach ? String(f.get("deviceId") ?? "") || null : (saved?.deviceId ?? null),
+    };
+  };
+
+  const test = (form: HTMLFormElement | null) => {
+    const v = form && adapter && values(form);
+    if (!v) return;
+    tryOut.mutate({
+      adapterId: adapter.id,
+      ...v,
+      ...(saved && { integrationId: saved.id }),
+    });
+  };
+
+  const input = (prefix: "config" | "secrets", { name, type, required, options }: Field) => {
+    const kept = prefix === "secrets" && saved?.storedKeys?.includes(name);
+    const value = prefix === "config" ? stored[name] : undefined;
+    return (
+      <FormField
+        key={`${adapter?.id}-${prefix}-${name}`}
+        label={label(name)}
+        hint={
+          kept
+            ? t("integrations:form.secretKept")
+            : prefix === "secrets"
+              ? t("integrations:form.secretHint")
+              : undefined
+        }
+        // Said once, on the first of the fields it is about.
+        error={prefix === "config" && name === anyOf[0] ? anyOfError : undefined}
+      >
+        {(p) =>
+          type === "boolean" ? (
+            <input
+              {...p}
+              type="checkbox"
+              name={`${prefix}.${name}`}
+              defaultChecked={value === true}
+              className="size-4"
+            />
+          ) : options ? (
+            <Combobox
+              {...p}
+              name={`${prefix}.${name}`}
+              defaultValue={typeof value === "string" ? value : undefined}
+              options={options.map((o) => ({
+                value: o,
+                label: t(`integrations:adapters.${adapter?.id}.options.${name}.${o}`, {
+                  defaultValue: o,
+                }),
+              }))}
+            />
+          ) : (
+            <input
+              {...p}
+              name={`${prefix}.${name}`}
+              // A stored key isn't asked again.
+              required={required && !kept}
+              defaultValue={value === undefined || value === null ? undefined : String(value)}
+              type={prefix === "secrets" ? "password" : type === "string" ? "text" : "number"}
+              autoComplete={prefix === "secrets" ? "new-password" : "off"}
+              className={inputClass}
+            />
+          )
+        }
+      </FormField>
+    );
+  };
+
+  const fields = (
+    <div className="grid gap-4 sm:max-w-md">
+      {config.map((field) => input("config", field))}
+      {secrets.map((field) => input("secrets", field))}
+      {reach ? (
+        <FormField
+          key={`${adapter.id}-reach`}
+          label={t("integrations:form.reach")}
+          hint={t("integrations:form.reachHint")}
+        >
+          {(p) => (
+            <ReachSelect
+              {...p}
+              devices={devices}
+              defaultValue={saved ? (saved.deviceId ?? "") : undefined}
+            />
+          )}
+        </FormField>
+      ) : (
+        saved?.viaDeviceName && (
+          <p className="text-muted">
+            {t("integrations:account.through", { machine: saved.viaDeviceName })}
+          </p>
+        )
+      )}
+    </div>
+  );
+
+  return {
+    fields,
+    hasFields: config.length > 0 || secrets.length > 0,
+    values,
+    test,
+    tryOut,
+    /** A changed field: what was said about the old values goes. */
+    changed: () => {
+      setMissing(false);
+      if (tryOut.data || tryOut.isError) tryOut.reset();
+    },
+  };
+}
+
+function ReachSelect({
+  devices,
+  defaultValue,
+  ...p
+}: ControlProps & {
+  devices: { id: string; name: string; online: boolean }[];
+  defaultValue?: string;
+}) {
+  const { t } = useTranslation();
+  const search = useSearch({ strict: false }) as { via?: string };
+  return (
+    <select
+      {...p}
+      name="deviceId"
+      defaultValue={defaultValue ?? (devices.some((d) => d.id === search.via) ? search.via : "")}
+      className={inputClass}
+    >
+      <option value="">{t("integrations:form.reachServer")}</option>
+      {devices.map((d) => (
+        <option key={d.id} value={d.id}>
+          {t(d.online ? "integrations:form.reachDevice" : "integrations:form.reachDeviceOffline", {
+            name: d.name,
+          })}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** What a Test said: the printer it found, or why it failed. */
+function TestLine({ tryOut }: { tryOut: ReturnType<typeof useTryIntegration> }) {
+  const { t } = useTranslation();
+  const r: SourceTestResult | undefined = tryOut.data;
+  if (tryOut.isPending)
+    return (
+      <p role="status" className="text-muted">
+        {t("integrations:form.testing")}
+      </p>
+    );
+  if (tryOut.isError)
+    return (
+      <p role="status" className="text-bad">
+        {t(errorKey(tryOut.error) ?? "integrations:card.actionError")}
+      </p>
+    );
+  if (!r) return null;
+  if (!r.ok)
+    return (
+      <p role="status" className="text-bad">
+        {t(ERRORS[r.code])}
+      </p>
+    );
+  const [one] = r.printers;
+  const printer =
+    one &&
+    (one.model
+      ? t("integrations:form.printerModel", { name: one.name, model: one.model })
+      : one.name);
+  return (
+    <p role="status" className="wrap-anywhere text-ok">
+      {r.printers.length > 1
+        ? t("integrations:form.testFoundMany", { count: r.printers.length })
+        : !one
+          ? t("integrations:card.testOk")
+          : one.serial
+            ? t("integrations:form.testFoundSerial", { printer, serial: one.serial })
+            : t("integrations:form.testFound", { printer })}
+    </p>
+  );
+}
+
+/** Add an account, or a slicer on this server:the one installed here if found, else a download. */
+export function IntegrationCreatePage() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const adapterName = useAdapterName();
   const id = useId();
   const search = useSearch({ strict: false }) as { product?: string; via?: string };
   // A workstation's slicer is set up on its machine page (Plan 5.5.0 Step 9).
   const adapters = (useAdapters().data ?? []).filter((a) => a.kind !== "worker");
   const existing = useIntegrations().data ?? [];
   const create = useCreateIntegration();
-  // A printer on another network is reached through a machine's connector (ADR-0015, LAN reach).
-  const hubOn = !!usePreferences().data?.values.hubEnabled;
-  const manageHub = useCan("hub.manage");
-  const allDevices = useDevices(hubOn && manageHub).data ?? [];
 
   // One product per library (a slicer's local and server adapters), else per adapter.
   const products = [...new Set(adapters.map((a) => a.libraryId ?? a.id))];
@@ -82,43 +327,21 @@ export function IntegrationCreatePage() {
     !slicer &&
     !!adapter?.capabilities.includes("spoolUsage") &&
     existing.some((i) => i.adapterId === adapter.id);
-
-  const config = adapter && !slicer ? fieldsOf(adapter.config) : [];
-  const secrets = adapter && !adapter.login ? fieldsOf(adapter.secrets) : [];
-  const anyOf = adapter && !slicer ? adapter.configAnyOf : [];
-  // Only a machine with the matching switch on: Reach printers, or Reach spool libraries.
-  const devices = allDevices.filter((d) =>
-    adapter?.capabilities.includes("printerStatus") ? d.reachPrinters : d.reachSpoolLibraries,
-  );
-  const reach = hubOn && manageHub && !!adapter && isNetworkSource(adapter) && devices.length > 0;
-  const label = (name: string) =>
-    t(`integrations:adapters.${adapter?.id}.fields.${name}`, { defaultValue: name });
-  const anyOfError = missing
-    ? t(`integrations:adapters.${adapter?.id}.anyOf`, {
-        defaultValue: t("integrations:form.anyOf", {
-          fields: new Intl.ListFormat(i18n.language, { type: "disjunction" }).format(
-            anyOf.map(label),
-          ),
-        }),
-      })
-    : undefined;
+  const form = useSourceForm(adapter);
+  // An account that signs in has no key to test before it does.
+  const testable = !!adapter && !slicer && !adapter.login && !once;
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!adapter) return;
-    const f = new FormData(e.currentTarget);
-    const values = read(f, "config", config);
-    if (anyOf.length && !anyOf.some((k) => values[k] !== undefined)) {
-      setMissing(true);
-      return;
-    }
-    const via = reach ? String(f.get("deviceId") ?? "") : "";
+    const v = form.values(e.currentTarget);
+    if (!v) return;
     create.mutate(
       {
         adapterId: adapter.id,
-        config: values,
-        secrets: read(f, "secrets", secrets) as Record<string, string>,
-        ...(via && { deviceId: via }),
+        config: v.config,
+        secrets: v.secrets,
+        ...(v.deviceId && { deviceId: v.deviceId }),
       },
       {
         onSuccess: (row) =>
@@ -129,46 +352,10 @@ export function IntegrationCreatePage() {
     );
   };
 
-  const input = (prefix: "config" | "secrets", { name, type, required, options }: Field) => (
-    <FormField
-      key={`${adapter?.id}-${prefix}-${name}`}
-      label={label(name)}
-      hint={prefix === "secrets" ? t("integrations:form.secretHint") : undefined}
-      // Said once, on the first of the fields it is about.
-      error={prefix === "config" && name === anyOf[0] ? anyOfError : undefined}
-    >
-      {(p) =>
-        type === "boolean" ? (
-          <input {...p} type="checkbox" name={`${prefix}.${name}`} className="size-4" />
-        ) : options ? (
-          <Combobox
-            {...p}
-            name={`${prefix}.${name}`}
-            options={options.map((o) => ({
-              value: o,
-              label: t(`integrations:adapters.${adapter?.id}.options.${name}.${o}`, {
-                defaultValue: o,
-              }),
-            }))}
-          />
-        ) : (
-          <input
-            {...p}
-            name={`${prefix}.${name}`}
-            required={required}
-            type={prefix === "secrets" ? "password" : type === "string" ? "text" : "number"}
-            autoComplete={prefix === "secrets" ? "new-password" : "off"}
-            className={inputClass}
-          />
-        )
-      }
-    </FormField>
-  );
-
   return (
     <>
       <PageHeader title={t("integrations:form.title")} backTo={{ to: "/integrations" }} />
-      <form onSubmit={onSubmit} onInput={() => setMissing(false)} className="grid max-w-2xl gap-8">
+      <form onSubmit={onSubmit} onInput={form.changed} className="grid max-w-2xl gap-8">
         <fieldset className="grid gap-3">
           <legend className="mb-3 font-semibold">{t("integrations:form.product")}</legend>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -181,7 +368,7 @@ export function IntegrationCreatePage() {
                   checked={product === p}
                   onChange={() => {
                     setProduct(p);
-                    setMissing(false);
+                    form.changed();
                   }}
                 />
                 <span className="font-medium">{adapterName(p)}</span>
@@ -207,48 +394,14 @@ export function IntegrationCreatePage() {
         )}
 
         {once && <p className="text-warn">{t("integrations:form.takenSource")}</p>}
-        {!once && (config.length > 0 || secrets.length > 0) && (
-          <div className="grid gap-4 sm:max-w-md">
-            {config.map((field) => input("config", field))}
-            {secrets.map((field) => input("secrets", field))}
-            {reach && (
-              <FormField
-                key={`${adapter.id}-reach`}
-                label={t("integrations:form.reach")}
-                hint={t("integrations:form.reachHint")}
-              >
-                {(p) => (
-                  <select
-                    {...p}
-                    name="deviceId"
-                    defaultValue={devices.some((d) => d.id === search.via) ? search.via : ""}
-                    className={inputClass}
-                  >
-                    <option value="">{t("integrations:form.reachServer")}</option>
-                    {devices.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {t(
-                          d.online
-                            ? "integrations:form.reachDevice"
-                            : "integrations:form.reachDeviceOffline",
-                          {
-                            name: d.name,
-                          },
-                        )}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </FormField>
-            )}
-          </div>
-        )}
+        {!once && form.hasFields && form.fields}
+        {testable && <TestLine tryOut={form.tryOut} />}
         {create.isError && (
           <p role="alert" className="text-bad">
-            {t("integrations:form.error")}
+            {t(errorKey(create.error) ?? "integrations:form.error")}
           </p>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             type="submit"
             variant="primary"
@@ -256,9 +409,95 @@ export function IntegrationCreatePage() {
           >
             {t("integrations:form.save")}
           </Button>
+          {testable && (
+            <Button busy={form.tryOut.isPending} onClick={(e) => form.test(e.currentTarget.form)}>
+              {t("integrations:form.test")}
+            </Button>
+          )}
           <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
         </div>
       </form>
+    </>
+  );
+}
+
+/**
+ * Edit a network source or an account (6.0.0 Step 16): the add form's fields with what is saved,
+ * keys left empty kept, the machine it is reached from, and Test before saving.
+ */
+export function IntegrationEditPage() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const adapterName = useAdapterName();
+  const { id } = useParams({ strict: false }) as { id: string };
+  const integrations = useIntegrations();
+  const saved = integrations.data?.find((i) => i.id === id);
+  const adapter = useAdapters().data?.find((a) => a.id === saved?.adapterId);
+  const patch = usePatchIntegration(id);
+  const editable = !!adapter && adapter.kind !== "local" && adapter.kind !== "server";
+  const form = useSourceForm(editable ? adapter : undefined, saved);
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!saved || !editable) return;
+    const v = form.values(e.currentTarget);
+    if (!v) return;
+    patch.mutate(
+      {
+        config: v.config,
+        ...(Object.keys(v.secrets).length > 0 && { secrets: v.secrets }),
+        // Only a new machine: picking one is hub.manage, and the one it has may be switched off.
+        ...(v.deviceId !== (saved.deviceId ?? null) && { deviceId: v.deviceId }),
+      },
+      { onSuccess: () => navigate({ to: "/integrations", hash: `integration-${saved.id}` }) },
+    );
+  };
+
+  const name = saved
+    ? saved.account?.name || saved.account?.email || adapterName(saved.adapterId)
+    : "";
+  return (
+    <>
+      <PageHeader
+        title={t("integrations:form.editTitle", { name })}
+        backTo={{ to: "/integrations" }}
+      />
+      {integrations.isSuccess && (!saved || (adapter && !editable)) ? (
+        <p className="text-muted">{t("integrations:form.notEditable")}</p>
+      ) : (
+        <form
+          // A new form once the row is there: the fields start from what is saved.
+          key={saved && adapter ? saved.id : "loading"}
+          onSubmit={onSubmit}
+          onInput={form.changed}
+          className="grid max-w-2xl gap-8"
+        >
+          {form.fields}
+          <TestLine tryOut={form.tryOut} />
+          {patch.isError && (
+            <p role="alert" className="text-bad">
+              {t(errorKey(patch.error) ?? "integrations:form.editError")}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={!saved || !editable || patch.isPending}
+            >
+              {t("integrations:form.saveChanges")}
+            </Button>
+            <Button
+              disabled={!saved || !editable}
+              busy={form.tryOut.isPending}
+              onClick={(e) => form.test(e.currentTarget.form)}
+            >
+              {t("integrations:form.test")}
+            </Button>
+            <Button onClick={() => history.back()}>{t("common:actions.cancel")}</Button>
+          </div>
+        </form>
+      )}
     </>
   );
 }

@@ -1,4 +1,5 @@
 export * from "./integrations/index.ts";
+export * from "./integrations/tryOut.ts";
 export * from "./links.ts";
 export * from "./schemas/accessories.ts";
 export * from "./schemas/alerts.ts";

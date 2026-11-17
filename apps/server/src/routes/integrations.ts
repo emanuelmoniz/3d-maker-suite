@@ -28,12 +28,15 @@ import {
   slicerInstallSchema,
   slicerInstallStatusSchema,
   slicerReleaseSchema,
+  sourceTestInputSchema,
+  sourceTestResultSchema,
   syncRequestSchema,
   syncResultSchema,
   syncRunFilters,
   syncRunSchema,
   syncRunSortFields,
   testResultSchema,
+  tryOut,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -122,7 +125,7 @@ export const integrationsRoutes =
     /** This server's own install receives user presets (5.5.0 Step 11i). */
     presets: Pick<ServerPresets, "pass"> = { pass: async () => {} },
     /** Printers reached through a connector (ADR-0015, LAN reach). */
-    bridge?: Pick<SourceBridge, "check">,
+    bridge?: Pick<SourceBridge, "check" | "test">,
   ): FastifyPluginAsyncZod =>
   async (app) => {
     /** A worker's slicer is on its device; a server's is here. */
@@ -159,6 +162,8 @@ export const integrationsRoutes =
           slicerPath,
           slicerVersion,
           hasSecrets: !!secrets,
+          // Which keys are stored (never their values): the edit form says which it keeps.
+          storedKeys: secrets ? Object.keys(readSecrets(db, key, full.id)) : [],
         }),
         kind: adapter?.kind ?? "cloud",
         presetLibrary: adapter ? presetLibrary(adapter) : null,
@@ -277,14 +282,17 @@ export const integrationsRoutes =
      * A printer reached through a machine's connector: `hub.manage` picks the machine (ADR-0015).
      * null = this server reaches it.
      */
+    const mayPickMachine = (req: FastifyRequest) => {
+      const rights = req.user?.rights;
+      if (rights && !rights.admin && !rights.permissions["hub.manage"])
+        throw new HttpError(403, "forbidden", "Not allowed for your role");
+    };
     const checkVia = (
       req: FastifyRequest,
       adapter: (typeof syncer.adapters)[number],
       deviceId: string | null,
     ) => {
-      const rights = req.user?.rights;
-      if (rights && !rights.admin && !rights.permissions["hub.manage"])
-        throw new HttpError(403, "forbidden", "Not allowed for your role");
+      mayPickMachine(req);
       if (deviceId === null) return;
       if (!bridge) throw new HttpError(409, "hub_off", "The hub is off");
       bridge.check(adapter, deviceId);
@@ -582,6 +590,45 @@ export const integrationsRoutes =
       "/:id/test",
       { schema: { params, response: { 200: testResultSchema, ...notFound, 409: apiErrorSchema } } },
       async (req) => syncer.test(req.params.id),
+    );
+
+    // Test before saving (6.0.0 Step 16): the add or edit form's values, nothing stored. Through
+    // the machine it will be reached from, whose connector tests it on its own network. The keys
+    // are never logged: only the adapter's own lines, as for a saved source.
+    app.post(
+      "/test",
+      {
+        schema: {
+          body: sourceTestInputSchema,
+          response: { 200: sourceTestResultSchema, ...notFound, 409: apiErrorSchema },
+        },
+      },
+      async (req) => {
+        const { adapterId, integrationId, deviceId = null, config, secrets } = req.body;
+        const adapter = adapterOf(adapterId);
+        if (isSlicerKind(adapter.kind) || !adapter.create)
+          throw new HttpError(409, "capability_unavailable", "Nothing to test");
+        const saved = integrationId ? get(integrationId) : undefined;
+        if (saved && saved.adapterId !== adapterId)
+          throw new HttpError(400, "adapter_mismatch", "Another kind of source");
+        const values = parse(adapter.configSchema, config, "invalid_config");
+        // A key left empty on the Edit page is the stored one: it never goes to the browser.
+        const keys = parse(
+          adapter.secretsSchema,
+          { ...(saved && readSecrets(db, key, saved.id)), ...secrets },
+          "invalid_secrets",
+        ) as Record<string, string>;
+        if (deviceId !== (saved?.deviceId ?? null)) mayPickMachine(req);
+        if (!deviceId)
+          return tryOut(adapter, {
+            config: values,
+            secrets: keys,
+            log: app.log.child({ adapterId }),
+          });
+        if (!bridge) throw new HttpError(409, "hub_off", "The hub is off");
+        bridge.check(adapter, deviceId);
+        return bridge.test(deviceId, adapter, values, keys);
+      },
     );
 
     // Interactive sign-in: email + password, then the code the vendor asks for. Only the resulting

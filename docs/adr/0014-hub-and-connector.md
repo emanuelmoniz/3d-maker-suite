@@ -1,6 +1,6 @@
 # ADR-0014: Hub and connector: central files, device roots, slice workers
 
-- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub, and a spool library, its first write on another system (see the two 2026-11-17 amendments).
+- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub, and a spool library, its first write on another system, and a test of a source before it is saved (see the 2026-11-17 amendments).
 - Date: 2026-10-26, accepted 2026-10-27
 
 ## Context
@@ -278,6 +278,14 @@ A hub reaches printers on another network through a connector there (ADR-0015, "
 ## Amendment (2026-11-17): a machine reaches the LAN only when allowed (6.0.0 Step 15)
 
 Reaching a LAN address for the hub is an opt-in per machine. `devices.reach_printers` and `devices.reach_spool_libraries` (migration 0135; it turns on the one a machine already uses), set by `hub.manage` only. A source is assigned only to a machine with the matching switch on (409 `device_not_reaching`), the assignment the connector fetches (`GET /api/hub/device/sources`) leaves out any other, and the hub neither asks it (`sources.read`, `spools.write`) nor takes prints from it. Turning a switch off pauses (`enabled = false`) the sources that go through the machine; they keep it. No new operation.
+
+## Amendment (2026-11-17): test a source before saving it (6.0.0 Step 16)
+
+The add and edit forms test what they hold before it is saved (`POST /api/integrations/test`, `integrations.manage`). For a source reached through a machine, the machine tests it on its own network, so the fixed list gains exactly one operation:
+
+- **`sources.test`** (live request): `{ adapterId, config, secrets }` of a source the hub hasn't saved. The connector runs that adapter once, with its own protocol on the host in `config`: `test()`, then the printers it finds (name, brand, model, serial). Then the instance goes. It is read-only: nothing is sent to a printer, nothing is kept, and a key the adapter refreshes is dropped. It answers `{ ok, printers }` or `{ ok: false, code }`.
+- **Only what the machine's switches allow.** The hub checks the switch first (409 `device_not_reaching`). The connector checks it again by itself: `GET /api/hub/device/sources` tells it the kinds its switches allow (`X-Reach: printers,spool-libraries`), and the hub tells it to fetch them again (`sources.changed`) whenever a switch changes. A kind it may not reach answers EACCES, whatever the hub asks. An adapter it doesn't run, or one that isn't a source on the network, answers ENOTSUP (409 `device_outdated`). A config that doesn't fit answers EINVAL.
+- **Keys.** The keys of an edited source that the form left empty are filled in on the hub from the stored ones, so they never reach the browser. The request is live only, never in `hub_events`. Neither side logs it, only the adapter's own lines.
 
 ## Amendment (2026-11-17): a spool library through a connector (6.0.0 Step 14b, ADR-0015)
 

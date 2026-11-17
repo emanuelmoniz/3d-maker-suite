@@ -27,7 +27,7 @@ const { integrations } = schema;
 export const hubDeviceSourcesRoutes =
   (
     db: Db,
-    bridge: Pick<SourceBridge, "assigned" | "reaches">,
+    bridge: Pick<SourceBridge, "assigned" | "reaches" | "reachOf">,
     status: Pick<PrinterStatusRunner, "relay" | "recordTracked">,
     log: FastifyBaseLogger,
   ): FastifyPluginAsyncZod =>
@@ -39,7 +39,12 @@ export const hubDeviceSourcesRoutes =
     app.get(
       "/sources",
       { schema: { response: { 200: z.array(deviceSourceSchema), 403: apiErrorSchema } } },
-      async (req) => bridge.assigned(deviceOf(req)),
+      async (req, reply) => {
+        const deviceId = deviceOf(req);
+        // The kinds its Reach switches allow: the connector refuses a test of any other itself.
+        reply.header("x-reach", bridge.reachOf(deviceId).join(","));
+        return bridge.assigned(deviceId);
+      },
     );
 
     app.post(

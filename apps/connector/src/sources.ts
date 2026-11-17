@@ -16,6 +16,7 @@ import {
   type TrackedPrint,
   type TrackerState,
   track,
+  tryOut,
 } from "@3d-maker-suite/core";
 import { type Blob, decrypt, encrypt, loadKey } from "@3d-maker-suite/host";
 import { z } from "zod";
@@ -29,7 +30,9 @@ import type { Request } from "./roots.ts";
 // encrypted with `secret.key`, so it keeps watching through a restart while the hub is away.
 // Nothing here sends a command to a printer. Its one write is to a spool library, and only what
 // `spools.write` names (ADR-0014, 2026-11-17 Step 14b amendment): one spool's usage for one print
-// slot, or one spool of the app's made there. It keeps no outbox for them: the hub does.
+// slot, or one spool of the app's made there. It keeps no outbox for them: the hub does. And it
+// tests a source the hub hasn't saved yet (`sources.test`, Step 16), once, read-only, and only a
+// kind its machine's Reach switches allow (`X-Reach`): it refuses any other itself.
 
 /** One ended print on its way to the hub. */
 type Held = { key: string; integrationId: string; print: TrackedPrint };
@@ -105,6 +108,8 @@ export function createSourceBridge({
   const running = new Map<string, Running>();
   let stopped = false;
   let loading: Promise<void> | undefined;
+  /** The kinds of source its Reach switches allow (`X-Reach`); unknown until the hub says. */
+  let reach: Set<string> | undefined;
   let flushing: Promise<void> | undefined;
 
   const save = () => {
@@ -260,6 +265,7 @@ export function createSourceBridge({
     try {
       const res = await request("/sources");
       if (!res.ok) return;
+      reach = new Set((res.headers.get("x-reach") ?? "").split(",").filter(Boolean));
       const list = z.array(deviceSourceSchema).safeParse(await res.json());
       if (!list.success) return;
       assigned = list.data;
@@ -281,6 +287,7 @@ export function createSourceBridge({
 
   type Read = Extract<HubEvent, { type: "sources.read" }>;
   type Write = Extract<HubEvent, { type: "spools.write" }>;
+  type Test = Extract<HubEvent, { type: "sources.test" }>;
   type Reply = (body: unknown) => Promise<unknown>;
 
   /** The running source a request names; one the hub assigned since is fetched first. */
@@ -345,6 +352,36 @@ export function createSourceBridge({
     }
   }
 
+  /**
+   * The hub tests a source it hasn't saved yet (ADR-0014 `sources.test`): one `test()` and the
+   * printers it finds, with the adapter's own protocol, then the instance goes. Nothing is kept or
+   * logged but the adapter's lines. A kind of source its Reach switch is off for answers EACCES,
+   * whatever the hub asks; an adapter it doesn't run ENOTSUP.
+   */
+  async function test(event: Test, reply: Reply) {
+    await loading;
+    if (!reach) await load();
+    const adapter = adapters.find((a) => a.id === event.adapterId);
+    const caps = adapter?.capabilities ?? [];
+    if (
+      !adapter?.create ||
+      adapter.kind !== "host" ||
+      !caps.some((c) => c === "printerStatus" || c === "spools" || c === "spoolUsage")
+    )
+      return void (await reply({ ok: false, code: "ENOTSUP" }));
+    const kind = caps.includes("printerStatus") ? "printers" : "spool-libraries";
+    if (!reach?.has(kind)) return void (await reply({ ok: false, code: "EACCES" }));
+    const config = adapter.configSchema.safeParse(event.config);
+    if (!config.success) return void (await reply({ ok: false, code: "EINVAL" }));
+    const result = await tryOut(adapter, {
+      config: config.data,
+      secrets: event.secrets,
+      log: adapterLog(log, "test"),
+    });
+    log(`test of a ${event.adapterId} source: ${result.ok ? "ok" : result.code}`);
+    await reply({ ok: true, result });
+  }
+
   // What it was given last time: watching starts before the hub answers, or without it.
   apply();
 
@@ -354,6 +391,7 @@ export function createSourceBridge({
     load,
     read,
     write,
+    test,
     flush,
     /** The prints waiting for the hub (tests, status). */
     held: () => outbox.length,
@@ -368,6 +406,7 @@ export function createSourceBridge({
     forget() {
       for (const id of [...running.keys()]) stopOne(id);
       assigned = [];
+      reach = undefined;
       trackers.clear();
       outbox = [];
       rmSync(file, { force: true });

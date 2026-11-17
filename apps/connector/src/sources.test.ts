@@ -312,6 +312,97 @@ describe("printers through a connector", {
     expect(cloud.json().error.code).toBe("not_printer_host");
   });
 
+  // 6.0.0 Step 16: the add form tests a printer on another network through a machine before saving.
+  describe("test before saving, through a machine", () => {
+    /** A paired, online connector whose Reach printers is on (through the API: it is told). */
+    const machine = async (state: MockState) => {
+      const h = await hub(state, folder("hub-"));
+      const c = connector(state, folder("connector-"));
+      await c.link.pair(h.url, await h.code(), "WS-1");
+      await until(() => c.link.state().status === "online");
+      const deviceId = c.store.get().deviceId ?? "";
+      const on = await h.send("PATCH", `/api/hub/devices/${deviceId}`, { reachPrinters: true });
+      expect(on.statusCode).toBe(204);
+      return { h, c, deviceId };
+    };
+    const body = (deviceId: string, token = SECRET) => ({
+      adapterId: "mock-host",
+      config: { host: "printer.lan" },
+      secrets: { token },
+      deviceId,
+    });
+    /** Asks the connector itself, past the hub's own check. */
+    const ask = async (c: ReturnType<typeof connector>, adapterId = "mock-host") => {
+      let answer: unknown;
+      await c.link.sources?.test(
+        {
+          type: "sources.test",
+          requestId: randomUUID(),
+          adapterId,
+          config: { host: "printer.lan" },
+          secrets: { token: SECRET },
+        },
+        async (b) => {
+          answer = b;
+        },
+      );
+      return answer as { ok: boolean; code?: string };
+    };
+
+    it("finds the printer, or says the key is wrong, and saves nothing", async () => {
+      const state: MockState = { ...fixture() };
+      const { h, deviceId } = await machine(state);
+      const ok = await h.send("POST", "/api/integrations/test", body(deviceId));
+      expect(ok.json()).toEqual({
+        ok: true,
+        printers: [{ name: "Mock printer", brand: "Mock", model: "M1", serial: "MOCK0001" }],
+      });
+      const wrong = await h.send("POST", "/api/integrations/test", body(deviceId, "wrong"));
+      expect(wrong.json()).toEqual({ ok: false, code: "auth_required" });
+      expect(h.db.select().from(schema.integrations).all()).toEqual([]);
+    });
+
+    it("the connector refuses a test its switch is off for, whatever the hub asks", async () => {
+      const state: MockState = { ...fixture() };
+      const { h, c, deviceId } = await machine(state);
+      await until(async () => (await ask(c)).ok);
+      // An adapter it doesn't run is no test either.
+      expect(await ask(c, "mock")).toEqual({ ok: false, code: "ENOTSUP" });
+      await h.send("PATCH", `/api/hub/devices/${deviceId}`, { reachPrinters: false });
+      // The hub refuses first; the connector, told of the switch, refuses too.
+      const res = await h.send("POST", "/api/integrations/test", body(deviceId));
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe("device_not_reaching");
+      await until(async () => (await ask(c)).code === "EACCES");
+    });
+
+    it("an edit's new key reaches the connector, and its test uses the stored one", async () => {
+      const state: MockState = { ...fixture(), status: [snap("idle")] };
+      const { h, c, deviceId, integrationId } = await setup(state);
+      await until(() => c.link.sources?.watching() === 1);
+      const stored = { ...body(deviceId, ""), secrets: {}, integrationId };
+      expect((await h.send("POST", "/api/integrations/test", stored)).json()).toMatchObject({
+        ok: true,
+      });
+      const edit = await h.send("PATCH", `/api/integrations/${integrationId}`, {
+        config: { host: "printer2.lan" },
+        secrets: { token: "wrong" },
+      });
+      expect(edit.statusCode).toBe(200);
+      expect((await h.send("POST", "/api/integrations/test", stored)).json()).toEqual({
+        ok: false,
+        code: "auth_required",
+      });
+      // The source it watches restarts with the new key.
+      h.app.printerStatus.refresh();
+      await until(
+        async () =>
+          (await h.send("POST", `/api/integrations/${integrationId}/test`)).json().code ===
+          "auth_required",
+      );
+    });
+  });
+
   describe("Spoolman through a connector", () => {
     let spoolman: FakeSpoolman;
     beforeEach(() => {

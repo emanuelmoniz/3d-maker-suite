@@ -3470,7 +3470,7 @@ Design:
 Do Step 15 of the 6.0.0 plan in PLAN.md.
 ```
 
-### [ ] Step 16 - Edit an integration, test before saving  **[plan mode]**
+### [x] Step 16 - Edit an integration, test before saving  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Scope:**
 - An **Edit** page for a network source or account (`/integrations/$id/edit`, from the card): the add form's fields, secrets left empty keep the stored ones, **Reached from**, **Test**. The API's PATCH already takes `config`, `secrets` and `deviceId`.

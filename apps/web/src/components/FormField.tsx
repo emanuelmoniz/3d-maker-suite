@@ -7,7 +7,7 @@ export const inputClass =
 export const formGrid = "grid items-start gap-4 lg:grid-cols-2";
 export const fullRow = "lg:col-span-2";
 
-type ControlProps = { id: string; "aria-describedby"?: string; "aria-invalid"?: true };
+export type ControlProps = { id: string; "aria-describedby"?: string; "aria-invalid"?: true };
 
 export function FormField({
   label,

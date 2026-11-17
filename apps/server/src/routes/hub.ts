@@ -108,7 +108,7 @@ export const hubRoutes =
     adapters: IntegrationAdapter[] = [],
     /** Use slicer as server worker off: its worker integrations (and their slicers) go. */
     dropWorkers: (deviceId: string) => Promise<void> = async () => {},
-    /** Its sources changed (paused by a Reach switch): the connector fetches them again. */
+    /** A Reach switch changed (and paused its sources): the connector fetches them again. */
     sourcesChanged: (deviceId: string) => void = () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
@@ -362,8 +362,13 @@ export const hubRoutes =
               ),
             )
             .run();
-          sourcesChanged(row.id);
         }
+        // Any Reach switch changed: the connector learns the kinds it may reach (`X-Reach`).
+        if (
+          (reachPrinters !== undefined && reachPrinters !== row.reachPrinters) ||
+          (reachSpoolLibraries !== undefined && reachSpoolLibraries !== row.reachSpoolLibraries)
+        )
+          sourcesChanged(row.id);
         if (name !== undefined && name !== row.name)
           channel.publish(row.id, { type: "device.renamed", name });
         if (receiveProjects !== undefined && receiveProjects !== row.receiveProjects)

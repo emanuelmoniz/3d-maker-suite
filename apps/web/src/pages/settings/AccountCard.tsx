@@ -174,6 +174,13 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
               <Menu label={t("integrations:card.menu", { name: title })}>
                 <Button
                   variant="ghost"
+                  className="justify-start"
+                  onClick={() => navigate({ to: "/integrations/$id/edit", params: { id: i.id } })}
+                >
+                  {t("integrations:card.edit")}
+                </Button>
+                <Button
+                  variant="ghost"
                   className="justify-start text-bad"
                   onClick={() => setDeleting(true)}
                 >

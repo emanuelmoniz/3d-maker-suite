@@ -167,6 +167,8 @@ export const integrationSchema = z.object({
   // The setup fields below are left out for non-admins (ADR-0012).
   config: z.json().optional(),
   hasSecrets: z.boolean().optional(),
+  /** The names of the stored secrets, never their values: the edit form keeps them when left empty. */
+  storedKeys: z.array(z.string()).optional(),
   /** Slicer config folder override; null = the detected one. */
   slicerConfigDir: z.string().nullable().optional(),
   /** Slicer program used by "Open in slicer". */

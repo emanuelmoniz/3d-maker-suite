@@ -15,6 +15,8 @@ import {
   type SlicerCheck,
   type SlicerInstallStatus,
   type SlicerRelease,
+  type SourceTestInput,
+  type SourceTestResult,
   type SyncRequest,
   type SyncResult,
   type SyncRun,
@@ -233,6 +235,12 @@ export const usePickHubSlicer = (library: string) =>
 export const useTestIntegration = (id: string) =>
   useMutation({
     mutationFn: () => api<TestResult>("POST", `/api/integrations/${id}/test`),
+  });
+
+/** Tests what the add or edit form holds, before it is saved (nothing is stored). */
+export const useTryIntegration = () =>
+  useMutation({
+    mutationFn: (v: SourceTestInput) => api<SourceTestResult>("POST", "/api/integrations/test", v),
   });
 
 export const useSyncIntegration = (id: string) =>

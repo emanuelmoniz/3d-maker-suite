@@ -175,7 +175,9 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
       const live = liveSource(liveCycleSec ?? LIVE_CYCLE_SEC);
       const check = async () => {
         if (state.fail) throw new IntegrationError(state.fail);
-        if (!(await secrets.get("token"))) throw new IntegrationError("auth_required");
+        const token = await secrets.get("token");
+        // "wrong": a key the printer refuses (a test before saving, e2e).
+        if (!token || token === "wrong") throw new IntegrationError("auth_required");
       };
       return {
         // Named after the token, so two mock accounts tell apart.

@@ -479,6 +479,20 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     cursor: z.string().max(4096).optional(),
   }),
   /**
+   * Test a source that isn't saved (yet) before the hub saves it (ADR-0014 Step 16 amendment):
+   * read-only and one-shot, with the adapter's own protocol on the host in `config`; nothing is
+   * kept. Answers a `sourceTestResultSchema`. Only for a kind of source the machine's Reach switch
+   * allows (the `X-Reach` of `GET /api/hub/device/sources`), else EACCES; an adapter it doesn't
+   * run ENOTSUP, a config that doesn't fit EINVAL. Live only: its keys are never queued.
+   */
+  z.object({
+    type: z.literal("sources.test"),
+    requestId: id,
+    adapterId: z.string().min(1).max(100),
+    config: z.record(z.string(), z.json()),
+    secrets: z.record(z.string(), z.string()),
+  }),
+  /**
    * The connector's only write on another system (ADR-0014 2026-11-17 amendment, Step 14b): to a
    * spool library assigned to it, `usage` sets one spool's usage for one print slot (answers
    * `{ gone? }`), `create` makes one spool of the app's there (answers `{ spoolId }`). A source it
