@@ -4,6 +4,7 @@ import {
   type ColumnFilter,
   type PrinterModel,
   printerModelFilters,
+  type SyncType,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
@@ -11,6 +12,7 @@ import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
+import { SyncButton } from "../../components/SyncButton.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useCan } from "../../lib/auth.ts";
 import {
@@ -45,6 +47,8 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
   add?: { to: string; label: string };
   /** Import links, next to the add button. */
   extra?: ReactNode;
+  /** The type its Sync button runs (Auto sources only), next to the add button. */
+  sync?: SyncType;
   /** One line under the title: where its rows come from. */
   intro?: string;
   filters: Record<string, ColumnFilter>;
@@ -64,6 +68,7 @@ export function Section<T extends { id: string; archivedAt: string | null }>(pro
         <h2 className="text-base font-semibold">{props.title}</h2>
         <span className="flex flex-wrap gap-2">
           {props.extra}
+          {props.sync && <SyncButton types={[props.sync]} />}
           {props.add && (
             <Write can="catalog" level="manage">
               <Link to={props.add.to} className={addClass}>
@@ -183,6 +188,7 @@ export function Catalog() {
     <div className="grid gap-10">
       <Section<Brand>
         kind="brands"
+        sync="brands"
         title={t("printers:catalog.brands.title")}
         name={(b) => b.name}
         add={{ to: "/printers/brands/new", label: t("printers:catalog.brands.add") }}
@@ -221,6 +227,7 @@ export function Catalog() {
       />
       <Section<PrinterModel>
         kind="printer-models"
+        sync="printerModels"
         title={t("printers:catalog.models.title")}
         name={(m) => info.get(m.id)?.label ?? m.model}
         add={{ to: "/printers/models/new", label: t("printers:catalog.models.add") }}

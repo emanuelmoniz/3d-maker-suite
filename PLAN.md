@@ -3699,7 +3699,7 @@ Do Step 4 of the 6.1.0 plan in PLAN.md.
 Do Step 5 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Sync buttons on Printers, Filament, Prints and Catalog
+### [x] Step 6 - Sync buttons on Printers, Filament, Prints and Catalog
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `SyncButton types={[...]}`: hidden when no enabled source has one of the types on Auto for this user. It is computed from `useIntegrations` policies and `useMayTask`, so no extra request. `busy` while running.

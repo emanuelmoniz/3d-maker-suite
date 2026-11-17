@@ -126,6 +126,15 @@ Printers and projects get a unique number and display name too. Imported prints 
 
 A print that has grams but no duration gets an estimated duration: its grams divided by the printer's average grams-per-hour from its past prints (a preset default applies until there are some). The print is marked as estimated. A real duration, from a file or an integration, replaces the estimate. On the print form, **Estimate from filament** fills the duration the same way.
 
+## Sync from a page
+
+Printers, Filament (in the Spools section), Prints and Catalog have a **Sync** button next to their **Add** button. One click syncs, now, that page's data type in every enabled source where it is on **Auto** and where you may sync it (your role's sync task). Sources set to Manual or Off are left out, and a page with no such source has no button. No schedule changes: it is **Sync now** for every matching source at once.
+
+- Printers syncs printers, Filament syncs spools, and Prints syncs print history.
+- Catalog: each table has its own **Sync** (printer brands, printer models, printer and process system presets, filament brands, filament materials, filament system presets), and **Sync all** at the top, next to the gear, runs all of them.
+
+When a run leaves rows for you to review in one place, the button takes you to that review. Otherwise it says how many rows were written, or lists what synced, what waits for review (with a link) and what failed. A source that is already syncing is skipped; try again in a moment.
+
 ## Backups before an import
 
 Before an import saves anything, the app takes a backup, so you can restore it from [Backups](backups.md).

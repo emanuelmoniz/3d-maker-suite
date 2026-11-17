@@ -546,6 +546,23 @@
     "noneYet": "None yet: set up an install below.",
     "installs": "Installs"
   },
+  "typeSync": {
+    "button": "Sync",
+    "all": "Sync all",
+    "of": "Sync {{what}}",
+    "done_one": "Synced: {{count}} row written.",
+    "done_other": "Synced: {{count}} rows written.",
+    "title": "Sync result",
+    "line": "{{source}}, {{type}}",
+    "ok_one": "{{count}} row written.",
+    "ok_other": "{{count}} rows written.",
+    "waiting_one": "{{count}} row waits for your review.",
+    "waiting_other": "{{count}} rows wait for your review.",
+    "review": "Review",
+    "running": "It is already syncing. Try again in a moment.",
+    "skipped": "Not run: an earlier type of this source failed.",
+    "failed": "Failed: {{reason}}"
+  },
   "actionPending": {
     "spoolUsage_one": "{{count}} charge waiting to be written. It is tried again every minute.",
     "spoolUsage_other": "{{count}} charges waiting to be written. They are tried again every minute."

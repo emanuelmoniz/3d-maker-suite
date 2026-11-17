@@ -18,6 +18,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { SyncButton } from "../../components/SyncButton.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
@@ -72,6 +73,7 @@ export function PrintersPage() {
 
   const add = (
     <span className="flex flex-wrap gap-2">
+      <SyncButton types={["printers"]} />
       <Write can="printers" level="manage">
         <Link to="/printers/new" className={addClass}>
           <Plus className="size-4" aria-hidden />

@@ -3,12 +3,24 @@ import { Navigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { SyncButton } from "../../components/SyncButton.tsx";
 import { Tabs } from "../../components/Tabs.tsx";
 import { meQuery, useCan } from "../../lib/auth.ts";
 import { FilamentCatalog } from "../filament/Catalog.tsx";
 import { PresetsHint } from "../presets/PresetsHint.tsx";
 import { FilamentPresets, MachinePresets, ProcessPresets } from "../presets/PresetTables.tsx";
 import { Catalog } from "../printers/Catalog.tsx";
+
+/** Every type the catalog tables fill: what Sync all runs. */
+const CATALOG_SYNC_TYPES = [
+  "brands",
+  "printerModels",
+  "machinePresets",
+  "processPresets",
+  "filamentBrands",
+  "filamentMaterials",
+  "filamentPresets",
+] as const;
 
 export const CATALOG_TABS = ["printers", "filament"] as const;
 export type CatalogTab = (typeof CATALOG_TABS)[number];
@@ -51,7 +63,12 @@ export function CatalogPage({ tab }: { tab: CatalogTab }) {
       <PageHeader
         title={t("nav:items.catalog.label")}
         description={t("nav:items.catalog.description")}
-        actions={<SettingsLink module="catalog" />}
+        actions={
+          <>
+            <SyncButton types={CATALOG_SYNC_TYPES} all />
+            <SettingsLink module="catalog" />
+          </>
+        }
       />
       <Tabs
         label={t("catalog:tabs.label")}

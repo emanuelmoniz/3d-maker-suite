@@ -17,6 +17,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { SyncButton } from "../../components/SyncButton.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useMoney } from "../../lib/cost.ts";
 import { textLink } from "../../lib/cx.ts";
@@ -206,6 +207,7 @@ export function PrintsPage() {
         description={t("nav:items.prints.description")}
         actions={
           <>
+            <SyncButton types={["prints"]} />
             <Write can="prints">{add}</Write>
             <SettingsLink module="prints" />
           </>

@@ -20,7 +20,9 @@ import {
   type SyncRequest,
   type SyncResult,
   type SyncRun,
+  type SyncType,
   type TestResult,
+  type TypeSyncResult,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -177,6 +179,46 @@ export function useHasTasks() {
     )
   );
 }
+
+/** A source and a type a page's Sync would run. */
+export type SyncTarget = { integrationId: string; type: SyncType };
+
+/**
+ * What a page's Sync would run (the server's `runTypes`): each enabled source's active types among
+ * `types` that are on Auto and that `may` sync. Pure, so the choice is tested without the UI.
+ */
+export function syncTargets(
+  list: Integration[],
+  types: readonly SyncType[],
+  may: (integrationId: string, type: string, what: "sync") => boolean,
+): SyncTarget[] {
+  return list.flatMap((i) =>
+    i.enabled
+      ? types
+          .filter(
+            (type) =>
+              i.capabilities.includes(type) &&
+              i.policies.some((p) => p.type === type && p.mode === "auto") &&
+              may(i.id, type, "sync"),
+          )
+          .map((type) => ({ integrationId: i.id, type }))
+      : [],
+  );
+}
+
+/** The page Sync's targets for `types`, from the cached integrations: no request of its own. */
+export function useSyncTargets(types: readonly SyncType[]) {
+  const may = useMayTask();
+  return syncTargets(useIntegrations().data ?? [], types, may);
+}
+
+/** A page's Sync: `types`, now, in every Auto source the caller may sync (one request). */
+export const useSyncTypes = () =>
+  useInvalidating(
+    (types: SyncType[]) =>
+      api<{ results: TypeSyncResult[] }>("POST", "/api/integrations/sync", { types }),
+    true,
+  );
 
 export const useSyncRuns = (id: string, query: Record<string, string>) =>
   useListPage<SyncRun>(["integrations", id, "runs"], `/api/integrations/${id}/runs`, query);

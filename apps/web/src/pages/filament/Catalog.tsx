@@ -53,6 +53,7 @@ export function FilamentCatalog() {
     <>
       <Section<FilamentBrand>
         kind="filament-brands"
+        sync="filamentBrands"
         title={t("filament:catalog.brands.title")}
         name={(b) => b.name}
         add={{ to: "/filament/brands/new", label: t("filament:catalog.brands.add") }}
@@ -91,6 +92,7 @@ export function FilamentCatalog() {
       />
       <Section<FilamentMaterial>
         kind="filament-materials"
+        sync="filamentMaterials"
         title={t("filament:catalog.materials.title")}
         name={(m) => m.name}
         add={{ to: "/filament/materials/new", label: t("filament:catalog.materials.add") }}

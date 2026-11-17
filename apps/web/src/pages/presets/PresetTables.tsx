@@ -11,6 +11,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { archiveColumn } from "../../components/ArchiveActions.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
+import { SyncButton } from "../../components/SyncButton.tsx";
 import {
   useBrands,
   useFilamentBrands,
@@ -64,6 +65,7 @@ export function MachinePresets() {
   return (
     <Section<MachinePreset>
       kind="machine-presets"
+      sync="machinePresets"
       title={t("printers:catalog.presets.title")}
       name={(p) => p.name}
       intro={t("catalog:fromFiles")}
@@ -104,6 +106,7 @@ export function ProcessPresets() {
   return (
     <Section<ProcessPreset>
       kind="process-presets"
+      sync="processPresets"
       title={t("printers:catalog.processPresets.title")}
       name={(p) => p.name}
       intro={t("catalog:fromFiles")}
@@ -167,6 +170,7 @@ export function FilamentPresets() {
       <section id="filament-presets" className="grid scroll-mt-4 gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold">{t("filament:presets.title")}</h2>
+          <SyncButton types={["filamentPresets"]} />
         </div>
         <p className="-mt-1 text-muted">{t("catalog:fromFiles")}</p>
         {presets.data && (

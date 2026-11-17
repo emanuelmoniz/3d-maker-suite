@@ -6,6 +6,8 @@ A printer's or accessory's usage is its print hours and print count: the prints 
 
 When the numbers are off, for example a printer bought used, prints made before you started logging, or a counter read off the machine, open the printer or accessory and press **Correct usage**. Type the real totals of hours and prints, with an optional note. The app saves the difference from what it counted as a correction; prints logged later add on top. The dialog lists every correction so far. The totals and maintenance due dates use the corrected usage right away. Maintenance already logged keeps the usage it recorded when it was done.
 
+**Sync** sits next to **Add printer** and syncs the printers of every source that has **Printers** on Auto ([Sync from a page](import.md#sync-from-a-page)).
+
 ## Live status
 
 A printer whose source reports live status shows a card on the dashboard and on its page: state (idle, preparing, printing, paused, finished, cancelled, error, offline), progress, time left, layer, temperatures and the filament slots. It updates by itself, every 3 seconds while the printer prepares, prints or is paused and every 15 seconds otherwise. Status is read-only: the app never controls a printer. You see a printer's status if you can see the printer.
