@@ -89,10 +89,14 @@ export type WriteRow = StoredRow & {
 export type ImportHandler = {
   /** Existing rows a row can update, in the shape of the import columns. */
   targets: (db: Db) => ImportTarget[];
-  /** Per row: the targets that fit and the one to suggest (pure, in core). */
+  /**
+   * Per row: the targets that fit and the one to suggest (pure, in core). `elsewhere`: targets
+   * another library of the same kind brought in (`exclusive`), which fit more loosely.
+   */
   match: (
     rows: ImportValues[],
     targets: ImportTarget[],
+    elsewhere?: ReadonlySet<string>,
   ) => { candidates: string[]; targetId: string | null }[];
   /** A valid row's ref cells in the spelling the targets use, before matching and diffing. */
   canon?: (db: Db, values: ImportValues) => ImportValues;
@@ -116,8 +120,13 @@ export type ImportHandler = {
   // The rest is for rows with a `source` (from an integration or a zip).
   /** The existing row each source key was imported as. A hit beats the matcher. */
   bySource?: (db: Db) => Map<string, string>;
-  /** A row imported from one source is never another source row's match (two rolls of one filament). */
-  exclusive?: boolean;
+  /**
+   * Rows can be in several libraries of one kind (a spool in Bambu Cloud and in Spoolman), one link
+   * each; keys are `<library>:<id>`. Given a library, the rows that are never one of its source
+   * rows' match: linked to it already (two rolls of one filament), or unlinked from it by you. A
+   * row another library brought in still matches, as one to link that a person confirms.
+   */
+  exclusive?: (db: Db, library: string) => Set<string>;
   /** A source row is only ever the row its key names; `create` links one entered by hand. */
   sourceOnly?: boolean;
   /**
@@ -383,19 +392,24 @@ export function createReview(db: Db, dataDir: string) {
       });
     const valid = parsed.filter((p) => !p.errors.length);
     const open = valid.filter((p) => !p.hit);
-    const linked = new Set(bySource.values());
     // One review is one source, so one library.
-    const library = sourced && handler.sameLibrary && keyLibrary(stored.rows[0]?.source);
+    const library = (sourced && keyLibrary(stored.rows[0]?.source)) || null;
     const foreign = new Set(
       library ? [...bySource].filter(([k]) => keyLibrary(k) !== library).map(([, id]) => id) : [],
     );
+    // Rows this library holds are no match; the other libraries' ones are, to link (`exclusive`).
+    const held =
+      handler.exclusive && library ? handler.exclusive(db, library.slice(0, -1)) : undefined;
     const matches = handler.match(
       open.map((p) => p.values),
       sourced && handler.sourceOnly
         ? []
-        : sourced && handler.exclusive
-          ? targets.filter((t) => !linked.has(t.id))
-          : targets.filter((t) => !foreign.has(t.id)),
+        : held
+          ? targets.filter((t) => !held.has(t.id))
+          : sourced && handler.sameLibrary
+            ? targets.filter((t) => !foreign.has(t.id))
+            : targets,
+      held && foreign,
     );
     const matchOf = new Map(open.map((p, i) => [p.row, matches[i]]));
     return {
@@ -412,7 +426,11 @@ export function createReview(db: Db, dataDir: string) {
           p.values = Object.fromEntries(
             Object.entries(p.values).filter(([k]) => !USAGE_KEYS.has(k)),
           );
-        const s = suggest(columns, p, { candidates: m.candidates, target });
+        // A spool you have, not linked to this library yet: an update links it, so it waits for
+        // a person even when nothing else differs (one twice in a library is two spools).
+        const link = !!held && !hit && !!m.targetId;
+        const suggested = suggest(columns, p, { candidates: m.candidates, target });
+        const s = link ? { ...suggested, action: "update" as const } : suggested;
         // A row that matched something you have is an update: it needs no pick.
         const pick =
           hit || m.targetId || p.errors.length ? undefined : picks?.suggest(p.values, raw);
@@ -460,31 +478,35 @@ export function createReview(db: Db, dataDir: string) {
           // hand): nothing to review. Catalog rows and a range of prints are shown whole.
           ...(DEVICES.has(stored.entity) &&
             !archived &&
+            !link &&
             s.status === "identical" && { imported: true }),
           ...((yours ||
             (unpicked && s.action === "create") ||
             outOfScope ||
-            (s.status === "changed" && ((skipSeen && sameSource) || nothing))) && {
+            (!link && s.status === "changed" && ((skipSeen && sameSource) || nothing))) && {
             action: "skip" as const,
           }),
           ...picked,
           ...(edited && { edited }),
           ...(deleted && { deleted }),
-          auto: autoOf({
-            status: s.status,
-            // Without a source key the name is the identity, so a match is the row itself.
-            linked: !!hit || (!handler.bySource && !!m.targetId),
-            // `hold`: the source row asks for a person (a new spool to fill in).
-            held: raw.hold === true || (!!pick && !pick.sure),
-            optional: yours,
-            outOfScope,
-            seen,
-            review: sync?.merge === "review",
-            // Once filled in and linked it has nothing more to ask.
-            waits: raw.hold === true && !hit,
-            // No new preset of yours goes unnoticed, whatever the card's scope.
-            newWaits: !!stored.type && isUserPresetType(stored.type),
-          }),
+          ...(link && { link }),
+          auto: link
+            ? ("wait" as const)
+            : autoOf({
+                status: s.status,
+                // Without a source key the name is the identity, so a match is the row itself.
+                linked: !!hit || (!handler.bySource && !!m.targetId),
+                // `hold`: the source row asks for a person (a new spool to fill in).
+                held: raw.hold === true || (!!pick && !pick.sure),
+                optional: yours,
+                outOfScope,
+                seen,
+                review: sync?.merge === "review",
+                // Once filled in and linked it has nothing more to ask.
+                waits: raw.hold === true && !hit,
+                // No new preset of yours goes unnoticed, whatever the card's scope.
+                newWaits: !!stored.type && isUserPresetType(stored.type),
+              }),
         };
       }),
       targets: [...targets, ...(gone?.targets ?? [])],
@@ -655,8 +677,12 @@ export function createReview(db: Db, dataDir: string) {
       const at = (op: (typeof ops)[number]) => Date.parse(String(op.values.startedAt));
       ops.sort((a, b) => at(a) - at(b));
     }
+    // What is linked to its source already: per library when a row can be in several.
+    const pair = (id: string, source?: string) =>
+      handler.exclusive ? `${keyLibrary(source)}${id}` : id;
+    const linked = new Set([...(handler.bySource?.(db) ?? [])].map(([k, id]) => pair(id, k)));
+    const linking = (id: string, source?: string) => !!source && !linked.has(pair(id, source));
     // The rows written, for a sync run's log and a projects import's follow-up (by file row).
-    const linked = new Set(handler.bySource?.(db).values());
     const written: {
       event: "created" | "updated";
       values: (typeof ops)[number]["values"];
@@ -690,15 +716,19 @@ export function createReview(db: Db, dataDir: string) {
         // Prints picked in the review, names taken from the folder, or a row you archived coming
         // back are a change of their own, and so is linking a row to its source for the first time
         // (else "keep my edits" with nothing to write leaves it unlinked and offered again).
+        const first = linking(op.target.id, op.row.source);
         if (
           !Object.keys(patch).length &&
           !op.row.prints &&
           !op.row.fromFolder &&
           !op.target.archived &&
-          !(op.row.source && !linked.has(op.target.id))
+          !first
         )
           continue;
         handler.update(db, op.target, patch, op.row);
+        // Linked by you: a mark of it (deleted, or unlinked from a spool) is gone.
+        const key = first && handler.exclusive && deletedKeyOf(handler, op.values, op.row.source);
+        if (key) clearDeleted(db, stored.entity, key);
         written.push({ event: "updated", values: op.values, row, id: op.target.id });
       }
     });

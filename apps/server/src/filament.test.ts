@@ -404,10 +404,21 @@ describe("filament library", () => {
     const acme = filamentBrandIdFor(db, "Acme");
     const pla = filamentMaterialIdFor(db, "PLA");
     expect(db.select().from(schema.spools).all()).toMatchObject([
-      { sourceSpool: "mock:1", brandId: acme, materialId: pla, name: "A" },
-      { sourceSpool: "mock:2", brandId: acme, materialId: pla, name: "PLA Matte" },
+      { brandId: acme, materialId: pla, name: "A" },
+      { brandId: acme, materialId: pla, name: "PLA Matte" },
       // A name that is only the material is none.
-      { sourceSpool: "mock:3", brandId: acme, materialId: pla, name: null },
+      { brandId: acme, materialId: pla, name: null },
+    ]);
+    expect(
+      db
+        .select()
+        .from(schema.spoolSources)
+        .all()
+        .map((l) => [l.library, l.source]),
+    ).toEqual([
+      ["mock", "mock:1"],
+      ["mock", "mock:2"],
+      ["mock", "mock:3"],
     ]);
     expect(db.select().from(schema.filamentPresets).all()).toEqual([]);
     expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
@@ -535,15 +546,30 @@ describe("filament library", () => {
       { ...vendorSpool("2", "A", "#00ff00"), ...full },
     ];
     expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, updated: 0 });
-    expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
-    // Nothing to do for either: what the run left for you is empty, and a review opened by hand
-    // shows both, with nothing to write.
+    // The linked one has nothing to do. The one entered by hand isn't linked yet: it waits for you
+    // to say it is that spool, with nothing else to write.
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 1 });
     const url = `/api/import/integration/${mockId}/spools`;
-    expect((await open(`${url}?waiting=1`)).rows).toEqual([]);
+    const waiting = await open(`${url}?waiting=1`);
+    expect(waiting.rows.map((r) => [r.status, r.action, r.link])).toEqual([
+      ["identical", "update", true],
+    ]);
     expect((await open(url)).rows.map((r) => [r.status, r.action])).toEqual([
       ["identical", "skip"],
-      ["identical", "skip"],
+      ["identical", "update"],
     ]);
+    // Linked; its weight stays yours.
+    expect((await review.confirm(waiting)).json()).toMatchObject({ updated: 1 });
+    expect((await run(mockId, "spools")).json()).toMatchObject({ created: 0, updated: 0 });
+    expect(await policy(mockId, "spools")).toMatchObject({ pending: 0 });
+    expect((await open(`${url}?waiting=1`)).rows).toEqual([]);
+    expect(
+      db
+        .select()
+        .from(schema.spools)
+        .all()
+        .map((s) => s.remainingGrams),
+    ).toEqual([250, 300]);
     // Anything else still counts.
     mock.spools = [{ ...vendorSpool("1", "A"), ...full, colorHex: "#0000ff" }];
     expect((await open(`/api/import/integration/${mockId}/spools`)).rows).toMatchObject([
@@ -608,9 +634,19 @@ describe("filament library", () => {
     // A review opened by hand shows every spool the source has.
     expect(await rowsOf()).toEqual(["identical:skip", "identical:skip"]);
 
-    const rows = db.select().from(schema.spools).all();
+    const rows = db
+      .select()
+      .from(schema.spools)
+      .innerJoin(schema.spoolSources, eq(schema.spoolSources.spoolId, schema.spools.id))
+      .all();
     expect(
-      rows.map((r) => [r.sourceSpool, r.name, r.colorHex, r.remainingGrams, r.status]),
+      rows.map(({ spools: r, spool_sources: l }) => [
+        l.source,
+        r.name,
+        r.colorHex,
+        r.remainingGrams,
+        r.status,
+      ]),
     ).toEqual([
       ["mock:1", "A", "#ff0000", 250, "in_use"],
       ["mock:2", "Matte", "#00ff00", 250, "in_use"],

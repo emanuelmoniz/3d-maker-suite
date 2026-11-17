@@ -20,18 +20,29 @@ One Spoolman can be set up. The key is stored encrypted on disk ([ADR-0005](adr/
 
 On **Filament → Settings → Sources**, the Spoolman line imports your spools: **Sync now** brings in the new ones, and **Review and import** shows every spool before anything changes. A Spoolman spool becomes a spool with its brand (Spoolman's vendor), material, name (the filament's name) and colour hex, and its weights. Spoolman has no colour name, so that stays empty. Archived Spoolman spools are left out.
 
-A spool you already entered by hand can be linked to its Spoolman spool in the review (update it instead of importing it as new).
+### A spool you already have
 
-A spool can come from one library for now. One imported from Bambu Cloud's filament manager stays linked there, and its prints aren't written to Spoolman. If you use both, import your spools from Spoolman and switch off Bambu Cloud's spools line: the AMS still finds them by their tag.
+A spool can be in several libraries at once: Bambu Cloud's filament manager and Spoolman, for example. It is one spool in the app, linked to each of them, so you can use both:
 
-Leave **Track usage** off on the spools line (the default): the app keeps its own remaining weight, and Spoolman's is what the app writes back.
+- A Spoolman spool that could be one you already have is never imported as a new spool. If you entered the spool by hand, it is a spool with the same brand, material, name and colour. If another library brought it in, it only needs the same material and colour, because each library names a filament its own way ("Bambu" or "Bambu Lab", "Basic PLA" or "PLA Basic").
+- Such a spool waits in the review with **Maybe a spool you have: update links it**. Check it is the same roll, then update it: that links it. Your spool keeps its brand, name and weight. When several of your spools fit, you pick one. When none is the same roll, import it as new.
+- Once linked, a re-import from either library finds the spool by its link, and makes no second spool.
+- It works the other way round too: a Bambu Cloud spool that is already in the app from Spoolman waits to be linked the same way.
+
+While a Spoolman spool waits to be linked, the app doesn't add your spool to Spoolman a second time.
+
+The spool's page lists each library it is in. **Unlink** lets go of one and keeps the others. After that, the library's spool isn't linked to it again and isn't imported as a new spool: its next import shows it as skipped, and you can still link it or import it in the review. A spool you unlinked from Spoolman isn't added there again.
+
+### Track usage
+
+Leave **Track usage** off on the spools line (the default): the app keeps its own remaining weight, and Spoolman's is what the app writes back. Only one library should set a spool's weight: if two spools lines track usage, the line you edit warns you.
 
 ## Write usage back
 
 **Write usage back** on the Spoolman card is on by default. With it on:
 
-- A print charged to a spool imported from Spoolman (or linked to one) is written to that Spoolman spool: its used weight goes up by the print's grams.
-- A print on a spool of yours that isn't in Spoolman yet adds it there the first time a print uses it after Spoolman was set up. The app finds or creates the vendor and the filament (brand, material, name and colour) and adds the spool with its current weights.
+- A print charged to a spool linked to Spoolman is written to that Spoolman spool: its used weight goes up by the print's grams. That includes a spool that came from Bambu Cloud first.
+- A print on a spool of yours that isn't in Spoolman yet adds it there the first time a print uses it after Spoolman was set up. This includes a spool that is only in Bambu Cloud. The app finds or creates the vendor and the filament (brand, material, name and colour) and adds the spool with its current weights.
 - An edit of a print's grams writes the difference, and a print you delete gives its grams back to the Spoolman spool, as it does to yours.
 - Prints from before a spool was linked aren't written: Spoolman already has its own history for that spool.
 - A print Moonraker already reported to Spoolman is never written again ([moonraker.md](moonraker.md#grams-and-spools)). Every other print is: Bambu, Prusa, OctoPrint, a Klipper printer that doesn't report to Spoolman, or a print you entered by hand.

@@ -15,8 +15,8 @@ export type SpoolCandidate = {
   remainingGrams: number | null;
   /** The tag a printer read on it (Bambu's AMS), learned when a slot with it was charged to it. */
   rfid?: string | null;
-  /** The spool library's spool it was imported from (`<adapter>:<id>`). */
-  sourceSpool?: string | null;
+  /** The spool libraries' spools it is linked to (`<adapter>:<id>`), one per library. */
+  sources?: string[];
 };
 
 export type SlotToMatch = {
@@ -26,7 +26,7 @@ export type SlotToMatch = {
   startedAt: string;
   /** The tag the printer read on the slot's spool. */
   rfid?: string | null;
-  /** The spool library's spool the printer named (Moonraker's Spoolman spool), as `sourceSpool`. */
+  /** The spool library's spool the printer named (Moonraker's Spoolman spool), as in `sources`. */
   spoolId?: string | null;
 };
 
@@ -114,7 +114,7 @@ export function matchPrint(
 ): SpoolMatch[] {
   const taggedOf = (s: SlotToMatch) =>
     (s.rfid ? spools.find((c) => !!c.rfid && c.rfid === s.rfid) : undefined) ??
-    (s.spoolId ? spools.find((c) => !!c.sourceSpool && c.sourceSpool === s.spoolId) : undefined);
+    (s.spoolId ? spools.find((c) => !!s.spoolId && !!c.sources?.includes(s.spoolId)) : undefined);
   const loadedOf = (s: { slot?: number | null }) => {
     const id = loaded(s.slot);
     return id ? spools.find((c) => c.id === id) : undefined;

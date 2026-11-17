@@ -188,6 +188,7 @@
     "target": "Update which",
     "archivedTarget": "archived, an update restores it",
     "deletedRow": "You deleted this",
+    "linkRow": "Maybe a spool you have: update links it",
     "select": "Select row {{row}}",
     "selectAll_one": "Select the {{count}} row shown",
     "selectAll_other": "Select all {{count}} rows shown",

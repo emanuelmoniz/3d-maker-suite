@@ -277,8 +277,8 @@ type PolicyChange = Partial<Omit<SyncPolicy, "type" | "lastRunAt" | "pending">>;
 
 /**
  * A type's settings: when it runs, alerts, editors, what and how it imports, new spools and usage.
- * `set` saves at once (a row's details) or edits a draft (the Edit dialog). `otherTracks`: the
- * same account's other type (prints, spools) also takes the filament.
+ * `set` saves at once (a row's details) or edits a draft (the Edit dialog). `otherTracks`: another
+ * line that also sets these spools' weight tracks usage (`otherTracking`), and which kind it is.
  */
 export function PolicyFields({
   integration: i,
@@ -291,7 +291,7 @@ export function PolicyFields({
   policy: SyncPolicy;
   set: (change: PolicyChange) => void;
   disabled: boolean;
-  otherTracks?: boolean;
+  otherTracks?: "prints" | "spools";
 }) {
   const { t } = useTranslation();
   const detailsId = useId();
@@ -468,7 +468,9 @@ export function PolicyFields({
                 </p>
                 {p.trackUsage && otherTracks && (
                   <p role="status" className="mt-1 text-warn">
-                    {t("integrations:policies.doubleTracking")}
+                    {type === "spools" && otherTracks === "spools"
+                      ? t("integrations:policies.doubleTrackingSpools")
+                      : t("integrations:policies.doubleTracking")}
                   </p>
                 )}
               </div>
@@ -532,7 +534,7 @@ export function PolicyEditDialog({
   integration: Integration;
   policy: SyncPolicy;
   title: string;
-  otherTracks?: boolean;
+  otherTracks?: "prints" | "spools";
   onClose: () => void;
 }) {
   const { t } = useTranslation();

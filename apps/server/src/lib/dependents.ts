@@ -26,6 +26,7 @@ import {
   spoolName,
 } from "./catalog.ts";
 import { syncUsages } from "./prints.ts";
+import { sourcesOf } from "./spoolSources.ts";
 
 const {
   accessories,
@@ -57,6 +58,7 @@ const {
   quotes,
   settings,
   spools,
+  spoolSources,
   spoolWeightEntries,
   taggings,
   usageCorrections,
@@ -150,8 +152,8 @@ type Item = {
   alerts?: (id: string) => string[];
   /** The column holding its image file, relative to the data dir. */
   image?: string;
-  /** What a sync knows it by; none for a row that didn't come from one. */
-  source?: (db: Db, row: Row) => string | null;
+  /** What a sync knows it by (a spool: each library's key); none for a row that didn't come from one. */
+  source?: (db: Db, row: Row) => string | string[] | null;
   before?: (tx: Tx, row: Row) => void;
 };
 
@@ -267,13 +269,14 @@ export const ITEMS = {
   spools: {
     table: spools,
     uses: [through(PRINT, usages.spoolId, usages.printId)],
-    // The ledger is append-only (its FK restricts), except when its whole spool goes.
-    goes: [spoolWeightEntries.spoolId],
+    // The ledger is append-only (its FK restricts), except when its whole spool goes. Its links
+    // go by the FK, each one remembered (`source`).
+    goes: [spoolWeightEntries.spoolId, spoolSources.spoolId],
     // A slot waiting with it as its suggestion just waits without one (FK `set null`).
     clears: [usages.suggestedSpoolId],
     tag: "spool",
     alerts: alertTasks.spool,
-    source: (_, row) => row.sourceSpool as string | null,
+    source: (db, row) => sourcesOf(db, row.id as string),
     before: (tx, row) => {
       tx.delete(spoolWeightEntries)
         .where(eq(spoolWeightEntries.spoolId, row.id as string))
@@ -477,6 +480,7 @@ export function deleteItem(
   const row = db.select().from(t).where(eq(t.id, id)).get() as Row | undefined;
   if (!row) return;
   const source = item.source?.(db, row);
+  const marks = source == null ? [] : Array.isArray(source) ? source : [source];
   db.transaction((tx) => {
     item.before?.(tx, row);
     if (item.tag)
@@ -487,7 +491,7 @@ export function deleteItem(
       .where(and(eq(importSnapshots.entity, kind), eq(importSnapshots.rowId, id)))
       .run();
     if (item.alerts) resolveItemAlerts(tx, item.alerts(id));
-    if (source)
+    for (const source of marks)
       tx.insert(deletedSources).values({ entity: kind, source }).onConflictDoNothing().run();
     tx.delete(t).where(eq(t.id, id)).run();
   });

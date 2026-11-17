@@ -1271,12 +1271,25 @@ export function createSyncer(
   const usageTarget = (id: string, signal: AbortSignal) =>
     instanceFor(rowOf(id), signal).spoolUsage;
 
+  /**
+   * The app spools one of the library's spools is suggested for and not linked to yet (another
+   * library brought them in, or you entered them): its review waits for a person to link them, so
+   * the write-back doesn't make them there meanwhile. None while its spools line is off: the app
+   * doesn't read the library's spools then. A library that can't be read throws.
+   */
+  async function suggestedSpools(id: string) {
+    if (!activeCapabilities(db, adapters, rowOf(id)).includes("spools")) return new Set<string>();
+    const rows = review.preview(await offer(id, "spools")).rows;
+    return new Set(rows.flatMap((r) => (r.link && r.targetId ? [r.targetId] : [])));
+  }
+
   return {
     run,
     runAll,
     recordPrint,
     statusSource,
     usageTarget,
+    suggestedSpools,
     checkCatalogs,
     checkUserPresets,
     checkFreed,

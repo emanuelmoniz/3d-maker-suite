@@ -154,7 +154,7 @@ deleted_sources (entity, source, deleted_at)  primary key (entity, source)
 | Entity | `source` |
 |---|---|
 | Printers, prints | `<integrationId>:<externalId>` |
-| Spools | `sourceSpool` |
+| Spools | each library's key the spool is linked by (`spool_sources.source`); one you unlink is marked too |
 | Filament, machine and print profiles | `sourcePreset` |
 | Printer brands, printer models, filament brands, filament materials | the lowercase name (these match by name) |
 

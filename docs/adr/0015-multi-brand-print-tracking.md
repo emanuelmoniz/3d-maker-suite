@@ -107,6 +107,7 @@ New kinds in the kind catalog (ADR-0016):
 - **The app's own spool is always charged**, with or without Spoolman.
 - **Moonraker reports usage to Spoolman on its own** when its `[spoolman]` is set up. A job that Moonraker reported (it names its Spoolman spool) is not written to Spoolman again. Every other print is: another printer, or a Moonraker that doesn't report to Spoolman.
 - Our spool database stays the app's own. Spoolman is a source and a target, not the master.
+- **A spool has one link per library** (6.0.0 Step 12b, `spool_sources`). The same roll in Bambu Cloud's filament manager and in Spoolman is one spool. A second library's spool is suggested as the one you have: same material and colour, because each library names a filament its own way. A person confirms that link. Usage goes to every library the spool is linked to that takes it back. Only one library's spools line should track usage (set the weight).
 
 ### LAN reach
 - A server on the same LAN talks to printers directly.

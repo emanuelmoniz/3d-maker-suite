@@ -79,6 +79,12 @@ export const useAdjustSpool = () =>
 export const useForgetSpoolTag = () =>
   useInvalidating((id: string) => api("DELETE", `/api/filament/spools/${id}/rfid`));
 
+/** Lets go of one library a spool is in (`library`: its adapter id); the others stay. */
+export const useUnlinkSpool = () =>
+  useInvalidating((v: { id: string; library: string }) =>
+    api("DELETE", `/api/filament/spools/${v.id}/sources/${encodeURIComponent(v.library)}`),
+  );
+
 /** Put a spool in a printer slot, or empty it (`spoolId: null`). */
 export const useLoadSpool = (printerId: string) =>
   useInvalidating((v: SpoolLoad) => api("PUT", `/api/printers/${printerId}/slots`, v));

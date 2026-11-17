@@ -684,6 +684,11 @@ export const importPreviewRowSchema = z.object({
   edited: z.array(z.string()).optional(),
   /** Rows from an integration: you deleted this row, so it stays a skip unless you import it. */
   deleted: z.boolean().optional(),
+  /**
+   * Spools from a library: the suggested spool you have isn't linked to this library yet (entered
+   * by hand, or another library's). Updating it links it, also when nothing else differs.
+   */
+  link: z.boolean().optional(),
   /** Projects: the row names a folder that doesn't exist (yet). */
   folderMissing: z.boolean().optional(),
 });

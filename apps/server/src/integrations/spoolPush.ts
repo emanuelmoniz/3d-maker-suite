@@ -10,13 +10,15 @@ import {
   type SpoolUsageTarget,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, notExists, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
+import { libraryLinks, linkSpool } from "../lib/spoolSources.ts";
 import { capableRows } from "./capabilities.ts";
 import type { Syncer } from "./sync.ts";
 
-// Spoolman two-way (ADR-0015): what each print took goes back to the spool library its spool came
-// from, exactly once. Nothing is sent when a print is recorded; a run works out what each library
+// Spoolman two-way (ADR-0015): what each print took goes back to every library that takes usage
+// and that its spool is linked to (`spool_sources`, whichever library it came from first), exactly
+// once. Nothing is sent when a print is recorded; a run works out what each library
 // spool should hold per print slot (core's `pushTargets`) and sends only the difference to what it
 // last confirmed (`spool_usage_pushes`). So a retry, a restart, an edit or a delete of a print
 // all come down to the same thing, and the adapter makes each write idempotent itself.
@@ -28,6 +30,7 @@ const {
   printFilamentUsages,
   prints,
   spools,
+  spoolSources,
   spoolUsageLinks,
   spoolUsagePushes,
   syncPolicies,
@@ -50,7 +53,7 @@ const codeOf = (e: unknown) => (e instanceof IntegrationError ? e.code : "unknow
 
 export function createSpoolPush(
   db: Db,
-  syncer: Pick<Syncer, "usageTarget">,
+  syncer: Pick<Syncer, "usageTarget" | "suggestedSpools">,
   adapters: IntegrationAdapter[],
   log: FastifyBaseLogger,
   /** Runs on its own after `kick`; off in tests, which call `run`. */
@@ -74,21 +77,6 @@ export function createSpoolPush(
       now - (freedAt.get(k) ?? Number.NEGATIVE_INFINITY) < HOST_GRACE_MS;
     return inUse.has(key) || inUse.has(ANY) || recently(key) || recently(ANY);
   };
-
-  /** The app spools linked to this library's spools now: app spool id -> library spool id. */
-  function links(prefix: string) {
-    const rows = db
-      .select({ id: spools.id, source: spools.sourceSpool, at: spools.sourceLinkedAt })
-      .from(spools)
-      .where(isNotNull(spools.sourceSpool))
-      .all()
-      .filter((s) => s.source?.startsWith(prefix));
-    return {
-      linked: new Map(rows.map((s) => [s.id, (s.source ?? "").slice(prefix.length)])),
-      /** When each was linked; null = before links had a time (all its prints are history). */
-      since: new Map(rows.map((s) => [s.id, s.at])),
-    };
-  }
 
   /** Spools' charged slots the library doesn't hold already; `before`: of prints made before it. */
   function usagesOf(appSpoolIds: string[], before?: string | null) {
@@ -179,10 +167,11 @@ export function createSpoolPush(
   }
 
   /**
-   * App spools in no library that a print charged since the integration was added: made there, as
-   * they are now (so nothing of theirs is written after). Older prints are no reason to add one.
+   * App spools not in this library (entered by hand, or another library's) that a print charged
+   * since the integration was added: made there, as they are now (so nothing of theirs is written
+   * after). Older prints are no reason to add one, and neither is a spool you unlinked from it.
    */
-  function toCreate(row: Row) {
+  function toCreate(row: Row, library: string) {
     return db
       .selectDistinct({
         id: spools.id,
@@ -203,7 +192,12 @@ export function createSpoolPush(
       .leftJoin(filamentBrands, eq(filamentBrands.id, spools.brandId))
       .where(
         and(
-          isNull(spools.sourceSpool),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(spoolSources)
+              .where(and(eq(spoolSources.spoolId, spools.id), eq(spoolSources.library, library))),
+          ),
           isNull(spools.archivedAt),
           eq(printFilamentUsages.chargedAtSource, false),
           gte(prints.createdAt, row.createdAt),
@@ -212,10 +206,15 @@ export function createSpoolPush(
       .all();
   }
 
-  async function createMissing(row: Row, prefix: string, target: SpoolUsageTarget) {
+  async function createMissing(row: Row, library: string, target: SpoolUsageTarget) {
+    const missing = toCreate(row, library);
+    if (!missing.length) return;
+    // One the library has already, waiting for you to link it, isn't made a second time.
+    const suggested = await syncer.suggestedSpools(row.id);
     // Made as the spool was when read: every print before this is in it.
     const readAt = new Date().toISOString();
-    for (const s of toCreate(row)) {
+    for (const s of missing) {
+      if (suggested.has(s.id)) continue;
       const { spoolId } = await target.createSpool({
         appSpoolId: s.id,
         brand: s.brand,
@@ -228,10 +227,7 @@ export function createSpoolPush(
         remainingGrams: s.remainingGrams,
         emptyWeightGrams: s.emptyWeightGrams,
       });
-      db.update(spools)
-        .set({ sourceSpool: `${prefix}${spoolId}`, sourceLinkedAt: readAt })
-        .where(and(eq(spools.id, s.id), isNull(spools.sourceSpool)))
-        .run();
+      linkSpool(db, s.id, `${library}:${spoolId}`, readAt);
     }
   }
 
@@ -268,16 +264,17 @@ export function createSpoolPush(
   }
 
   async function pushOne(row: Row, adapter: IntegrationAdapter) {
-    const prefix = `${adapter.id}:`;
+    const library = adapter.id;
+    const prefix = `${library}:`;
     let error: unknown;
     let target: SpoolUsageTarget | undefined;
     try {
       target = syncer.usageTarget(row.id, AbortSignal.timeout(TIMEOUT_MS));
-      if (target) await createMissing(row, prefix, target);
+      if (target) await createMissing(row, library, target);
     } catch (e) {
       error = e;
     }
-    const { linked, since } = links(prefix);
+    const { linked, since } = libraryLinks(db, library);
     settleLinks(row.id, linked, since);
     const usages = usagesOf([...linked.keys()]).map((u) => ({
       ...u,
@@ -320,7 +317,7 @@ export function createSpoolPush(
           break;
         }
       }
-    const left = targets.length - done + (error ? toCreate(row).length : 0);
+    const left = targets.length - done + (error ? toCreate(row, library).length : 0);
     setPending(row.id, left);
     if (error) {
       if (!failing.has(row.id))

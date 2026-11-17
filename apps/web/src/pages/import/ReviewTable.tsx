@@ -381,6 +381,7 @@ export function ReviewTable({
             {t(STATUSES[r.status])}
           </span>
           {r.deleted && <span className="block text-muted">{t("import:review.deletedRow")}</span>}
+          {r.link && <span className="block text-muted">{t("import:review.linkRow")}</span>}
         </>
       ),
       sortValue: (r) => IMPORT_STATUSES.indexOf(r.status),

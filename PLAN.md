@@ -3381,7 +3381,7 @@ Do Step 11 of the 6.0.0 plan in PLAN.md.
 Do Step 12 of the 6.0.0 plan in PLAN.md. Show me how double charging is prevented first.
 ```
 
-### [ ] Step 12b - A spool linked to several libraries  **[plan mode]**
+### [x] Step 12b - A spool linked to several libraries  **[plan mode]**
 **Model:** Opus (or Fable) · **Effort:** High
 **Why:** today a spool keeps one link (`spools.sourceSpool`), so one imported from Bambu Cloud's filament manager can't also be a Spoolman spool, and its prints are never written back. The docs tell users to import from one library only; a user-proof app shouldn't need that.
 **Scope:**

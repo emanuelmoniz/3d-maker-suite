@@ -2392,3 +2392,41 @@ describe("migration 0125", () => {
     ]);
   });
 });
+
+describe("migration 0133", () => {
+  it("moves each spool's one link into its links, one per library", () => {
+    const now = migrateAcross(132, (sqlite) => {
+      const run = (q: string) => sqlite.prepare(q).run();
+      run(
+        "insert into filament_materials (id, name, created_at, updated_at) values ('m', 'PLA', 'x', 'x')",
+      );
+      const spool = (id: string, n: number, source: string | null, at: string | null) =>
+        sqlite
+          .prepare(
+            "insert into spools (id, material_id, number, source_spool, source_linked_at, created_at, updated_at) values (?, 'm', ?, ?, ?, 'x', 'x')",
+          )
+          .run(id, n, source, at);
+      spool("a", 1, "bambu-cloud:812", null);
+      spool("b", 2, "spoolman:15", "2026-11-16T10:00:00.000Z");
+      spool("c", 3, null, null);
+    });
+    expect(now.select().from(s.spoolSources).orderBy(s.spoolSources.spoolId).all()).toEqual([
+      {
+        spoolId: "a",
+        library: "bambu-cloud",
+        source: "bambu-cloud:812",
+        linkedAt: null,
+        unlinkedAt: null,
+      },
+      {
+        spoolId: "b",
+        library: "spoolman",
+        source: "spoolman:15",
+        linkedAt: "2026-11-16T10:00:00.000Z",
+        unlinkedAt: null,
+      },
+    ]);
+    expect(now.select().from(s.spools).all()).toHaveLength(3);
+    expect(now.$client.pragma("foreign_key_check")).toEqual([]);
+  });
+});

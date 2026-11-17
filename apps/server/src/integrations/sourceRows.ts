@@ -20,6 +20,7 @@ import type { StoredRow } from "../import/review.ts";
 import { spoolImport } from "../import/spools.ts";
 import { presetName, presetNames, printerLabel, spoolMaterial, spoolName } from "../lib/catalog.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { spoolKeys } from "../lib/spoolSources.ts";
 import { catalogName } from "./imports.ts";
 import { printersOfSource } from "./printerSources.ts";
 
@@ -125,7 +126,7 @@ export const activeSpools = (db: Db) =>
       initialGrams: spools.initialGrams,
       remainingGrams: spools.remainingGrams,
       rfid: spools.rfid,
-      sourceSpool: spools.sourceSpool,
+      sources: spoolKeys,
       label: spoolName,
     })
     .from(spools)

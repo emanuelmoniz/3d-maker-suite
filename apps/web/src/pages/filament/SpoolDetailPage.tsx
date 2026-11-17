@@ -1,15 +1,17 @@
-import type { ProjectListItem } from "@3d-maker-suite/core";
+import type { ProjectListItem, Spool } from "@3d-maker-suite/core";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
 import { textLink } from "../../lib/cx.ts";
-import { spoolName, useForgetSpoolTag, useSpool } from "../../lib/filament.ts";
+import { spoolName, useForgetSpoolTag, useSpool, useUnlinkSpool } from "../../lib/filament.ts";
 import { formatCurrency, formatDate, formatWeight } from "../../lib/format.ts";
+import { useAdapterName } from "../../lib/integrations.ts";
 import { useHasArchived, useListPage, useUrlListQuery } from "../../lib/list.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinter } from "../../lib/printers.ts";
@@ -60,6 +62,58 @@ function SpoolTag({ spoolId, rfid }: { spoolId: string; rfid: string }) {
         </div>
       </Write>
     </div>
+  );
+}
+
+/**
+ * The spool libraries the spool is in (Bambu Cloud, Spoolman), each one it can be unlinked from;
+ * the others stay. Entered by hand when there is none.
+ */
+function SpoolSources({ spool }: { spool: Spool }) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  const unlink = useUnlinkSpool();
+  const [asked, setAsked] = useState<string>();
+  if (!spool.sources.length) return <>{t("filament:detail.manual")}</>;
+  const name = asked ? adapterName(asked) : "";
+  return (
+    <>
+      <ul className="grid gap-2">
+        {spool.sources.map((s) => (
+          <li key={s.library} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              {s.linkedAt
+                ? t("filament:detail.linkedSince", {
+                    source: adapterName(s.library),
+                    date: formatDate(s.linkedAt),
+                  })
+                : adapterName(s.library)}
+            </span>
+            <Write can="filament">
+              <Button
+                onClick={() => setAsked(s.library)}
+                aria-label={t("filament:detail.unlinkFrom", { source: adapterName(s.library) })}
+              >
+                {t("filament:detail.unlink")}
+              </Button>
+            </Write>
+          </li>
+        ))}
+      </ul>
+      <ConfirmDialog
+        open={!!asked}
+        title={t("filament:detail.unlinkTitle", { source: name })}
+        description={t("filament:detail.unlinkBody", { source: name })}
+        confirmLabel={t("filament:detail.unlink")}
+        destructive
+        busy={unlink.isPending}
+        onCancel={() => setAsked(undefined)}
+        onConfirm={() =>
+          asked &&
+          unlink.mutate({ id: spool.id, library: asked }, { onSuccess: () => setAsked(undefined) })
+        }
+      />
+    </>
   );
 }
 
@@ -133,7 +187,6 @@ export function SpoolDetailPage() {
   const none = t("filament:detail.none");
   const title = spoolName(t, spool);
   const archived = spool.archivedAt !== null;
-  const library = spool.sourceSpool?.split(":")[0];
 
   return (
     <>
@@ -203,9 +256,7 @@ export function SpoolDetailPage() {
             {spool.openedAt ? formatDate(spool.openedAt) : none}
           </Info>
           <Info label={t("filament:detail.source")}>
-            {library
-              ? t("filament:detail.imported", { source: t(`filament:library.sources.${library}`) })
-              : t("filament:detail.manual")}
+            <SpoolSources spool={spool} />
           </Info>
           {tagsOn && (
             <Info label={t("tags:column")}>

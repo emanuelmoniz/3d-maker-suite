@@ -1635,9 +1635,13 @@ describe("spool rows from a vendor", () => {
       (await review.open(`/api/import/integration/${id}/spools`)).json() as ImportPreview;
     const first = await open();
     await review.confirm(first, first.rows, { action: "create" });
-    const { spools, deletedSources } = schema;
+    const { spools, spoolSources, deletedSources } = schema;
     const row = db.select().from(spools).get();
-    expect(row?.sourceSpool).toBe("mock:mock:1");
+    expect(db.select().from(spoolSources).get()).toMatchObject({
+      spoolId: row?.id,
+      library: "mock",
+      source: "mock:mock:1",
+    });
     expect(
       (await app.inject({ method: "DELETE", url: `/api/filament/spools/${row?.id}` })).statusCode,
     ).toBe(204);

@@ -457,8 +457,11 @@ export const spoolSchema = z.object({
   purchasedAt: isoDate.nullable(),
   openedAt: isoDate.nullable(),
   location: z.string().nullable(),
-  /** Inventory entry this spool was imported from, `<library>:<spool id>`; null for hand-made ones. */
-  sourceSpool: z.string().nullable(),
+  /**
+   * The spool libraries it is in (Bambu Cloud, Spoolman), one link each, oldest first; none for a
+   * spool entered by hand. `linkedAt` is null for a link made before 6.0.0. Read only.
+   */
+  sources: z.array(z.object({ library: z.string().min(1), linkedAt: isoDate.nullable() })),
   /** Low-weight alert; null = the default (`lowSpoolGrams`, on). */
   lowGrams: grams.nullable(),
   lowAlert: z.boolean().nullable(),

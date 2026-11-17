@@ -45,9 +45,17 @@ import {
 import { deleteItem, presetUsed } from "../lib/dependents.ts";
 import { listPage, taggedWith } from "../lib/list.ts";
 import { assertNumberFree } from "../lib/numbers.ts";
+import { unlinkSpool } from "../lib/spoolSources.ts";
 import { createSpool, round, setRemaining } from "../lib/spools.ts";
 
-const { filamentBrands, filamentMaterials, filamentPresets, spools, spoolWeightEntries } = schema;
+const {
+  deletedSources,
+  filamentBrands,
+  filamentMaterials,
+  filamentPresets,
+  spools,
+  spoolWeightEntries,
+} = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 
@@ -279,6 +287,31 @@ export const filamentRoutes =
       async (req) => {
         const spool = getSpool(req.params.id);
         db.update(spools).set({ rfid: null }).where(eq(spools.id, spool.id)).run();
+        return getSpool(spool.id);
+      },
+    );
+
+    // One library let go of; the others stay. Its spool is remembered as not wanted (ADR-0018), so
+    // a sync neither links it again nor brings it in as a new spool unnoticed, and nothing of that
+    // library is suggested for, or made there for, this spool again. Picking it in a review links it.
+    app.delete(
+      "/spools/:id/sources/:library",
+      {
+        schema: {
+          params: params.extend({ library: z.string().min(1) }),
+          response: { 200: spoolSchema, ...notFound },
+        },
+      },
+      async (req) => {
+        const spool = getSpool(req.params.id);
+        db.transaction((tx) => {
+          const source = unlinkSpool(tx, spool.id, req.params.library);
+          if (!source) throw new HttpError(404, "not_found", "The spool isn't in that library");
+          tx.insert(deletedSources)
+            .values({ entity: "spools", source })
+            .onConflictDoNothing()
+            .run();
+        });
         return getSpool(spool.id);
       },
     );

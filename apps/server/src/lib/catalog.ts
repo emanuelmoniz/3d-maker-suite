@@ -245,7 +245,7 @@ export const presetMaterial = sql<string>`(SELECT ${filamentMaterials.name} FROM
 /** The label the app shows for a preset: its name, else "brand material". */
 export const presetLabel = sql<string>`coalesce(nullif(${filamentPresets.name}, ''), trim(${presetBrand} || ' ' || ${presetMaterial}))`;
 
-const { accessories, orders, quotes, spools, printers, projects, prints } = schema;
+const { accessories, orders, quotes, spools, spoolSources, printers, projects, prints } = schema;
 
 /** Brand / material names of a spool row (empty brand = none), for labels, sort and filters. */
 export const spoolBrand = sql<string>`coalesce((SELECT ${filamentBrands.name} FROM ${filamentBrands} WHERE ${filamentBrands.id} = ${spools.brandId}), '')`;
@@ -264,13 +264,18 @@ export const filamentName = (brand: SQLWrapper, material: SQLWrapper, name: SQLW
  */
 export const spoolName = sql<string>`printf('%03d', ${spools.number}) || '-' || ${filamentName(spoolBrand, spoolMaterial, spools.name)} || ' ' || coalesce(nullif(${spools.colorName}, ''), ${spools.colorHex})`;
 
+/** The libraries a spool row is linked to, as the API returns them (`Spool.sources`). */
+const spoolLibraries = sql<{ library: string; linkedAt: string | null }[]>`(
+  SELECT json_group_array(json_object('library', ${spoolSources.library}, 'linkedAt', ${spoolSources.linkedAt}))
+  FROM ${spoolSources} WHERE ${spoolSources.spoolId} = ${spools.id} AND ${spoolSources.unlinkedAt} IS NULL
+)`.mapWith((v: string) => JSON.parse(v));
+
 /** `select()` map for spools: the row plus `brand` / `material` names, as the API returns them. */
-// `sourceLinkedAt` is the write-back's own bookkeeping (`spoolUsage`), not the spool's.
-const { sourceLinkedAt: _linkedAt, ...spoolTable } = getTableColumns(spools);
 export const spoolColumns = {
-  ...spoolTable,
+  ...getTableColumns(spools),
   brand: spoolBrand,
   material: spoolMaterial,
+  sources: spoolLibraries,
 };
 
 /** A printer's display name, "02-Bambu A1". Fixed here: import files match printers by it. */

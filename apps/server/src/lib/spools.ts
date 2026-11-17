@@ -2,6 +2,7 @@ import type { WeightEntryKind } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { nextNumber } from "./numbers.ts";
+import { linkSpool, releaseSource } from "./spoolSources.ts";
 
 const { spools, spoolWeightEntries } = schema;
 
@@ -49,18 +50,25 @@ export function setRemaining(
  */
 export function createSpool(
   db: Pick<Db, "transaction">,
-  values: typeof spools.$inferInsert & { remainingGrams: number | null },
+  {
+    source,
+    ...values
+  }: typeof spools.$inferInsert & {
+    remainingGrams: number | null;
+    /** The library spool it is imported from (`<library>:<id>`): that one is this spool now. */
+    source?: string | null;
+  },
 ) {
   return db.transaction((tx) => {
     const spool = tx
       .insert(spools)
-      .values({
-        ...values,
-        number: values.number ?? nextNumber(spools),
-        ...(values.sourceSpool && { sourceLinkedAt: new Date().toISOString() }),
-      })
+      .values({ ...values, number: values.number ?? nextNumber(spools) })
       .returning()
       .get();
+    if (source) {
+      releaseSource(tx, source);
+      linkSpool(tx, spool.id, source);
+    }
     if (values.remainingGrams != null)
       tx.insert(spoolWeightEntries)
         .values({

@@ -166,7 +166,7 @@ describe("matchPrint", () => {
   });
 
   it("takes the spool imported from the library spool the printer named, like a tag", () => {
-    const spools = [spool("a", { sourceSpool: "spoolman:3" }), spool("b")];
+    const spools = [spool("a", { sources: ["bambu-cloud:9", "spoolman:3"] }), spool("b")];
     expect(
       matchPrint(
         [{ ...slot, slot: 0, spoolId: "spoolman:3" }],

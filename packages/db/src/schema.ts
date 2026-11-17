@@ -657,10 +657,6 @@ export const spools = sqliteTable(
     purchasedAt: text(),
     openedAt: text(),
     location: text(),
-    sourceSpool: text(),
-    // When `sourceSpool` was set: prints made before it are the library spool's history, so a
-    // write-back (`spoolUsage`) starts after them. Null on spools linked before 6.0.0: all before.
-    sourceLinkedAt: text(),
     // Low-weight alert; null = the default (`lowSpoolGrams`, on).
     lowGrams: real(),
     lowAlert: integer({ mode: "boolean" }),
@@ -679,10 +675,33 @@ export const spools = sqliteTable(
     index("spools_brand_idx").on(t.brandId),
     index("spools_material_idx").on(t.materialId),
     uniqueIndex("spools_loaded_uq").on(t.loadedPrinterId, t.loadedSlot),
-    uniqueIndex("spools_source_uq").on(t.sourceSpool),
     uniqueIndex("spools_number_uq").on(t.number),
     uniqueIndex("spools_rfid_uq").on(t.rfid),
     check("spools_status_ck", oneOf(t.status, SPOOL_STATUSES)),
+  ],
+);
+
+// The spool libraries a spool is in (Bambu Cloud's filament manager, Spoolman): one link per
+// library, so one physical spool imported from two of them is one spool. `library` is the key's
+// part before its first `:` (the adapter id); `source` is the whole key, `<library>:<id>`.
+export const spoolSources = sqliteTable(
+  "spool_sources",
+  {
+    spoolId: text()
+      .notNull()
+      .references(() => spools.id, { onDelete: "cascade" }),
+    library: text().notNull(),
+    source: text().notNull(),
+    // When it was linked: prints made before it are the library spool's history, so a write-back
+    // (`spoolUsage`) starts after them. Null on links made before 6.0.0: all before.
+    linkedAt: text(),
+    // Set = you unlinked this library from the spool: nothing of it is suggested for the spool or
+    // made there for it again; picking one of its spools in a review links it again.
+    unlinkedAt: text(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.spoolId, t.library] }),
+    uniqueIndex("spool_sources_source_uq").on(t.source).where(sql`${t.unlinkedAt} IS NULL`),
   ],
 );
 

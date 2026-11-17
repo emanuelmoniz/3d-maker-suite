@@ -58,8 +58,27 @@ export const COL = {
   what: "inline-block min-w-44",
   how: "inline-block min-w-48",
 };
-// Prints and spools both take the filament a print used: one of them should (`doubleTracking`).
-const OTHER: Partial<Record<string, AccountType>> = { prints: "spools", spools: "prints" };
+/**
+ * Another line, of any source, that also sets the weight of the spools a line tracks usage for
+ * (`doubleTracking`): prints and spools both take the filament a print used, and two spool
+ * libraries both set a spool that is in both. Two prints lines don't: each has its printers.
+ */
+export function otherTracking(
+  all: Integration[],
+  integrationId: string,
+  type: string,
+): "prints" | "spools" | undefined {
+  const tracking = all.flatMap((j) =>
+    j.policies.flatMap((p) =>
+      p.mode !== "off" && p.trackUsage && !(j.id === integrationId && p.type === type)
+        ? [p.type]
+        : [],
+    ),
+  );
+  const has = (t: "prints" | "spools") => (tracking.includes(t) ? t : undefined);
+  if (type === "spools") return has("spools") ?? has("prints");
+  return type === "prints" ? has("spools") : undefined;
+}
 
 /** What a block calls the account: its email, else its name. */
 export const accountName = (i: Integration) => i.account?.email || i.account?.name || null;
@@ -208,6 +227,7 @@ export function PolicyLines({
   const patch = usePatchIntegration(i.id);
   const sync = useSyncIntegration(i.id);
   const [editing, setEditing] = useState<LineType>();
+  const { data: all } = useIntegrations();
   const rows = types.flatMap(
     (type) => i.policies.find((p) => p.type === type && (admin || may(i.id, type, "any"))) ?? [],
   );
@@ -218,9 +238,7 @@ export function PolicyLines({
   const mode = (type: LineType) => (files ? defaultPolicy(type).mode : accountMode(type));
   const failed = patch.isError || sync.isError || sync.data?.status === "error";
   const edited = rows.find((p) => p.type === editing);
-  const other = edited && OTHER[edited.type];
-  const otherTracks =
-    !!other && i.policies.some((x) => x.type === other && x.mode !== "off" && x.trackUsage);
+  const otherTracks = edited && otherTracking(all ?? [i], i.id, edited.type);
 
   return (
     <div

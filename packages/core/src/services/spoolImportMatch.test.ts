@@ -42,6 +42,24 @@ describe("matchSpoolRows", () => {
     ]);
   });
 
+  it("a spool another library brought in fits on material and colour, whatever it's called", () => {
+    const spools = [
+      spool("cloud", { brand: "Bambu Lab", name: "PLA Basic" }),
+      spool("other", { brand: "Bambu Lab", name: "PLA Basic", colorHex: "#ffffff" }),
+      spool("hand", { brand: "Bambu Lab", name: "PLA Basic", material: "PETG" }),
+    ];
+    const row = values({ brand: "Bambu", name: "Basic PLA" });
+    expect(matchSpoolRows([row], spools, new Set(["cloud", "other", "hand"]))).toEqual([
+      { candidates: ["cloud"], targetId: "cloud" },
+    ]);
+    // A spool entered by hand still needs the same filament.
+    expect(matchSpoolRows([row], spools)).toEqual([{ candidates: [], targetId: null }]);
+    // Without a colour, a material alone is no fit.
+    expect(matchSpoolRows([values({ colorHex: null })], spools, new Set(["cloud"]))).toEqual([
+      { candidates: [], targetId: null },
+    ]);
+  });
+
   it("doesn't give one spool to two file rows", () => {
     expect(matchSpoolRows([values(), values()], [spool("a")])).toEqual([
       { candidates: ["a"], targetId: null },

@@ -1,12 +1,16 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { spoolmanAdapter } from "@3d-maker-suite/adapter-spoolman";
 import { type FakeSpoolman, fakeSpoolman } from "@3d-maker-suite/adapter-spoolman/src/fake.ts";
-import type { PrinterSnapshot } from "@3d-maker-suite/core";
+import type { ImportPreview, PrinterSnapshot } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
 import { HOST_GRACE_MS } from "./integrations/spoolPush.ts";
+import { reviewer } from "./testReview.ts";
 
 // Spoolman two-way (6.0.0 Step 12): a print charges the Spoolman spool its app spool came from
 // exactly once, across retries, restarts, edits and re-imports (ADR-0015). Spoolman is the fake in
@@ -18,9 +22,13 @@ let state: MockState;
 let spoolman: FakeSpoolman;
 let mockId: string;
 
-const build = () => buildApp(db, false, "", { adapters: [mockAdapter(state), spoolmanAdapter()] });
+let dataDir: string;
+// Reviews keep their rows and take a backup in the data folder.
+const build = () =>
+  buildApp(db, false, dataDir, { adapters: [mockAdapter(state), spoolmanAdapter()] });
 
 beforeEach(async () => {
+  dataDir = mkdtempSync(join(tmpdir(), "spoolman-"));
   db = openDb(":memory:");
   state = { ...fixture(), prints: [], status: [] };
   spoolman = fakeSpoolman();
@@ -39,6 +47,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await app.close();
   vi.unstubAllGlobals();
+  rmSync(dataDir, { recursive: true, force: true });
 });
 
 const sync = (id: string, type: string) =>
@@ -86,6 +95,15 @@ const appSpool = (id?: string) =>
     .from(schema.spools)
     .where(eq(schema.spools.id, id ?? ""))
     .get();
+/** The library keys an app spool is linked by now. */
+const keysOf = (id?: string) =>
+  db
+    .select()
+    .from(schema.spoolSources)
+    .where(eq(schema.spoolSources.spoolId, id ?? ""))
+    .all()
+    .filter((l) => !l.unlinkedAt)
+    .map((l) => l.source);
 const usedIn = (id: number) => spoolman.spools.find((s) => s.id === id)?.used_weight;
 const patches = () => spoolman.writes().filter((w) => w.method === "PATCH");
 const policy = async (id: string, type: string) =>
@@ -99,7 +117,8 @@ async function imported() {
   const id = await addSpoolman();
   expect((await sync(id, "spools")).json()).toMatchObject({ created: 1 });
   const mine = db.select().from(schema.spools).get();
-  expect(mine).toMatchObject({ sourceSpool: `spoolman:${vendor.id}`, remainingGrams: 900 });
+  expect(mine).toMatchObject({ remainingGrams: 900 });
+  expect(keysOf(mine?.id)).toEqual([`spoolman:${vendor.id}`]);
   return { id, vendor, mine: mine?.id };
 }
 
@@ -277,9 +296,8 @@ describe("Spoolman two-way", () => {
     await print("j1", 10);
     await addSpoolman();
     // Linked by the review ("this is that spool"), here straight in the table.
-    db.update(schema.spools)
-      .set({ sourceSpool: `spoolman:${vendor.id}` })
-      .where(eq(schema.spools.id, mine))
+    db.insert(schema.spoolSources)
+      .values({ spoolId: mine, library: "spoolman", source: `spoolman:${vendor.id}` })
       .run();
     await app.spoolPush.run();
     expect(patches()).toEqual([]);
@@ -307,7 +325,7 @@ describe("Spoolman two-way", () => {
     const made = spoolman.spools[0];
     // As the app's spool is now, print included: nothing more to write for it.
     expect(made).toMatchObject({ initial_weight: 1000, used_weight: 10 });
-    expect(appSpool(mine)?.sourceSpool).toBe(`spoolman:${made?.id}`);
+    expect(keysOf(mine)).toEqual([`spoolman:${made?.id}`]);
     await app.spoolPush.run();
     expect(patches()).toEqual([]);
     expect(spoolman.spools).toHaveLength(1);
@@ -321,6 +339,147 @@ describe("Spoolman two-way", () => {
       payload: { adapterId: "spoolman", config: { host: "other:7912" } },
     });
     expect([again.statusCode, again.json().error.code]).toEqual([409, "integration_exists"]);
+  });
+});
+
+// 6.0.0 Step 12b: one physical spool in two libraries is one spool, linked to both. The mock
+// adapter's spools stand in for Bambu Cloud's filament manager.
+describe("a spool in two libraries", () => {
+  const cloudSpool = {
+    spoolId: "c1",
+    filament: { brand: "Bambu Lab", material: "PLA", name: "PLA Basic" },
+    colorHex: "#ff8800",
+    colorName: "Orange",
+    initialGrams: 1000,
+    remainingGrams: 900,
+    emptyWeightGrams: null,
+    status: "in_use" as const,
+  };
+  const reviewUrl = (id: string, waiting = false) =>
+    `/api/import/integration/${id}/spools${waiting ? "?waiting=1" : ""}`;
+  const openReview = async (id: string, waiting = false) =>
+    (await app.inject({ method: "POST", url: reviewUrl(id, waiting) })).json() as ImportPreview;
+  const appSpools = () => db.select().from(schema.spools).all();
+
+  /** Imported from "Bambu Cloud"; Spoolman has the same roll under its own names. */
+  async function inBoth() {
+    state.spools = [cloudSpool];
+    expect((await sync(mockId, "spools")).json()).toMatchObject({ created: 1 });
+    const mine = appSpools()[0]?.id;
+    const vendor = spoolman.addSpool({
+      vendor: "Bambu",
+      name: "Basic PLA",
+      colorHex: "FF8800",
+      used: 100,
+    });
+    const id = await addSpoolman();
+    return { id, vendor, mine };
+  }
+  /** `inBoth`, with the Spoolman spool confirmed as that spool in its review. */
+  async function linked() {
+    const both = await inBoth();
+    expect((await sync(both.id, "spools")).json()).toMatchObject({ created: 0, updated: 0 });
+    const p = await openReview(both.id, true);
+    expect(p.rows).toMatchObject([{ link: true, action: "update", targetId: both.mine }]);
+    expect((await reviewer(() => app).confirm(p)).json()).toMatchObject({ updated: 1 });
+    expect(keysOf(both.mine).sort()).toEqual(["mock:c1", `spoolman:${both.vendor.id}`]);
+    return both;
+  }
+
+  it("matches it by material and colour, and waits for you to link it", async () => {
+    const { id, mine } = await inBoth();
+    expect((await sync(id, "spools")).json()).toMatchObject({ created: 0, updated: 0 });
+    expect(await policy(id, "spools")).toMatchObject({ pending: 1 });
+    expect(appSpools()).toHaveLength(1);
+    // Your filament stays as Bambu Cloud named it.
+    expect(appSpools()[0]).toMatchObject({ id: mine, name: "PLA Basic" });
+  });
+
+  it("isn't added to Spoolman while its link waits", async () => {
+    const { id } = await inBoth();
+    await sync(id, "spools");
+    await print("j1", 10);
+    await app.spoolPush.run();
+    expect(spoolman.spools).toHaveLength(1);
+    expect(patches()).toEqual([]);
+  });
+
+  it("once linked, each print is written to Spoolman exactly once", async () => {
+    const { vendor, mine } = await linked();
+    await print("j1", 5);
+    expect(appSpool(mine)?.remainingGrams).toBe(895);
+    await app.spoolPush.run();
+    await app.spoolPush.run();
+    await app.close();
+    app = await build();
+    await app.spoolPush.run();
+    expect(usedIn(vendor.id)).toBe(105);
+    expect(patches()).toHaveLength(1);
+  });
+
+  it("a re-import from either library makes no second spool", async () => {
+    const { id, mine } = await linked();
+    expect((await sync(mockId, "spools")).json()).toMatchObject({ created: 0 });
+    expect((await sync(id, "spools")).json()).toMatchObject({ created: 0 });
+    expect((await openReview(id, true)).rows).toEqual([]);
+    expect(appSpools().map((s) => s.id)).toEqual([mine]);
+  });
+
+  it("the other way round: from Spoolman first, then Bambu Cloud", async () => {
+    const { mine } = await imported();
+    state.spools = [cloudSpool];
+    expect((await sync(mockId, "spools")).json()).toMatchObject({ created: 0 });
+    const p = await openReview(mockId, true);
+    expect(p.rows).toMatchObject([{ link: true, targetId: mine }]);
+    await reviewer(() => app).confirm(p);
+    expect(keysOf(mine)).toHaveLength(2);
+    expect(appSpools()).toHaveLength(1);
+  });
+
+  it("unlinking Spoolman keeps Bambu Cloud, and Spoolman doesn't take it back", async () => {
+    const { id, vendor, mine } = await linked();
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/filament/spools/${mine}/sources/spoolman`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().sources).toMatchObject([{ library: "mock" }]);
+    expect(keysOf(mine)).toEqual(["mock:c1"]);
+    // Its Spoolman spool is no new spool and isn't linked again.
+    expect((await sync(id, "spools")).json()).toMatchObject({ created: 0, updated: 0 });
+    expect((await openReview(id)).rows).toMatchObject([
+      { deleted: true, action: "skip", candidates: [] },
+    ]);
+    // Nor is it made in Spoolman again.
+    await print("j1", 10);
+    await app.spoolPush.run();
+    expect(spoolman.spools).toHaveLength(1);
+    expect(usedIn(vendor.id)).toBe(100);
+    // Unlinking what isn't linked is a 404.
+    expect(
+      (
+        await app.inject({
+          method: "DELETE",
+          url: `/api/filament/spools/${mine}/sources/spoolman`,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
+  it("deleting the spool remembers both libraries' spools", async () => {
+    const { vendor, mine } = await linked();
+    expect(
+      (await app.inject({ method: "DELETE", url: `/api/filament/spools/${mine}` })).statusCode,
+    ).toBe(204);
+    expect(
+      db
+        .select()
+        .from(schema.deletedSources)
+        .all()
+        .map((d) => d.source)
+        .sort(),
+    ).toEqual(["mock:c1", `spoolman:${vendor.id}`]);
+    expect(db.select().from(schema.spoolSources).all()).toEqual([]);
   });
 });
 

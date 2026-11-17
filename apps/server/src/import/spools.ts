@@ -6,7 +6,7 @@ import {
   type SpoolStatus,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { eq, isNotNull, isNull } from "drizzle-orm";
 import {
   filamentBrandIdFor,
   filamentMaterialIdFor,
@@ -14,6 +14,7 @@ import {
   spoolName,
 } from "../lib/catalog.ts";
 import { assertNumberFree, freeNumber, numberCell } from "../lib/numbers.ts";
+import { heldBy, linkSpool, spoolsByKey } from "../lib/spoolSources.ts";
 import { createSpool, setRemaining } from "../lib/spools.ts";
 import type { WriteRow } from "./review.ts";
 
@@ -69,13 +70,10 @@ const spoolTargets = (db: Db, archived = false): ImportTarget[] =>
   db
     .select({ spool: spoolColumns, label: spoolName })
     .from(spools)
-    .where(
-      archived
-        ? and(isNotNull(spools.archivedAt), isNotNull(spools.sourceSpool))
-        : isNull(spools.archivedAt),
-    )
+    .where(archived ? isNotNull(spools.archivedAt) : isNull(spools.archivedAt))
     .orderBy(spools.number)
     .all()
+    .filter(({ spool: s }) => !archived || s.sources.length > 0)
     .map(({ spool: s, label }) => ({
       id: s.id,
       label,
@@ -97,22 +95,6 @@ const spoolTargets = (db: Db, archived = false): ImportTarget[] =>
         status: s.status,
       },
     }));
-
-/** Spools imported from a vendor, by `sourceSpool`: the active ones, or the archived ones. */
-const spoolsBySource = (db: Db, archived = false) =>
-  new Map(
-    db
-      .select({ source: spools.sourceSpool, id: spools.id })
-      .from(spools)
-      .where(
-        and(
-          isNotNull(spools.sourceSpool),
-          archived ? isNotNull(spools.archivedAt) : isNull(spools.archivedAt),
-        ),
-      )
-      .all()
-      .map((r) => [r.source ?? "", r.id] as const),
-  );
 
 /** Spools from a file or an integration: the brand and material are found by name or created. */
 export const spoolImport = {
@@ -139,30 +121,26 @@ export const spoolImport = {
     };
   },
 
-  bySource: (db: Db) => spoolsBySource(db),
+  /** Every link of every spool: one spool can be in several libraries. */
+  bySource: (db: Db) => spoolsByKey(db),
   /** A vendor's spool you archived comes back by its source key. */
   archived(db: Db) {
-    const bySource = spoolsBySource(db, true);
+    const bySource = spoolsByKey(db, true);
     return {
       targets: spoolTargets(db, true),
       of: (source: string | undefined) => (source && bySource.get(source)) || null,
     };
   },
+  // Two spools of one library are two rolls; a spool another library brought in can be this one.
   // A change to a spool you have follows the sync type's `merge` (default: you review it).
-  exclusive: true,
+  exclusive: heldBy,
 
   create(db: Db, v: ImportValues, row: WriteRow) {
     // No weight = not known yet (a synced spool you weigh later).
     const initialGrams = num(v.initialGrams);
-    // Imported as new: the vendor's spool is this one now, not the one linked before.
-    if (row.source)
-      db.update(spools)
-        .set({ sourceSpool: null, sourceLinkedAt: null })
-        .where(eq(spools.sourceSpool, row.source))
-        .run();
     createSpool(db, {
       ...filament(db, v),
-      sourceSpool: row.source,
+      source: row.source,
       // A number another spool has ("import as new" of an exported row) gets the next free one.
       number: freeNumber(db, spools, numberCell(v.number)),
       colorHex: str(v.colorHex) ?? undefined,
@@ -192,12 +170,9 @@ export const spoolImport = {
     if (!row.source && [brand, material, name].some((n) => n !== undefined))
       Object.assign(set, filament(db, { ...target.values, ...patch }));
     if (Object.keys(set).length) db.update(spools).set(set).where(eq(spools.id, target.id)).run();
-    // A spool entered by hand is linked to the vendor's, so the next run knows it.
-    if (row.source)
-      db.update(spools)
-        .set({ sourceSpool: row.source, sourceLinkedAt: new Date().toISOString() })
-        .where(and(eq(spools.id, target.id), isNull(spools.sourceSpool)))
-        .run();
+    // A spool entered by hand, or another library brought in, is linked to this library's spool,
+    // so the next run knows it.
+    if (row.source) linkSpool(db, target.id, row.source);
     // The remaining weight only ever changes through the ledger.
     if (typeof remainingGrams === "number")
       setRemaining(db, target.id, "correction", remainingGrams);
