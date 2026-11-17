@@ -2,6 +2,7 @@ import { monitoringOf, type PrinterStatus } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Write } from "../../components/Write.tsx";
+import { formatDateTime, formatRelative } from "../../lib/format.ts";
 import { usePrinterConnection } from "../../lib/printers.ts";
 import { MonitoringBadge, useMonitoringHint } from "./MonitoringBadge.tsx";
 import { Info, linkButton } from "./PrinterDetailPage.tsx";
@@ -47,9 +48,19 @@ export function ConnectionSection({
       {sources.map((s) => {
         const reads = live.filter((l) => l.integrationId === s.integrationId);
         // A paused integration isn't read, whatever it said last.
-        const monitoring = s.enabled ? monitoringOf(printerId, reads) : ({ kind: "none" } as const);
+        // A source with no live status isn't "not monitored": it syncs.
+        const monitoring = !s.enabled
+          ? ({ kind: "none" } as const)
+          : s.live
+            ? monitoringOf(printerId, reads)
+            : ({ kind: "synced" } as const);
         const via = reads.find((l) => l.via)?.via;
-        const note = hint(monitoring);
+        const note = hint(
+          monitoring,
+          s.liveAdapterId
+            ? t(`integrations:adapters.${s.liveAdapterId}.name`, { defaultValue: s.liveAdapterId })
+            : undefined,
+        );
         return (
           <div key={s.integrationId} className="grid gap-3 rounded-md border border-border p-3">
             <dl className="grid gap-3 sm:grid-cols-2">
@@ -86,7 +97,18 @@ export function ConnectionSection({
                   : t("printers:connection.thisServer")}
               </Info>
               <Info label={t("printers:connection.monitoring")}>
-                <MonitoringBadge monitoring={monitoring} />
+                <span className="flex flex-wrap items-center gap-x-2">
+                  <MonitoringBadge monitoring={monitoring} />
+                  {monitoring.kind === "synced" && s.lastSyncAt && (
+                    <time
+                      className="text-muted"
+                      dateTime={s.lastSyncAt}
+                      title={formatDateTime(s.lastSyncAt)}
+                    >
+                      {t("printers:connection.lastSync", { date: formatRelative(s.lastSyncAt) })}
+                    </time>
+                  )}
+                </span>
               </Info>
             </dl>
             {note && <p className="text-muted">{note}</p>}

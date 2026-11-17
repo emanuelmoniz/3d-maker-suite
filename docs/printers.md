@@ -20,11 +20,12 @@ A hub on another network, such as a VPS, reaches these printers through the conn
 
 ## Connection and monitoring
 
-The **Printers** list has a **Monitoring** column that says whether the app can see each printer right now. It updates by itself, and it can be sorted and filtered (Not monitored, Idle, Printing, Paused, Offline, Machine offline, Source error). Rows never move by themselves: while the list is sorted or filtered by Monitoring and a shown printer's state changes, a hint says so and **Refresh the list** reloads it. The **State** column (working, in repair…) is separate and stays as you set it.
+The **Printers** list has a **Monitoring** column that says whether the app can see each printer right now. It updates by itself, and it can be sorted and filtered (Not monitored, Synced only, Idle, Printing, Paused, Offline, Machine offline, Source error). Rows never move by themselves: while the list is sorted or filtered by Monitoring and a shown printer's state changes, a hint says so and **Refresh the list** reloads it. The **State** column (working, in repair…) is separate and stays as you set it.
 
 | Monitoring | Meaning | What to do |
 | --- | --- | --- |
 | **Not monitored** | No source reads the printer, or its integration is paused. | Add the printer's integration, or resume it in **Settings → Integrations**. |
+| **Synced only** | Every enabled source only syncs the printer and its prints on its schedule and gives no live status (Bambu Cloud alone). On the printer's page the source shows **Synced** with its last sync. | Nothing is wrong. For live status, add a source on your network, for a Bambu printer **Bambu LAN**. |
 | **Idle**, **Printing 45 %**, **Paused**… | The printer answers; this is what it is doing. | Nothing. |
 | **Checking…** | The source has just started and hasn't read the printer yet; it clears in a few seconds. | Nothing. |
 | **Offline** | The printer doesn't answer, or its source fails for another reason (not a wrong key). | Check that it is on, on the network, and that the address is right. |

@@ -28,16 +28,20 @@ const DOT: Record<PrinterState, string> = {
 /** What to do about a state that needs it (the printer page). */
 export function useMonitoringHint() {
   const { t } = useTranslation();
-  return (m: Monitoring) =>
+  return (m: Monitoring, liveSource?: string) =>
     m.kind === "none"
       ? t("printers:monitoring.hints.none")
-      : m.kind === "offline"
-        ? t("printers:monitoring.hints.offline")
-        : m.kind === "machine_offline"
-          ? t("printers:monitoring.hints.machineOffline", { machine: m.machine })
-          : m.kind === "error"
-            ? t("printers:monitoring.hints.error")
-            : null;
+      : m.kind === "synced"
+        ? liveSource
+          ? t("printers:monitoring.hints.syncedWithLive", { source: liveSource })
+          : t("printers:monitoring.hints.synced")
+        : m.kind === "offline"
+          ? t("printers:monitoring.hints.offline")
+          : m.kind === "machine_offline"
+            ? t("printers:monitoring.hints.machineOffline", { machine: m.machine })
+            : m.kind === "error"
+              ? t("printers:monitoring.hints.error")
+              : null;
 }
 
 /** A printer's connection as the list and the printer page say it: a dot and a few words. */
@@ -46,24 +50,31 @@ export function MonitoringBadge({ monitoring: m }: { monitoring: Monitoring }) {
   const [dot, text] =
     m.kind === "none"
       ? ["bg-border", t("printers:monitoring.none")]
-      : m.kind === "checking"
-        ? ["bg-border", t("printers:monitoring.checking")]
-        : m.kind === "offline"
-          ? ["bg-border", t("printers:monitoring.offline")]
-          : m.kind === "machine_offline"
-            ? ["bg-warn", t("printers:monitoring.machineOffline")]
-            : m.kind === "error"
-              ? ["bg-bad", t("printers:monitoring.error")]
-              : m.progress != null
-                ? [
-                    DOT[m.state],
-                    t("printers:monitoring.printing", {
-                      percent: formatNumber(m.progress / 100, { style: "percent" }),
-                    }),
-                  ]
-                : [DOT[m.state], t(STATES[m.state])];
+      : m.kind === "synced"
+        ? ["bg-border", t("printers:monitoring.synced")]
+        : m.kind === "checking"
+          ? ["bg-border", t("printers:monitoring.checking")]
+          : m.kind === "offline"
+            ? ["bg-border", t("printers:monitoring.offline")]
+            : m.kind === "machine_offline"
+              ? ["bg-warn", t("printers:monitoring.machineOffline")]
+              : m.kind === "error"
+                ? ["bg-bad", t("printers:monitoring.error")]
+                : m.progress != null
+                  ? [
+                      DOT[m.state],
+                      t("printers:monitoring.printing", {
+                        percent: formatNumber(m.progress / 100, { style: "percent" }),
+                      }),
+                    ]
+                  : [DOT[m.state], t(STATES[m.state])];
   return (
-    <span className={cx("inline-flex items-center gap-1.5", m.kind === "none" && "text-muted")}>
+    <span
+      className={cx(
+        "inline-flex items-center gap-1.5",
+        (m.kind === "none" || m.kind === "synced") && "text-muted",
+      )}
+    >
       <span className={cx("size-2 shrink-0 rounded-full", dot)} aria-hidden />
       {text}
     </span>

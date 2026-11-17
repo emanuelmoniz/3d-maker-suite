@@ -94,6 +94,21 @@ describe("monitoringOf", () => {
   });
 });
 
+describe("monitoringOf, sync-only sources", () => {
+  it("says synced, not none, when the enabled sources only sync", () => {
+    expect(monitoringOf("p1", [], true)).toEqual({ kind: "synced" });
+    expect(monitoringOf("p1", [], false)).toEqual({ kind: "none" });
+    expect(monitoringKey({ kind: "synced" })).toBe("synced");
+  });
+
+  it("lets a live reading win over synced", () => {
+    expect(monitoringOf("p1", [status("a", "idle")], true)).toEqual({
+      kind: "online",
+      state: "idle",
+    });
+  });
+});
+
 describe("monitoringKey and monitoringRank", () => {
   it("names a state as the filter does", () => {
     expect(monitoringKey({ kind: "none" })).toBe("none");
@@ -104,7 +119,7 @@ describe("monitoringKey and monitoringRank", () => {
 
   it("ranks the filter values in order, any other state last", () => {
     const ranks = MONITORING_FILTERS.map(monitoringRank);
-    expect(ranks).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(ranks).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
     expect(monitoringRank("finished")).toBe(MONITORING_FILTERS.length);
     expect(monitoringRank("checking")).toBe(MONITORING_FILTERS.length);
   });

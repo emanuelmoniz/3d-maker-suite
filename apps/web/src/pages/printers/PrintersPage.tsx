@@ -37,6 +37,7 @@ function useMonitoringLabel() {
   const { t } = useTranslation();
   const labels: Record<(typeof MONITORING_FILTERS)[number], string> = {
     none: t("printers:monitoring.none"),
+    synced: t("printers:monitoring.synced"),
     idle: t("printers:status.states.idle"),
     printing: t("printers:status.states.printing"),
     paused: t("printers:status.states.paused"),
@@ -61,13 +62,13 @@ export function PrintersPage() {
   const queryClient = useQueryClient();
   // Sorted or filtered by Monitoring, rows never move by themselves: a change shows a hint instead.
   const byMonitoring = query.sort?.replace(/^-/, "") === "monitoring" || !!query.monitoring;
-  const keysOf = (ids: string[]) => ids.map((id) => monitoringKey(monitoringOf(id, live))).join();
+  const keysOf = (rows: PrinterRow[]) =>
+    rows.map((p) => monitoringKey(monitoringOf(p.id, live, p.syncOnly))).join();
   const [shown, setShown] = useState("");
   useEffect(() => {
-    if (data) setShown(keysOf(data.items.map((p) => p.id)));
+    if (data) setShown(keysOf(data.items));
   }, [data]);
-  const changed =
-    byMonitoring && !!data && !!shown && keysOf(data.items.map((p) => p.id)) !== shown;
+  const changed = byMonitoring && !!data && !!shown && keysOf(data.items) !== shown;
 
   const add = (
     <span className="flex flex-wrap gap-2">
@@ -156,7 +157,7 @@ export function PrintersPage() {
               {
                 id: "monitoring",
                 header: t("printers:list.columns.monitoring"),
-                cell: (p) => <MonitoringBadge monitoring={monitoringOf(p.id, live)} />,
+                cell: (p) => <MonitoringBadge monitoring={monitoringOf(p.id, live, p.syncOnly)} />,
                 sort: "monitoring",
                 filter: "monitoring",
                 filterOptions: MONITORING_FILTERS.map((v) => ({

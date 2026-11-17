@@ -53,6 +53,41 @@ export function printersOfSource(db: Db, integrationId: string): Map<string, str
   return out;
 }
 
+/**
+ * The printers whose enabled sources all give no live status (Bambu Cloud alone): "Synced only" in
+ * Monitoring, not "Not monitored". A printer with no enabled source, or a paused one only, isn't here.
+ */
+export function syncOnlyPrinters(
+  db: Db,
+  adapters: Pick<IntegrationAdapter, "id" | "capabilities">[],
+): Set<string> {
+  const live = new Set(
+    adapters.filter((a) => a.capabilities.includes("printerStatus")).map((a) => a.id),
+  );
+  const enabled = new Map<string, boolean[]>();
+  const add = (printerId: string | null, adapterId: string, on: boolean) => {
+    if (printerId && on)
+      enabled.set(printerId, [...(enabled.get(printerId) ?? []), live.has(adapterId)]);
+  };
+  for (const r of db
+    .select({ id: printers.id, adapterId: integrations.adapterId, on: integrations.enabled })
+    .from(printers)
+    .innerJoin(integrations, eq(integrations.id, printers.integrationId))
+    .all())
+    add(r.id, r.adapterId, r.on);
+  for (const r of db
+    .select({
+      id: printerSources.printerId,
+      adapterId: integrations.adapterId,
+      on: integrations.enabled,
+    })
+    .from(printerSources)
+    .innerJoin(integrations, eq(integrations.id, printerSources.integrationId))
+    .all())
+    add(r.id, r.adapterId, r.on);
+  return new Set([...enabled].filter(([, lives]) => !lives.includes(true)).map(([id]) => id));
+}
+
 /** A printer's sources: the one that brought it in first, then the ones linked to it. */
 export function sourcesOfPrinter(db: Db, printerId: string) {
   const own = db

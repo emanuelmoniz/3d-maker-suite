@@ -3,6 +3,7 @@ import {
   archivedFilter,
   dateRangeQuery,
   type IntegrationAdapter,
+  isNetworkPrinter,
   listQuery,
   monitoringKey,
   monitoringOf,
@@ -32,7 +33,7 @@ import { and, eq, getTableColumns, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { sourcesOfPrinter } from "../integrations/printerSources.ts";
+import { sourcesOfPrinter, syncOnlyPrinters } from "../integrations/printerSources.ts";
 import { readSecrets } from "../integrations/secrets.ts";
 import {
   alertTasks,
@@ -158,9 +159,10 @@ export const printersRoutes =
         // The state is in memory, the list in the database: the ids are worked out per request, so
         // the filter is an IN and the sort a CASE, and paging stays in SQL.
         const live = app.printerStatus.all();
+        const syncOnly = syncOnlyPrinters(db, adapters);
         const keyOf = new Map<string, string>();
         for (const { id } of db.select({ id: printers.id }).from(printers).all())
-          keyOf.set(id, monitoringKey(monitoringOf(id, live)));
+          keyOf.set(id, monitoringKey(monitoringOf(id, live, syncOnly.has(id))));
         const wanted = req.query.monitoring;
         const matching =
           wanted && [...keyOf].filter(([, k]) => wanted.includes(k)).map(([id]) => id);
@@ -175,7 +177,7 @@ export const printersRoutes =
               sql` `,
             )} ELSE 0 END`
           : sql`0`;
-        return listPage(db, printers, req.query, {
+        const page = listPage(db, printers, req.query, {
           select: { ...getTableColumns(printers), ...usage },
           sort: {
             // The name starts with the number: sorting by it sorts the name as shown (2 before 10).
@@ -204,7 +206,8 @@ export const printersRoutes =
             archivedWhere(printers.archivedAt, req.query.archived),
             matching && inArray(printers.id, matching),
           ],
-        }) as Page<PrinterRow>;
+        }) as Page<Omit<PrinterRow, "syncOnly">>;
+        return { ...page, items: page.items.map((p) => ({ ...p, syncOnly: syncOnly.has(p.id) })) };
       },
     );
 
@@ -242,7 +245,10 @@ export const printersRoutes =
       "/:id/connection",
       { schema: { params, response: { 200: printerConnectionSchema, ...notFound } } },
       async (req) => {
-        get(req.params.id);
+        const printer = get(req.params.id);
+        const liveReader = printer.serial?.trim()
+          ? adapters.find((a) => isNetworkPrinter(a) && readsPrinterSerial(a))
+          : undefined;
         const admin = !req.user || req.user.rights.permissions["integrations.manage"];
         const sources = sourcesOfPrinter(db, req.params.id).flatMap((s) => {
           const row = db
@@ -259,6 +265,9 @@ export const printersRoutes =
                 .where(eq(devices.id, row.deviceId))
                 .get()
             : undefined;
+          const live =
+            adapters.find((a) => a.id === row.adapterId)?.capabilities.includes("printerStatus") ??
+            false;
           return [
             {
               integrationId: row.id,
@@ -266,6 +275,9 @@ export const printersRoutes =
               enabled: row.enabled,
               deviceId: row.deviceId,
               deviceName: device?.name ?? null,
+              live,
+              lastSyncAt: row.lastSyncAt,
+              liveAdapterId: live ? null : (liveReader?.id ?? null),
               ...(admin && {
                 host: typeof host === "string" && host.trim() ? host.trim() : null,
                 secrets: row.secrets && key ? Object.keys(readSecrets(db, key, row.id)) : [],

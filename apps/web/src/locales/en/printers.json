@@ -257,6 +257,7 @@
   },
   "monitoring": {
     "none": "Not monitored",
+    "synced": "Synced only",
     "checking": "Checking…",
     "printing": "Printing {{percent}}",
     "offline": "Offline",
@@ -266,6 +267,8 @@
     "refresh": "Refresh the list",
     "hints": {
       "none": "No source reads this printer, or its integration is paused. Add or resume one in Integrations.",
+      "synced": "Syncs this printer and its prints on its schedule; it gives no live status.",
+      "syncedWithLive": "Syncs this printer and its prints on its schedule; it gives no live status. For live status, add a source on your network: {{source}}.",
       "offline": "It doesn't answer: check that it is on, on the network, and that the address is right.",
       "machineOffline": "The connector on {{machine}} is offline. Start it there; the printer is read again as soon as it is back.",
       "error": "The source is refused or signed out: the access code or key is wrong or has changed. Edit it in Integrations."
@@ -293,6 +296,7 @@
     "machineUnknown": "{{machine}}",
     "paused": "Paused",
     "monitoring": "Monitoring",
+    "lastSync": "Last sync {{date}}",
     "edit": "Edit in Integrations",
     "loadError": "The connection couldn't be loaded."
   },

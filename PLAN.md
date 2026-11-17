@@ -3657,7 +3657,7 @@ Do Step 2 of the 6.1.0 plan in PLAN.md.
 Do Step 3 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3b - Synced sources on the printer page: not "not monitored"
+### [x] Step 3b - Synced sources on the printer page: not "not monitored"
 **Model:** Sonnet · **Effort:** Low
 **Why:** a printer from Bambu Cloud shows "No source reads this printer, or its integration is paused. Add or resume one in Integrations." in its Connection block. Bambu Cloud has no live status (`printerStatus`); it syncs printers and prints on its schedule, so the hint for a printer with no source at all is wrong there and suggests something is missing.
 **Scope:**

@@ -4,6 +4,7 @@ import type { PrinterStatus } from "../schemas/integrations.ts";
  * What the Printers list says of a printer's live connection (ADR-0015). Display only: the status
  * is in memory, the list is queried from the database.
  *  - `none`: no source reads it, or its integration is paused;
+ *  - `synced`: its enabled sources only sync it (Bambu Cloud) and give no live status;
  *  - `online`: it answers, with what it is doing (`state`, and `progress` in percent while it prints);
  *  - `offline`: it doesn't answer;
  *  - `machine_offline`: it is reached through a machine whose connector is offline;
@@ -12,6 +13,7 @@ import type { PrinterStatus } from "../schemas/integrations.ts";
  */
 export type Monitoring =
   | { kind: "none" }
+  | { kind: "synced" }
   | { kind: "online"; state: PrinterStatus["snapshot"]["state"]; progress?: number }
   | { kind: "offline" }
   | { kind: "machine_offline"; machine: string }
@@ -24,6 +26,7 @@ export type Monitoring =
  */
 export const MONITORING_FILTERS = [
   "none",
+  "synced",
   "idle",
   "printing",
   "paused",
@@ -73,10 +76,15 @@ export function monitoringOfSource(s: PrinterStatus): Monitoring {
 
 /**
  * What to show for a printer from the statuses of all its sources (the ones of other printers are
- * ignored). A printer with several sources (Bambu Cloud + LAN) shows the best one.
+ * ignored). A printer with several sources (Bambu Cloud + LAN) shows the best one. `syncOnly`: its
+ * enabled sources give no live status, so with nothing read it is `synced`, not `none`.
  */
-export function monitoringOf(printerId: string, all: readonly PrinterStatus[]): Monitoring {
-  let best: Monitoring = { kind: "none" };
+export function monitoringOf(
+  printerId: string,
+  all: readonly PrinterStatus[],
+  syncOnly = false,
+): Monitoring {
+  let best: Monitoring = syncOnly ? { kind: "synced" } : { kind: "none" };
   let top = -1;
   for (const s of all) {
     if (s.printerId !== printerId) continue;

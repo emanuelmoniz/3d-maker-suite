@@ -90,6 +90,8 @@ export const printerRowSchema = printerSchema.extend({
   runtimeSec: z.number().int().nonnegative(),
   prints: z.number().int().nonnegative(),
   successRate: z.number().int().min(0).max(100).nullable(),
+  /** Its enabled sources only sync it, none gives a live status (Monitoring: "Synced only"). */
+  syncOnly: z.boolean(),
 });
 
 export const printerSortFields = [

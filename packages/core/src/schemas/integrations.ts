@@ -207,6 +207,14 @@ export const printerConnectionSchema = z.object({
       /** Reached through this machine's connector; null = this server reaches it. */
       deviceId: id.nullable(),
       deviceName: z.string().nullable(),
+      /** Gives a live status; false = it only syncs (Bambu Cloud), shown as Synced. */
+      live: z.boolean(),
+      lastSyncAt: isoDate.nullable(),
+      /**
+       * A sync-only source: an adapter that reads this same printer live (it names its printer by
+       * serial, Bambu LAN), for the hint; null = none or not needed.
+       */
+      liveAdapterId: z.string().nullable(),
       host: z.string().nullable().optional(),
       secrets: z.array(z.string()).optional(),
     }),
