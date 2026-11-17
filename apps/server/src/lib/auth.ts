@@ -151,9 +151,10 @@ const RULES: [RegExp, string, Need][] = [
   [p("stats"), "R", at("stats", "read")],
   // Managed slicer installs download half a gigabyte and ask GitHub (ADR-0013).
   [/^\/api\/integrations\/[^/]+\/slicer(\/|$)/, "*", on("integrations.manage")],
-  // Sync now, and an integration's review and import: narrowed per task by `mayTask` in the route.
+  // Sync now, a page's Sync, and an integration's review and import: narrowed per task by `mayTask`
+  // in the route.
   [
-    /^\/api\/integrations\/[^/]+\/sync$/,
+    /^\/api\/integrations(\/[^/]+)?\/sync$/,
     "POST",
     either(on("integrations.sync"), on("integrations.manage")),
   ],

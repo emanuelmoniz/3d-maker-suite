@@ -27,6 +27,7 @@ import {
   type PrinterChoice,
   pageOf,
   type SyncRun,
+  type SyncType,
   slicerCheckSchema,
   slicerInstallSchema,
   slicerInstallStatusSchema,
@@ -39,6 +40,8 @@ import {
   syncRunSchema,
   syncRunSortFields,
   syncTypes,
+  syncTypesRequestSchema,
+  syncTypesResultSchema,
   testResultSchema,
   tryOut,
   workerConfigSchema,
@@ -857,6 +860,24 @@ export const integrationsRoutes =
       async (req) => {
         mayTask(db, req.user, req.params.id, req.body.type, "editorSync");
         return syncer.run(req.params.id, "manual", req.body);
+      },
+    );
+
+    // A page's Sync (Printers, Filament, Prints, Catalog): its types in every Auto source the
+    // caller may sync. Others are left out, not refused: the button only offers those.
+    app.post(
+      "/sync",
+      { schema: { body: syncTypesRequestSchema, response: { 200: syncTypesResultSchema } } },
+      async (req) => {
+        const may = (id: string, type: SyncType) => {
+          try {
+            mayTask(db, req.user, id, type, "editorSync");
+            return true;
+          } catch {
+            return false;
+          }
+        };
+        return { results: await syncer.runTypes(req.body.types, may) };
       },
     );
 

@@ -42,6 +42,7 @@ import {
   spoolFilament,
   type TestResult,
   type TrackedPrint,
+  type TypeSyncResult,
   USER_PRESET_ENTITY,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -591,6 +592,65 @@ export function createSyncer(
       // The vendor is failing: leave this integration's other types for a later tick.
       if (done?.errorCode) break;
     }
+  }
+
+  /**
+   * A page's Sync: `types` now, due or not, in every working integration (oldest first) where the
+   * type is set up, on `auto`, and `may` lets the caller sync it; types in adapter order (catalog:
+   * brands before models before presets). A failed run skips the rest of its source's types, as
+   * the scheduler does, but never the other sources.
+   */
+  async function runTypes(
+    types: SyncType[],
+    may: (integrationId: string, type: SyncType) => boolean,
+  ): Promise<TypeSyncResult[]> {
+    const wanted = new Set(types);
+    const rows = db.select().from(integrations).orderBy(asc(integrations.createdAt)).all();
+    const results: TypeSyncResult[] = [];
+    for (const row of rows) {
+      const { id } = row;
+      if (
+        !working(
+          row,
+          adapters.find((a) => a.id === row.adapterId),
+        )
+      )
+        continue;
+      const due = activeCapabilities(db, adapters, row).filter(
+        (t): t is SyncType =>
+          !isAction(t) &&
+          wanted.has(t as SyncType) &&
+          policyOf(db, id, t).mode === "auto" &&
+          may(id, t as SyncType),
+      );
+      let failed: IntegrationErrorCode | null = null;
+      for (const type of due) {
+        const base = { integrationId: id, type, updated: 0, pending: 0 };
+        if (failed) {
+          results.push({ ...base, status: "skipped", code: failed });
+          continue;
+        }
+        if (running.has(id)) {
+          results.push({ ...base, status: "skipped", code: "sync_running" });
+          continue;
+        }
+        try {
+          const r = await run(id, "manual", { type });
+          failed = r.errorCode;
+          results.push(
+            r.errorCode
+              ? { ...base, status: "error", code: r.errorCode }
+              : { ...base, status: "ok", updated: r.created + r.updated, pending: r.pending },
+          );
+        } catch (e) {
+          // Switched off or removed meanwhile: nothing ran.
+          if (!(e instanceof HttpError)) throw e;
+          const code = e.code === "sync_running" ? "sync_running" : undefined;
+          results.push({ ...base, status: "skipped", ...(code && { code }) });
+        }
+      }
+    }
+    return results;
   }
 
   /** Runs what is due of one working integration now (a connector came back). */
@@ -1323,6 +1383,7 @@ export function createSyncer(
 
   return {
     run,
+    runTypes,
     runAll,
     runDue,
     /** How a source reached through a connector is read (ADR-0015); the app sets it once. */

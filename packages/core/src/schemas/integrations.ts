@@ -467,6 +467,28 @@ export const syncRequestSchema = z
   .refine((r) => !(r.from || r.to) || r.type === "prints", "A range needs type=prints")
   .refine((r) => !(r.from && r.to) || r.from <= r.to, "from must not be after to");
 
+/** A page's Sync: these types, now, in every source on `auto` for them that the caller may sync. */
+export const syncTypesRequestSchema = z.object({
+  types: z.array(z.enum(SYNC_TYPES)).min(1),
+});
+
+export const TYPE_SYNC_STATUSES = ["ok", "error", "skipped"] as const;
+
+/**
+ * One source and type of a page's Sync. `code`: the run's error; on `skipped`, `sync_running` or
+ * the error an earlier type of the same source hit. `updated`: rows written (new ones too).
+ */
+export const typeSyncResultSchema = z.object({
+  integrationId: id,
+  type: z.enum(SYNC_TYPES),
+  status: z.enum(TYPE_SYNC_STATUSES),
+  code: z.enum([...INTEGRATION_ERROR_CODES, "sync_running"]).optional(),
+  updated: z.number().int().nonnegative(),
+  pending: z.number().int().nonnegative(),
+});
+
+export const syncTypesResultSchema = z.object({ results: z.array(typeSyncResultSchema) });
+
 export const syncRunSortFields = ["startedAt"] as const;
 export const syncRunFilters = {
   startedAt: { kind: "date" },
@@ -563,6 +585,8 @@ export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type SyncRun = z.infer<typeof syncRunSchema>;
 export type SyncLogEntry = z.infer<typeof syncLogEntrySchema>;
 export type SyncResult = z.infer<typeof syncResultSchema>;
+export type SyncTypesRequest = z.infer<typeof syncTypesRequestSchema>;
+export type TypeSyncResult = z.infer<typeof typeSyncResultSchema>;
 export type SyncPolicy = z.infer<typeof syncPolicySchema>;
 export type TestResult = z.infer<typeof testResultSchema>;
 export type SourceTestInput = z.input<typeof sourceTestInputSchema>;

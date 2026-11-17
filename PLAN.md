@@ -3685,7 +3685,7 @@ Do Step 4 of the 6.1.0 plan in PLAN.md.
 
 ## Phase 48 - Sync from the page
 
-### [ ] Step 5 - Sync by data type: server  **[plan mode]**
+### [x] Step 5 - Sync by data type: server  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - `POST /api/integrations/sync` with body `{ types: SyncType[] }` (min 1). It runs, now, every enabled integration whose policy for one of the types resolves to `auto`, where the caller may sync it (`mayTask(..., "editorSync")`). The policy is resolved the way `runDueRow` does: sparse rows plus `defaultPolicy`. It runs one integration after another, types in adapter order (catalog: brands before models before presets), and ignores whether the run is due.
