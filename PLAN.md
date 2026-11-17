@@ -3519,7 +3519,7 @@ Do Step 18 of the 6.0.0 plan in PLAN.md.
 
 ## Phase 46 - Release
 
-### [ ] Step 19 - Real test: one printer per adapter
+### [x] Step 19 - Real test: one printer per adapter
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A Klipper printer, a Bambu printer (LAN, and LAN + cloud), a Prusa printer, an OctoPrint printer, Spoolman.
