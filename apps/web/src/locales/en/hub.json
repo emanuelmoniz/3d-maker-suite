@@ -211,7 +211,8 @@
       "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first.",
       "hubOff": "Turn the hub on to reach printers or a spool library through a machine."
     },
-    "installInIntegrations": "Install or manage a slicer on this machine in Integrations",
+    "setUpSlicer": "Set up {{name}} on this machine",
+    "slicerCard": "{{name}} in Integrations",
     "useAsWorker": "Use slicer as server worker",
     "catalog": "Slicers catalog",
     "receiveCatalog": "Receive from server",

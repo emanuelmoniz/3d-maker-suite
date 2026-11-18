@@ -16,7 +16,8 @@ for (const width of [375, 1440])
       // A sync reads the account's profile.
       await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
     }
-    await page.goto("/integrations");
+    // Cards start closed (6.1.0 Step 8): the anchor opens it.
+    await page.goto("/integrations#mock");
     const card = page.getByRole("region", { name: "Demo data (mock)" });
     const ana = card.getByRole("listitem").filter({ hasText: "ana@example.com" });
     await expect(ana.getByRole("heading", { name: "ana@example.com", level: 3 })).toBeVisible();

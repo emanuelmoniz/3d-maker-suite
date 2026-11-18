@@ -7,7 +7,6 @@ import {
   SYNC_TRIGGERS,
   type SyncRun,
   syncRunFilters,
-  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Plus } from "lucide-react";
@@ -25,12 +24,11 @@ import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
-import { useDevices } from "../../lib/hub.ts";
 import {
+  deviceOf,
   libraryOf,
   useAdapterName,
   useAdapters,
-  useCreateIntegration,
   useDefaultLibrary,
   useDeleteIntegration,
   useIntegrations,
@@ -38,11 +36,12 @@ import {
   usePatchIntegration,
   usePickHubSlicer,
   useSyncRuns,
+  useWorkerSetUp,
 } from "../../lib/integrations.ts";
 import { useSavePreferences } from "../../lib/preferences.ts";
 import { useCatalogSources } from "../../lib/presets.ts";
 import { badgeOf, FoldCard } from "./FoldCard.tsx";
-import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
+import { CAPS, ERRORS, LOCATION_ICONS, PICK_ERRORS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches } from "./PolicyRow.tsx";
 import { SourceBadge, SyncSources } from "./Sources.tsx";
@@ -72,23 +71,11 @@ const RAIL =
   "relative grid scroll-mt-4 grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 py-3 before:absolute before:top-13 before:-bottom-4 before:left-4.5 before:w-px before:bg-border last:before:hidden";
 const NODE = "relative mt-1 grid size-9 place-items-center rounded-md border";
 
-// Literal keys so `pnpm i18n:check` sees them.
-const PICK_ERRORS: Record<string, string> = {
-  device_offline: "integrations:hub.errors.device_offline",
-  device_outdated: "integrations:hub.errors.device_outdated",
-  device_timeout: "integrations:hub.errors.device_timeout",
-  not_an_option: "integrations:hub.errors.not_an_option",
-  slicer_exists: "integrations:hub.errors.slicer_exists",
-};
-
 /**
  * The default slicer is a slicer type (ADR-0022), shown when there is more than one: its hub's
  * slicer is saved, else its install on this computer that opens files.
  */
-function DefaultSlicer({ library, rows }: { library: string; rows: Integration[] }) {
-  const { t } = useTranslation();
-  const admin = useCan("integrations.manage");
-  const save = useSavePreferences();
+function useDefaultSlicer(library: string, rows: Integration[]) {
   const list = useIntegrations().data ?? [];
   const chosen = useDefaultLibrary();
   const can = (i: Integration) => i.capabilities.includes("slice");
@@ -96,17 +83,8 @@ function DefaultSlicer({ library, rows }: { library: string; rows: Integration[]
   // The chosen one while it still works, else the first (the server's rule).
   const current = chosen && types.includes(chosen) ? chosen : types[0];
   const target = rows.find(can);
-  if (types.length < 2 || !target) return null;
-  if (current === library) return <SourceBadge>{t("integrations:slicer.isDefault")}</SourceBadge>;
-  return admin ? (
-    <Button
-      variant="ghost"
-      disabled={save.isPending}
-      onClick={() => save.mutate({ defaultSlicerId: target.id })}
-    >
-      {t("integrations:slicer.makeDefault")}
-    </Button>
-  ) : null;
+  if (types.length < 2 || !target) return undefined;
+  return { isDefault: current === library, target };
 }
 
 /**
@@ -131,18 +109,25 @@ export function LibraryCard({
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const admin = useCan("integrations.manage");
-  // No rows: a slicer type that only installs on machines so far.
-  const slicer = !rows.length || rows.some((i) => isSlicerKind(i.kind));
+  const slicer = rows.some((i) => isSlicerKind(i.kind));
   const here = rows.filter((i) => i.kind !== "worker" && isSlicerKind(i.kind));
   // A slicer type: it has a hub's slicer (a mock source or an API has none).
   const adapters = (useAdapters().data ?? []).filter((a) => a.libraryId === library);
   const type = adapters.length > 0;
   const lib = useCatalogSources(admin && type).data?.find((l) => l.library === library);
+  // The default one has its pill in the title; another has Make default slicer at the top.
+  const def = useDefaultSlicer(library, rows);
+  const isDefault = def?.isDefault;
+  const makeDefault = admin && def && !def.isDefault ? def.target : undefined;
+  const save = useSavePreferences();
+  // Only content above the hub's slicer gets a divider under it; else the body starts at the top.
+  const above = !!makeDefault || here.length > 1;
   return (
     <FoldCard
       id={library}
       title={adapterName(library)}
       count={t("integrations:fold.installs", { count: rows.length })}
+      pill={isDefault && <SourceBadge>{t("integrations:slicer.isDefault")}</SourceBadge>}
       badge={badgeOf(rows)}
       reveal={reveal}
       scroll={scroll}
@@ -161,14 +146,24 @@ export function LibraryCard({
         )
       }
     >
-      <DefaultSlicer library={library} rows={rows} />
+      {makeDefault && (
+        <div>
+          <Button
+            variant="ghost"
+            disabled={save.isPending}
+            onClick={() => save.mutate({ defaultSlicerId: makeDefault.id })}
+          >
+            {t("integrations:slicer.makeDefault")}
+          </Button>
+        </div>
+      )}
       {here.length > 1 && (
         <p role="note" className="text-warn">
           {t("integrations:card.twoInstalls")}
         </p>
       )}
       {admin && type ? (
-        <HubSlicer library={library} rows={rows} lib={lib} />
+        <HubSlicer library={library} rows={rows} lib={lib} divided={above} />
       ) : (
         <ul>
           {rows.map((i) => (
@@ -187,9 +182,6 @@ export function LibraryCard({
   );
 }
 
-export const deviceOf = (i: Integration) =>
-  i.kind === "worker" ? workerConfigSchema.safeParse(i.config).data?.deviceId : undefined;
-
 /**
  * The hub's slicer (ADR-0022), on a panel of its own, and Change slicer machine below it: a dialog
  * that picks among the enabled installs and says what the change does. Then the installs, each with
@@ -199,20 +191,21 @@ function HubSlicer({
   library,
   rows,
   lib,
+  divided,
 }: {
   library: string;
   rows: Integration[];
   lib: LibrarySources | undefined;
+  /** Something sits above it in the card's body (Make default slicer): a divider between. */
+  divided: boolean;
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
   const legend = useId();
   const hubHeading = useId();
-  const worker = useAdapters().data?.find((a) => a.kind === "worker" && a.libraryId === library);
-  const devices = useDevices().data ?? [];
+  const { worker, devices, withRow, setUp, create } = useWorkerSetUp(library);
   const pick = usePickHubSlicer(library);
-  const create = useCreateIntegration();
   const [changing, setChanging] = useState(false);
   const [choice, setChoice] = useState("");
   const current = rows.find((i) => i.id === lib?.cardsOf);
@@ -222,15 +215,6 @@ function HubSlicer({
     !!lib?.options.some((o) =>
       "integrationId" in o ? o.integrationId === i.id : o.deviceId === deviceOf(i),
     );
-  const withRow = new Set(rows.flatMap((i) => deviceOf(i) ?? []));
-  const setUp = (deviceId: string) => {
-    if (!worker) return;
-    const found = devices.find((d) => d.id === deviceId)?.slicers.some((s) => s.id === library);
-    create.mutate({
-      adapterId: worker.id,
-      config: { deviceId, source: found ? "installed" : "managed" },
-    });
-  };
   // Only a machine with Use slicer as server worker on is offered; one set up already stays.
   const offered = (lib?.machines ?? []).filter(
     (m) => m.slicer && m.useAsWorker && !withRow.has(m.deviceId),
@@ -251,7 +235,10 @@ function HubSlicer({
   const CurrentIcon = current && LOCATION_ICONS[current.kind];
   return (
     <>
-      <section aria-labelledby={hubHeading} className="mt-4 grid gap-2 border-t border-border pt-4">
+      <section
+        aria-labelledby={hubHeading}
+        className={cx("grid gap-2", divided && "border-t border-border pt-4")}
+      >
         <h3 id={hubHeading} className="font-semibold">
           {t("integrations:hub.title")}
         </h3>
@@ -277,11 +264,7 @@ function HubSlicer({
             </div>
           </div>
         ) : (
-          <p className="text-muted">
-            {t(
-              rows.length || offered.length ? "integrations:hub.noneYet" : "integrations:hub.none",
-            )}
-          </p>
+          <p className="text-muted">{t("integrations:hub.noneYet")}</p>
         )}
         {others.length > 0 && (
           <div>

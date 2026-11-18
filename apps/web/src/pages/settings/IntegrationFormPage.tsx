@@ -5,8 +5,8 @@ import {
   PRINTER_SERIAL_FIELD,
   type SourceTestResult,
 } from "@3d-maker-suite/core";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useId, useState } from "react";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
@@ -14,6 +14,7 @@ import { type ControlProps, FormField, inputClass } from "../../components/FormF
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan } from "../../lib/auth.ts";
+import { textLink } from "../../lib/cx.ts";
 import { useDevices } from "../../lib/hub.ts";
 import {
   isNetworkSource,
@@ -25,10 +26,11 @@ import {
   useIntegrations,
   usePatchIntegration,
   useTryIntegration,
+  useWorkerSetUp,
 } from "../../lib/integrations.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
-import { ERRORS } from "./integrationLabels.ts";
+import { ERRORS, PICK_ERRORS } from "./integrationLabels.ts";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
@@ -357,14 +359,94 @@ function TestLine({ tryOut }: { tryOut: ReturnType<typeof useTryIntegration> }) 
   );
 }
 
-/** Add an account, or a slicer on this server:the one installed here if found, else a download. */
+/**
+ * Where a slicer goes (6.1.0 Step 9): this server, or a machine with Use slicer as server worker on
+ * (ADR-0022). A taken place is disabled with its reason; a machine with the switch off links to its
+ * page.
+ */
+function WhereField({
+  name,
+  value,
+  onChange,
+  server,
+  machines,
+}: {
+  name: string;
+  value: string;
+  onChange: (v: string) => void;
+  server: { text: string; taken: boolean };
+  machines: {
+    id: string;
+    name: string;
+    hint: string;
+    reason?: string;
+    off?: boolean;
+  }[];
+}) {
+  const { t } = useTranslation();
+  const tile = (v: string, title: string, text: string, disabled: boolean, extra?: ReactNode) => (
+    <label key={v} className={tileClass}>
+      <input
+        type="radio"
+        name={name}
+        className="mt-1"
+        value={v}
+        checked={value === v}
+        disabled={disabled}
+        onChange={() => onChange(v)}
+      />
+      <span className="grid min-w-0 gap-1">
+        <span className="font-medium wrap-anywhere">{title}</span>
+        <span className={disabled ? "text-warn" : "text-muted"}>{text}</span>
+        {extra}
+      </span>
+    </label>
+  );
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="mb-3 font-semibold">{t("integrations:form.where")}</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {tile(
+          "server",
+          t("integrations:locations.server"),
+          server.taken ? t("integrations:form.taken") : server.text,
+          server.taken,
+        )}
+        {machines.map((m) =>
+          tile(
+            m.id,
+            m.name,
+            m.reason ?? m.hint,
+            !!m.reason,
+            m.off && (
+              <Link
+                to="/hub/devices/$id"
+                params={{ id: m.id }}
+                className={textLink}
+                // A link inside a disabled tile's label still works.
+                onClick={(e) => e.stopPropagation()}
+              >
+                {t("integrations:form.whereOpenMachine")}
+              </Link>
+            ),
+          ),
+        )}
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * Add an account, or a slicer: on this server (the one installed here if found, else a download)
+ * or on a machine that is a server worker.
+ */
 export function IntegrationCreatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const adapterName = useAdapterName();
   const id = useId();
   const search = useSearch({ strict: false }) as { product?: string; via?: string };
-  // A workstation's slicer is set up on its machine page (Plan 5.5.0 Step 9).
+  // A machine's install is a slicer's Where, not a product of its own.
   const adapters = (useAdapters().data ?? []).filter((a) => a.kind !== "worker");
   const existing = useIntegrations().data ?? [];
   const create = useCreateIntegration();
@@ -388,9 +470,60 @@ export function IntegrationCreatePage() {
   // An account that signs in has no key to test before it does.
   const testable = !!adapter && !slicer && !adapter.login && !once;
 
+  // A slicer's machines (ADR-0022): only with the hub on and a worker adapter for its type.
+  const hubOn = !!usePreferences().data?.values.hubEnabled;
+  const onMachine = useWorkerSetUp(slicer ? product : undefined);
+  const machines =
+    slicer && hubOn && onMachine.worker
+      ? onMachine.devices.map((d) => {
+          const found = onMachine.found(d.id);
+          return {
+            id: d.id,
+            name: d.name,
+            hint: found?.version
+              ? t("integrations:form.whereFoundVersion", { version: found.version })
+              : found
+                ? t("integrations:form.whereFound")
+                : t("integrations:form.whereDownload"),
+            reason: onMachine.withRow.has(d.id)
+              ? t("integrations:form.whereTaken")
+              : !d.useAsWorker
+                ? t("integrations:form.whereOff")
+                : undefined,
+            off: !onMachine.withRow.has(d.id) && !d.useAsWorker,
+          };
+        })
+      : [];
+  const free = machines.filter((m) => !m.reason).map((m) => m.id);
+  const [pickedWhere, setWhere] = useState<string>();
+  // `?via=` preselects its machine; else this server while free; else the first free machine.
+  const fallback =
+    search.via && free.includes(search.via)
+      ? search.via
+      : !taken
+        ? "server"
+        : (free[0] ?? "server");
+  const where =
+    pickedWhere && (pickedWhere === "server" ? !taken : free.includes(pickedWhere))
+      ? pickedWhere
+      : fallback;
+  const toMachine = slicer && where !== "server";
+  const blocked = slicer && (toMachine ? !free.includes(where) : taken);
+  const failed = toMachine ? onMachine.create : create;
+  const failedCode =
+    toMachine && failed.error instanceof ApiError && failed.error.code
+      ? PICK_ERRORS[failed.error.code]
+      : undefined;
+
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!adapter) return;
+    if (toMachine) {
+      onMachine.setUp(where, {
+        onSuccess: (row) => navigate({ to: "/integrations", hash: `integration-${row.id}` }),
+      });
+      return;
+    }
     const v = form.values(e.currentTarget);
     if (!v) return;
     create.mutate(
@@ -436,34 +569,36 @@ export function IntegrationCreatePage() {
         </fieldset>
 
         {slicer && adapter && (
-          <div className="grid gap-2">
-            <p className={taken ? "text-warn" : undefined}>
-              {taken
-                ? t("integrations:form.taken")
-                : t(
-                    adapter.kind === "local"
-                      ? "integrations:form.installedHere"
-                      : "integrations:form.downloadHere",
-                    { name: adapterName(product ?? "") },
-                  )}
-            </p>
-            {!taken && <p className="text-muted">{t("integrations:form.machineHint")}</p>}
-          </div>
+          <WhereField
+            name={`${id}-where`}
+            value={where}
+            onChange={setWhere}
+            server={{
+              taken,
+              text: t(
+                adapter.kind === "local"
+                  ? "integrations:form.installedHere"
+                  : "integrations:form.downloadHere",
+                { name: adapterName(product ?? "") },
+              ),
+            }}
+            machines={machines}
+          />
         )}
 
         {once && <p className="text-warn">{t("integrations:form.takenSource")}</p>}
-        {!once && form.hasFields && form.fields}
+        {!once && !toMachine && form.hasFields && form.fields}
         {testable && <TestLine tryOut={form.tryOut} />}
-        {create.isError && (
+        {failed.isError && (
           <p role="alert" className="text-bad">
-            {t(errorKey(create.error) ?? "integrations:form.error")}
+            {t(failedCode ?? errorKey(failed.error) ?? "integrations:form.error")}
           </p>
         )}
         <div className="flex flex-wrap gap-2">
           <Button
             type="submit"
             variant="primary"
-            disabled={!adapter || (slicer && taken) || once || create.isPending}
+            disabled={!adapter || blocked || once || failed.isPending}
           >
             {t("integrations:form.save")}
           </Button>

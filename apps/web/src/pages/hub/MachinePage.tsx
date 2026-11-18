@@ -27,7 +27,9 @@ import {
   useDevices,
 } from "../../lib/hub.ts";
 import {
+  deviceOf,
   isNetworkSource,
+  libraryOf,
   useAdapterName,
   useAdapters,
   useIntegrations,
@@ -383,6 +385,38 @@ const librariesOf = (d: Device) => [
 ];
 
 /**
+ * Per slicer type that installs on a machine: Set up here (Add integration with this machine
+ * preselected), or its card once it is set up here (6.1.0 Step 9).
+ */
+function SlicerLinks({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const adapterName = useAdapterName();
+  const types = (useAdapters().data ?? []).flatMap((a) =>
+    a.kind === "worker" && a.libraryId ? [a.libraryId] : [],
+  );
+  const rows = useIntegrations().data ?? [];
+  const here = (lib: string) => rows.some((i) => libraryOf(i) === lib && deviceOf(i) === d.id);
+  if (!types.length) return null;
+  return (
+    <ul className="grid gap-1">
+      {types.map((lib) => (
+        <li key={lib}>
+          {here(lib) ? (
+            <Link to="/integrations" search={{ via: d.id }} hash={lib} className={textLink}>
+              {t("hub:machine.slicerCard", { name: adapterName(lib) })}
+            </Link>
+          ) : (
+            <Link to="/integrations/new" search={{ product: lib, via: d.id }} className={textLink}>
+              {t("hub:machine.setUpSlicer", { name: adapterName(lib) })}
+            </Link>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * The slicers on the machine: the ones it reports and the hub's downloads. Use slicer as server
  * worker offers it in Integrations, where a slicer is installed or set up on it (ADR-0022).
  */
@@ -412,14 +446,8 @@ function Slicers({ device: d }: { device: Device }) {
           on || !d.sliceWorker ? slicers.mutate({ id: d.id, useAsWorker: on }) : setConfirm(true)
         }
       />
-      {/* A slicer is installed on a worker machine from its card in Integrations. */}
-      {d.useAsWorker && may.integrations && (
-        <p>
-          <Link to="/integrations" className={textLink}>
-            {t("hub:machine.installInIntegrations")}
-          </Link>
-        </p>
-      )}
+      {/* A slicer is set up on a worker machine from Add integration, then managed on its card. */}
+      {d.useAsWorker && may.integrations && <SlicerLinks device={d} />}
       <Alert error={slicers.error} />
       <ConfirmDialog
         open={confirm}

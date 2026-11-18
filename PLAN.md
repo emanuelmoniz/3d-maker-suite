@@ -3753,7 +3753,7 @@ Do Step 7 of the 6.1.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 Do Step 8 of the 6.1.0 plan in PLAN.md. Use frontend-design for the card header.
 ```
 
-### [ ] Step 9 - A card only when set up; Add integration asks where  **[plan mode]**
+### [x] Step 9 - A card only when set up; Add integration asks where  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - `IntegrationsPage.tsx`: drop the `onMachines` empty slicer cards. A card shows only for a library or adapter with at least one row the viewer sees. Find why an empty **Bambu Cloud** card can show (Bambu Cloud's user presets group under `bambu-studio`) and apply the same rule.

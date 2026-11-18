@@ -214,24 +214,42 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
 
   await row.getByRole("link", { name: "Laptop" }).click();
   const deviceId = page.url().split("/").pop();
-  // No slicer on it yet. Integrations offers it only once it's a server worker.
+  // No slicer on it yet. Add integration offers it only once it's a server worker.
   const slicers = page.getByRole("region", { name: "Slicers", exact: true });
-  const install = slicers.getByRole("link", {
-    name: "Install or manage a slicer on this machine in Integrations",
-  });
+  const install = slicers.getByRole("link", { name: "Set up Bambu Studio on this machine" });
   await expect(install).toHaveCount(0);
+  // A card only when set up (6.1.0 Step 9): a paired machine adds no slicer card.
+  await page.goto("/integrations");
+  const card = page.getByRole("region", { name: "Bambu Studio" });
+  await expect(page.getByRole("heading", { name: "Integrations" })).toBeVisible();
+  await expect(card).toHaveCount(0);
+  // Switch off: Add integration's Where says so and links to the machine page.
+  await page.goto("/integrations/new?product=bambu-studio");
+  const where = page.getByRole("group", { name: "Where" });
+  await expect(where.getByRole("radio", { name: /Laptop/ })).toBeDisabled();
+  await expect(where.getByText("Use slicer as server worker is off")).toBeVisible();
+  await where.getByRole("link", { name: "Open its machine page" }).click();
+  await expect(page).toHaveURL(new RegExp(`/hub/devices/${deviceId}$`));
   const worker = slicers.getByRole("switch", { name: "Use slicer as server worker" });
   await worker.click({ force: true });
   await expect(worker).toBeChecked();
-  await expect(install).toBeVisible();
   await expect(page.getByRole("region", { name: "Slicers catalog" })).toHaveCount(0);
-  // Its slicer is installed from the slicer type's card in Integrations (ADR-0022): none found on
+  // Its slicer is set up from Add integration, the machine preselected (ADR-0022): none found on
   // it, so the hub installs one.
-  await page.goto("/integrations");
-  const card = page.getByRole("region", { name: "Bambu Studio" });
-  await card.getByLabel("Add a machine…").click();
-  await page.getByRole("option", { name: "Laptop" }).click();
+  await install.click();
+  await expect(where.getByRole("radio", { name: /Laptop/ })).toBeChecked();
+  await expect(where.getByText("Not found on this machine")).toBeVisible();
+  await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(card.getByRole("heading", { name: "Laptop", level: 4 })).toBeVisible();
+  // Set up there: the machine page links to its card, and Where says it's taken.
+  await page.goto(`/hub/devices/${deviceId}`);
+  await expect(slicers.getByRole("link", { name: "Bambu Studio in Integrations" })).toHaveAttribute(
+    "href",
+    `/integrations?via=${deviceId}#bambu-studio`,
+  );
+  await page.goto(`/integrations/new?product=bambu-studio&via=${deviceId}`);
+  await expect(where.getByRole("radio", { name: /Laptop/ })).toBeDisabled();
+  await expect(where.getByText("Already set up on this machine.")).toBeVisible();
   // On the machine page it is listed, with no switches: its presets are set up on Catalog
   // settings → Sources (ADR-0023).
   await page.goto(`/hub/devices/${deviceId}`);
@@ -257,8 +275,10 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
     .click();
   await expect(worker).not.toBeChecked();
   await expect(install).toHaveCount(0);
+  // Its last install gone, so is the card.
   await page.goto("/integrations");
-  await expect(card.getByRole("heading", { name: "Laptop", level: 4 })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Integrations" })).toBeVisible();
+  await expect(card).toHaveCount(0);
   await page.goto(`/hub/devices/${deviceId}`);
   await actions.getByRole("button", { name: "Revoke" }).click();
   await page

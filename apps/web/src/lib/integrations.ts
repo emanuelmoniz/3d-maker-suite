@@ -8,6 +8,7 @@ import {
   type Integration,
   type IntegrationInput,
   type IntegrationPatch,
+  isCatalogType,
   isSlicerKind,
   type LoginRequest,
   type LoginResult,
@@ -23,12 +24,14 @@ import {
   type SyncType,
   type TestResult,
   type TypeSyncResult,
+  workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { KINDS, LOCATIONS } from "../pages/settings/integrationLabels.ts";
 import { api } from "./api.ts";
 import { useRights } from "./auth.ts";
+import { useDevices } from "./hub.ts";
 import { useListPage } from "./list.ts";
 import { usePreferences } from "./preferences.ts";
 
@@ -163,8 +166,16 @@ export function useMayTask() {
 }
 
 /**
+ * A task an editor finds on the Integrations page: not an account's printers, prints and spools
+ * (their Sources tabs, ADR-0021) nor its user presets (Catalog → Sources, under their slicer,
+ * ADR-0023). Else its card would have nothing of theirs (6.1.0 Step 9).
+ */
+export const onIntegrationsPage = (i: Pick<Integration, "kind">, type: string) =>
+  !onSources(i, type) && (isSlicerKind(i.kind) || !isCatalogType(type));
+
+/**
  * The Integrations page has something for the caller: integrations.manage, or a task they may run
- * there (an account's printers, prints and spools are on their Sources tabs).
+ * there (`onIntegrationsPage`).
  */
 export function useHasTasks() {
   const { manage, list, allowed } = useTaskRights();
@@ -172,7 +183,7 @@ export function useHasTasks() {
     manage ||
     list.some((i) =>
       i.policies.some((p) => {
-        if (onSources(i, p.type)) return false;
+        if (!onIntegrationsPage(i, p.type)) return false;
         const a = allowed(p);
         return a.sync || a.review;
       }),
@@ -235,6 +246,37 @@ function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>, all = false) 
 // Adding or removing a workstation also makes its device a slice worker or not: all of it.
 export const useCreateIntegration = () =>
   useInvalidating((v: IntegrationInput) => api<Integration>("POST", "/api/integrations", v), true);
+
+/** A machine's install (worker row): the machine it is on. */
+export const deviceOf = (i: Pick<Integration, "kind" | "config">) =>
+  i.kind === "worker" ? workerConfigSchema.safeParse(i.config).data?.deviceId : undefined;
+
+/**
+ * Sets up a slicer type's install on a machine (ADR-0022): the slicer its connector found there,
+ * else the hub's managed release. Used by the card's Set up and Add a machine, and by Add
+ * integration's Where (6.1.0 Step 9).
+ */
+export function useWorkerSetUp(library: string | undefined) {
+  const worker = useAdapters().data?.find((a) => a.kind === "worker" && a.libraryId === library);
+  // Machines only with the hub on (the API has none otherwise) and a slicer type that installs there.
+  const hubOn = !!usePreferences().data?.values.hubEnabled;
+  const devices = useDevices(hubOn && !!worker).data ?? [];
+  const rows = useIntegrations().data ?? [];
+  const create = useCreateIntegration();
+  // One install per machine: the machines that have this type's already.
+  const withRow = new Set(
+    rows.filter((i) => !!library && libraryOf(i) === library).flatMap((i) => deviceOf(i) ?? []),
+  );
+  /** The slicer the machine's connector reports for this type, if any. */
+  const found = (deviceId: string) =>
+    devices.find((d) => d.id === deviceId)?.slicers.find((s) => s.id === library);
+  const setUp = (deviceId: string, options?: { onSuccess?: (row: Integration) => void }) => {
+    if (!worker) return;
+    const source = found(deviceId) ? "installed" : "managed";
+    create.mutate({ adapterId: worker.id, config: { deviceId, source } }, options);
+  };
+  return { worker, devices, withRow, found, setUp, create };
+}
 
 // Switching one off or on changes the hub's slicer's choices (catalog sources) too: all of it.
 export const usePatchIntegration = (id: string) =>

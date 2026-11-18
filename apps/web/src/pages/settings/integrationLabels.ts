@@ -43,6 +43,14 @@ export const INSTALL_ERRORS: Record<SlicerInstallError, string> = {
   vcredist_missing: "integrations:managed.errors.vcredist_missing",
   device_offline: "integrations:managed.errors.device_offline",
 };
+/** Picking the hub's slicer, or setting up a machine's install (the card and Add integration). */
+export const PICK_ERRORS: Record<string, string> = {
+  device_offline: "integrations:hub.errors.device_offline",
+  device_outdated: "integrations:hub.errors.device_outdated",
+  device_timeout: "integrations:hub.errors.device_timeout",
+  not_an_option: "integrations:hub.errors.not_an_option",
+  slicer_exists: "integrations:hub.errors.slicer_exists",
+};
 /** A worker's install runs on its device, not on this server. */
 export const DEVICE_INSTALL_ERRORS: Partial<Record<SlicerInstallError, string>> = {
   fetch_failed: "integrations:managed.deviceErrors.fetch_failed",

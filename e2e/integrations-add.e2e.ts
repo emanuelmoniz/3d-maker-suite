@@ -10,8 +10,8 @@ for (const width of [375, 1440])
     const found = !!adapters.find((a) => a.id === "bambu-studio")?.detectedConfigDir;
     await page.goto("/integrations/new");
     await page.getByRole("radio", { name: "Bambu Studio" }).check();
-    // No choice of where: a machine's install is added on the slicer's card (ADR-0022).
-    await expect(page.getByRole("radio", { name: /workstation/ })).toHaveCount(0);
+    // Hub off: Where has this server only (6.1.0 Step 9).
+    await expect(page.getByRole("group", { name: "Where" }).getByRole("radio")).toHaveCount(1);
     await expect(
       page.getByText(found ? "Uses the Bambu Studio installed" : "Bambu Studio isn't installed"),
     ).toBeVisible();

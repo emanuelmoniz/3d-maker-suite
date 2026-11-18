@@ -34,6 +34,7 @@ export function FoldCard({
   title,
   count,
   badge,
+  pill,
   reveal,
   scroll,
   action,
@@ -45,6 +46,8 @@ export function FoldCard({
   /** "3 printers": what is inside. */
   count: string;
   badge: FoldBadge;
+  /** Next to the count, open or closed (the default slicer). */
+  pill?: ReactNode;
   /** A link brought the viewer here: open; with `scroll`, also scroll to that element id, or to the card for `true`. */
   reveal: boolean;
   scroll?: string | true;
@@ -112,6 +115,7 @@ export function FoldCard({
             />
             <span className="wrap-anywhere">{title}</span>
             <span className="text-sm font-normal text-muted">{count}</span>
+            {pill}
             {badge && (
               <span
                 className={cx(

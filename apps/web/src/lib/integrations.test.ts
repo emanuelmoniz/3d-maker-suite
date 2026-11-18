@@ -1,6 +1,6 @@
 import type { Integration } from "@3d-maker-suite/core";
 import { expect, test } from "vitest";
-import { syncTargets } from "./integrations.ts";
+import { onIntegrationsPage, syncTargets } from "./integrations.ts";
 
 const row = (
   id: string,
@@ -50,4 +50,13 @@ test("several types give one target per source and type", () => {
     { integrationId: "a", type: "brands" },
     { integrationId: "a", type: "printerModels" },
   ]);
+});
+
+test("an account's user presets and Sources types aren't Integrations page tasks", () => {
+  // Bambu Cloud's user presets are on Catalog → Sources, under Bambu Studio (6.1.0 Step 9).
+  expect(onIntegrationsPage({ kind: "cloud" }, "userFilamentPresets")).toBe(false);
+  expect(onIntegrationsPage({ kind: "cloud" }, "printers")).toBe(false);
+  // A slicer's own catalog types are on its card.
+  expect(onIntegrationsPage({ kind: "local" }, "filamentPresets")).toBe(true);
+  expect(onIntegrationsPage({ kind: "worker" }, "userFilamentPresets")).toBe(true);
 });
