@@ -3836,7 +3836,7 @@ Do Step 10d of the 6.1.0 plan in PLAN.md.
 
 ## Phase 50 - Machines and brand
 
-### [ ] Step 11 - Machine page: links by what exists
+### [x] Step 11 - Machine page: links by what exists
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - The `Reach` sections (Printers, Spool libraries; `MachinePage.tsx`) each decide on their own:

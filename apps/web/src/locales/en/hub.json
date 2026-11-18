@@ -237,6 +237,7 @@
     "sourceAt": "{{name}} at {{host}}",
     "sourcePaused": "{{label}} (paused)",
     "setUpInIntegrations": "Set up in Integrations",
+    "openInIntegrations": "Open in Integrations",
     "stopReachPrintersTitle": "Stop reaching printers through {{name}}?",
     "stopReachSpoolLibrariesTitle": "Stop reaching spool libraries through {{name}}?",
     "stopReachBody": "These are paused until you turn this on again and enable them in Integrations. They keep this machine.",

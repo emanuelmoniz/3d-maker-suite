@@ -280,6 +280,19 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
   await expect(card).toHaveCount(0);
   await page.goto(`/hub/devices/${deviceId}`);
+  // Reach sections link by what exists (6.1.0 Step 11): nothing through it yet, so Set up.
+  for (const [name, on] of [
+    ["Printers", "Reach printers"],
+    ["Spool libraries", "Reach spool libraries"],
+  ] as const) {
+    const reach = page.getByRole("region", { name, exact: true });
+    await reach.getByRole("switch", { name: on }).click({ force: true });
+    await expect(reach.getByRole("link", { name: "Set up in Integrations" })).toHaveAttribute(
+      "href",
+      `/integrations/new?via=${deviceId}`,
+    );
+    await expect(reach.getByRole("link", { name: "Open in Integrations" })).toHaveCount(0);
+  }
   await actions.getByRole("button", { name: "Revoke" }).click();
   await page
     .getByRole("dialog")

@@ -654,9 +654,15 @@ function Reach({ device: d, kind }: { device: Device; kind: "printers" | "spoolL
         ))}
       {on && may.integrations && (
         <p>
-          <Link to="/integrations/new" search={{ via: d.id }} className={textLink}>
-            {t("hub:machine.setUpInIntegrations")}
-          </Link>
+          {here.length ? (
+            <Link to="/integrations" search={{ via: d.id }} className={textLink}>
+              {t("hub:machine.openInIntegrations")}
+            </Link>
+          ) : (
+            <Link to="/integrations/new" search={{ via: d.id }} className={textLink}>
+              {t("hub:machine.setUpInIntegrations")}
+            </Link>
+          )}
         </p>
       )}
       <Alert error={slicers.error} />
