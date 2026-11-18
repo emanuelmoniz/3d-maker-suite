@@ -666,6 +666,32 @@ export const integrationsRoutes =
       },
     );
 
+    // Remove integration: every row of a card (its adapters' library, or the adapter's own id).
+    // One running sync blocks all of it, checked before anything is removed.
+    app.delete(
+      "/",
+      {
+        schema: {
+          querystring: z.object({ library: z.string().min(1).max(100) }),
+          response: { 200: z.object({ removed: z.array(z.uuid()) }), 409: apiErrorSchema },
+        },
+      },
+      async (req) => {
+        const rows = db
+          .select()
+          .from(integrations)
+          .all()
+          .filter((r) => {
+            const a = syncer.adapters.find((x) => x.id === r.adapterId);
+            return (a ? presetLibrary(a) : r.adapterId) === req.query.library;
+          });
+        if (rows.some((r) => syncer.running.has(r.id)))
+          throw new HttpError(409, "sync_running", "A sync is running");
+        for (const row of rows) await removeIntegration(db, syncer, installer, workers, row);
+        return { removed: rows.map((r) => r.id) };
+      },
+    );
+
     // Imported rows stay; their integrationId becomes null (FK `set null`). The sync log cascades.
     app.delete(
       "/:id",

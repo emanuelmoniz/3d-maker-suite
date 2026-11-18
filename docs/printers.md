@@ -86,3 +86,7 @@ In Filament to review a suggested spool is preselected, and **Accept** charges i
 ## Printer alerts
 
 Print finished, print failed, printer offline, printer unreachable (its connector is offline) and filament to review are alerts. See [alerts.md](alerts.md#printer-alerts).
+
+## Removing a printer source
+
+A network printer source (Bambu LAN, Moonraker, PrusaLink, OctoPrint) has its own card on **Settings → Integrations**. The card's **⋯** menu has **Remove integration**, which removes every printer source on the card after a confirmation that names them. The printers stay in Printers with their prints, unlinked from the source; credentials, schedules and the sync log go. A running sync blocks it. **Add integration** sets a source up again.

@@ -82,6 +82,17 @@
     "body": "Imported printers and prints stay. The credentials and the sync log are removed.",
     "workerBody": "A slicer the hub installed there is removed; one installed by hand stays. Its machine can still offer it again later."
   },
+  "removeIntegration": {
+    "menu": "Remove integration",
+    "title": "Remove {{name}}?",
+    "body": "This removes everything set up under it:",
+    "stays": "Stays: imported printers, prints and spools. They are unlinked from this source.",
+    "goes": "Goes: credentials, schedules, the sync log and slicer installs the hub made. A slicer installed by hand stays on its machine.",
+    "default": "This is your default slicer. Slicing falls back to another slicer, as when its last install is deleted.",
+    "confirm": "Remove integration",
+    "running": "A sync is running. Try again when it has finished.",
+    "failed": "That didn't work. Try again."
+  },
   "runs": {
     "table": "Sync log",
     "ok": "Succeeded",

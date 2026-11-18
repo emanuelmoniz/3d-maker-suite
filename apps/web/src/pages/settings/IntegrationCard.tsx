@@ -44,6 +44,7 @@ import { badgeOf, FoldCard } from "./FoldCard.tsx";
 import { CAPS, ERRORS, LOCATION_ICONS, PICK_ERRORS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches } from "./PolicyRow.tsx";
+import { RemoveIntegration } from "./RemoveIntegration.tsx";
 import { SourceBadge, SyncSources } from "./Sources.tsx";
 import { WorkerSlicer } from "./WorkerSlicer.tsx";
 
@@ -131,6 +132,7 @@ export function LibraryCard({
       badge={badgeOf(rows)}
       reveal={reveal}
       scroll={scroll}
+      menu={<RemoveIntegration library={library} rows={rows} name={adapterName(library)} />}
       action={
         admin &&
         slicer &&

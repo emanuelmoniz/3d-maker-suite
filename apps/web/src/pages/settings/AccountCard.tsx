@@ -22,6 +22,7 @@ import {
 import { ADD_KEYS, badgeOf, COUNT_KEYS, FoldCard } from "./FoldCard.tsx";
 import { ERRORS } from "./integrationLabels.ts";
 import { ActionSwitches } from "./PolicyRow.tsx";
+import { RemoveIntegration } from "./RemoveIntegration.tsx";
 import { SyncSources } from "./Sources.tsx";
 
 /** One card per API (ADR-0021): a block per account, the Add button on the right while open. */
@@ -52,6 +53,7 @@ export function AccountsCard({
       badge={badgeOf(rows)}
       reveal={reveal}
       scroll={scroll}
+      menu={<RemoveIntegration library={adapterId} rows={rows} name={adapterName(adapterId)} />}
       action={
         admin &&
         !sourceTaken(adapter, rows) && (

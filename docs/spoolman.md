@@ -71,3 +71,5 @@ A hub on a VPS reaches a Spoolman on your LAN through a machine there: pick it u
 ## On the Integrations page
 
 The Spoolman card is folded until you open it. A second Spoolman source isn't possible (its spools are keyed by the source), so the card has no add button once one is set up.
+
+The card's **⋯** menu has **Remove integration**: it removes the source after a confirmation. Imported spools stay, unlinked from Spoolman; credentials, schedules and the sync log go. **Add integration** sets it up again.

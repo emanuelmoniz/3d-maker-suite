@@ -38,6 +38,7 @@ export function FoldCard({
   reveal,
   scroll,
   action,
+  menu,
   children,
 }: {
   /** Stable key for the remembered state and the `#` anchor. */
@@ -53,6 +54,8 @@ export function FoldCard({
   scroll?: string | true;
   /** Shown on the right while open (the Add button). */
   action?: ReactNode;
+  /** Shown on the right, open or closed (Remove integration). */
+  menu?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -128,7 +131,12 @@ export function FoldCard({
             )}
           </button>
         </h2>
-        {open && action}
+        {((open && action) || menu) && (
+          <div className="flex items-center gap-2">
+            {open && action}
+            {menu}
+          </div>
+        )}
       </div>
       {open && (
         <div id={body} className="grid gap-4 border-t border-border p-4 sm:p-5">

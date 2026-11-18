@@ -103,3 +103,7 @@ Then `docker compose up -d`, add a server slicer and install it from its card. N
 ## When a slice fails
 
 The plate shows the slicer's reason: no objects on the plate, a preset that doesn't exist in that slicer, or the slicer's own error line. A file that crashes the slicer (for example one never sliced and with nothing on it) is worth opening once in the desktop slicer to see why.
+
+## Removing a slicer from Integrations
+
+The slicer card's `⋯` menu (top right, admins) has **Remove integration**. It removes every install on the card: this server's and each machine's. A slicer the hub installed is uninstalled; one installed by hand stays on its machine. Presets and profiles you imported stay. If it is your default slicer, the dialog says so and slicing falls back to another slicer. A running sync on the card blocks the removal until it finishes. **Add integration** sets the slicer up again.

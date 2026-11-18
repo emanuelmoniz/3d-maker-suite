@@ -462,3 +462,21 @@ it("an installed slicer becomes the worker's once it runs there; offline, nothin
   }
   expect(res.json()).toMatchObject({ error: { code: "device_offline" } });
 });
+
+it("Remove integration takes a slicer card's machine installs and turns the device's worker off", async () => {
+  const { send, next, deviceId } = await live();
+  const worker = (
+    await send("POST", "/api/integrations", {
+      adapterId: "bambu-studio-worker",
+      config: { deviceId, source: "managed" },
+    })
+  ).json();
+  expect((await next("device.worker")).on).toBe(true);
+
+  const res = await send("DELETE", "/api/integrations?library=bambu-studio");
+  expect(res.statusCode).toBe(200);
+  expect(res.json()).toEqual({ removed: [worker.id] });
+  expect((await send("GET", "/api/integrations")).json()).toEqual([]);
+  // Its last install is gone: the device stops being a worker.
+  expect((await next("device.worker")).on).toBe(false);
+});

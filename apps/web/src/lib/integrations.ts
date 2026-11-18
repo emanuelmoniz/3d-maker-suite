@@ -328,6 +328,17 @@ export const sourceNoun = (
 export const useDeleteIntegration = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);
 
+/** Removes every row of a card (6.1.0 Step 10); the server refuses while one of them syncs. */
+export const useRemoveIntegration = (library: string) =>
+  useInvalidating(
+    () =>
+      api<{ removed: string[] }>(
+        "DELETE",
+        `/api/integrations?library=${encodeURIComponent(library)}`,
+      ),
+    true,
+  );
+
 /**
  * Picks a slicer type's hub's slicer (ADR-0022): slicing, the catalog and every receiver follow,
  * so everything is refreshed.

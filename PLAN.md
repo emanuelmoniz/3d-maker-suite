@@ -3771,7 +3771,7 @@ Do Step 8 of the 6.1.0 plan in PLAN.md. Use frontend-design for the card header.
 Do Step 9 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Remove an integration
+### [x] Step 10 - Remove an integration
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Server: `DELETE /api/integrations?library=<id>` (`integrations.manage`). It first checks every row of the card: any one syncing gives 409 `sync_running` and removes nothing. Then each row goes through `removeIntegration` (managed installs removed, workers re-synced, avatars dropped). It returns the removed ids.
