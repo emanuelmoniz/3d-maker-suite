@@ -6,6 +6,7 @@ import {
   FolderKanban,
   House,
   Layers,
+  Library,
   type LucideIcon,
   Printer,
   Settings,
@@ -21,6 +22,8 @@ export type NavItem = {
   description?: string;
   /** Shown in the mobile bottom bar; the rest go under "More". */
   primary?: boolean;
+  /** Only for who may read this part of the data (the `catalog` permission). */
+  needsRead?: "catalog";
 };
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -58,6 +61,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         label: "nav:items.filament.label",
         description: "nav:items.filament.description",
         primary: true,
+      },
+      // Brands, models, materials and their presets (ADR-0023): with `catalog` read.
+      {
+        to: "/catalog",
+        icon: Library,
+        label: "nav:items.catalog.label",
+        description: "nav:items.catalog.description",
+        needsRead: "catalog",
       },
     ],
   },
@@ -130,6 +141,6 @@ export const SETTINGS_ITEM: NavItem = {
 };
 
 /** The pages under a Settings tab that keep their own address. */
-export const SETTINGS_SUB_PAGES = /^\/(hub|integrations|catalog|users|import)\//;
+export const SETTINGS_SUB_PAGES = /^\/(hub|integrations|users|import)\//;
 
 export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];

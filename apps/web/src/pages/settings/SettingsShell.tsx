@@ -44,7 +44,6 @@ function useSettingsTabs() {
   const hub = useCan("hub.manage") && !!values?.hubEnabled;
   const integrations = useHasTasks();
   const users = useUsersShown();
-  const catalog = useCan("catalog", "read");
   const data = useCan("integrations.manage");
   const logs = useCan("settings.logs");
   return [
@@ -62,7 +61,6 @@ function useSettingsTabs() {
       shown: users && signedIn,
       open: users,
     },
-    { to: "/settings/catalog", label: t("settings:tabs.catalog"), shown: catalog, open: catalog },
     { to: "/settings/data", label: t("settings:tabs.data"), shown: data, open: data },
     {
       to: "/settings/logs",

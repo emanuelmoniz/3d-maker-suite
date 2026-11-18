@@ -15,16 +15,7 @@ const asAdmin = async (page: Page) => {
   await page.request.patch("/api/preferences", { data: { hubEnabled: true, logActive: true } });
 };
 
-const ALL_TABS = [
-  "General",
-  "Hub management",
-  "Integrations",
-  "Users",
-  "Roles",
-  "Catalog",
-  "Data",
-  "Logs",
-];
+const ALL_TABS = ["General", "Hub management", "Integrations", "Users", "Roles", "Data", "Logs"];
 
 test("settings tabs: each opens at its address, and the sidebar has none of them", async ({
   page,
@@ -40,7 +31,6 @@ test("settings tabs: each opens at its address, and the sidebar has none of them
     ["Integrations", /\/settings\/integrations$/],
     ["Users", /\/settings\/users$/],
     ["Roles", /\/settings\/roles$/],
-    ["Catalog", /\/settings\/catalog\/printers$/],
     ["Data", /\/settings\/data\/import$/],
     ["Logs", /\/settings\/logs$/],
   ] as const) {
@@ -52,7 +42,7 @@ test("settings tabs: each opens at its address, and the sidebar has none of them
   }
 
   const side = page.getByRole("complementary");
-  for (const name of ["Hub management", "Integrations", "Catalog", "Import | Export", "Logs"])
+  for (const name of ["Hub management", "Integrations", "Import | Export", "Logs"])
     await expect(side.getByRole("link", { name })).toHaveCount(0);
   await expect(side.getByRole("link", { name: "Settings" })).toBeVisible();
 
@@ -73,10 +63,6 @@ test("settings tabs: old addresses land on their tab with search and hash", asyn
     ["/hub", "/settings/hub"],
     ["/integrations", "/settings/integrations"],
     ["/integrations?via=abc#bambu-studio", "/settings/integrations?via=abc#bambu-studio"],
-    ["/catalog", "/settings/catalog/printers"],
-    ["/catalog#filament-presets", "/settings/catalog/filament#filament-presets"],
-    ["/catalog/printers#brands", "/settings/catalog/printers#brands"],
-    ["/catalog/filament", "/settings/catalog/filament"],
     ["/import", "/settings/data/import"],
     ["/settings/data", "/settings/data/import"],
     ["/logs", "/settings/logs"],
@@ -110,7 +96,7 @@ test("settings tabs: a viewer sees only theirs, and a hidden tab's address opens
   await page.goto("/settings");
   await expect(tabs(page).getByRole("link", { name: "General" })).toBeVisible();
   await page.waitForLoadState("networkidle");
-  await expect(tabs(page).getByRole("link")).toHaveText(["General", "Catalog"]);
+  await expect(tabs(page).getByRole("link")).toHaveText(["General"]);
 
   for (const path of [
     "/settings/hub",

@@ -16,7 +16,7 @@ import { Button } from "../components/Button.tsx";
 import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
-import { useMe, useMyRole, useSignOut } from "../lib/auth.ts";
+import { useCan, useMe, useMyRole, useSignOut } from "../lib/auth.ts";
 import { brandMark, useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx, textLink } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
@@ -44,6 +44,12 @@ function Badge({ to }: { to: string }) {
       {count}
     </span>
   );
+}
+
+/** The items this account may see: Catalog needs `catalog` read. */
+function useShown(items: NavItem[]) {
+  const catalog = useCan("catalog", "read");
+  return items.filter((i) => !i.needsRead || catalog);
 }
 
 function SideLink({ item }: { item: NavItem }) {
@@ -315,6 +321,7 @@ function SheetUser({ onNavigate }: { onNavigate: () => void }) {
 
 function Sidebar() {
   const { t } = useTranslation();
+  const shown = useShown(ALL_ITEMS);
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
       <div className="flex h-14 items-center px-3 lg:px-4">
@@ -325,9 +332,11 @@ function Sidebar() {
           <div key={g.label} className="mt-3 first:mt-0">
             <p className="hidden px-2.5 pb-1 text-xs text-muted lg:block">{t(g.label)}</p>
             <div className="flex flex-col gap-0.5">
-              {g.items.map((i) => (
-                <SideLink key={i.to} item={i} />
-              ))}
+              {g.items
+                .filter((i) => shown.includes(i))
+                .map((i) => (
+                  <SideLink key={i.to} item={i} />
+                ))}
             </div>
           </div>
         ))}
@@ -376,8 +385,9 @@ function Footer() {
 function BottomNav() {
   const { t } = useTranslation();
   const sheet = useRef<HTMLDialogElement>(null);
-  const primary = ALL_ITEMS.filter((i) => i.primary);
-  const more = ALL_ITEMS.filter((i) => !i.primary);
+  const shown = useShown(ALL_ITEMS);
+  const primary = shown.filter((i) => i.primary);
+  const more = shown.filter((i) => !i.primary);
   const tab =
     "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted data-[status=active]:text-accent";
   return (

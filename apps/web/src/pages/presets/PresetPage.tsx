@@ -25,17 +25,17 @@ import { AllSettings } from "./AllSettings.tsx";
 const KINDS = {
   filament: {
     path: "/api/filament/presets",
-    back: "/settings/catalog/filament",
+    back: "/catalog/filament",
     hash: "filament-presets",
   },
   machine: {
     path: "/api/machine-presets",
-    back: "/settings/catalog/printers",
+    back: "/catalog/printers",
     hash: "machine-presets",
   },
   process: {
     path: "/api/process-presets",
-    back: "/settings/catalog/printers",
+    back: "/catalog/printers",
     hash: "process-presets",
   },
 } as const;

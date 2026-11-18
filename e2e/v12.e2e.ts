@@ -74,7 +74,7 @@ test("Catalog holds the tables; Printers settings keeps the default printer", as
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("link", { name: "Catalog" })).toHaveAttribute(
     "href",
-    "/settings/catalog/printers",
+    "/catalog/printers",
   );
 });
 

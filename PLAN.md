@@ -4083,7 +4083,7 @@ Do Step 22 of the 6.1.0 plan in PLAN.md.
 
 Added on 2026-11-18 for alpha.3. No DB migration and no API change.
 
-### [ ] Step 23 - Catalog back in the sidebar
+### [x] Step 23 - Catalog back in the sidebar
 **Model:** Sonnet · **Effort:** Medium
 **Why:** Catalog is used day to day with Printers and Filament, so it belongs with them and not among the admin pages. It stays one page: a machine's System and User presets switches can't be split between printers and filament (ADR-0023).
 **Scope:**

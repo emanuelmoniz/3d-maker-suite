@@ -50,22 +50,22 @@ export const ENTITIES: Record<ImportEntity, { label: string; to: string; view: s
   },
   brands: {
     label: "import:entities.brands",
-    to: "/settings/catalog/printers",
+    to: "/catalog/printers",
     view: "import:done.viewCatalog",
   },
   printerModels: {
     label: "import:entities.printerModels",
-    to: "/settings/catalog/printers",
+    to: "/catalog/printers",
     view: "import:done.viewCatalog",
   },
   filamentBrands: {
     label: "import:entities.filamentBrands",
-    to: "/settings/catalog/filament",
+    to: "/catalog/filament",
     view: "import:done.viewFilamentCatalog",
   },
   filamentMaterials: {
     label: "import:entities.filamentMaterials",
-    to: "/settings/catalog/filament",
+    to: "/catalog/filament",
     view: "import:done.viewFilamentCatalog",
   },
 };

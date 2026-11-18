@@ -13,7 +13,7 @@ export function FilamentBrandFormPage() {
   return (
     <CatalogForm
       kind="filament-brands"
-      backTo="/settings/catalog/filament"
+      backTo="/catalog/filament"
       titles={["filament:catalog.brands.addTitle", "filament:catalog.brands.editTitle"]}
       imageLabel="filament:catalog.brands.logo"
       toBody={(f) => ({ name: text(f, "name"), url: orNull(text(f, "url")) })}
@@ -157,7 +157,7 @@ export function FilamentMaterialFormPage() {
   return (
     <CatalogForm
       kind="filament-materials"
-      backTo="/settings/catalog/filament"
+      backTo="/catalog/filament"
       titles={["filament:catalog.materials.addTitle", "filament:catalog.materials.editTitle"]}
       toBody={materialBody}
     >

@@ -113,6 +113,7 @@ const built = [
   "/printers",
   "/maintenance",
   "/filament",
+  "/catalog",
   "/prints",
   "/projects",
   "/quotes",
@@ -178,39 +179,15 @@ const settingsTabs: AnyRoute[] = [
   settingsTab("integrations", ["integrations", "import", "filament"], IntegrationsPage),
   settingsTab("users", ["users"], () => <UsersPage tab="users" />),
   settingsTab("roles", ["users"], () => <UsersPage tab="roles" />),
-  // Catalog (ADR-0020): one tab per part of the catalog, `/settings/catalog` opens the first.
-  createRoute({
-    getParentRoute: () => settingsLayout,
-    path: "catalog",
-    beforeLoad: ({ location }) => {
-      if (location.pathname.replace(/\/$/, "") === "/settings/catalog")
-        throw redirect({
-          to: "/settings/catalog/printers",
-          search: location.search,
-          hash: location.hash,
-        });
-    },
-  }),
-  ...CATALOG_TABS.map((tab) =>
+  // Catalog was a tab of Settings (6.1.0 Steps 15 to 22): its addresses land on the page.
+  ...["catalog", ...CATALOG_TABS.map((tab) => `catalog/${tab}`)].map((path) =>
     createRoute({
       getParentRoute: () => settingsLayout,
-      path: `catalog/${tab}`,
-      // A table's address on the other tab lands on its own (ADR-0023).
-      beforeLoad: ({ location }: { location: { hash: string; search: object } }) => {
-        const to = tabOf(location.hash);
-        if (to && to !== tab)
-          throw redirect({
-            to: `/settings/catalog/${to}`,
-            search: location.search,
-            hash: location.hash,
-          });
+      path,
+      beforeLoad: ({ location }) => {
+        const tab = path.split("/")[1] ?? tabOf(location.hash) ?? CATALOG_TABS[0];
+        throw redirect({ to: `/catalog/${tab}`, search: location.search, hash: location.hash });
       },
-      // integrations: the names of the accounts a row can come from.
-      loader: () =>
-        Promise.all(
-          ["catalog", "printers", "filament", "integrations", "import", "hub"].map(loadNamespace),
-        ),
-      component: () => <CatalogPage tab={tab} />,
     }),
   ),
   // Data: Import and Export, a tab each; `/settings/data` opens the first.
@@ -245,8 +222,6 @@ const routes: AnyRoute[] = [
     [
       ["/hub", "/settings/hub"],
       ["/integrations", "/settings/integrations"],
-      ["/catalog", "/settings/catalog/printers"],
-      ...CATALOG_TABS.map((tab) => [`/catalog/${tab}`, `/settings/catalog/${tab}`] as const),
       ["/import", "/settings/data/import"],
       ["/logs", "/settings/logs"],
       ["/users", "/settings/users"],
@@ -262,6 +237,42 @@ const routes: AnyRoute[] = [
     }),
   ),
   ...modules,
+  // Catalog (ADR-0023): one tab per part of the catalog, `/catalog` opens the first.
+  createRoute({
+    getParentRoute: () => root,
+    path: "/catalog",
+    beforeLoad: ({ location }) => {
+      throw redirect({
+        to: "/catalog/printers",
+        search: location.search,
+        hash: location.hash,
+      });
+    },
+  }),
+  ...CATALOG_TABS.map((tab) =>
+    createRoute({
+      getParentRoute: () => root,
+      path: `/catalog/${tab}`,
+      // A table's address on the other tab lands on its own (ADR-0023).
+      beforeLoad: ({ location }: { location: { hash: string; search: object } }) => {
+        const to = tabOf(location.hash);
+        if (to && to !== tab)
+          throw redirect({
+            to: `/catalog/${to}`,
+            search: location.search,
+            hash: location.hash,
+          });
+      },
+      // integrations: the names of the accounts a row can come from.
+      loader: () =>
+        Promise.all(
+          ["catalog", "printers", "filament", "integrations", "import", "hub", "settings"].map(
+            loadNamespace,
+          ),
+        ),
+      component: () => <CatalogPage tab={tab} />,
+    }),
+  ),
   createRoute({
     getParentRoute: () => root,
     path: "/",
@@ -414,7 +425,7 @@ const routes: AnyRoute[] = [
       path,
       // Keeps the table's filters (`process-presets.archived=true`).
       beforeLoad: ({ location }) => {
-        throw redirect({ to: `/settings/catalog/${tab}`, search: location.search, hash });
+        throw redirect({ to: `/catalog/${tab}`, search: location.search, hash });
       },
     }),
   ),
@@ -612,7 +623,7 @@ const routes: AnyRoute[] = [
         beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
           if (location.pathname !== "/printers/settings") return;
           const tab = tabOf(location.hash);
-          if (tab) throw redirect({ to: `/settings/catalog/${tab}`, hash: location.hash });
+          if (tab) throw redirect({ to: `/catalog/${tab}`, hash: location.hash });
         },
         loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
         component,

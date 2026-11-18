@@ -155,10 +155,9 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   const side = page.getByRole("complementary");
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
   const tab = tabs.getByRole("link", { name: "Library" });
-  // ADR-0023: Settings → Catalog → its settings → Library, open to `catalog` read.
+  // ADR-0023: Catalog → its settings → Library, open to `catalog` read.
   const openPresets = async () => {
-    await side.getByRole("link", { name: "Settings" }).click();
-    await tabs.getByRole("link", { name: "Catalog" }).click();
+    await side.getByRole("link", { name: "Catalog" }).click();
     await page.getByRole("link", { name: "Catalog settings" }).click();
     await tab.click();
   };

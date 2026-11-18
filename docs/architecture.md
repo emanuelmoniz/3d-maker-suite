@@ -363,11 +363,14 @@ A spool library that is also a target (Spoolman, ADR-0015) gets what each print 
 | Hub management | `/settings/hub` | `hub.manage`, while the hub is on |
 | Integrations | `/settings/integrations` | `integrations.manage`, or a sync or review task on that page |
 | Users, Roles | `/settings/users`, `/settings/roles` | `users.manage`, while accounts are on |
-| Catalog | `/settings/catalog/printers`, `/settings/catalog/filament` | `catalog` read |
 | Data | `/settings/data/import`, `/settings/data/export` | `integrations.manage` |
 | Logs | `/settings/logs` | `settings.logs`; the log settings are the gear button's page `/logs/settings`; the tab shows even while logging is off |
 
-The old list addresses (`/hub`, `/integrations`, `/catalog`, `/catalog/printers`, `/catalog/filament`, `/import`, `/logs`, `/users`, `/users/roles`) redirect to their tab and keep search and hash. Sub-pages keep their addresses: `/integrations/new`, `/integrations/$id/edit`, `/hub/settings`, `/logs/settings`, `/hub/devices/$deviceId`, `/catalog/settings`, the preset pages, `/users/$id`, `/users/roles/$id` and `/import/...`.
+The old list addresses (`/hub`, `/integrations`, `/import`, `/logs`, `/users`, `/users/roles`) redirect to their tab and keep search and hash. Sub-pages keep their addresses: `/integrations/new`, `/integrations/$id/edit`, `/hub/settings`, `/logs/settings`, `/hub/devices/$deviceId`, `/catalog/settings`, the preset pages, `/users/$id`, `/users/roles/$id` and `/import/...`.
+
+## Web routes: Catalog (6.1.0 Step 23)
+
+Catalog is a sidebar item under Filament in Equipment, shown with `catalog` read (`shell/nav.ts` `needsRead`; the mobile More sheet follows). `/catalog/printers` and `/catalog/filament` are its tabs (`pages/catalog/CatalogPage.tsx`); `/catalog` opens the first, a table's `#<id>` on the other tab lands on its own tab, and without `catalog` read the address goes to `/`. `/settings/catalog`, `/settings/catalog/printers` and `/settings/catalog/filament` redirect there and keep search and hash. Catalog settings stay at `/catalog/settings` (Sources, Consumers, Library) with a back link to the Catalog page, and the preset pages at `/catalog/{printer,process,filament}-presets/$id`; the sidebar highlights Catalog on all of them.
 
 ## Runtime layout
 

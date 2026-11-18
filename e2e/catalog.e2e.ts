@@ -58,6 +58,16 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
     ["/catalog/settings/preset-sources#receive-x", "/catalog/settings/sources#receive-x"],
     ["/catalog/sources", "/catalog/settings/sources"],
     ["/presets/printer", "/catalog/printers#machine-presets"],
+    // Catalog was a tab of Settings (6.1.0 Steps 15 to 22): hash and search are kept.
+    ["/catalog", "/catalog/printers"],
+    ["/settings/catalog", "/catalog/printers"],
+    ["/settings/catalog/printers#brands", "/catalog/printers#brands"],
+    ["/settings/catalog/filament", "/catalog/filament"],
+    ["/settings/catalog/printers#filament-presets", "/catalog/filament#filament-presets"],
+    [
+      "/settings/catalog/filament?process-presets.archived=true#process-presets",
+      "/catalog/printers\\?process-presets.archived=true#process-presets",
+    ],
   ]) {
     await page.goto(from);
     await expect(page).toHaveURL(new RegExp(`${to}$`));
@@ -75,9 +85,9 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
   await page.getByRole("link", { name: "Q1 0.4" }).click();
   await expect(page).toHaveURL(`/catalog/printer-presets/${machine.id}`);
   await expect(page.getByRole("heading", { name: "Q1 0.4", level: 1 })).toBeVisible();
-  // A preset's page is under Catalog, a tab of Settings: its menu item is the current one.
+  // A preset's page is under Catalog: its menu item is the current one.
   await expect(
-    page.getByRole("complementary").getByRole("link", { name: "Settings" }),
+    page.getByRole("complementary").getByRole("link", { name: "Catalog" }),
   ).toHaveAttribute("data-status", "active");
   // Filament settings is its own page now, with General and Sources tabs.
   await page.goto("/filament/settings");
@@ -114,21 +124,27 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
 });
 
-test("the bottom block and the More sheet: Settings holds the admin pages", async ({ page }) => {
+test("Catalog is in the sidebar under Filament and in the More sheet; Settings holds the other admin pages", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   const bottom = page.getByRole("complementary").locator("div.border-t").first();
   const admin = ["Integrations", "Catalog", "Import | Export", "Presets", "Settings"];
   const side = (await linkNames(bottom)).filter((n) => admin.includes(n));
   expect(side).toEqual(["Settings"]);
+  const equipment = await linkNames(page.getByRole("complementary").getByRole("navigation"));
+  expect(equipment.slice(equipment.indexOf("Filament"), equipment.indexOf("Filament") + 2)).toEqual(
+    ["Filament", "Catalog"],
+  );
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "More" }).click();
   const sheet = (await linkNames(page.getByRole("dialog"))).filter((n) => admin.includes(n));
-  expect(sheet).toEqual(["Settings"]);
+  expect(sheet).toEqual(["Catalog", "Settings"]);
 });
 
-test("Catalog needs its read: no tab, and its address opens Settings", async ({ page }) => {
+test("Catalog needs its read: no sidebar item, and its address goes home", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   await post(page, "/api/auth/setup", {
@@ -153,9 +169,15 @@ test("Catalog needs its read: no tab, and its address opens Settings", async ({ 
   await expect(page.getByRole("complementary").getByRole("link", { name: "Catalog" })).toHaveCount(
     0,
   );
-  await page.goto("/catalog/printers");
-  await expect(page).toHaveURL(/\/settings$/);
-  // An old Presets link goes through Catalog, so to Settings too.
-  await page.goto("/presets/printer");
-  await expect(page).toHaveURL(/\/settings$/);
+  for (const path of [
+    "/catalog/printers",
+    "/catalog/filament",
+    "/catalog",
+    "/settings/catalog/printers",
+    // An old Presets link goes through Catalog, so home too.
+    "/presets/printer",
+  ]) {
+    await page.goto(path);
+    await expect(page, path).toHaveURL(/\/$/);
+  }
 });

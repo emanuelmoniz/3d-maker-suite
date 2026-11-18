@@ -383,7 +383,7 @@ export function PrintersConfigPage() {
                 <Trans
                   i18nKey="catalog:moved"
                   components={{
-                    catalog: <Link to="/settings/catalog/printers" className={textLink} />,
+                    catalog: <Link to="/catalog/printers" className={textLink} />,
                   }}
                 />
               </p>
