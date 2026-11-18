@@ -2,6 +2,20 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.1.0-alpha.1] - 2026-11-17
+
+Pre-release, first of 6.1.0. Lists what changed since 6.0.0. Back up before updating. No migration. Updating keeps all data. Connectors update to the hub's version.
+
+### Added
+- **Sync from the page**: Printers, Filament (spools), Prints and every Catalog table get a **Sync** button, and Catalog a **Sync all**. It syncs now the enabled sources whose data type is on Auto and that you may sync; it is hidden when there are none. Manual and Off sources are skipped, and the schedule isn't touched ([docs/printers.md](docs/printers.md), [docs/filament.md](docs/filament.md), [docs/prints.md](docs/prints.md), [docs/catalog.md](docs/catalog.md))
+- **Sort and filter the printers by Monitoring**, with a "States changed, refresh" hint instead of rows that move by themselves ([docs/printers.md](docs/printers.md))
+- **Copy code** button on the hub's pairing code
+- **Print time** of a project's sliced plates in its production cost ([docs/projects.md](docs/projects.md))
+- **Scan folders** moved into the Projects page header
+
+### Changed
+- A printer whose only sources have no live status (Bambu Cloud) shows **Synced** and **Synced only**, not Not monitored, and says it syncs on its schedule ([docs/bambu-cloud.md](docs/bambu-cloud.md))
+
 ## [6.0.0] - 2026-11-17
 
 Stable release. Everything in 6.0.0-alpha.1 to alpha.5 is included; nothing changed after alpha.5. Back up before updating. Migrations 0131 to 0137 apply as described in the pre-releases. Updating from 5.x keeps all data. Connectors update to the hub's version; one older than 6.0.0 can't reach printers.
