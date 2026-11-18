@@ -464,7 +464,7 @@ it("an installed slicer becomes the worker's once it runs there; offline, nothin
 });
 
 it("Remove integration takes a slicer card's machine installs and turns the device's worker off", async () => {
-  const { send, next, deviceId } = await live();
+  const { send, next, answer, deviceId } = await live();
   const worker = (
     await send("POST", "/api/integrations", {
       adapterId: "bambu-studio-worker",
@@ -473,7 +473,10 @@ it("Remove integration takes a slicer card's machine installs and turns the devi
   ).json();
   expect((await next("device.worker")).on).toBe(true);
 
-  const res = await send("DELETE", "/api/integrations?library=bambu-studio");
+  const removed = send("DELETE", "/api/integrations?library=bambu-studio");
+  // The online device is asked to delete its managed slicer first.
+  await answer((await next("slicer.remove")).requestId, { ok: true, result: null });
+  const res = await removed;
   expect(res.statusCode).toBe(200);
   expect(res.json()).toEqual({ removed: [worker.id] });
   expect((await send("GET", "/api/integrations")).json()).toEqual([]);
