@@ -57,9 +57,9 @@ export function ConfigPage({
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
   const title = t("common:actions.moduleSettings", { module: t(`nav:items.${module}.label`) });
-  // Hub management and Catalog are tabs of Settings (6.1.0 Step 15).
+  // Hub management, Catalog and Logs are tabs of Settings (6.1.0 Step 15).
   const backTo = {
-    to: (module === "hub" || module === "catalog"
+    to: (module === "hub" || module === "catalog" || module === "logs"
       ? `/settings/${module}`
       : `/${module}`) as LinkProps["to"],
   };

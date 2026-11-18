@@ -362,9 +362,9 @@ A spool library that is also a target (Spoolman, ADR-0015) gets what each print 
 | Users, Roles | `/settings/users`, `/settings/roles` | `users.manage`, while accounts are on |
 | Catalog | `/settings/catalog/printers`, `/settings/catalog/filament` | `catalog` read |
 | Data | `/settings/data/import`, `/settings/data/export` | `integrations.manage` |
-| Logs | `/settings/logs` | `settings.logs`; the tab shows while logging is on |
+| Logs | `/settings/logs` | `settings.logs`; the log settings are the gear button's page `/logs/settings`; the tab shows even while logging is off |
 
-The old list addresses (`/hub`, `/integrations`, `/catalog`, `/catalog/printers`, `/catalog/filament`, `/import`, `/logs`, `/users`, `/users/roles`) redirect to their tab and keep search and hash. Sub-pages keep their addresses: `/integrations/new`, `/integrations/$id/edit`, `/hub/settings`, `/hub/devices/$deviceId`, `/catalog/settings`, the preset pages, `/users/$id`, `/users/roles/$id` and `/import/...`.
+The old list addresses (`/hub`, `/integrations`, `/catalog`, `/catalog/printers`, `/catalog/filament`, `/import`, `/logs`, `/users`, `/users/roles`) redirect to their tab and keep search and hash. Sub-pages keep their addresses: `/integrations/new`, `/integrations/$id/edit`, `/hub/settings`, `/logs/settings`, `/hub/devices/$deviceId`, `/catalog/settings`, the preset pages, `/users/$id`, `/users/roles/$id` and `/import/...`.
 
 ## Runtime layout
 

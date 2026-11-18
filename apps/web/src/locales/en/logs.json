@@ -1,7 +1,8 @@
 {
   "table": "Logs",
   "loadError": "Couldn't load the logs.",
-  "inactive": "Logging is off. Turn it on in Settings to record new entries.",
+  "offTitle": "Logging is off",
+  "offBody": "Turn on Log active in the Logs settings (top right) to record what the app does.",
   "emptyTitle": "No log entries",
   "emptyBody": "Entries appear here as the app works.",
   "clear": "Clear logs",

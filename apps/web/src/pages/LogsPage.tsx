@@ -14,6 +14,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
 import { DataTable } from "../components/DataTable.tsx";
 import { EmptyState } from "../components/EmptyState.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
+import { SettingsLink } from "../components/SettingsLink.tsx";
 import { api } from "../lib/api.ts";
 import { useCan } from "../lib/auth.ts";
 import { formatDateTime } from "../lib/format.ts";
@@ -50,12 +51,14 @@ export function LogsPage() {
         title={t("nav:items.logs.label")}
         description={t("nav:items.logs.description")}
         actions={
-          <Button variant="danger" disabled={!data?.total} onClick={() => setConfirming(true)}>
-            {t("logs:clear")}
-          </Button>
+          <>
+            <Button variant="danger" disabled={!data?.total} onClick={() => setConfirming(true)}>
+              {t("logs:clear")}
+            </Button>
+            <SettingsLink module="logs" />
+          </>
         }
       />
-      {active === false && <p className="mb-4 text-muted">{t("logs:inactive")}</p>}
       {(isError || clear.isError) && (
         <p role="alert" className="text-bad">
           {t("logs:loadError")}
@@ -64,8 +67,8 @@ export function LogsPage() {
       {data && !data.total && !Object.keys(query).length ? (
         <EmptyState
           icon={ScrollText}
-          title={t("logs:emptyTitle")}
-          description={t("logs:emptyBody")}
+          title={active === false ? t("logs:offTitle") : t("logs:emptyTitle")}
+          description={active === false ? t("logs:offBody") : t("logs:emptyBody")}
         />
       ) : (
         data && (

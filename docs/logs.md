@@ -1,6 +1,6 @@
 # Logs
 
-The **Logs** tab of **Settings** records what the app does, by module and level, to help with troubleshooting. Logging is **off** by default. Turn it on in the **Logs** section of **Settings → General**; the tab only appears while it is on.
+The **Logs** tab of **Settings** records what the app does, by module and level, to help with troubleshooting. Logging is **off** by default. Open the log settings with the gear button at the top right of **Settings → Logs**. The tab shows whether logging is on or off; while it is off, the list says so.
 
 - **Levels to keep:** debug, info, success, warn and error. Choose which ones are written.
 - **Modules to log:** the parts of the app that write entries (printers, prints, import, integrations, backups, and so on). Untick a module to leave it out.

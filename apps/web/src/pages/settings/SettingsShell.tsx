@@ -67,7 +67,7 @@ function useSettingsTabs() {
     {
       to: "/settings/logs",
       label: t("settings:tabs.logs"),
-      shown: logs && !!values?.logActive,
+      shown: logs,
       open: logs,
     },
   ];

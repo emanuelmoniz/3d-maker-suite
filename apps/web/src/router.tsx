@@ -64,6 +64,7 @@ import {
   CostsConfigPage,
   FilamentConfigPage,
   HubConfigPage,
+  LogsConfigPage,
   OrdersConfigPage,
   PrintersConfigPage,
   PrintsConfigPage,
@@ -583,6 +584,7 @@ const routes: AnyRoute[] = [
       ["/projects/settings", ProjectsConfigPage, ["projects", "hub"]],
       ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
       ["/hub/settings", HubConfigPage, ["hub"]],
+      ["/logs/settings", LogsConfigPage, ["logs"]],
       ["/filament/settings", FilamentConfigPage, ["filament", "integrations"]],
       // hub, integrations: the lines and the machines on Sources (ADR-0021); import, filament: the
       // zip's steps and the slicer's desktop name.

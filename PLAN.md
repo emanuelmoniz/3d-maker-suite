@@ -3964,7 +3964,7 @@ Added on 2026-11-18 for alpha.3. The admin pages leave the sidebar and become ta
 Do Step 15 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 16 - Log settings in the Logs tab
+### [x] Step 16 - Log settings in the Logs tab
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - `LogSection` moves from General to the top of the Logs tab, above the log list, with the same right (`settings.logs`).

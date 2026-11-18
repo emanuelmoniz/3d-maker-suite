@@ -77,7 +77,7 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
     return page.getByRole("heading", { level: 2 }).allTextContents();
   };
-  const adminOnly = ["Branding", "Network", "Backup & export", "Logs", "About & updates"];
+  const adminOnly = ["Branding", "Network", "Backup & export", "About & updates"];
 
   // Printer, accessory and module setup is admin-only: no add links, no settings gear, settings URLs bounce.
   const expectNoSetup = async () => {

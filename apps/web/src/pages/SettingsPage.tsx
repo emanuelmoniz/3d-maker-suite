@@ -11,7 +11,6 @@ import { ThemeToggle } from "../shell/ThemeToggle.tsx";
 import { AboutSection } from "./settings/AboutSection.tsx";
 import { BackupSection } from "./settings/BackupSection.tsx";
 import { BrandingFields } from "./settings/BrandingFields.tsx";
-import { LogSection } from "./settings/LogSection.tsx";
 import {
   AccountsSwitch,
   HubSwitch,
@@ -38,7 +37,6 @@ export function SettingsPage() {
     server: useCan("settings.server"),
     hub: useCan("hub.manage"),
     backup: useCan("settings.backup"),
-    logs: useCan("settings.logs"),
   };
   const { accent, setAccent } = useTheme();
 
@@ -161,12 +159,6 @@ export function SettingsPage() {
         {can.backup && (
           <Section title={t("settings:sections.backup")}>
             <BackupSection />
-          </Section>
-        )}
-
-        {can.logs && (
-          <Section title={t("settings:sections.logs")}>
-            <LogSection />
           </Section>
         )}
 

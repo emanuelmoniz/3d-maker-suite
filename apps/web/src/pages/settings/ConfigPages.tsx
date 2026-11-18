@@ -22,6 +22,7 @@ import { usePrinters } from "../../lib/printers.ts";
 import { useEmptyProjectTrash, useProjectTrash } from "../../lib/projects.ts";
 import { ChannelCards } from "../alerts/ChannelsSection.tsx";
 import { type ConfigCtx, ConfigPage } from "./ConfigPage.tsx";
+import { LogSection } from "./LogSection.tsx";
 import { ProjectRoots } from "./ProjectRoots.tsx";
 
 type BoolKey =
@@ -445,6 +446,22 @@ export function OrdersConfigPage() {
                 />
               )}
             </FormField>
+          </Section>
+        </div>
+      )}
+    </ConfigPage>
+  );
+}
+
+/** Logs settings (6.1.0 Step 16): on/off, what is kept and for how long. */
+export function LogsConfigPage() {
+  const { t } = useTranslation();
+  return (
+    <ConfigPage module="logs">
+      {() => (
+        <div className={cardGrid}>
+          <Section title={t("settings:sections.logs")} help="docs/logs.md">
+            <LogSection />
           </Section>
         </div>
       )}
