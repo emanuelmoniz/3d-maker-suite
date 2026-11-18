@@ -95,7 +95,7 @@ export function FoldCard({
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-4 sm:pr-5">
-        <h2 id={heading} className="min-w-0 flex-1 text-lg font-semibold">
+        <h2 id={heading} className="min-w-0 flex-1 text-base font-semibold">
           <button
             type="button"
             aria-expanded={open}
@@ -111,7 +111,7 @@ export function FoldCard({
               )}
             />
             <span className="wrap-anywhere">{title}</span>
-            <span className="text-base font-normal text-muted">{count}</span>
+            <span className="text-sm font-normal text-muted">{count}</span>
             {badge && (
               <span
                 className={cx(
