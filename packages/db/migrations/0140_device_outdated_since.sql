@@ -1,0 +1,1 @@
+ALTER TABLE `devices` ADD `outdated_since` text;

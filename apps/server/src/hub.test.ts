@@ -6,6 +6,7 @@ import { BUILT_IN_ROLE_IDS, emptyPresetLibrary } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { CONNECTOR_UPDATE_GRACE_MS, evaluateAlerts } from "./alerts/evaluate.ts";
 import { buildApp } from "./app.ts";
 import { adapters } from "./integrations/registry.ts";
 import { hashPassword } from "./lib/password.ts";
@@ -435,8 +436,12 @@ describe("hub events", () => {
     await vi.waitFor(async () =>
       expect(await alert()).toMatchObject({ severity: "error", module: "hub", entityId: deviceId }),
     );
-    expect((await update()).statusCode).toBe(204);
+    // Asked once when it connected, and again by Update now.
     expect(await s.until("event: connector.update")).toBeTruthy();
+    expect((await update()).statusCode).toBe(204);
+    expect(
+      await s.until((text) => text.split("event: connector.update").length === 3),
+    ).toBeTruthy();
     await s.cancel();
 
     // Back on the hub's version: not outdated, and the alert resolves.
@@ -448,6 +453,142 @@ describe("hub events", () => {
     });
     await vi.waitFor(async () => expect(await alert()).toBeUndefined());
     await t.cancel();
+  });
+
+  describe("a connector on another version", () => {
+    type Db = Awaited<ReturnType<typeof setup>>["db"];
+    const row = (db: Db, id: string) =>
+      db.select().from(schema.devices).where(eq(schema.devices.id, id)).get();
+    const asked = (db: Db, id: string) =>
+      db
+        .select()
+        .from(schema.hubEvents)
+        .where(eq(schema.hubEvents.deviceId, id))
+        .all()
+        .filter((e) => e.type === "connector.update").length;
+    const alerted = async (db: Db) => {
+      await evaluateAlerts(db, Buffer.alloc(32), { warn: () => {} });
+      return db
+        .select()
+        .from(schema.alerts)
+        .all()
+        .find((a) => a.kind === "connector_outdated" && !a.resolvedAt);
+    };
+    /** Moves the first sighting `ms` into the past. */
+    const age = (db: Db, id: string, ms: number, hubVersion = VERSION) =>
+      db
+        .update(schema.devices)
+        .set({
+          outdatedSince: { hubVersion, since: new Date(Date.now() - ms).toISOString() },
+        })
+        .where(eq(schema.devices.id, id))
+        .run();
+    const old = { "x-connector-version": "0.0.1" };
+
+    it("alerts only after the grace period", async () => {
+      const { db, open, deviceId } = await live();
+      const s = await open(old);
+      await s.until(": open");
+      expect(await alerted(db)).toBeUndefined();
+      age(db, deviceId, CONNECTOR_UPDATE_GRACE_MS - 60_000);
+      expect(await alerted(db)).toBeUndefined();
+      age(db, deviceId, CONNECTOR_UPDATE_GRACE_MS);
+      expect(await alerted(db)).toMatchObject({ severity: "warning", entityId: deviceId });
+      await s.cancel();
+    });
+
+    it("alerts at once when the update failed", async () => {
+      const { db, open, deviceId } = await live();
+      const failure = { version: VERSION, reason: "download", error: "HTTP 500" };
+      const s = await open({ ...old, "x-connector-update": JSON.stringify(failure) });
+      await s.until(": open");
+      expect(await alerted(db)).toMatchObject({ severity: "error", entityId: deviceId });
+      await s.cancel();
+    });
+
+    it("keeps the clock and asks no more over a hub restart", async () => {
+      const { app, db, open, token, deviceId } = await live();
+      const s = await open(old);
+      await s.until(": open");
+      age(db, deviceId, 60_000);
+      const since = row(db, deviceId)?.outdatedSince?.since;
+      await s.cancel();
+      await app.close();
+
+      const dataDir = mkdtempSync(join(tmpdir(), "hub-data-"));
+      onTestFinished(() => rmSync(dataDir, { recursive: true, force: true }));
+      const again = await buildApp(db, { stream: { write: () => true } }, dataDir, {});
+      close = () => again.close();
+      const base = await again.listen({ port: 0, host: "127.0.0.1" });
+      const res = await fetch(`${base}/api/hub/events`, {
+        headers: { authorization: `Bearer ${token}`, ...old },
+      });
+      const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+      await reader.read();
+      expect(row(db, deviceId)?.outdatedSince?.since).toBe(since);
+      expect(asked(db, deviceId)).toBe(1);
+      expect(await alerted(db)).toBeUndefined();
+      await reader.cancel();
+    });
+
+    it("asks it to update once per hub version", async () => {
+      const { db, open, deviceId } = await live();
+      for (const _ of [1, 2]) {
+        const s = await open(old);
+        await s.until(": open");
+        await s.cancel();
+      }
+      expect(asked(db, deviceId)).toBe(1);
+
+      // Found outdated against an older hub: this version is a new start.
+      age(db, deviceId, CONNECTOR_UPDATE_GRACE_MS * 2, "0.0.2");
+      const s = await open(old);
+      await s.until(": open");
+      expect(asked(db, deviceId)).toBe(2);
+      expect(await alerted(db)).toBeUndefined();
+      await s.cancel();
+    });
+
+    it("doesn't ask one that went back, or one newer than the hub", async () => {
+      const back = await live();
+      const failure = { version: VERSION, reason: "rollback" };
+      const s = await back.open({ ...old, "x-connector-update": JSON.stringify(failure) });
+      await s.until(": open");
+      expect(asked(back.db, back.deviceId)).toBe(0);
+      await s.cancel();
+      await back.app.close();
+
+      const newer = await live();
+      const t = await newer.open({ "x-connector-version": "99.0.0" });
+      await t.until(": open");
+      expect(asked(newer.db, newer.deviceId)).toBe(0);
+      await t.cancel();
+    });
+
+    it("needs an open stream: other device requests raise nothing", async () => {
+      const { db, bearer, token, deviceId } = await live();
+      await bearer(token);
+      db.update(schema.devices)
+        .set({ lastSeenAt: new Date().toISOString() })
+        .where(eq(schema.devices.id, deviceId))
+        .run();
+      expect(await alerted(db)).toBeUndefined();
+    });
+
+    it("forgets the sighting once it is on the hub's version", async () => {
+      const { db, open, deviceId } = await live();
+      const s = await open(old);
+      await s.until(": open");
+      age(db, deviceId, CONNECTOR_UPDATE_GRACE_MS);
+      expect(await alerted(db)).toBeTruthy();
+      await s.cancel();
+
+      const t = await open({ "x-connector-version": VERSION });
+      await t.until(": open");
+      expect(row(db, deviceId)?.outdatedSince).toBeNull();
+      expect(await alerted(db)).toBeUndefined();
+      await t.cancel();
+    });
   });
 
   it("pushes events live, replays missed ones and deletes acked ones", async () => {

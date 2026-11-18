@@ -4048,7 +4048,7 @@ Do Step 20 of the 6.1.0 plan in PLAN.md. Use frontend-design for the shared head
 
 ## Phase 54 - Alerts after an update
 
-### [ ] Step 21 - Connectors after a hub update: update at once, alert later  **[plan mode]**
+### [x] Step 21 - Connectors after a hub update: update at once, alert later  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Why:** after the hub updates, an email says connectors are outdated, though they update themselves a moment later. `connector_outdated` is raised as soon as a connector's stream opens with another version (`evaluate.ts`).
 **Scope:**

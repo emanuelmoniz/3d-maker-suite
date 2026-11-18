@@ -19,6 +19,7 @@ import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { savePreset } from "@3d-maker-suite/server/src/integrations/presetLibrary.ts";
 import { adapters } from "@3d-maker-suite/server/src/integrations/registry.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
+import { VERSION } from "@3d-maker-suite/server/src/updates/updates.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { testTimeout } from "../../../test-timeout.ts";
 import { createLink } from "./hub.ts";
@@ -197,7 +198,7 @@ describe("device presets (ADR-0017)", () => {
       const libraries = orca ? [library, "orca-slicer"] : [library];
       const link = createLink({
         store,
-        version: "0.0.0",
+        version: VERSION,
         os: "test",
         sync: { dataDir: at, syncDir: join(at, "sync") },
         presetConfigDir: (s) => (orca && s.library === "orca-slicer" ? orca : config),
@@ -390,7 +391,7 @@ describe("device presets (ADR-0017)", () => {
       });
       expect(old.status).toBe(204);
       expect((await h.presets())[0]).toMatchObject({ removedOn: ["Studio PC"], version: 1 });
-      // This test's connector says 0.0.0.
+      h.db.update(schema.devices).set({ connectorVersion: "0.0.0" }).run();
       const devices = (await h.send("GET", "/api/presets/devices")).json() as PresetDevice[];
       expect(devices[0]?.outdated).toBe(true);
     },

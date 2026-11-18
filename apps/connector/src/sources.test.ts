@@ -20,6 +20,7 @@ import { BUILT_IN_ROLE_IDS, hubEventSchema, type PrinterSnapshot } from "@3d-mak
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
+import { VERSION } from "@3d-maker-suite/server/src/updates/updates.ts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLink } from "./hub.ts";
 import { openStore } from "./state.ts";
@@ -145,7 +146,7 @@ describe("printers through a connector", {
     const store = openStore(dir);
     const link = createLink({
       store,
-      version: "6.0.0-test",
+      version: VERSION,
       os: "TestOS x64",
       ...(sources && {
         sources: {

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { posix, win32 } from "node:path";
 import {
   apiErrorSchema,
+  compareVersions,
   connectorInfoSchema,
   connectorSettingsPatchSchema,
   connectorSettingsResultSchema,
@@ -78,6 +79,14 @@ const newCode = () => {
 };
 /** Typed codes: any case, with or without the dash. */
 const codeHash = (code: string) => tokenHash(code.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+/** A connector only ever moves up to its hub's version. */
+const behindHub = (version: string) => {
+  try {
+    return compareVersions(version, VERSION) < 0;
+  } catch {
+    return false; // not a version: leave it alone
+  }
+};
 
 /** No catalog work (a hub without one wired, in tests). */
 const noCatalog = {
@@ -648,11 +657,23 @@ export const hubRoutes =
         failed = JSON.parse(String(req.headers["x-connector-update"] ?? "null"));
       } catch {}
       const update = connectorUpdateFailureSchema.safeParse(failed);
+      const seen = info.success ? info.data.connectorVersion : undefined;
+      const known = db
+        .select({ outdated: devices.outdatedSince })
+        .from(devices)
+        .where(eq(devices.id, deviceId))
+        .get()?.outdated;
+      // The first time on another version than this hub's. Kept over reconnects and hub restarts:
+      // the alert's grace period counts from it, and the connector is asked to update only once.
+      const firstOutdated = !!seen && seen !== VERSION && known?.hubVersion !== VERSION;
+      const now = new Date().toISOString();
       db.update(devices)
         .set({
           ...(info.success && info.data),
           updateFailed: update.success ? update.data : null,
-          lastSeenAt: new Date().toISOString(),
+          ...(seen === VERSION && { outdatedSince: null }),
+          ...(firstOutdated && { outdatedSince: { hubVersion: VERSION, since: now } }),
+          lastSeenAt: now,
         })
         .where(eq(devices.id, deviceId))
         .run();
@@ -731,6 +752,9 @@ export const hubRoutes =
           .filter(Boolean)
           .slice(0, 50),
       });
+      // Not after a rollback: this event retries even a version that failed to start.
+      if (firstOutdated && behindHub(seen) && !(update.data?.reason === "rollback"))
+        channel.publish(deviceId, { type: "connector.update" });
       let userName = owner?.name;
       const beat = setInterval(() => {
         const live = db

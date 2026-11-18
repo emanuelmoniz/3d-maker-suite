@@ -17,6 +17,7 @@ import { BUILT_IN_ROLE_IDS, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
+import { VERSION } from "@3d-maker-suite/server/src/updates/updates.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { testTimeout } from "../../../test-timeout.ts";
 import { createLink } from "./hub.ts";
@@ -120,7 +121,7 @@ describe("hub root sync", () => {
     const store = openStore(at);
     const link = createLink({
       store,
-      version: "5.0.0-test",
+      version: VERSION,
       os: "TestOS x64",
       sync: { dataDir: at, syncDir: join(at, "sync") },
     });

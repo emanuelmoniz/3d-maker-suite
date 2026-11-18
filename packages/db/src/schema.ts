@@ -1371,6 +1371,11 @@ export const devices = sqliteTable(
     connectorVersion: text(),
     /** What the connector reported when its stream last opened (`X-Connector-Update`). */
     updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
+    /**
+     * When its stream first opened on another version than this hub's: the alert's grace period
+     * counts from `since`, and a new hub version starts it over. Null while the versions match.
+     */
+    outdatedSince: text({ mode: "json" }).$type<{ hubVersion: string; since: string }>(),
     /** What the connector reported last about its sync of the hub roots (`PUT .../sync/state`). */
     syncState: text({ mode: "json" }).$type<DeviceSyncState & { reportedAt: string }>(),
 

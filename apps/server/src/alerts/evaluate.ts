@@ -57,6 +57,8 @@ const {
 const DAY_MS = 86_400_000;
 // ponytail: fixed lead time, make it a preference if anyone asks.
 const WARRANTY_LEAD_DAYS = 30;
+/** How long a connector on another version has to update itself before it alerts. */
+export const CONNECTOR_UPDATE_GRACE_MS = 15 * 60_000;
 
 /**
  * Events, not conditions: raised once by whoever saw them happen (the syncer), keyed by the event
@@ -286,10 +288,14 @@ function conditions(db: Db, now: Date, offline: Silent[]): Found {
       context: { count: waiting },
     });
   // A connector that opened its stream to this hub (since it started on this version) and is still
-  // on another version: its update failed, or it can't update itself (not an installed build).
+  // on another version: its update failed (at once), or it can't update itself (after the grace
+  // period). Other requests don't count: one still downloading the update makes them too.
   if (prefs.hubEnabled)
     for (const d of db.select().from(devices).where(ne(devices.connectorVersion, VERSION)).all()) {
       if (!d.connectorVersion || !d.lastSeenAt || d.lastSeenAt < STARTED_AT) continue;
+      if (d.outdatedSince?.hubVersion !== VERSION) continue;
+      const waited = now.getTime() - Date.parse(d.outdatedSince.since);
+      if (!d.updateFailed && waited < CONNECTOR_UPDATE_GRACE_MS) continue;
       add({
         kind: "connector_outdated",
         severity: d.updateFailed ? "error" : "warning",

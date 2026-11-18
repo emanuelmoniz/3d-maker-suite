@@ -28,6 +28,7 @@ import {
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
+import { VERSION } from "@3d-maker-suite/server/src/updates/updates.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLink, type Link, PairError, sseParser } from "./hub.ts";
 import { openStore } from "./state.ts";
@@ -121,7 +122,7 @@ describe("connector and hub", () => {
     opts: Partial<Parameters<typeof createLink>[0]> = {},
   ) => {
     const store = openStore(dir);
-    const link = createLink({ store, version: "5.0.0-test", os: "TestOS x64", ...opts });
+    const link = createLink({ store, version: VERSION, os: "TestOS x64", ...opts });
     cleanup.push(() => link.close());
     cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
     return { dir, store, link };
@@ -148,7 +149,7 @@ describe("connector and hub", () => {
     expect(device).toMatchObject({
       name: "WS-1",
       online: true,
-      connectorVersion: "5.0.0-test",
+      connectorVersion: VERSION,
       os: "TestOS x64",
     });
 
@@ -259,7 +260,7 @@ describe("connector and hub", () => {
       link: c.link,
       store: c.store,
       updater: { state: () => ({ failed: undefined, hubOlder: false, error: undefined }) },
-      version: "5.0.0-test",
+      version: VERSION,
       syncDir: join(c.dir, "sync"),
       open: () => {},
       exit: () => {},
@@ -342,23 +343,28 @@ describe("connector and hub", () => {
     });
   });
 
-  it("updates on Update now and tells the hub why it couldn't", async () => {
+  it("updates when the hub asks, once on connecting and on Update now, and says why it couldn't", async () => {
     const h = await hub();
     const forced: boolean[] = [];
     const c = connector(undefined, {
+      version: "5.0.0-test",
       onHubVersion: async (_, force) => void forced.push(force),
       updateFailure: () =>
         forced.at(-1) ? { version: "9.9.9", reason: "download", error: "HTTP 404" } : undefined,
     });
+    const asked = () => forced.filter(Boolean).length;
     await c.link.pair(h.url, await h.code(), "WS-1");
-    await until(() => status(c.link) === "online");
     const devices = async () => (await h.send("GET", "/api/hub/devices")).json();
+    await until(async () => {
+      const [d] = await devices();
+      return d?.online && d.updateFailed?.error === "HTTP 404";
+    });
     const [device] = await devices();
-    expect(device).toMatchObject({ outdated: true, updateFailed: null });
+    expect(device).toMatchObject({ outdated: true });
+    expect(asked()).toBe(1);
 
     expect((await h.send("POST", `/api/hub/devices/${device.id}/update`)).statusCode).toBe(204);
-    await until(() => forced.includes(true));
-    await until(async () => (await devices())[0].updateFailed?.error === "HTTP 404");
+    await until(() => asked() === 2);
   });
 
   it("answers the machine page's requests, and restarts or stops only after answering", async () => {

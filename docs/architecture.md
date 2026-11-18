@@ -79,6 +79,7 @@ Notes:
 - **A spool is not a preset** (ADR-0020). A spool says what is on the shelf (brand, material, name, colour); a preset is a slicer setting. A plate keeps both per slot. A spool's price per kg is its price paid, else its material's default.
 - **Cost is snapshotted.** `costSnapshot` freezes the computed cost when a print is recorded, so later price changes don't rewrite history (cost engine: Step 19).
 - **Alerts** (ADR-0008) have a kind (the message), a severity (`error`, `warning`, `success`), a module, a task (what raised it) and an optional detail (a sync run's log). At most one unresolved alert exists per (kind, entityType, entityId).
+- **Connector versions.** When a device's event stream first opens on another version than the hub's, `devices.outdatedSince` stores the hub version and the time, and the hub publishes one `connector.update` (not to a connector that rolled back or is newer than the hub). Reconnects and hub restarts keep that record, and a new hub version starts it over. `connector_outdated` is raised 15 minutes after that time, or at once when the connector reports a failed update.
 - **Tag storage** is one polymorphic table, `taggings(tagId, entityType, entityId)`. It has no FK to the tagged row, so a trigger removes the taggings of deleted prints, and the delete helper removes those of other deleted items.
 - **Print rules** are enforced as DB CHECKs and mirrored in zod: a `success` print has no `failureReason`, and `energyWh` and `energySource` are set together.
 
