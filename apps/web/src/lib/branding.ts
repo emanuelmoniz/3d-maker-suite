@@ -16,6 +16,27 @@ export const useBrandingUrl = (kind: BrandingKind) => {
   return v == null ? undefined : `/api/branding/${kind}?v=${v}`;
 };
 
+export type PublicBranding = { appName: string; showName: boolean; logo: number | null };
+
+/** Readable without a session: the sign-in page. Errors and loading both fall back to the defaults. */
+export const usePublicBranding = () =>
+  useQuery({
+    queryKey: ["branding", "public"],
+    queryFn: () => api<PublicBranding>("GET", "/api/branding/public"),
+    retry: false,
+  });
+
+/**
+ * Which mark the app shows, one rule for the sidebar, the sign-in card and the connector page
+ * (which has its own copy in `apps/connector/src/status.ts`, keep them in step):
+ * an uploaded logo always shows, with the name or alone; without one, icon + name, or the
+ * horizontal logo when the name is hidden.
+ */
+export function brandMark({ logo, showName }: { logo: unknown; showName: boolean }) {
+  if (logo) return showName ? "logo+name" : "logo";
+  return showName ? "icon+name" : "wordmark";
+}
+
 /** Custom name, falling back to the translated default. */
 export function useAppName() {
   const { t } = useTranslation();
@@ -24,7 +45,10 @@ export function useAppName() {
 
 export function useSaveBranding(kind: BrandingKind) {
   const qc = useQueryClient();
-  const done = (data?: Branding) => qc.setQueryData(["branding"], data ?? undefined);
+  const done = (data?: Branding) => {
+    qc.setQueryData(["branding"], data ?? undefined);
+    void qc.invalidateQueries({ queryKey: ["branding", "public"] });
+  };
   return {
     upload: useMutation({
       mutationFn: (file: File) => api<Branding>("PUT", `/api/branding/${kind}`, file),

@@ -138,9 +138,10 @@ describe("connector and hub", () => {
     await until(() => status(c.link) === "online");
     expect(c.store.token()).toBeTruthy();
     expect(c.link.branding().name).toBeUndefined();
-    await h.send("PATCH", "/api/preferences", { appName: "Farm" });
+    await h.send("PATCH", "/api/preferences", { appName: "Farm", brandShowName: false });
     c.link.start();
     await until(() => c.link.branding().name === "Farm");
+    expect(c.link.branding().showName).toBe(false);
     await until(() => status(c.link) === "online");
 
     const [device] = (await h.send("GET", "/api/hub/devices")).json();

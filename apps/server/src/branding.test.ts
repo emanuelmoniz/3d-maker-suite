@@ -46,6 +46,19 @@ describe("branding", () => {
     expect((await app.inject("/api/branding")).json().logo).toBeNull();
   });
 
+  it("public branding: name, show-name and logo version, nothing else", async () => {
+    const get = async () => (await app.inject("/api/branding/public")).json();
+    expect(await get()).toEqual({ appName: "", showName: true, logo: null });
+
+    await put("logo", "image/png");
+    await app.inject({
+      method: "PATCH",
+      url: "/api/preferences",
+      payload: { appName: "My Farm", brandShowName: false },
+    });
+    expect(await get()).toEqual({ appName: "My Farm", showName: false, logo: expect.any(Number) });
+  });
+
   it("appName preference defaults to empty and is trimmed", async () => {
     const patch = (appName: string) =>
       app.inject({ method: "PATCH", url: "/api/preferences", payload: { appName } });

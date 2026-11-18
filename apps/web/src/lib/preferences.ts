@@ -18,6 +18,10 @@ export function useSavePreferences() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: PreferencesPatch) => request("PATCH", patch),
-    onSuccess: (data) => qc.setQueryData(preferencesQuery.queryKey, data),
+    onSuccess: (data) => {
+      qc.setQueryData(preferencesQuery.queryKey, data);
+      // The sign-in page's copy of the name and show-name switch.
+      void qc.invalidateQueries({ queryKey: ["branding", "public"] });
+    },
   });
 }

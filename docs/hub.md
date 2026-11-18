@@ -277,6 +277,8 @@ Download the connector file for your system from the [releases page](https://git
 
 The connector starts at login and has no tray icon. Its start-menu or app-menu entry opens the machine's page on the hub once paired, and the pair screen before. With the hub out of reach it opens the connector's **local page**, <http://127.0.0.1:4301/local>: the machine, its user, the hub and whether it's reachable, with **Open on the hub**, **Open sync folder**, held deletes, **Change user**, **Restart server**, **Stop server** and **Unpair**. Every other setting is on the [machine page](#machine-page). Its sync folder is `<home>/3D Maker Suite`.
 
+Once paired, the connector's page header follows the hub's branding like the sidebar: the logo with or without the name, or the horizontal 3D Maker Suite logo when the name is hidden and there is no logo ([configuration](configuration.md#in-app-settings)). The tab title keeps the name either way. Unpaired, or with the hub out of reach, it shows the connector's own icon and name.
+
 ### Warnings you will see
 
 The installers are not code-signed, so the system warns once, as with the app itself:

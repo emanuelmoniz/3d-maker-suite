@@ -118,6 +118,40 @@ it("shows the hub user it acts as, and none when the hub names none", async () =
   expect(empty).not.toContain('href="/user"');
 });
 
+it("the header follows the hub's logo and show-name switch, like its sidebar", async () => {
+  const online = { state: () => ({ status: "online" as const, error: undefined }) };
+  const logo = { type: "image/png", data: Buffer.from([1, 2, 3]) };
+  const header = async (branding: object) => {
+    const s = await serve({ ...online, branding: () => branding });
+    const { body } = await s.call("GET", "/local");
+    close();
+    return body.match(/<header>.*<\/header>/s)?.[0];
+  };
+  const named = (inner: string) =>
+    `<header><img class="mark" src="${inner}" alt=""><h1>${t("connector:appNameOf", { name: "Farm" })}</h1></header>`;
+  const quiet = (src: string) =>
+    `<header><img class="mark alone" src="${src}" alt=""><h1 class="sr-only">${t("connector:appNameOf", { name: "Farm" })}</h1></header>`;
+
+  // Upload × name on/off.
+  expect(await header({ name: "Farm", showName: true, logo })).toBe(named("/branding/logo?v=3"));
+  expect(await header({ name: "Farm", showName: false, logo })).toBe(quiet("/branding/logo?v=3"));
+  expect(await header({ name: "Farm", showName: true })).toBe(named("/icon.svg"));
+  expect(await header({ name: "Farm", showName: false })).toBe(quiet("/logo.svg"));
+  // Nothing loaded: the connector's own icon and name.
+  expect(await header({})).toBe(
+    `<header><img class="mark" src="/icon.svg" alt=""><h1>${t("connector:appName")}</h1></header>`,
+  );
+
+  // The name stays in the tab either way, and the horizontal logo is served.
+  const s = await serve({ ...online, branding: () => ({ name: "Farm", showName: false }) });
+  expect((await s.call("GET", "/local")).body).toContain(
+    `<title>${t("connector:appNameOf", { name: "Farm" })}</title>`,
+  );
+  const svg = await s.call("GET", "/logo.svg");
+  expect(svg.headers["content-type"]).toBe("image/svg+xml");
+  expect(svg.body).toContain("<svg");
+});
+
 it("changes the user only with a code, only from its own page, after confirming", async () => {
   const changes: [string, string][] = [];
   const s = await serve({

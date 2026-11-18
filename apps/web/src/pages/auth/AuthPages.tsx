@@ -5,6 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { safeNext, useLogin, useSetup } from "../../lib/auth.ts";
+import { brandMark, usePublicBranding } from "../../lib/branding.ts";
 import { textLink } from "../../lib/cx.ts";
 
 // Keys written out in full so `pnpm i18n:check` can see them.
@@ -18,6 +19,33 @@ const SETUP_ERRORS: Record<string, string> = {
   setup_done: "users:setup.errors.setup_done",
 };
 
+/**
+ * The sidebar's mark (same `brandMark` rule), read from the public branding since there is no
+ * session yet. Until it answers, or if it fails, icon + default name: no flash of the wrong logo.
+ */
+function AuthBrand() {
+  const { t } = useTranslation();
+  const data = usePublicBranding().data;
+  const name = data?.appName || t("common:appName");
+  const logo = data?.logo == null ? undefined : `/api/branding/logo?v=${data.logo}`;
+  const mark = brandMark({ logo, showName: data?.showName ?? true });
+  const img = "max-h-37.5 max-w-full object-contain";
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-center gap-2.5 text-center font-semibold">
+      {mark === "wordmark" ? (
+        <img src="/logo.svg" alt={name} className={`${img} h-12`} />
+      ) : mark === "logo" ? (
+        <img src={logo} alt={name} className={img} />
+      ) : (
+        <>
+          <img src={logo ?? "/icon.svg"} alt="" className={logo ? img : "size-8 object-contain"} />
+          <span className="min-w-0 wrap-anywhere">{name}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Centered card without the app shell: nothing behind a login may load. */
 function AuthCard({
   title,
@@ -28,14 +56,10 @@ function AuthCard({
   hint?: string;
   children: ReactNode;
 }) {
-  const { t } = useTranslation();
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-8">
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-5 sm:p-6">
-        <div className="mb-5 flex items-center gap-2.5 font-semibold">
-          <img src="/icon.svg" alt="" className="size-8 object-contain" />
-          {t("common:appName")}
-        </div>
+        <AuthBrand />
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {hint && <p className="mt-1 text-muted">{hint}</p>}
         <div className="mt-5">{children}</div>

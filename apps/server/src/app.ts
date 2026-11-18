@@ -338,7 +338,7 @@ export async function buildApp(
     prefix: "/api/server",
   });
   await app.register(fsRoutes(db, hub), { prefix: "/api/fs" });
-  await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
+  await app.register(brandingRoutes(db, dataDir), { prefix: "/api/branding" });
   const adapters = opts.adapters ?? [];
   await app.register(printersRoutes(db, dataDir, adapters, key), { prefix: "/api/printers" });
   await app.register(accessoriesRoutes(db, dataDir), { prefix: "/api/accessories" });

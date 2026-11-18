@@ -487,9 +487,9 @@ export function createLink({
 
   /** The hub user this device acts as: told on every connect, and when it changes (`device.user`). */
   let userName: string | undefined;
-  /** The hub's name, logo and favicon (settings any paired device may read), for the status page. */
+  /** The hub's name, show-name switch, logo and favicon (settings any paired device may read), for the status page. */
   type Image = { type: string; data: Buffer };
-  let branding: { name?: string; logo?: Image; favicon?: Image } = {};
+  let branding: { name?: string; showName?: boolean; logo?: Image; favicon?: Image } = {};
   async function loadBranding(hub: string, token: string, signal: AbortSignal) {
     const get = (path: string) =>
       fetch(`${hub}/api/${path}`, {
@@ -506,11 +506,13 @@ export function createLink({
     };
     try {
       const prefs = await get("preferences");
-      const name = prefs.ok
-        ? ((await prefs.json()) as { values?: { appName?: string } }).values?.appName
-        : "";
+      const values = prefs.ok
+        ? ((await prefs.json()) as { values?: { appName?: string; brandShowName?: boolean } })
+            .values
+        : undefined;
       branding = {
-        name: name || undefined,
+        name: values?.appName || undefined,
+        showName: values?.brandShowName !== false,
         logo: await image("logo"),
         favicon: await image("favicon"),
       };

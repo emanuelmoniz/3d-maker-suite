@@ -1,9 +1,11 @@
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Db } from "@3d-maker-suite/db";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
 import { IMAGE_MAX_BYTES, IMAGE_TYPES, imageType } from "../lib/images.ts";
+import { readPreferences } from "../lib/preferences.ts";
 
 const KINDS = ["logo", "favicon"] as const;
 const params = z.object({ kind: z.enum(KINDS) });
@@ -12,9 +14,16 @@ const brandingSchema = z.object({
   favicon: z.number().nullable(),
 });
 
+/** What the sign-in page may read without a session: nothing else from the preferences. */
+const publicBrandingSchema = z.object({
+  appName: z.string(),
+  showName: z.boolean(),
+  logo: z.number().nullable(),
+});
+
 /** Logo and favicon live in `<dataDir>/photos` (so backups carry them); the file itself is the state. */
 export const brandingRoutes =
-  (dataDir: string): FastifyPluginAsyncZod =>
+  (db: Db, dataDir: string): FastifyPluginAsyncZod =>
   async (app) => {
     const dir = join(dataDir, "photos");
     const find = (kind: (typeof KINDS)[number]) =>
@@ -48,6 +57,12 @@ export const brandingRoutes =
     };
 
     app.get("/", { schema: { response: { 200: brandingSchema } } }, async () => versions());
+
+    // Public (lib/auth.ts): the sign-in page and the logo image load before anyone is signed in.
+    app.get("/public", { schema: { response: { 200: publicBrandingSchema } } }, async () => {
+      const { appName, brandShowName } = readPreferences(db);
+      return { appName, showName: brandShowName, logo: versions().logo };
+    });
 
     app.put("/:kind", { schema: { params, response: { 200: brandingSchema } } }, async (req) => {
       const ext = IMAGE_TYPES[req.headers["content-type"] as keyof typeof IMAGE_TYPES];

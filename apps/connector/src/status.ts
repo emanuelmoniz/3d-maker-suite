@@ -10,6 +10,7 @@ import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
 import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
 import { ICON_SVG } from "./icon.ts";
+import { LOGO_SVG } from "./logo.ts";
 import type { Store } from "./state.ts";
 import { RESTART, type Updater } from "./update.ts";
 
@@ -101,6 +102,9 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system
 main { max-width: 36rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; display: grid; gap: 1rem; }
 header { display: flex; align-items: center; gap: .75rem; padding: .5rem 0 .25rem; }
 .mark { height: 2.25rem; max-width: 8rem; object-fit: contain; flex: none; }
+.mark.alone { max-width: 100%; flex: 0 1 auto; min-width: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0; }
 h1 { font-size: 1.25rem; margin: 0; } h2 { font-size: 1.05rem; margin: 0 0 .5rem; } h3 { font-size: 1rem; margin: 1rem 0 .25rem; }
 section { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; box-shadow: var(--shadow); }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1.25rem; margin: 0 0 1rem; }
@@ -326,8 +330,24 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 </section>`;
   const note = (html: string) => `<section><p role="status">${html}</p></section>`;
 
+  /**
+   * The header mark, the same four cases as the hub's sidebar (`brandMark` in the web app, keep them
+   * in step). With the name hidden the `<h1>` stays for screen readers and the tab, visually hidden.
+   */
+  const header = (title: string) => {
+    // Nothing loaded (unpaired, hub unreachable) is icon + the connector's own name, as before.
+    const { showName = true, logo } = link.branding();
+    const src = logo
+      ? `/branding/logo?v=${logo.data.length}`
+      : showName
+        ? "/icon.svg"
+        : "/logo.svg";
+    if (showName) return `<header><img class="mark" src="${src}" alt=""><h1>${title}</h1></header>`;
+    return `<header><img class="mark alone" src="${src}" alt=""><h1 class="sr-only">${title}</h1></header>`;
+  };
+
   const page = (body: string, refresh: boolean) => {
-    const { name, logo, favicon } = link.branding();
+    const { name, favicon } = link.branding();
     const title = name ? t("connector:appNameOf", { name }) : t("connector:appName");
     return `<!doctype html>
 <html lang="en">
@@ -340,7 +360,7 @@ ${favicon ? `<link rel="icon" href="/branding/favicon?v=${favicon.data.length}">
 <style>${CSS}</style>
 </head>
 <body><main>
-<header><img class="mark" src="${logo ? `/branding/logo?v=${logo.data.length}` : "/icon.svg"}" alt=""><h1>${title}</h1></header>
+${header(title)}
 ${body}
 </main></body>
 </html>`;
@@ -418,6 +438,7 @@ ${body}
           .end(logo.data);
       }
       if (req.method === "GET" && path === "/icon.svg") return send(200, "image/svg+xml", ICON_SVG);
+      if (req.method === "GET" && path === "/logo.svg") return send(200, "image/svg+xml", LOGO_SVG);
       if (req.method === "GET" && path === "/") {
         const to = await entry();
         return to ? back(to) : send(200, html, render());

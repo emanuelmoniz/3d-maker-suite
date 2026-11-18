@@ -311,6 +311,10 @@ A machine's CPU, memory, disks and addresses are live and never stored (`systemI
 - **Machine page:** `GET /api/hub/devices/:id/system` answers `{ system, seenFrom }`, with nulls while the device is offline or hasn't reported yet. It needs the right to view that machine (`machineGuard`).
 - **This server:** `GET /api/server/system` (`settings.server`) reads the server's own info for the data directory and the hub project folders. In Docker it gives no addresses (they'd be the container's) and says `docker: true`.
 
+### Public branding (6.1.0 Step 13b)
+
+The sign-in page has no session, so two branding reads are public (`isPublic`, `lib/auth.ts`, GET and HEAD only): `GET /api/branding/public` answers `{ appName, showName, logo }` (`appName` is empty for the default; `logo` is the image's version or null), and `GET /api/branding/logo` serves the logo image. Nothing else from the preferences leaks; the favicon, `GET /api/branding` and every write stay behind a session. `brandMark` (`apps/web/src/lib/branding.ts`) is the one rule for the sidebar and the sign-in card; the connector's status page has its own copy of it (`header` in `status.ts`), fed by `loadBranding`, which also reads `brandShowName`.
+
 ### A spool in several libraries (`spool_sources`)
 
 A spool has one link per spool library (Bambu Cloud, Spoolman): `spool_sources` holds the spool, the library (the adapter id, the key's part before its first `:`), the key (`<library>:<id>`) and when it was linked. Helpers in `apps/server/src/lib/spoolSources.ts`.

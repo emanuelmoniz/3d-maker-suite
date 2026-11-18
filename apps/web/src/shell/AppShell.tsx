@@ -17,7 +17,7 @@ import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
 import { useCan, useMe, useMyRole, useSignOut } from "../lib/auth.ts";
-import { useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
+import { brandMark, useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx, textLink } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
 import { useHasTasks } from "../lib/integrations.ts";
@@ -82,14 +82,15 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
   const logo = useBrandingUrl("logo");
   const showName = usePreferences().data?.values.brandShowName ?? true;
   const wrap = cx("flex min-w-0 items-center gap-2.5 font-semibold", mobile && "mb-4 md:hidden");
-  if (!showName && logo) {
+  const mark = brandMark({ logo, showName });
+  if (mark === "logo") {
     return (
       <div className={wrap}>
         <img src={logo} alt={name} className="h-8 w-auto max-w-full object-contain" />
       </div>
     );
   }
-  if (!showName) {
+  if (mark === "wordmark") {
     // The horizontal logo replaces icon + name; the narrow sidebar keeps the icon.
     return (
       <div className={wrap}>
@@ -106,7 +107,7 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
   }
   return (
     <div className={wrap}>
-      {logo ? (
+      {mark === "logo+name" ? (
         <img src={logo} alt={name} className="size-8 shrink-0 rounded-md object-contain" />
       ) : (
         <img src="/icon.svg" alt={name} className="size-8 shrink-0 object-contain" />

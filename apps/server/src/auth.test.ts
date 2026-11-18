@@ -281,9 +281,24 @@ describe("permissions", () => {
     const spec = (await app.inject("/api/docs/json")).json();
     const covered = new Set(Object.keys(MATRIX).map((u) => u.split("/")[2]));
     const prefixes = new Set(Object.keys(spec.paths).map((p) => p.split("/")[2]));
-    prefixes.delete("health"); // public
+    prefixes.delete("health"); // public (`/branding/public` and the logo read: own test above)
     expect(prefixes.size).toBeGreaterThan(25);
     expect([...prefixes].filter((p) => !covered.has(p))).toEqual([]);
+  });
+
+  it("the sign-in page reads the branding without a session, and only that", async () => {
+    const { db, app } = await setup();
+    for (const role of ["admin", "editor", "viewer"] as const) addUser(db, role);
+    const pub = await app.inject("/api/branding/public");
+    expect(pub.statusCode).toBe(200);
+    expect(Object.keys(pub.json()).sort()).toEqual(["appName", "logo", "showName"]);
+    // No image set: 404 from the route itself, not a 401 from the hook.
+    expect((await app.inject("/api/branding/logo")).statusCode).toBe(404);
+    // Everything else stays behind the session, the favicon and the writes included.
+    for (const url of ["/api/branding", "/api/branding/favicon", "/api/preferences"])
+      expect((await app.inject(url)).statusCode).toBe(401);
+    for (const method of ["PUT", "DELETE"] as const)
+      expect((await app.inject({ method, url: "/api/branding/logo" })).statusCode).toBe(401);
   });
 
   it("the hook enforces sessions and roles once users exist", async () => {

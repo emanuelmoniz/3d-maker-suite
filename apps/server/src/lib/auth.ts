@@ -481,12 +481,16 @@ export function assertRootEditable(db: Db, user: Rights | undefined, root: Root)
 
 const PROJECT_PATH = /^\/api\/projects\/([0-9a-f-]{36})(\/|$)/i;
 
-/** No session needed: the SPA and its assets (the login page has to load), health, setup, login, device pairing. */
-export const isPublic = (url: string) => {
+/** Read-only branding the sign-in page needs: the name, the show-name switch, the logo. */
+const PUBLIC_READS = ["/api/branding/public", "/api/branding/logo"];
+
+/** No session needed: the SPA and its assets (the login page has to load), health, setup, login, device pairing, and the public branding reads. */
+export const isPublic = (url: string, method = "GET") => {
   const path = url.split("?")[0] ?? "";
   return (
     !path.startsWith("/api/") ||
-    ["/api/health", "/api/auth/setup", "/api/auth/login", "/api/hub/pair"].includes(path)
+    ["/api/health", "/api/auth/setup", "/api/auth/login", "/api/hub/pair"].includes(path) ||
+    ((method === "GET" || method === "HEAD") && PUBLIC_READS.includes(path))
   );
 };
 
@@ -558,7 +562,7 @@ export function authGuard(
     if (!accountsOn(db)) return legacy?.(req, reply);
     const blocked = hostOnly && (await hostOnly(req, reply));
     if (blocked) return blocked;
-    if (isPublic(req.url)) return;
+    if (isPublic(req.url, req.method)) return;
 
     const bearer = /^Bearer (\S+)$/.exec(req.headers.authorization ?? "")?.[1];
     if (bearer) {

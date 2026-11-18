@@ -3891,7 +3891,7 @@ Do Step 12 of the 6.1.0 plan in PLAN.md. Use frontend-design for the System sect
 Do Step 13 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 13b - Sign-in and connector pages follow the sidebar logo  **[plan mode]**
+### [x] Step 13b - Sign-in and connector pages follow the sidebar logo  **[plan mode]**
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - One rule for all three places: a small `brandMark({ logo, showName })` helper in `apps/web/src/lib/branding.ts` that `Brand` (Step 13) and `AuthCard` both use, so the four combinations can't drift.
