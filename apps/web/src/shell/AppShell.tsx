@@ -82,7 +82,7 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
   if (mark === "logo") {
     return (
       <div className={wrap}>
-        <img src={logo} alt={name} className="h-8 w-auto max-w-full object-contain" />
+        <img src={logo} alt={name} className="h-auto max-h-16 w-full object-contain" />
       </div>
     );
   }
@@ -93,7 +93,7 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
         <img
           src="/logo.svg"
           alt={name}
-          className={cx("h-8 w-auto max-w-full object-contain", !mobile && "hidden lg:block")}
+          className={cx("h-auto max-h-16 w-full object-contain", !mobile && "hidden lg:block")}
         />
         {!mobile && (
           <img src="/icon.svg" alt={name} className="size-8 shrink-0 object-contain lg:hidden" />

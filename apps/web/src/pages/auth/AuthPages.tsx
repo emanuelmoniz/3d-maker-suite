@@ -30,12 +30,13 @@ function AuthBrand() {
   const logo = data?.logo == null ? undefined : `/api/branding/logo?v=${data.logo}`;
   const mark = brandMark({ logo, showName: data?.showName ?? true });
   const img = "max-h-37.5 max-w-full object-contain";
+  const fill = "h-auto max-h-16 w-full object-contain";
   return (
     <div className="mb-5 flex flex-wrap items-center justify-center gap-2.5 text-center font-semibold">
       {mark === "wordmark" ? (
-        <img src="/logo.svg" alt={name} className={`${img} h-12`} />
+        <img src="/logo.svg" alt={name} className={fill} />
       ) : mark === "logo" ? (
-        <img src={logo} alt={name} className={img} />
+        <img src={logo} alt={name} className={fill} />
       ) : (
         <>
           <img src={logo ?? "/icon.svg"} alt="" className={logo ? img : "size-8 object-contain"} />
