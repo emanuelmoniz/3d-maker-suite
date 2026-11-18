@@ -101,6 +101,7 @@ const CSS = `
 body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
 main { max-width: 36rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; display: grid; gap: 1rem; }
 header { display: flex; align-items: center; gap: .75rem; padding: .5rem 0 .25rem; }
+header:has(.alone) { justify-content: center; }
 .mark { height: 2.25rem; max-width: 8rem; object-fit: contain; flex: none; }
 .mark.alone { max-width: 100%; flex: 0 1 auto; min-width: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;

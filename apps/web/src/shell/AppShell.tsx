@@ -81,8 +81,12 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
   const name = useAppName();
   const logo = useBrandingUrl("logo");
   const showName = usePreferences().data?.values.brandShowName ?? true;
-  const wrap = cx("flex min-w-0 items-center gap-2.5 font-semibold", mobile && "mb-4 md:hidden");
   const mark = brandMark({ logo, showName });
+  const wrap = cx(
+    "flex min-w-0 items-center gap-2.5 font-semibold",
+    !showName && "justify-center",
+    mobile && "mb-4 md:hidden",
+  );
   if (mark === "logo") {
     return (
       <div className={wrap}>

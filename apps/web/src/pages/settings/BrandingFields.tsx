@@ -94,6 +94,7 @@ export function BrandingFields() {
         disabled={save.isPending}
         onChange={(e) => save.mutate({ brandShowName: e.target.checked })}
       />
+      <p className="-mt-2 text-muted">{t("settings:branding.showNameHint")}</p>
       <ImageField kind="logo" />
       <ImageField kind="favicon" />
     </>
