@@ -3914,7 +3914,7 @@ Do Step 13b of the 6.1.0 plan in PLAN.md.
 
 ## Phase 51 - Release
 
-### [ ] Step 14 - Real test, docs, push & v6.1.0-alpha.2
+### [x] Step 14 - Real test, docs, push & v6.1.0-alpha.2
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - The sync buttons with Auto, Manual and Off sources and as an editor.

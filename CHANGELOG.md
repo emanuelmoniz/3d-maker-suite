@@ -2,6 +2,24 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.1.0-alpha.2] - 2026-11-18
+
+Pre-release, second of 6.1.0. Lists what changed since 6.1.0-alpha.1. Back up before updating. Migration 0138 applies (a network printer's name moves to its printer). Updating keeps all data. Connectors update to the hub's version.
+
+### Added
+- **Integrations shows what is set up**: a card exists only for a source or slicer with rows, **Add integration** is the one way to add one (a slicer on a machine included), and **Remove integration** in a card's menu removes the whole card. Imported printers, prints and spools stay, unlinked ([docs/integrations.md](docs/printers.md))
+- **Collapsible integration cards**, folded by default, remembered per browser, open by themselves on an error
+- **Bambu Cloud sign-in inside the Add and Edit forms**: the account is saved only once sign-in works, and there's no separate sign-in page ([docs/bambu-cloud.md](docs/bambu-cloud.md))
+- **System info** for machines and this server (live, from a connector about every 30 s, never stored) ([docs/hub.md](docs/hub.md))
+- **Hide the app name** in the sidebar; the sign-in and connector pages follow the sidebar logo ([docs/branding.md](docs/configuration.md))
+- The machine page links to Integrations by what exists
+
+### Changed
+- A network printer source asks for a name only when it creates a new printer. After that the name is the printer's, renamed on the printer page ([docs/printers.md](docs/printers.md))
+
+### Fixed
+- Unit and e2e tests honour `TEST_TIMEOUT`
+
 ## [6.1.0-alpha.1] - 2026-11-17
 
 Pre-release, first of 6.1.0. Lists what changed since 6.0.0. Back up before updating. No migration. Updating keeps all data. Connectors update to the hub's version.
