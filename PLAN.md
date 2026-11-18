@@ -3820,6 +3820,20 @@ Do Step 10b of the 6.1.0 plan in PLAN.md.
 Do Step 10c of the 6.1.0 plan in PLAN.md.
 ```
 
+### [ ] Step 10d - TEST_TIMEOUT reaches e2e and every unit test
+**Model:** Sonnet · **Effort:** Low
+**Why:** `TEST_TIMEOUT` (the standing test rule) only reaches vitest's defaults. Playwright ignores it, so "timeouts removed" still left e2e at 30 s per test and 5 s per check (Step 10c's runs). A test with its own limit ignores it too: `apps/connector/src/hub.test.ts:516` timed out at its hard-coded 120 s with `TEST_TIMEOUT=0`.
+**Scope:**
+- `playwright.config.ts`: `TEST_TIMEOUT=<ms>` sets `timeout` and `expect.timeout` (0 = none), as `vitest.config.ts` reads it; unset keeps Playwright's defaults. `test.slow()` and per-test `test.setTimeout` follow it (unset or a larger value).
+- Unit tests with a hard-coded limit (search `}, \d+_000)` and `timeout:` in `*.test.ts`): one shared helper (e.g. `testTimeout(ms)`) that returns the value, or none with `TEST_TIMEOUT=0`, or `TEST_TIMEOUT` when it is larger.
+- `CONTRIBUTING.md` (running tests) and CLAUDE.md's test rule: say it covers `pnpm test:e2e` too.
+
+**Done when:** `TEST_TIMEOUT=0 pnpm test:e2e` has no test or check limit; `TEST_TIMEOUT=0` lifts the connector hub test's 120 s; a run without it keeps today's limits; lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 10d of the 6.1.0 plan in PLAN.md.
+```
+
 ## Phase 50 - Machines and brand
 
 ### [ ] Step 11 - Machine page: links by what exists
