@@ -51,13 +51,15 @@ export function SourceReviewPage() {
         )}
         description={t("import:source.description")}
         // A zip goes back to the zip, where its other types wait.
-        backTo={zip ? { to: "/import/slicer-zip/$id", params: { id } } : { to: "/integrations" }}
+        backTo={
+          zip ? { to: "/import/slicer-zip/$id", params: { id } } : { to: "/settings/integrations" }
+        }
       />
       <div className="grid gap-4">
         {preview.isError && (
           <p role="alert" className="text-bad">
             {t(zip ? "import:zip.expired" : "import:source.error")}{" "}
-            <Link to={zip ? "/import/slicer-zip" : "/integrations"} className={textLink}>
+            <Link to={zip ? "/import/slicer-zip" : "/settings/integrations"} className={textLink}>
               {t(zip ? "import:zip.again" : "import:source.openIntegrations")}
             </Link>
           </p>

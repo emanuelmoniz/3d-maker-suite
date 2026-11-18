@@ -19,7 +19,7 @@ Requirements from the discussion:
 ## Decision
 
 ### One module: Catalog
-A **Catalog** module (`/catalog`) holds the data and where it comes from. It is the first item of the sidebar's bottom block, which reads **Catalog, Integrations, Hub management, Import | Export, Logs, Settings**, then the account. Each shows as today: Catalog with `catalog` read, Hub management with the hub on, Logs with logging on. Slicer presets leaves the block. The mobile More sheet uses the same order.
+A **Catalog** module (`/catalog`) holds the data and where it comes from. It is the first item of the sidebar's bottom block, which reads **Catalog, Integrations, Hub management, Import | Export, Logs, Settings**, then the account. Each shows as today: Catalog with `catalog` read, Hub management with the hub on, Logs with logging on. Slicer presets leaves the block. The mobile More sheet uses the same order. *Amended by 6.1.0 Step 15: these pages are tabs of Settings, and the block holds only Settings.*
 
 | Tab | Holds |
 |---|---|

@@ -10,7 +10,7 @@ import { ENTITIES, templateBody } from "./entities.ts";
 import { ReviewTable } from "./ReviewTable.tsx";
 
 /**
- * Template, upload and review of one entity. Import | Export puts its type picker in `picker`
+ * Template, upload and review of one entity. The Import tab of Settings → Data puts its type picker in `picker`
  * (and keys the flow by type); Catalog opens it for a fixed type.
  */
 export function ImportFlow({ entity, picker }: { entity: ImportEntity; picker?: ReactNode }) {

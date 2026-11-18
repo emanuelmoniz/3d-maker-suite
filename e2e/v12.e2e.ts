@@ -72,7 +72,10 @@ test("Catalog holds the tables; Printers settings keeps the default printer", as
   await page.goto("/printers/settings");
   await expect(page.getByLabel("Default printer")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Brands", level: 2 })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Catalog", exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Catalog" })).toHaveAttribute(
+    "href",
+    "/settings/catalog/printers",
+  );
 });
 
 test("printer catalog tables show each row's slicer and source", async ({ page, app }) => {

@@ -42,7 +42,7 @@ export async function openIntegrationCards(page: Page) {
 
 /** The Integrations page with every card open. */
 export async function gotoIntegrations(page: Page) {
-  await page.goto("/integrations");
+  await page.goto("/settings/integrations");
   await openIntegrationCards(page);
 }
 
@@ -191,12 +191,13 @@ export const ROUTES = [
   "/alerts/settings",
   "/printers/settings",
   "/printers/settings/sources",
-  "/catalog/printers",
-  "/catalog/filament",
+  "/settings/catalog/printers",
+  "/settings/catalog/filament",
   "/catalog/settings/sources",
-  "/import",
+  "/settings/data/import",
+  "/settings/data/export",
   "/settings",
-  "/integrations",
+  "/settings/integrations",
 ];
 
 /** Picks an option in a Combobox: by its exact label, or by position (0 is the first option). */

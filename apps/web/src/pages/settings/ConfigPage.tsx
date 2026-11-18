@@ -57,7 +57,12 @@ export function ConfigPage({
   const { data, isError } = usePreferences();
   const save = useSavePreferences();
   const title = t("common:actions.moduleSettings", { module: t(`nav:items.${module}.label`) });
-  const backTo = { to: `/${module}` as LinkProps["to"] };
+  // Hub management and Catalog are tabs of Settings (6.1.0 Step 15).
+  const backTo = {
+    to: (module === "hub" || module === "catalog"
+      ? `/settings/${module}`
+      : `/${module}`) as LinkProps["to"],
+  };
   const base = `/${module}/settings`;
   // Only the pathname: a re-render on every location change would make the `Navigate` below (a
   // denied page) navigate again on each one, and never stop.

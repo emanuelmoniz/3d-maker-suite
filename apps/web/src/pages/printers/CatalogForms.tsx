@@ -192,7 +192,7 @@ export function ModelPicker({
 export function CatalogForm<K extends CatalogKind>(props: {
   kind: K;
   /** The Catalog tab to go back to after save / delete / back; the row's table is its `kind`. */
-  backTo?: "/catalog/printers" | "/catalog/filament";
+  backTo?: "/settings/catalog/printers" | "/settings/catalog/filament";
   titles: [add: string, edit: string];
   imageLabel?: string;
   toBody: (f: FormData) => object;
@@ -205,7 +205,7 @@ export function CatalogForm<K extends CatalogKind>(props: {
   const save = useSaveCatalog(props.kind, id);
   const image = useCatalogImage(props.kind as keyof typeof IMAGE_OF);
   const [file, setFile] = useState<File | null>(null);
-  const to = props.backTo ?? "/catalog/printers";
+  const to = props.backTo ?? "/settings/catalog/printers";
   const back = () => navigate({ to, hash: props.kind });
   const row = item.data;
   const imagePath =

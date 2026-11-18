@@ -35,4 +35,5 @@ The two modules overlapped too: Catalog has brands, models and materials, Preset
 - Migration 0117: every role and every user override gets the higher of its `catalog` and `presets` levels, and `machine.catalog` on if either switch was on; then the old keys go. Nobody loses a right; someone with only one of the two gains the other.
 - Migration 0117 drops `receiveKinds`: a machine that received only some kinds now receives all three. Nothing it already has is removed.
 - A Catalog line can't be turned off for system presets alone on a receiver: who wants the hub's catalog in a slicer gets its system presets with it, as the slicer needs them.
+- Amended by 6.1.0 Step 15: the Catalog page is the **Catalog** tab of Settings, at `/settings/catalog/printers` and `/settings/catalog/filament`. `/catalog/settings` and the preset pages keep their addresses.
 - Plan 5.5.0 Steps 11f (data and rights), 11g (the Catalog page), 11h (the Sources tab), 11i (This server receives user presets, one switch).

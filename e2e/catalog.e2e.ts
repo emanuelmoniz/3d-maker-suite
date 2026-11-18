@@ -75,9 +75,9 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
   await page.getByRole("link", { name: "Q1 0.4" }).click();
   await expect(page).toHaveURL(`/catalog/printer-presets/${machine.id}`);
   await expect(page.getByRole("heading", { name: "Q1 0.4", level: 1 })).toBeVisible();
-  // A preset's page is in Catalog: its menu item is the current one.
+  // A preset's page is under Catalog, a tab of Settings: its menu item is the current one.
   await expect(
-    page.getByRole("complementary").getByRole("link", { name: "Catalog" }),
+    page.getByRole("complementary").getByRole("link", { name: "Settings" }),
   ).toHaveAttribute("data-status", "active");
   // Filament settings is its own page now, with General and Sources tabs.
   await page.goto("/filament/settings");
@@ -114,25 +114,21 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
 });
 
-test("the bottom block and the More sheet: Integrations, Catalog, Import | Export, no Presets", async ({
-  page,
-}) => {
+test("the bottom block and the More sheet: Settings holds the admin pages", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   const bottom = page.getByRole("complementary").locator("div.border-t").first();
-  const order = ["Integrations", "Catalog", "Import | Export", "Settings"];
-  const side = (await linkNames(bottom)).filter((n) => [...order, "Presets"].includes(n));
-  expect(side).toEqual(order);
+  const admin = ["Integrations", "Catalog", "Import | Export", "Presets", "Settings"];
+  const side = (await linkNames(bottom)).filter((n) => admin.includes(n));
+  expect(side).toEqual(["Settings"]);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "More" }).click();
-  const sheet = (await linkNames(page.getByRole("dialog"))).filter((n) =>
-    [...order, "Presets"].includes(n),
-  );
-  expect(sheet).toEqual(order);
+  const sheet = (await linkNames(page.getByRole("dialog"))).filter((n) => admin.includes(n));
+  expect(sheet).toEqual(["Settings"]);
 });
 
-test("Catalog needs its read: not in the menu, and its page sends you home", async ({ page }) => {
+test("Catalog needs its read: no tab, and its address opens Settings", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   await post(page, "/api/auth/setup", {
@@ -158,8 +154,8 @@ test("Catalog needs its read: not in the menu, and its page sends you home", asy
     0,
   );
   await page.goto("/catalog/printers");
-  await expect(page).toHaveURL(/\/$/);
-  // An old Presets link goes through Catalog, so home too.
+  await expect(page).toHaveURL(/\/settings$/);
+  // An old Presets link goes through Catalog, so to Settings too.
   await page.goto("/presets/printer");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/settings$/);
 });

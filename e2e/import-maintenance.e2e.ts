@@ -21,8 +21,7 @@ test("export maintenance as CSV, edit the notes in the review and import it as a
     printerId: printer.id,
     doneAt: "2026-03-01T10:00:00.000Z",
   });
-  await page.goto("/import");
-  await pick(page.getByRole("combobox", { name: "What to import" }), "Maintenance");
+  await page.goto("/settings/data/export");
   const exportSection = page.getByRole("region", { name: "Export" });
   await pick(exportSection.getByRole("combobox", { name: "What to export" }), "Maintenance");
   await pick(exportSection.getByRole("combobox", { name: "Format" }), "CSV (.csv)");
@@ -33,6 +32,8 @@ test("export maintenance as CSV, edit the notes in the review and import it as a
   const file = join(mkdtempSync(join(tmpdir(), "3dms-csv-")), "maintenance.csv");
   await exported.saveAs(file);
 
+  await page.goto("/settings/data/import");
+  await pick(page.getByRole("combobox", { name: "What to import" }), "Maintenance");
   await page.getByLabel("Upload a file").setInputFiles(file);
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
   await page.getByRole("button", { name: /^Edit Notes, row 2/ }).click();

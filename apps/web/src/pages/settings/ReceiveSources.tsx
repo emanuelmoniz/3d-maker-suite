@@ -111,7 +111,7 @@ export function ReceiveSection({
             title={t("settings:sources.server")}
             link={
               admin
-                ? { to: "/integrations", label: t("settings:sources.toIntegrations") }
+                ? { to: "/settings/integrations", label: t("settings:sources.toIntegrations") }
                 : undefined
             }
           >

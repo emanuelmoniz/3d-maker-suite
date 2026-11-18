@@ -28,7 +28,7 @@
     "body": "Presets come only from a slicer. <integrations>Connect a slicer in Integrations</integrations>, or upload <zip>a zip of the slicer's config folder</zip>.",
     "where": "Where is the config folder, and what do I zip?"
   },
-  "moved": "Brands, printer models and presets are in <link>Catalog</link>.",
+  "moved": "Brands, printer models and presets are in <catalog>Catalog</catalog>.",
   "preset": {
     "notFound": "Preset not found.",
     "openPreset": "Open in the preset library",

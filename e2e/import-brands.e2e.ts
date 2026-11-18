@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { expect, test } from "./fixtures.ts";
 import { pick } from "./helpers.ts";
 
-test("export brands as CSV on Import | Export, rename one in the review and import it as an update", async ({
+test("export brands as CSV on the Export tab, rename one in the review and import it as an update", async ({
   page,
   app,
 }) => {
   const { id } = await app.api<{ id: string }>("POST", "/api/brands", { name: "Acme" });
-  await page.goto("/import");
+  await page.goto("/settings/data/export");
   await pick(page.getByRole("combobox", { name: "What to export" }), "Printer brands");
   await pick(page.getByRole("combobox", { name: "Format" }).last(), "CSV (.csv)");
   const [exported] = await Promise.all([
@@ -20,6 +20,7 @@ test("export brands as CSV on Import | Export, rename one in the review and impo
   const file = join(mkdtempSync(join(tmpdir(), "3dms-csv-")), "brands.csv");
   await exported.saveAs(file);
 
+  await page.goto("/settings/data/import");
   await pick(page.getByRole("combobox", { name: "What to import" }), "Printer brands");
   await page.getByLabel("Upload a file").setInputFiles(file);
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();

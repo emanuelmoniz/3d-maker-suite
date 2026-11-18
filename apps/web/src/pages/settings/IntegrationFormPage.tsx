@@ -558,7 +558,8 @@ export function IntegrationCreatePage() {
     if (!adapter) return;
     if (toMachine) {
       onMachine.setUp(where, {
-        onSuccess: (row) => navigate({ to: "/integrations", hash: `integration-${row.id}` }),
+        onSuccess: (row) =>
+          navigate({ to: "/settings/integrations", hash: `integration-${row.id}` }),
       });
       return;
     }
@@ -576,7 +577,7 @@ export function IntegrationCreatePage() {
         onSuccess: (r) => {
           if (r.status === "challenge") setSignIn({ token: r.token, challenge: r.challenge });
           if (r.status === "ok")
-            navigate({ to: "/integrations", hash: `integration-${r.integration.id}` });
+            navigate({ to: "/settings/integrations", hash: `integration-${r.integration.id}` });
         },
         onError: (err) => {
           // The code step timed out (or the server restarted): start over with the password.
@@ -600,14 +601,17 @@ export function IntegrationCreatePage() {
         ...(v.printer && { printer: v.printer }),
         ...(v.printerName && { printerName: v.printerName }),
       },
-      { onSuccess: (row) => navigate({ to: "/integrations", hash: `integration-${row.id}` }) },
+      {
+        onSuccess: (row) =>
+          navigate({ to: "/settings/integrations", hash: `integration-${row.id}` }),
+      },
     );
   };
   const loginFailed = newLogin.data?.status === "error" ? newLogin.data.code : undefined;
 
   return (
     <>
-      <PageHeader title={t("integrations:form.title")} backTo={{ to: "/integrations" }} />
+      <PageHeader title={t("integrations:form.title")} backTo={{ to: "/settings/integrations" }} />
       <form onSubmit={onSubmit} onInput={form.changed} className="grid max-w-2xl gap-8">
         <fieldset className="grid gap-3">
           <legend className="mb-3 font-semibold">{t("integrations:form.product")}</legend>
@@ -725,7 +729,10 @@ export function IntegrationEditPage() {
         // Another printer moves the link; a source with none yet gets one.
         ...(v.printer && v.printer !== saved.printerId && { printer: v.printer }),
       },
-      { onSuccess: () => navigate({ to: "/integrations", hash: `integration-${saved.id}` }) },
+      {
+        onSuccess: () =>
+          navigate({ to: "/settings/integrations", hash: `integration-${saved.id}` }),
+      },
     );
   };
 
@@ -736,7 +743,7 @@ export function IntegrationEditPage() {
     <>
       <PageHeader
         title={t("integrations:form.editTitle", { name })}
-        backTo={{ to: "/integrations" }}
+        backTo={{ to: "/settings/integrations" }}
       />
       {integrations.isSuccess && (!saved || (adapter && !editable)) ? (
         <p className="text-muted">{t("integrations:form.notEditable")}</p>

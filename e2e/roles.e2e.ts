@@ -47,11 +47,15 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   // No spool matches the mock prints, so their filament waits in the queue.
   await post(page, `/api/integrations/${integration.id}/sync`, { type: "prints" });
 
-  const side = page.getByRole("complementary");
+  const tabs = page.getByRole("navigation", { name: "Settings sections" });
   const seesAdminMenu = async () => {
+    await page.goto("/settings");
+    await expect(tabs.getByRole("link", { name: "General" })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const seen = await tabs.getByRole("link", { name: /^(Data|Integrations|Logs)$/ }).count();
     await page.goto("/clients");
     await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
-    return (await side.getByRole("link", { name: /^(Import|Integrations|Logs)/ }).count()) > 0;
+    return seen > 0;
   };
 
   // No page asks for an admin-only route, so no 403 and no role banner.
@@ -145,8 +149,10 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   // The editor gets each task from its page's gear: the Sources tab alone, one task each, no
   // settings. Integrations has nothing left for them (ADR-0021).
   await signInAs(page, "eva@example.com");
-  await page.goto("/clients");
-  await expect(side.getByRole("link", { name: "Integrations" })).toHaveCount(0);
+  await page.goto("/settings");
+  await expect(tabs.getByRole("link", { name: "General" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(tabs.getByRole("link", { name: "Integrations" })).toHaveCount(0);
   await page.goto("/printers");
   await page.getByRole("link", { name: "Printers settings" }).click();
   await expect(page).toHaveURL(/\/printers\/settings\/sources$/);
@@ -200,7 +206,8 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   expect(await settingsSections()).toEqual(expect.arrayContaining(adminOnly));
   await expect(page.getByRole("button", { name: "Stop server" })).toBeVisible();
   expect(await seesAdminMenu()).toBe(true);
-  await side.getByRole("link", { name: "Logs" }).click();
+  await page.goto("/settings");
+  await tabs.getByRole("link", { name: "Logs" }).click();
   const table = page.getByRole("table", { name: "Logs" });
   await expect(
     table.getByRole("row").filter({ hasText: "POST /api/clients 201" }).filter({

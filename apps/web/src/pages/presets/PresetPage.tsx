@@ -23,9 +23,21 @@ import { Info } from "../filament/SpoolDetailPage.tsx";
 import { AllSettings } from "./AllSettings.tsx";
 
 const KINDS = {
-  filament: { path: "/api/filament/presets", back: "/catalog/filament", hash: "filament-presets" },
-  machine: { path: "/api/machine-presets", back: "/catalog/printers", hash: "machine-presets" },
-  process: { path: "/api/process-presets", back: "/catalog/printers", hash: "process-presets" },
+  filament: {
+    path: "/api/filament/presets",
+    back: "/settings/catalog/filament",
+    hash: "filament-presets",
+  },
+  machine: {
+    path: "/api/machine-presets",
+    back: "/settings/catalog/printers",
+    hash: "machine-presets",
+  },
+  process: {
+    path: "/api/process-presets",
+    back: "/settings/catalog/printers",
+    hash: "process-presets",
+  },
 } as const;
 
 type Row = (FilamentPreset | MachinePreset | ProcessPreset) & { source?: string };

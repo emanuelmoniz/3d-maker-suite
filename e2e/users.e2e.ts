@@ -3,6 +3,11 @@ import { expect, test } from "./fixtures.ts";
 
 const PASSWORD = "correct horse";
 
+const settingsTab = (page: Page, name: string) =>
+  page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name, exact: true });
+
 const signIn = async (page: Page, email: string, password: string) => {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -12,7 +17,7 @@ const signIn = async (page: Page, email: string, password: string) => {
 test("users: setup, add a user, sign out and in, change password", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  // First run: Users | Roles offers to create the admin.
+  // First run: the Users tab offers to create the admin.
   await page.goto("/users");
   await page.getByRole("link", { name: "Create the first admin" }).click();
   await expect(page).toHaveURL(/\/setup$/);
@@ -30,7 +35,7 @@ test("users: setup, add a user, sign out and in, change password", async ({ page
 
   // The admin adds an editor.
   await page.goto("/users");
-  await expect(page.getByRole("heading", { name: "Users | Roles" })).toBeVisible();
+  await expect(settingsTab(page, "Users")).toHaveAttribute("aria-current", "page");
   await page.getByRole("button", { name: "Add user" }).click();
   const add = page.getByRole("dialog", { name: "Add user" });
   await add.getByLabel("Name").fill("Eva Editor");
@@ -142,12 +147,12 @@ test("users: a custom role and an override change what a user sees", async ({ pa
   await expect(page.getByRole("link", { name: "Add client" }).first()).toBeVisible();
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Users" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Users | Roles" })).toHaveCount(0);
+  await expect(settingsTab(page, "Users")).toHaveCount(0);
   await page.goto("/users");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/settings$/);
 });
 
-test("users: old Settings links land on Users | Roles", async ({ page, app }) => {
+test("users: old Settings links land on the Users and Roles tabs", async ({ page, app }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await app.api("POST", "/api/auth/setup", {
     displayName: "Ana Admin",
@@ -158,15 +163,15 @@ test("users: old Settings links land on Users | Roles", async ({ page, app }) =>
   await signIn(page, "ana@example.com", PASSWORD);
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/settings#roles");
-  await expect(page).toHaveURL(/\/users\/roles$/);
+  await expect(page).toHaveURL(/\/settings\/roles$/);
   await expect(page.getByRole("table", { name: "Roles" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Editor", exact: true })).toBeVisible();
   await page.goto("/settings#users");
-  await expect(page).toHaveURL(/\/users$/);
+  await expect(page).toHaveURL(/\/settings\/users$/);
   await page.goto("/settings/roles/new");
   await expect(page).toHaveURL(/\/users\/roles\/new$/);
-  await page.getByRole("link", { name: "Users | Roles" }).first().click();
-  await expect(page).toHaveURL(/\/users$/);
+  await page.getByRole("link", { name: "Back" }).click();
+  await expect(page).toHaveURL(/\/settings\/roles$/);
 });
 
 test("users: the accounts switch turns sign-in off and back on", async ({ page, app }) => {
@@ -180,7 +185,7 @@ test("users: the accounts switch turns sign-in off and back on", async ({ page, 
   await signIn(page, "ana@example.com", PASSWORD);
   await expect(page).toHaveURL(/\/$/);
 
-  // Off asks first, then nobody is signed in and Users | Roles leaves the menu.
+  // Off asks first, then nobody is signed in and the Users tab leaves Settings.
   await page.goto("/settings");
   const accounts = page.getByRole("switch", { name: "User accounts" });
   await accounts.click({ force: true }); // stays on until confirmed
@@ -188,7 +193,7 @@ test("users: the accounts switch turns sign-in off and back on", async ({ page, 
   await confirm.getByRole("button", { name: "Turn off" }).click();
   await expect(page.getByRole("switch", { name: "User accounts" })).not.toBeChecked();
   await expect(page.getByLabel("Account menu for Ana Admin")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Users | Roles" })).toHaveCount(0);
+  await expect(settingsTab(page, "Users")).toHaveCount(0);
   await expect(page.getByRole("switch", { name: "Hub" })).toBeDisabled();
   await expect(page.getByText("Turn on user accounts under General first.")).toBeVisible();
   await page.goto("/printers");

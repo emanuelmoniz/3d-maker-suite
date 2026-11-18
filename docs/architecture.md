@@ -350,6 +350,22 @@ A spool library that is also a target (Spoolman, ADR-0015) gets what each print 
 2. Add it to `apps/server/package.json` and to the list in `apps/server/src/integrations/registry.ts`, the only file allowed to import adapters (Biome `noRestrictedImports`).
 3. Add `integrations:adapters.<id>.name` and `.fields.<field>` to `apps/web/src/locales/en/integrations.json`. The setup form is generated from `configSchema` and `secretsSchema`.
 
+## Web routes: Settings (6.1.0 Step 15)
+
+`/settings` is a layout route (`apps/web/src/pages/settings/SettingsShell.tsx`): the title, a tab row, and the open tab's page. A tab shows only with the right its page needs, and the address of a tab the caller may not open goes to `/settings`. The API checks the same rights on its own.
+
+| Tab | Address | Right |
+| --- | --- | --- |
+| General | `/settings` | everyone |
+| Hub management | `/settings/hub` | `hub.manage`, while the hub is on |
+| Integrations | `/settings/integrations` | `integrations.manage`, or a sync or review task on that page |
+| Users, Roles | `/settings/users`, `/settings/roles` | `users.manage`, while accounts are on |
+| Catalog | `/settings/catalog/printers`, `/settings/catalog/filament` | `catalog` read |
+| Data | `/settings/data/import`, `/settings/data/export` | `integrations.manage` |
+| Logs | `/settings/logs` | `settings.logs`; the tab shows while logging is on |
+
+The old list addresses (`/hub`, `/integrations`, `/catalog`, `/catalog/printers`, `/catalog/filament`, `/import`, `/logs`, `/users`, `/users/roles`) redirect to their tab and keep search and hash. Sub-pages keep their addresses: `/integrations/new`, `/integrations/$id/edit`, `/hub/settings`, `/hub/devices/$deviceId`, `/catalog/settings`, the preset pages, `/users/$id`, `/users/roles/$id` and `/import/...`.
+
 ## Runtime layout
 
 See ADR-0001. The data directory holds:

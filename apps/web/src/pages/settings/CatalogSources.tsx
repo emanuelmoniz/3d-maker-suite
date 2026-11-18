@@ -168,7 +168,7 @@ export function CatalogSources() {
             title={t("settings:sources.server")}
             link={
               admin
-                ? { to: "/integrations", label: t("settings:sources.toIntegrations") }
+                ? { to: "/settings/integrations", label: t("settings:sources.toIntegrations") }
                 : undefined
             }
           >
@@ -244,7 +244,7 @@ function ChangeHubSlicer({ library }: { library: string }) {
   const { t } = useTranslation();
   if (!useCan("integrations.manage")) return null;
   return (
-    <Link to="/integrations" hash={library} className={`text-sm ${textLink}`}>
+    <Link to="/settings/integrations" hash={library} className={`text-sm ${textLink}`}>
       {t("settings:sources.catalog.change")}
     </Link>
   );

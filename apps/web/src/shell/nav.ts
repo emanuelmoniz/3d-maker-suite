@@ -3,19 +3,13 @@ import {
   Calculator,
   ChartColumn,
   ClipboardList,
-  FileUp,
   FolderKanban,
   House,
   Layers,
-  Library,
   type LucideIcon,
-  MonitorSmartphone,
-  Plug,
   Printer,
-  ScrollText,
   Settings,
   Spool,
-  UserCog,
   Users,
   Wrench,
 } from "lucide-react";
@@ -128,67 +122,14 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-/** Brands, models, materials and their presets (ADR-0023), with `catalog` read. */
-export const CATALOG_ITEM: NavItem = {
-  to: "/catalog",
-  icon: Library,
-  label: "nav:items.catalog.label",
-  description: "nav:items.catalog.description",
-};
-
-/** Sits just above Logs, outside the groups. */
-export const IMPORT_ITEM: NavItem = {
-  to: "/import",
-  icon: FileUp,
-  label: "nav:items.import.label",
-  description: "nav:items.import.description",
-};
-
-export const INTEGRATIONS_ITEM: NavItem = {
-  to: "/integrations",
-  icon: Plug,
-  label: "nav:items.integrations.label",
-  description: "nav:items.integrations.description",
-};
-
-/** Admin only, in the menu while the hub is on (ADR-0014). */
-export const HUB_ITEM: NavItem = {
-  to: "/hub",
-  icon: MonitorSmartphone,
-  label: "nav:items.hub.label",
-  description: "nav:items.hub.description",
-};
-
-/** Only in the menu while logging is on (Settings -> Logs). */
-export const LOGS_ITEM: NavItem = {
-  to: "/logs",
-  icon: ScrollText,
-  label: "nav:items.logs.label",
-  description: "nav:items.logs.description",
-};
-
-/** Right before Settings, with `users.manage`. */
-export const USERS_ITEM: NavItem = {
-  to: "/users",
-  icon: UserCog,
-  label: "nav:items.users.label",
-  description: "nav:items.users.description",
-};
-
+/** The admin pages are its tabs (6.1.0 Step 15): `pages/settings/SettingsShell.tsx`. */
 export const SETTINGS_ITEM: NavItem = {
   to: "/settings",
   icon: Settings,
   label: "nav:items.settings.label",
 };
 
-/** The bottom block (ADR-0021, ADR-0023): Hub management, Integrations, Catalog, Import | Export, Logs, Users | Roles, Settings. */
-export const ALL_ITEMS = [
-  ...NAV_GROUPS.flatMap((g) => g.items),
-  HUB_ITEM,
-  INTEGRATIONS_ITEM,
-  CATALOG_ITEM,
-  IMPORT_ITEM,
-  LOGS_ITEM,
-  USERS_ITEM,
-  SETTINGS_ITEM,
-];
+/** The pages under a Settings tab that keep their own address. */
+export const SETTINGS_SUB_PAGES = /^\/(hub|integrations|catalog|users|import)\//;
+
+export const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];

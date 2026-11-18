@@ -105,7 +105,7 @@ export function AllSettings({ path, name }: { path: string; name: string }) {
             t={t}
             i18nKey="catalog:settings.noSource"
             values={{ slicer }}
-            components={{ integrations: <Link to="/integrations" className={textLink} /> }}
+            components={{ integrations: <Link to="/settings/integrations" className={textLink} /> }}
           />
         ) : (
           t(UNREADABLE[data.reason === "hand_made" ? "hand_made" : "not_found"], { slicer })

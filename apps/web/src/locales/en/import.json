@@ -1,6 +1,5 @@
 {
-  "title": "Import | Export",
-  "description": "Bring data in from a spreadsheet, or take it out. You review every row before anything is saved.",
+  "tabs": { "label": "Import and export" },
   "presetsFromSlicer": "Slicer presets come only from a slicer.",
   "import": {
     "title": "Import",
@@ -492,10 +491,7 @@
       "processPresets": "Process presets",
       "filamentPresets": "Filament presets"
     },
-    "cardTitle": "Printer and filament presets from a slicer",
-    "cardHint": "Running on a server with no slicer installed? Zip your slicer's config folder on the PC that has it and import its brands, printers and filament presets from the zip, in each slicer's section of Catalog settings → Sources.",
     "link": "Import from a slicer zip",
-    "toSources": "Open Catalog settings → Sources",
     "title": "Import from a slicer zip",
     "description": "Zip your slicer's config folder on the PC that has it, upload it here and review what it offers. Nothing is saved until you confirm.",
     "stepsTitle": "How to get the zip",

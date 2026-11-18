@@ -178,9 +178,9 @@ test("README screenshots", async ({ page, app }) => {
     ["stats", "/stats"],
     ["alerts", "/alerts"],
     ...(alerts[0] ? ([["alert", `/alerts/${alerts[0].id}`]] as [string, string][]) : []),
-    ["import", "/import"],
+    ["import", "/settings/data/import"],
     ["settings", "/settings"],
-    ["integrations", "/integrations"],
+    ["integrations", "/settings/integrations"],
   ];
   for (const [name, path] of shots) {
     await page.goto(path);
@@ -205,10 +205,10 @@ test("README screenshots", async ({ page, app }) => {
   await page.request.post("/api/users", {
     data: { email: "eva@example.com", displayName: "Eva Editor", password, role: "editor" },
   });
-  await page.goto("/users");
+  await page.goto("/settings/users");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/users.png` });
-  await page.goto("/users/roles");
+  await page.goto("/settings/roles");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${IMAGES}/roles.png` });
 
@@ -297,7 +297,7 @@ test("hub screenshots", async ({ page, app }) => {
   const vase = items.find((p) => p.name === "Vase");
   if (!vase) throw new Error("the scan did not find the Vase project");
 
-  await page.goto("/hub");
+  await page.goto("/settings/hub");
   await page.waitForLoadState("networkidle");
   await expect(page.locator("tbody").getByText("Online", { exact: true })).toBeVisible({
     timeout: 20_000,

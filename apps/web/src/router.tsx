@@ -26,7 +26,7 @@ import { SpoolCreatePage, SpoolEditPage } from "./pages/filament/SpoolFormPage.t
 import { HomePage } from "./pages/HomePage.tsx";
 import { HubPage } from "./pages/hub/HubPage.tsx";
 import { MachinePage } from "./pages/hub/MachinePage.tsx";
-import { ImportPage } from "./pages/import/ImportPage.tsx";
+import { DATA_TABS, ImportPage } from "./pages/import/ImportPage.tsx";
 import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
 import { LogsPage } from "./pages/LogsPage.tsx";
@@ -77,20 +77,12 @@ import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { MyAccountPage } from "./pages/settings/MyAccountPage.tsx";
 import { ProjectFolderPage } from "./pages/settings/ProjectFolderPage.tsx";
 import { RoleEditPage } from "./pages/settings/RoleEditPage.tsx";
+import { SettingsShell } from "./pages/settings/SettingsShell.tsx";
 import { UserEditPage } from "./pages/settings/UserEditPage.tsx";
 import { StatsPage } from "./pages/stats/StatsPage.tsx";
 import { UsersPage } from "./pages/UsersPage.tsx";
 import { AppShell } from "./shell/AppShell.tsx";
-import {
-  ALL_ITEMS,
-  CATALOG_ITEM,
-  HUB_ITEM,
-  IMPORT_ITEM,
-  INTEGRATIONS_ITEM,
-  LOGS_ITEM,
-  SETTINGS_ITEM,
-  USERS_ITEM,
-} from "./shell/nav.ts";
+import { ALL_ITEMS, SETTINGS_ITEM } from "./shell/nav.ts";
 
 function NotFound() {
   const { t } = useTranslation();
@@ -116,13 +108,7 @@ const root = createRootRoute({ component: Root, notFoundComponent: NotFound });
 // Feature routes load their i18n namespace here (code-split JSON), e.g. loader: () => loadNamespace("printers").
 const built = [
   "/",
-  CATALOG_ITEM.to,
-  IMPORT_ITEM.to,
-  INTEGRATIONS_ITEM.to,
-  HUB_ITEM.to,
   SETTINGS_ITEM.to,
-  USERS_ITEM.to,
-  LOGS_ITEM.to,
   "/printers",
   "/maintenance",
   "/filament",
@@ -157,8 +143,123 @@ const printerRoute = (path: string, component: () => ReactNode) =>
     component,
   });
 
+/** Settings' title and tabs around the open tab (6.1.0 Step 15). */
+const settingsLayout = createRoute({
+  getParentRoute: () => root,
+  path: SETTINGS_ITEM.to,
+  // users: the accounts switch on General and the save bar.
+  loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
+  component: SettingsShell,
+});
+
+const settingsTab = (path: string, namespaces: string[], component: () => ReactNode) =>
+  createRoute({
+    getParentRoute: () => settingsLayout,
+    path,
+    loader: () => Promise.all(namespaces.map(loadNamespace)),
+    component,
+  });
+
+const settingsTabs: AnyRoute[] = [
+  createRoute({
+    getParentRoute: () => settingsLayout,
+    path: "/",
+    // The Users and Roles sections were here before 5.6.0: their `#users` and `#roles` links land.
+    beforeLoad: ({ location }) => {
+      const h = location.hash.replace(/^#/, "");
+      if (h === "users") throw redirect({ to: "/settings/users" });
+      if (h === "roles") throw redirect({ to: "/settings/roles" });
+    },
+    component: SettingsPage,
+  }),
+  settingsTab("hub", ["hub"], HubPage),
+  // import + filament: a server slicer card's "import from a zip" steps (ManagedSlicer.tsx).
+  settingsTab("integrations", ["integrations", "import", "filament"], IntegrationsPage),
+  settingsTab("users", ["users"], () => <UsersPage tab="users" />),
+  settingsTab("roles", ["users"], () => <UsersPage tab="roles" />),
+  // Catalog (ADR-0020): one tab per part of the catalog, `/settings/catalog` opens the first.
+  createRoute({
+    getParentRoute: () => settingsLayout,
+    path: "catalog",
+    beforeLoad: ({ location }) => {
+      if (location.pathname.replace(/\/$/, "") === "/settings/catalog")
+        throw redirect({
+          to: "/settings/catalog/printers",
+          search: location.search,
+          hash: location.hash,
+        });
+    },
+  }),
+  ...CATALOG_TABS.map((tab) =>
+    createRoute({
+      getParentRoute: () => settingsLayout,
+      path: `catalog/${tab}`,
+      // A table's address on the other tab lands on its own (ADR-0023).
+      beforeLoad: ({ location }: { location: { hash: string; search: object } }) => {
+        const to = tabOf(location.hash);
+        if (to && to !== tab)
+          throw redirect({
+            to: `/settings/catalog/${to}`,
+            search: location.search,
+            hash: location.hash,
+          });
+      },
+      // integrations: the names of the accounts a row can come from.
+      loader: () =>
+        Promise.all(
+          ["catalog", "printers", "filament", "integrations", "import", "hub"].map(loadNamespace),
+        ),
+      component: () => <CatalogPage tab={tab} />,
+    }),
+  ),
+  // Data: Import and Export, a tab each; `/settings/data` opens the first.
+  createRoute({
+    getParentRoute: () => settingsLayout,
+    path: "data",
+    beforeLoad: ({ location }) => {
+      if (location.pathname.replace(/\/$/, "") === "/settings/data")
+        throw redirect({
+          to: "/settings/data/import",
+          search: location.search,
+          hash: location.hash,
+        });
+    },
+  }),
+  ...DATA_TABS.map((tab) =>
+    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its preset.
+    settingsTab(
+      `data/${tab}`,
+      ["import", "integrations", "catalog", "filament", "tags", "printers"],
+      () => <ImportPage tab={tab} />,
+    ),
+  ),
+  settingsTab("logs", ["logs"], LogsPage),
+];
+
 // "/printers/new" is declared before "/printers/$id" so it wins the match.
 const routes: AnyRoute[] = [
+  settingsLayout.addChildren(settingsTabs),
+  // The admin pages were sidebar items before 6.1.0 Step 15; a link keeps its filters and its card.
+  ...(
+    [
+      ["/hub", "/settings/hub"],
+      ["/integrations", "/settings/integrations"],
+      ["/catalog", "/settings/catalog/printers"],
+      ...CATALOG_TABS.map((tab) => [`/catalog/${tab}`, `/settings/catalog/${tab}`] as const),
+      ["/import", "/settings/data/import"],
+      ["/logs", "/settings/logs"],
+      ["/users", "/settings/users"],
+      ["/users/roles", "/settings/roles"],
+    ] as const
+  ).map(([path, to]) =>
+    createRoute({
+      getParentRoute: () => root,
+      path,
+      beforeLoad: ({ location }) => {
+        throw redirect({ to, search: location.search, hash: location.hash });
+      },
+    }),
+  ),
   ...modules,
   createRoute({
     getParentRoute: () => root,
@@ -277,31 +378,6 @@ const routes: AnyRoute[] = [
       }),
     ),
   ),
-  // Catalog (ADR-0020): one tab per part of the catalog, `/catalog` opens the first.
-  createRoute({
-    getParentRoute: () => root,
-    path: "/catalog",
-    beforeLoad: ({ location }) => {
-      throw redirect({ to: "/catalog/printers", hash: location.hash });
-    },
-  }),
-  ...CATALOG_TABS.map((tab) =>
-    createRoute({
-      getParentRoute: () => root,
-      path: `/catalog/${tab}`,
-      // A table's address on the other tab lands on its own (ADR-0023).
-      beforeLoad: ({ location }: { location: { hash: string } }) => {
-        const to = tabOf(location.hash);
-        if (to && to !== tab) throw redirect({ to: `/catalog/${to}`, hash: location.hash });
-      },
-      // integrations: the names of the accounts a row can come from.
-      loader: () =>
-        Promise.all(
-          ["catalog", "printers", "filament", "integrations", "import", "hub"].map(loadNamespace),
-        ),
-      component: () => <CatalogPage tab={tab} />,
-    }),
-  ),
   // The library and the sources were Catalog tabs before ADR-0021, then Presets settings tabs
   // until ADR-0023.
   ...(
@@ -337,7 +413,7 @@ const routes: AnyRoute[] = [
       path,
       // Keeps the table's filters (`process-presets.archived=true`).
       beforeLoad: ({ location }) => {
-        throw redirect({ to: `/catalog/${tab}`, search: location.search, hash });
+        throw redirect({ to: `/settings/catalog/${tab}`, search: location.search, hash });
       },
     }),
   ),
@@ -527,7 +603,7 @@ const routes: AnyRoute[] = [
           beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
             if (location.pathname !== "/printers/settings") return;
             const tab = tabOf(location.hash);
-            if (tab) throw redirect({ to: `/catalog/${tab}`, hash: location.hash });
+            if (tab) throw redirect({ to: `/settings/catalog/${tab}`, hash: location.hash });
           },
           loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
           component,
@@ -540,16 +616,6 @@ const routes: AnyRoute[] = [
     path: "/alerts/$id",
     loader: () => Promise.all(["alerts", "integrations", "maintenance"].map(loadNamespace)),
     component: AlertDetailPage,
-  }),
-  createRoute({
-    getParentRoute: () => root,
-    path: IMPORT_ITEM.to,
-    // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its preset.
-    loader: () =>
-      Promise.all(
-        ["import", "integrations", "catalog", "filament", "tags", "printers"].map(loadNamespace),
-      ),
-    component: ImportPage,
   }),
   ...(
     [
@@ -575,24 +641,10 @@ const routes: AnyRoute[] = [
       component: ProjectFolderPage,
     }),
   ),
-  createRoute({
-    getParentRoute: () => root,
-    path: SETTINGS_ITEM.to,
-    // The Users and Roles sections were here before 5.6.0: their `#users` and `#roles` links land.
-    beforeLoad: ({ location }) => {
-      const h = location.hash.replace(/^#/, "");
-      if (h === "users") throw redirect({ to: "/users" });
-      if (h === "roles") throw redirect({ to: "/users/roles" });
-    },
-    loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
-    component: SettingsPage,
-  }),
-  // Users | Roles: a tab each. "/users/roles" and "/users/roles/new" are declared next to
-  // "/users/$id"; static segments win the match.
+  // A user's and a role's pages. "/users/roles/new" is declared next to "/users/$id"; static
+  // segments win the match.
   ...(
     [
-      ["/users", () => <UsersPage tab="users" />],
-      ["/users/roles", () => <UsersPage tab="roles" />],
       ["/users/$id", UserEditPage],
       ["/users/roles/new", RoleEditPage],
       ["/users/roles/$id", RoleEditPage],
@@ -623,12 +675,6 @@ const routes: AnyRoute[] = [
   ),
   createRoute({
     getParentRoute: () => root,
-    path: HUB_ITEM.to,
-    loader: () => loadNamespace("hub"),
-    component: HubPage,
-  }),
-  createRoute({
-    getParentRoute: () => root,
     path: "/hub/presets",
     beforeLoad: ({ location }) => {
       throw redirect({ to: "/catalog/settings/library", hash: location.hash });
@@ -636,19 +682,12 @@ const routes: AnyRoute[] = [
   }),
   createRoute({
     getParentRoute: () => root,
-    path: `${HUB_ITEM.to}/devices/$deviceId`,
+    path: "/hub/devices/$deviceId",
     // integrations: the slicers' names.
     loader: () => Promise.all(["hub", "integrations"].map(loadNamespace)),
     component: MachinePage,
   }),
-  createRoute({
-    getParentRoute: () => root,
-    path: LOGS_ITEM.to,
-    loader: () => loadNamespace("logs"),
-    component: LogsPage,
-  }),
   ...[
-    ["/integrations", IntegrationsPage],
     ["/integrations/new", IntegrationCreatePage],
     ["/integrations/$id/edit", IntegrationEditPage],
   ].map(([path, component]) =>

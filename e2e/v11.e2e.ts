@@ -220,13 +220,18 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
 }) => {
   await seedSpool(app.api, 800);
   await page.goto("/import");
-  await expect(page.getByRole("heading", { name: "Export", exact: true })).toBeVisible();
+  const dataTabs = page.getByRole("navigation", { name: "Import and export" });
+  await expect(dataTabs.getByRole("link", { name: "Import" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   const [template] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Download template" }).click(),
   ]);
   expect(template.suggestedFilename()).toBe("Spools template.xlsx");
 
+  await dataTabs.getByRole("link", { name: "Export" }).click();
   const [exported] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Export" }).click(),
@@ -235,6 +240,7 @@ test("import: template download, XLSX upload, bulk action, apply and export roun
   await exported.saveAs(file);
 
   // The file we just exported matches what is in the database.
+  await dataTabs.getByRole("link", { name: "Import" }).click();
   await page.getByLabel("Upload a file").setInputFiles(file);
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
 

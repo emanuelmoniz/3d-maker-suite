@@ -438,7 +438,12 @@ function SlicerLinks({ device: d }: { device: Device }) {
       {types.map((lib) => (
         <li key={lib}>
           {here(lib) ? (
-            <Link to="/integrations" search={{ via: d.id }} hash={lib} className={textLink}>
+            <Link
+              to="/settings/integrations"
+              search={{ via: d.id }}
+              hash={lib}
+              className={textLink}
+            >
               {t("hub:machine.slicerCard", { name: adapterName(lib) })}
             </Link>
           ) : (
@@ -691,7 +696,7 @@ function Reach({ device: d, kind }: { device: Device; kind: "printers" | "spoolL
       {on && may.integrations && (
         <p>
           {here.length ? (
-            <Link to="/integrations" search={{ via: d.id }} className={textLink}>
+            <Link to="/settings/integrations" search={{ via: d.id }} className={textLink}>
               {t("hub:machine.openInIntegrations")}
             </Link>
           ) : (
@@ -792,7 +797,9 @@ function useActions(d: Device) {
           revoke.reset();
           setDialog(null);
         }}
-        onConfirm={() => revoke.mutate(d.id, { onSuccess: () => navigate({ to: "/hub" }) })}
+        onConfirm={() =>
+          revoke.mutate(d.id, { onSuccess: () => navigate({ to: "/settings/hub" }) })
+        }
       />
     </>
   );
@@ -800,7 +807,7 @@ function useActions(d: Device) {
 }
 
 /** The pill next to the name, and the actions top right. */
-function Header({ device: d, backTo }: { device: Device; backTo: { to: "/hub" | "/" } }) {
+function Header({ device: d, backTo }: { device: Device; backTo: { to: "/settings/hub" | "/" } }) {
   const { t } = useTranslation();
   const { buttons, messages } = useActions(d);
   return (
@@ -848,7 +855,7 @@ export function MachinePage() {
   const rights = useRights();
   const me = useMe();
   const manage = useCan("hub.manage");
-  const backTo = manage ? { to: "/hub" as const } : { to: "/" as const };
+  const backTo = manage ? { to: "/settings/hub" as const } : { to: "/" as const };
   return (
     <>
       {device ? (

@@ -1,6 +1,9 @@
 import type { LinkProps } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { BackLink } from "./BackLink";
+
+/** Inside a page that has its own title (a tab of Settings): the header is one level down. */
+export const NestedPageHeader = createContext(false);
 
 export function PageHeader({
   title,
@@ -17,6 +20,7 @@ export function PageHeader({
   /** Fallback route for the back link, used when there is no in-app history. */
   backTo?: { to: LinkProps["to"]; params?: Record<string, string> };
 }) {
+  const nested = useContext(NestedPageHeader);
   return (
     <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
       {backTo && (
@@ -28,7 +32,11 @@ export function PageHeader({
       )}
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="min-w-0 text-xl font-semibold tracking-tight wrap-anywhere">{title}</h1>
+          {nested ? (
+            <h2 className="min-w-0 text-lg font-semibold wrap-anywhere">{title}</h2>
+          ) : (
+            <h1 className="min-w-0 text-xl font-semibold tracking-tight wrap-anywhere">{title}</h1>
+          )}
           {badge}
         </div>
         {description && <p className="mt-0.5 text-muted">{description}</p>}

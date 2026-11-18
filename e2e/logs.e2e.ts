@@ -1,8 +1,10 @@
 import { expect, test } from "./fixtures.ts";
 
-test("logs: off hides the menu; on records entries by module and level", async ({ page, app }) => {
+test("logs: off hides the tab; on records entries by module and level", async ({ page, app }) => {
   const nav = page.getByRole("complementary").getByRole("navigation");
-  const logsLink = page.getByRole("complementary").getByRole("link", { name: "Logs" });
+  const logsLink = page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("link", { name: "Logs" });
 
   await page.goto("/settings");
   await expect(nav).toBeVisible();

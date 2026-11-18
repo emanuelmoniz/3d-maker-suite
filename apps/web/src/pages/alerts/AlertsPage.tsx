@@ -92,7 +92,7 @@ export const syncTaskLink = (a: Alert) => {
         hash: `source-${a.context.integrationId}-${a.context.type}`,
         sources: true,
       } as const)
-    : ({ to: "/integrations", hash: integrationHash(a), sources: false } as const);
+    : ({ to: "/settings/integrations", hash: integrationHash(a), sources: false } as const);
 };
 
 /** Whether the caller may open this sync alert's task on the Integrations page (ADR-0012). */
@@ -313,7 +313,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "slicer_update":
       if (!integrationsManage) return <span className="font-medium">{text}</span>;
       return (
-        <Link to="/integrations" hash={integrationHash(a)} className={textLink}>
+        <Link to="/settings/integrations" hash={integrationHash(a)} className={textLink}>
           {text}
         </Link>
       );
@@ -321,7 +321,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "hub_mass_delete":
       if (!hubManage) return <span className="font-medium">{text}</span>;
       return (
-        <Link to="/hub" className={textLink}>
+        <Link to="/settings/hub" className={textLink}>
           {text}
         </Link>
       );

@@ -48,7 +48,7 @@ export function ProjectSources() {
         description={t("settings:sources.folders.empty")}
         action={
           <Link
-            to="/hub"
+            to="/settings/hub"
             className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
           >
             <Server className="size-4" aria-hidden="true" />

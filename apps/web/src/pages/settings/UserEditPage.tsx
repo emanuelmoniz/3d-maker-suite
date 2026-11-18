@@ -192,7 +192,7 @@ export function UserEditPage() {
       <PageHeader
         title={user?.displayName ?? t("users:edit.titleFallback")}
         description={user?.email}
-        backTo={{ to: "/users" }}
+        backTo={{ to: "/settings/users" }}
       />
       {(users.isError || roles.isError) && (
         <p role="alert" className="text-bad">

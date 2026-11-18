@@ -12,7 +12,7 @@ Until the first account exists, anyone who can open the page can create it. Do t
 
 ## Roles
 
-A role is a set of permissions. Each user has one role, and gets what it allows. Manage roles under the **Roles** tab of **Users | Roles**.
+A role is a set of permissions. Each user has one role, and gets what it allows. Manage roles on the **Roles** tab of **Settings**.
 
 Three roles come built in:
 
@@ -38,7 +38,7 @@ Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |
 | Quotes, orders and clients | Make quotes and orders | Change rates, currency and order statuses |
-| Catalog | Delete and restore Preset library presets, clean up conflict copies and held deletes | Add, edit, archive and delete brands, models and materials, and archive and delete presets (a slicer makes and edits them); on Catalog → Settings → Sources, their import settings and Choose brands |
+| Catalog | Delete and restore Preset library presets, clean up conflict copies and held deletes | Add, edit, archive and delete brands, models and materials, and archive and delete presets (a slicer makes and edits them); on Settings → Catalog → Catalog settings → Sources, their import settings and Choose brands |
 
 With **Catalog** at Read, a user sees the brands, models, materials and slicer presets, their Sources and the Preset library. The printer, spool and print forms read brands, models, materials and presets with Printers or Filament read too, and the presets are readable with Projects read. Catalog and presets are one module ([ADR-0023](adr/0023-one-catalog-module.md)): updating from a 5.5.0 pre-release, each role and user keeps the higher of its old Catalog and Presets levels.
 
@@ -61,7 +61,7 @@ Admin, Editor and Viewer see everyone's projects. Admin and Editor edit them. On
 
 ### Give one user more or less
 
-Open a user under **Users | Roles** to change any permission or project right for that user only. **Same as role** follows the role, also when the role changes later. Each row shows the user's value and the role's.
+Open a user on the **Users** tab of **Settings** to change any permission or project right for that user only. **Same as role** follows the role, also when the role changes later. Each row shows the user's value and the role's.
 
 Admin-role users have every permission; the only thing to change for them is **Edit files on other workstations**.
 
@@ -83,7 +83,7 @@ People with **Set up integrations** set up integrations. They can also allow sin
 - **Can sync now**: users with **Run syncs** may run that task's sync.
 - **Can review and import**: users with **Review imports** may review and import what that task brings in.
 
-Both are off by default. They are set with **Edit** on the task's line: for an account's printers, prints and spools on the type's **Settings → Sources** tab, for slicer types on **Catalog → Settings → Sources**. A user with Run syncs or Review imports, but not Set up integrations, sees only the allowed tasks, with no account, slicer or setup settings. An account's printers, prints and spools tasks are on the type's **Settings → Sources** tab, which the gear on the type's page opens. That tab is all of its settings such a user sees. An account's user presets tasks are on **Catalog → Settings → Sources**, under their slicer (Bambu Cloud's under Bambu Studio). Other tasks are on the Integrations page, which shows only the cards with one of them. Alerts show the sync or review button only for those tasks.
+Both are off by default. They are set with **Edit** on the task's line: for an account's printers, prints and spools on the type's **Settings → Sources** tab, for slicer types on **Settings → Catalog → Catalog settings → Sources**. A user with Run syncs or Review imports, but not Set up integrations, sees only the allowed tasks, with no account, slicer or setup settings. An account's printers, prints and spools tasks are on the type's **Settings → Sources** tab, which the gear on the type's page opens. That tab is all of its settings such a user sees. An account's user presets tasks are on **Settings → Catalog → Catalog settings → Sources**, under their slicer (Bambu Cloud's under Bambu Studio). Other tasks are on the Integrations page, which shows only the cards with one of them. Alerts show the sync or review button only for those tasks.
 
 ## Alerts are per person
 
@@ -93,7 +93,7 @@ Which alerts a person gets is set per role (Off, In app or Notify) and can be ov
 
 ## Manage users
 
-People with **Users and roles** open **Users | Roles** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.
+People with **Users and roles** open the **Users** tab of **Settings** to add people, change their role or rights, disable an account or reset a password. Disabling an account or resetting its password signs that person out everywhere. A change of role or rights applies at once, without signing them out.
 
 Each person changes their own name and password under **My account** in the account menu.
 
@@ -113,7 +113,7 @@ An admin can switch **User accounts** off in Settings → General, for example w
 
 Users, roles and their rights are kept. Turning the switch back on restores them and ends every session, so everyone, you included, signs in again with their existing password.
 
-The hub needs accounts, because each device acts as a user: turn the hub off before turning accounts off, and the hub can't be turned on while accounts are off. **Users | Roles** leaves the menu while accounts are off.
+The hub needs accounts, because each device acts as a user: turn the hub off before turning accounts off, and the hub can't be turned on while accounts are off. The **Users** and **Roles** tabs of **Settings** hide while accounts are off.
 
 ## Forgot the admin password
 

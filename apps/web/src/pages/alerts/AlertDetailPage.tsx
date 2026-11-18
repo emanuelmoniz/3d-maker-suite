@@ -187,12 +187,12 @@ export function AlertDetailPage() {
                     : t("alerts:view.openIntegration")}
                 </Link>
               ) : a.kind === "slicer_update" && integrationsManage ? (
-                <Link to="/integrations" hash={integrationHash(a)} className={buttonLink}>
+                <Link to="/settings/integrations" hash={integrationHash(a)} className={buttonLink}>
                   {t("alerts:view.openIntegration")}
                 </Link>
               ) : null}
               {(a.kind === "connector_outdated" || a.kind === "hub_mass_delete") && hubManage && (
-                <Link to="/hub" className={buttonLink}>
+                <Link to="/settings/hub" className={buttonLink}>
                   {t("alerts:view.openHub")}
                 </Link>
               )}

@@ -304,7 +304,7 @@ export function PresetsTab() {
           description={t("hub:presets.emptyBody")}
           action={
             integrations && (
-              <Link to="/integrations" className={textLink}>
+              <Link to="/settings/integrations" className={textLink}>
                 {t("hub:presets.toIntegrations")}
               </Link>
             )

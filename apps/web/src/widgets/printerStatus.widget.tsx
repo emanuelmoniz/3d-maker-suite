@@ -39,7 +39,7 @@ defineWidget({
           <p className="text-muted">
             {t("dashboard:printerStatusNone")}{" "}
             {admin && (
-              <Link to="/integrations" className={textLink}>
+              <Link to="/settings/integrations" className={textLink}>
                 {t("dashboard:printerStatusAdd")}
               </Link>
             )}

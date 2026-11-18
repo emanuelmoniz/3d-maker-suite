@@ -9,7 +9,7 @@ test("export spools as CSV, upload it, edit a cell in the review and import the 
   app,
 }) => {
   const { id } = await seedSpool(app.api, 800);
-  await page.goto("/import");
+  await page.goto("/settings/data/export");
   const exportSection = page.getByRole("region", { name: "Export" });
   await pick(exportSection.getByRole("combobox", { name: "Format" }), "CSV (.csv)");
   const [exported] = await Promise.all([
@@ -20,6 +20,7 @@ test("export spools as CSV, upload it, edit a cell in the review and import the 
   const file = join(mkdtempSync(join(tmpdir(), "3dms-csv-")), "spools.csv");
   await exported.saveAs(file);
 
+  await page.goto("/settings/data/import");
   await page.getByLabel("Upload a file").setInputFiles(file);
   await expect(page.getByRole("button", { name: "Identical (1)" })).toBeVisible();
 

@@ -17,7 +17,7 @@ export function PresetsHint() {
         <Trans
           i18nKey="catalog:arrive.body"
           components={{
-            integrations: <Link to="/integrations" className={textLink} />,
+            integrations: <Link to="/settings/integrations" className={textLink} />,
             zip: <Link to="/catalog/settings/sources" className={textLink} />,
           }}
         />

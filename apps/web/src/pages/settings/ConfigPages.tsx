@@ -302,7 +302,7 @@ function Uncovered() {
         kinds: formatList(kinds.map((k) => t(`alerts:kindNames.${k}`))),
       })}{" "}
       {roles && (
-        <Link to="/users/roles" className={textLink}>
+        <Link to="/settings/roles" className={textLink}>
           {t("settings:alerts.editRoles")}
         </Link>
       )}
@@ -382,7 +382,7 @@ export function PrintersConfigPage() {
                 <Trans
                   i18nKey="catalog:moved"
                   components={{
-                    link: <Link to="/catalog/printers" className={textLink} />,
+                    catalog: <Link to="/settings/catalog/printers" className={textLink} />,
                   }}
                 />
               </p>

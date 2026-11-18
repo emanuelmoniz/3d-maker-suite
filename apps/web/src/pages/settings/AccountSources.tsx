@@ -131,7 +131,7 @@ export function IntegrationsLink() {
   const { t } = useTranslation();
   return (
     <Link
-      to="/integrations"
+      to="/settings/integrations"
       className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
     >
       <Cable className="size-4" aria-hidden="true" />
@@ -187,7 +187,7 @@ export function AccountBlock({
       link={
         admin
           ? {
-              to: "/integrations",
+              to: "/settings/integrations",
               hash: `integration-${i.id}`,
               label: t("settings:sources.toAccount"),
             }

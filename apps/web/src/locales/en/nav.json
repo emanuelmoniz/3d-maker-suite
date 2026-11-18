@@ -23,18 +23,13 @@
     "clients": { "label": "Clients", "description": "People and companies you print for." },
     "stats": { "label": "Stats", "description": "Trends in time, material and spend." },
     "alerts": { "label": "Alerts", "description": "Things that need your attention." },
-    "import": {
-      "label": "Import | Export",
-      "description": "Bring data in from spreadsheets, or take it out."
-    },
     "catalog": {
       "label": "Catalog",
       "description": "Printer and filament brands, models, materials and presets."
     },
-    "integrations": { "label": "Integrations", "description": "Connect vendor accounts and sync." },
-    "hub": { "label": "Hub management", "description": "Paired devices and their access." },
+    "integrations": { "label": "Integrations" },
+    "hub": { "label": "Hub management" },
     "logs": { "label": "Logs", "description": "What the app did, by module and level." },
-    "users": { "label": "Users | Roles", "description": "Accounts, and what each role may do." },
     "settings": { "label": "Settings" }
   }
 }

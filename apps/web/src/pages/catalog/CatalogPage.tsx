@@ -1,11 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { Navigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { SyncButton } from "../../components/SyncButton.tsx";
 import { Tabs } from "../../components/Tabs.tsx";
-import { meQuery, useCan } from "../../lib/auth.ts";
 import { FilamentCatalog } from "../filament/Catalog.tsx";
 import { PresetsHint } from "../presets/PresetsHint.tsx";
 import { FilamentPresets, MachinePresets, ProcessPresets } from "../presets/PresetTables.tsx";
@@ -52,12 +49,12 @@ const INTRO = {
   filament: "catalog:intro.filament",
 } as const;
 
-/** Brands, models, materials and their presets (ADR-0023), one tab per part. Needs `catalog` read. */
+/**
+ * Brands, models, materials and their presets (ADR-0023), one tab per part. A tab of Settings:
+ * `SettingsShell` checks `catalog` read.
+ */
 export function CatalogPage({ tab }: { tab: CatalogTab }) {
   const { t } = useTranslation();
-  const allowed = useCan("catalog", "read");
-  if (!useQuery(meQuery).data) return null;
-  if (!allowed) return <Navigate to="/" replace />;
   return (
     <>
       <PageHeader
@@ -73,8 +70,8 @@ export function CatalogPage({ tab }: { tab: CatalogTab }) {
       <Tabs
         label={t("catalog:tabs.label")}
         items={[
-          { to: "/catalog/printers", label: t("catalog:tabs.printers") },
-          { to: "/catalog/filament", label: t("catalog:tabs.filament") },
+          { to: "/settings/catalog/printers", label: t("catalog:tabs.printers") },
+          { to: "/settings/catalog/filament", label: t("catalog:tabs.filament") },
         ]}
       />
       <p className="mb-4 max-w-prose text-muted">{t(INTRO[tab])}</p>

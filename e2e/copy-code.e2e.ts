@@ -10,7 +10,7 @@ async function openPairingCode(page: import("@playwright/test").Page) {
   });
   await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
   await page.reload();
-  await page.getByRole("link", { name: "Hub management" }).click();
+  await page.goto("/settings/hub");
   await page.getByRole("button", { name: "Pair a device" }).click();
   const pair = page.getByRole("dialog", { name: "Pair a device" });
   await pair.getByLabel("User").click();

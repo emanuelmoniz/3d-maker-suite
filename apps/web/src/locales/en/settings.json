@@ -3,7 +3,14 @@
     "label": "Settings sections",
     "general": "General",
     "sources": "Sources",
-    "library": "Preset library"
+    "library": "Preset library",
+    "hub": "Hub management",
+    "integrations": "Integrations",
+    "users": "Users",
+    "roles": "Roles",
+    "catalog": "Catalog",
+    "data": "Data",
+    "logs": "Logs"
   },
   "catalog": {
     "nothing": "Nothing to set here yet."

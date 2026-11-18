@@ -144,13 +144,18 @@ function useTaskRights() {
   const manage = !!p?.["integrations.manage"];
   const sync = !!p?.["integrations.sync"];
   const review = !!p?.["integrations.review"];
-  const list = useIntegrations(!manage && (sync || review)).data ?? [];
+  const needsList = !manage && (sync || review);
+  const query = useIntegrations(needsList);
+  const list = query.data ?? [];
   const allowed = (t: { editorSync: boolean; editorReview: boolean }) => ({
     sync: sync && t.editorSync,
     review: review && t.editorReview,
   });
-  return { manage, list, allowed };
+  return { manage, list, allowed, loading: needsList && query.isPending };
 }
+
+/** Until the list is in, `useHasTasks` can't tell an editor with a task from one without. */
+export const useTasksLoading = () => useTaskRights().loading;
 
 /**
  * What the caller may do with one task: everything with integrations.manage; else sync (review)

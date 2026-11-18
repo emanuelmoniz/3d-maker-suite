@@ -13,7 +13,7 @@ test("export, edit the file, upload it: the changed value is written without tou
   app,
 }) => {
   const { id } = await seedSpool(app.api, 800);
-  await page.goto("/import");
+  await page.goto("/settings/data/export");
   const exportSection = page.getByRole("region", { name: "Export" });
   await pick(exportSection.getByRole("combobox", { name: "Format" }), "CSV (.csv)");
   const [exported] = await Promise.all([
@@ -30,6 +30,7 @@ test("export, edit the file, upload it: the changed value is written without tou
   cells[cols.indexOf("Location")] = "Shelf 9";
   writeFileSync(file, [head, cells.join(sep)].join("\n"));
 
+  await page.goto("/settings/data/import");
   await page.getByLabel("Upload a file").setInputFiles(file);
   await expect(page.getByRole("button", { name: "Changed (1)" })).toBeVisible();
   await page.getByRole("button", { name: "Import 1 row" }).click();

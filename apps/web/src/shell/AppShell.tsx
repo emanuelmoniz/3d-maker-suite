@@ -1,5 +1,5 @@
 import { REPO_URL, SITE_URL } from "@3d-maker-suite/core";
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   CircleUser,
   Download,
@@ -16,27 +16,14 @@ import { Button } from "../components/Button.tsx";
 import { Menu } from "../components/Menu.tsx";
 import { unreadCount, useAlertAction, useAlerts } from "../lib/alerts.ts";
 import { FORBIDDEN_EVENT } from "../lib/api.ts";
-import { useCan, useMe, useMyRole, useSignOut } from "../lib/auth.ts";
+import { useMe, useMyRole, useSignOut } from "../lib/auth.ts";
 import { brandMark, useApplyBranding, useAppName, useBrandingUrl } from "../lib/branding.ts";
 import { cx, textLink } from "../lib/cx.ts";
 import { setDateTimePrefs } from "../lib/format.ts";
-import { useHasTasks } from "../lib/integrations.ts";
 import { usePreferences } from "../lib/preferences.ts";
 import { useServerState, useSetServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
-import { useUsersShown } from "../lib/users.ts";
-import {
-  ALL_ITEMS,
-  CATALOG_ITEM,
-  HUB_ITEM,
-  IMPORT_ITEM,
-  INTEGRATIONS_ITEM,
-  LOGS_ITEM,
-  NAV_GROUPS,
-  type NavItem,
-  SETTINGS_ITEM,
-  USERS_ITEM,
-} from "./nav.ts";
+import { ALL_ITEMS, NAV_GROUPS, type NavItem, SETTINGS_ITEM, SETTINGS_SUB_PAGES } from "./nav.ts";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
 const linkClass =
@@ -62,10 +49,15 @@ function Badge({ to }: { to: string }) {
 function SideLink({ item }: { item: NavItem }) {
   const { t } = useTranslation();
   const Icon = item.icon;
+  // A sub-page of a Settings tab keeps its own address (`/integrations/new`) but is still Settings.
+  const underSettings = useRouterState({
+    select: (s) => item === SETTINGS_ITEM && SETTINGS_SUB_PAGES.test(s.location.pathname),
+  });
   return (
     <Link
       to={item.to}
       activeOptions={{ exact: item.to === "/" }}
+      data-status={underSettings ? "active" : undefined}
       className={linkClass}
       title={t(item.label)}
     >
@@ -321,26 +313,8 @@ function SheetUser({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
-/** The Logs item is in the menu only while logging is on, and only with settings.logs. */
-const useLogsShown = () => {
-  const on = !!usePreferences().data?.values.logActive;
-  return useCan("settings.logs") && on;
-};
-
-/** Hub management: hub.manage, while the hub is on. */
-const useHubShown = () => {
-  const on = !!usePreferences().data?.values.hubEnabled;
-  return useCan("hub.manage") && on;
-};
-
 function Sidebar() {
   const { t } = useTranslation();
-  const logsShown = useLogsShown();
-  const hubShown = useHubShown();
-  const importShown = useCan("integrations.manage");
-  const catalogShown = useCan("catalog", "read");
-  const usersShown = useUsersShown();
-  const tasks = useHasTasks();
   return (
     <aside className="sticky top-0 hidden h-dvh w-14 shrink-0 flex-col border-r border-border bg-surface md:flex lg:w-56">
       <div className="flex h-14 items-center px-3 lg:px-4">
@@ -359,12 +333,6 @@ function Sidebar() {
         ))}
       </nav>
       <div className="flex flex-col gap-0.5 border-t border-border p-2">
-        {hubShown && <SideLink item={HUB_ITEM} />}
-        {tasks && <SideLink item={INTEGRATIONS_ITEM} />}
-        {catalogShown && <SideLink item={CATALOG_ITEM} />}
-        {importShown && <SideLink item={IMPORT_ITEM} />}
-        {logsShown && <SideLink item={LOGS_ITEM} />}
-        {usersShown && <SideLink item={USERS_ITEM} />}
         <SideLink item={SETTINGS_ITEM} />
         <UserMenu />
         <ThemeToggle className="mt-1.5 flex-col lg:flex-row" />
@@ -409,22 +377,7 @@ function BottomNav() {
   const { t } = useTranslation();
   const sheet = useRef<HTMLDialogElement>(null);
   const primary = ALL_ITEMS.filter((i) => i.primary);
-  const logsShown = useLogsShown();
-  const hubShown = useHubShown();
-  const importShown = useCan("integrations.manage");
-  const catalogShown = useCan("catalog", "read");
-  const usersShown = useUsersShown();
-  const tasks = useHasTasks();
-  const more = ALL_ITEMS.filter(
-    (i) =>
-      !i.primary &&
-      (usersShown || i !== USERS_ITEM) &&
-      (catalogShown || i !== CATALOG_ITEM) &&
-      (logsShown || i !== LOGS_ITEM) &&
-      (importShown || i !== IMPORT_ITEM) &&
-      (tasks || i !== INTEGRATIONS_ITEM) &&
-      (hubShown || i !== HUB_ITEM),
-  );
+  const more = ALL_ITEMS.filter((i) => !i.primary);
   const tab =
     "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted data-[status=active]:text-accent";
   return (

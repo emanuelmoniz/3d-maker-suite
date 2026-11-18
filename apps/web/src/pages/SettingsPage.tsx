@@ -1,13 +1,9 @@
 import { DATE_FORMATS, type Preferences } from "@3d-maker-suite/core";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../components/Combobox.tsx";
 import { FormField } from "../components/FormField.tsx";
-import { PageHeader } from "../components/PageHeader.tsx";
 import { cardGrid, Section } from "../components/Section.tsx";
 import { Switch } from "../components/Switch.tsx";
-import { api } from "../lib/api.ts";
 import { useCan } from "../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../lib/preferences.ts";
 import { ACCENTS, type Accent, useTheme } from "../lib/theme.ts";
@@ -19,7 +15,6 @@ import { LogSection } from "./settings/LogSection.tsx";
 import {
   AccountsSwitch,
   HubSwitch,
-  ServerActions,
   ServerSection,
   StartAtLogin,
   ThisServer,
@@ -33,27 +28,7 @@ const ACCENT_LABELS = {
   amber: "settings:appearance.accents.amber",
 } as const;
 
-/** Hours:minutes:seconds the server has been up, ticking each second from its reported start. */
-function ServerUptime() {
-  const { t } = useTranslation();
-  const { data } = useQuery({
-    queryKey: ["health"],
-    queryFn: () => api<{ startedAt: string }>("GET", "/api/health"),
-    refetchInterval: 30_000,
-  });
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  if (!data) return null;
-  const total = Math.max(0, Math.floor((now - Date.parse(data.startedAt)) / 1000));
-  const time = [Math.floor(total / 3600), Math.floor(total / 60) % 60, total % 60]
-    .map((n) => String(n).padStart(2, "0"))
-    .join(":");
-  return t("settings:uptime", { time });
-}
-
+/** The General tab of Settings (`SettingsShell` holds the title and the tabs). */
 export function SettingsPage() {
   const { t } = useTranslation();
   const { data, isError } = usePreferences();
@@ -69,12 +44,9 @@ export function SettingsPage() {
 
   if (isError)
     return (
-      <>
-        <PageHeader title={t("nav:items.settings.label")} />
-        <p role="alert" className="text-bad">
-          {t("settings:loadError")}
-        </p>
-      </>
+      <p role="alert" className="text-bad">
+        {t("settings:loadError")}
+      </p>
     );
   if (!data) return null;
   const v = data.values;
@@ -84,11 +56,6 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader
-        title={t("nav:items.settings.label")}
-        description={<ServerUptime />}
-        actions={<ServerActions />}
-      />
       {save.isError && (
         <p role="alert" className="mb-4 text-bad">
           {t("settings:saveError")}

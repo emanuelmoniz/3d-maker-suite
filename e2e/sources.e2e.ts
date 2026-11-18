@@ -110,7 +110,7 @@ for (const width of [375, 1440])
     // Its heading says where it is changed.
     await expect(share2.getByRole("link", { name: "Change in Integrations" })).toHaveAttribute(
       "href",
-      "/integrations#bambu-studio",
+      "/settings/integrations#bambu-studio",
     );
 
     // Receive from server: every machine with the slicer, its System and User presets lines on one

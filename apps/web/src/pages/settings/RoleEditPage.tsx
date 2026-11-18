@@ -179,7 +179,7 @@ export function RoleEditPage() {
 
   return (
     <>
-      <PageHeader title={title} backTo={{ to: "/users/roles" }} />
+      <PageHeader title={title} backTo={{ to: "/settings/roles" }} />
       {roles.isError && (
         <p role="alert" className="text-bad">
           {t("users:list.errors.generic")}

@@ -10,7 +10,7 @@ With the switch off, nothing changes.
 
 1. Set up user accounts first ([users.md](users.md)): every device acts as a user.
 2. As an admin, go to **Settings → General** and turn on **Hub** (below **User accounts**, which must be on).
-3. **Hub management** appears in the menu next to Integrations (admins only). It lists the devices: name, user, OS, connector version, and online or last seen. Its **Settings** page holds the sync, lock and version settings.
+3. **Hub management** appears as a tab of **Settings** (admins only). It lists the devices: name, user, OS, connector version, and online or last seen. Its **Settings** page holds the sync, lock and version settings.
 
 If the hub is switched off again, connectors show "The hub is turned off on this server" and keep their pairing.
 
@@ -36,7 +36,7 @@ Each device in **Hub management** opens its machine page. It has every setting o
 - **System**: the machine's CPU use, memory, each disk its connector uses (its data folder, the synced hub folders and its shared folders, one bar per drive) and its network addresses, with the address the hub sees it from. The connector reports them every 30 seconds while it is online, and the page refreshes as often. Nothing is stored: offline, the section shows only when the machine was last seen. Behind a reverse proxy, the address the hub sees is the proxy's unless `APP_TRUST_PROXY` names it ([configuration](configuration.md)).
 - **Connection**: the local page port and start at login, read live from the connector.
 - **Slicers**: the slicers on the machine, the ones the connector found and the ones the hub installed, each with its version and *Server's slicer* on the one picked in Integrations ([ADR-0022](adr/0022-one-slicer-per-type.md)). **Use slicer as server worker** (Hub management) offers the machine in Integrations: only then can a slicer be installed or set up on it there. With Integrations manage, each slicer type then has a link: **Set up Bambu Studio on this machine** opens **Add integration** with the machine picked under **Where**, and once set up, **Bambu Studio in Integrations** opens its card ([Slice workers](#slice-workers)). Setting a machine up as a worker in Integrations turns the switch on. Turning it off, after a confirmation, removes the machine's installs from Integrations (as **Remove** there: a slicer the hub installed on it is uninstalled; what they imported stays), so it can't be set up while off.
-- **Slicers catalog**, while the machine has a slicer (found or installed by the hub): **Receive from server** and **Share to server**, as Projects'. Off, the machine isn't listed that way on **Catalog → Settings → Sources**, and its slicers' lines in that direction go off. Its System and User presets are set there ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)): while one of the two switches is on, **Sync sources configurations** at the foot of the card has a **Catalog sources** button.
+- **Slicers catalog**, while the machine has a slicer (found or installed by the hub): **Receive from server** and **Share to server**, as Projects'. Off, the machine isn't listed that way on **Settings → Catalog → Catalog settings → Sources**, and its slicers' lines in that direction go off. Its System and User presets are set there ([Slicer presets](#slicer-presets), [Receive catalog](#receive-catalog)): while one of the two switches is on, **Sync sources configurations** at the foot of the card has a **Catalog sources** button.
 - **Projects**: **Receive from server** (with its number of picks and its sync state, such as *Up to date · 120 files*, below) and **Share to server** (its number of shared folders, and *Up to date* while it is online, below). While one of them is on, **Sync sources configurations** at the foot of the card has a **Projects sources** button to Projects settings → Sources, where both are set up.
 
 Opened in a browser on that machine, the page also links to the connector's [local page](#install-the-connector).
@@ -46,7 +46,7 @@ Opened in a browser on that machine, the page also links to the connector's [loc
 | Section | Switch | Also needs |
 |---|---|---|
 | Connection, Restart, Stop | **Connection** | |
-| System presets Receive, User presets Receive and Share (on **Catalog → Settings → Sources**) | **Catalog** | Catalog write |
+| System presets Receive, User presets Receive and Share (on **Settings → Catalog → Catalog settings → Sources**) | **Catalog** | Catalog write |
 | Projects Receive and Share | **Projects** | Projects write |
 
 Identity, Update now and Revoke stay with **Manage the hub**.
@@ -107,7 +107,7 @@ Picks are set in **Projects settings → Sources → Receive from server**: a ca
 - Each pick is at **Read** or **Edit**. Read syncs the files read-only on the device; Edit lets its saves go back to the hub. Where two picks cover a file, Edit wins. The device's user's own rights still cap it: projects they can't see stay off the device, and files they may only download stay read-only.
 - **Add pick** asks for the project folder, optionally a folder inside it, and the level (Edit to start). **Edit** changes the level. A line's switch pauses the pick; **⋯ → Remove** removes it. Either way its files leave the device, except files changed there that the hub doesn't have yet. Nothing on the hub is deleted.
 - It takes `hub.manage` or Projects at Manage, on a machine you can see. Each change is in the log.
-- **Hub management → Settings → New machines receive**: **Every project folder** (a pick per project folder on this server, at Edit) or **Nothing until picked** (the default).
+- **Settings → Hub management → Hub management settings → New machines receive**: **Every project folder** (a pick per project folder on this server, at Edit) or **Nothing until picked** (the default).
 - Upgrading to 5.5.0 keeps what each device synced: *Everything* became a pick per project folder, *Selected projects* a pick per selected project, each at Edit.
 - The picks belong to the device. **Change user** keeps them, and the new user's rights apply from the next sync: files that user can't see leave the device, files they may only download turn read-only.
 
@@ -124,7 +124,7 @@ It's hidden when unknown, for example for a file changed directly on the hub's d
 
 ### Versions
 
-**Hub management → Settings → Keep earlier versions of files** (default off). When on, a save from a device or an upload in the browser that replaces a hub file keeps the old content as a version, and the newest **N** (default 5, up to 100) are kept per file.
+**Settings → Hub management → Hub management settings → Keep earlier versions of files** (default off). When on, a save from a device or an upload in the browser that replaces a hub file keeps the old content as a version, and the newest **N** (default 5, up to 100) are kept per file.
 
 - The project page lists a file's versions (number, user, device, date, size), each with **Download**.
 - Only saves that reach the hub from a device or the browser are kept. A change made on the hub's own disk is not kept when it happens, but the next save over it keeps it.
@@ -142,7 +142,7 @@ An upload in the browser is checked the same way: the page sends the hash the fi
 
 A file deleted on a device moves to the root's trash on the hub, never a hard delete, and only when the hub has no newer version of it.
 
-**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Hub management → Settings → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its local page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
+**Mass delete guard.** When a device deletes more files from one hub root at once than the limit (**Settings → Hub management → Hub management settings → Sync**, default 20), or a root's folder is missing on the device, the connector holds those deletes. Its local page asks you to **Delete on the hub too** or **Restore them**, the device shows **Paused** in Hub management and the hub keeps an alert open until it is settled.
 
 ## Printers through a connector
 
@@ -182,12 +182,12 @@ Use a worker when the hub is on a VPS or an arm64 NAS with no server slicer, or 
 
 On a hub, one library holds the user presets (printer, process, filament) of Bambu Studio and OrcaSlicer. The server's slicer and every slice worker use it, and a slice that used a changed preset shows as outdated. A single-PC install has no library: it slices with its desktop slicer's own folder.
 
-Open it from **Catalog → Settings → Preset library** (shown while the hub is on; `/hub/presets`, `/catalog/presets` and `/presets/settings/library` still land there). A preset imported from a user preset links to its entry here, and the entry links back to it. Anyone who can see the presets or projects can browse and download presets and their earlier versions. Changing things needs **Catalog** write, which Admin and Editor have (the old **Presets** right is part of **Catalog** since [ADR-0023](adr/0023-one-catalog-module.md); updating keeps the higher of the two): delete a preset, clean up conflict copies, and set the two switches below.
+Open it from **Settings → Catalog → Catalog settings → Preset library** (shown while the hub is on; `/hub/presets`, `/catalog/presets` and `/presets/settings/library` still land there). A preset imported from a user preset links to its entry here, and the entry links back to it. Anyone who can see the presets or projects can browse and download presets and their earlier versions. Changing things needs **Catalog** write, which Admin and Editor have (the old **Presets** right is part of **Catalog** since [ADR-0023](adr/0023-one-catalog-module.md); updating keeps the higher of the two): delete a preset, clean up conflict copies, and set the two switches below.
 
-Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Every slicer a machine reports is listed on **Catalog → Settings → Sources**, under both **Share to server** and **Receive from server** (all off by default). Share is set per kind: the machine's **Printer**, **Process** and **Filament user presets** lines; the machine shares while any of them is on. Receive takes every kind. The machine's user turns them on and off with `machine.catalog`.
+Presets get in from a slicer zip ([slicing.md](slicing.md#presets)) or from a workstation. Every slicer a machine reports is listed on **Settings → Catalog → Catalog settings → Sources**, under both **Share to server** and **Receive from server** (all off by default). Share is set per kind: the machine's **Printer**, **Process** and **Filament user presets** lines; the machine shares while any of them is on. Receive takes every kind. The machine's user turns them on and off with `machine.catalog`.
 
 - **Share** (Send presets): the connector sends each preset saved in that slicer to the hub within a minute. It follows the account the slicer last used, or the signed-out folder. The slicer shows when a preset it sent was last stored, and the deletes held for you. The hub ignores a preset of a kind whose line is off, and its deletes; a file saved meanwhile reaches the hub on its next save.
-- **Receive** (Install): the connector writes every preset of the library into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first and the preset shows at the slicer's next start. Its **User presets** line on **Catalog → Settings → Sources** has the switch and shows whether it is up to date or how many wait, and under **Folder and backup** where it writes and the last backup. Updating to 5.5.0-alpha.2, a machine that received only some kinds receives all three; nothing it has is removed.
+- **Receive** (Install): the connector writes every preset of the library into that slicer's folder. It waits until the slicer is closed, backs up the folder to a zip first and the preset shows at the slicer's next start. Its **User presets** line on **Settings → Catalog → Catalog settings → Sources** has the switch and shows whether it is up to date or how many wait, and under **Folder and backup** where it writes and the last backup. Updating to 5.5.0-alpha.2, a machine that received only some kinds receives all three; nothing it has is removed.
 
 So a PC can send its Bambu Studio filament presets and nothing else. A slicer the machine no longer reports keeps its lines, which can't change, with their values. Updating from 5.4.0-alpha.3 or earlier, each device keeps its two switches for every slicer it reported. A connector older than this asks to be updated when you change a switch while it is online; until then it only gets the slicers whose switch is on.
 
@@ -197,13 +197,13 @@ A slicer's system presets (its brands and printer models) are read from one plac
 
 ### Receive catalog
 
-With its **System presets** line's **Receive** on, on **Catalog → Settings → Sources**, a machine gets the hub's copy of the hub's slicer's `system/` folder, so its slicer has the same vendor presets as the hub's. The copy comes from the hub's slicer, on a machine or on this server.
+With its **System presets** line's **Receive** on, on **Settings → Catalog → Catalog settings → Sources**, a machine gets the hub's copy of the hub's slicer's `system/` folder, so its slicer has the same vendor presets as the hub's. The copy comes from the hub's slicer, on a machine or on this server.
 
 - It is sent when the hub's copy differs from the machine's own, checked every minute and as soon as the hub's slicer sends a new copy. A slicer update that rewrites `system/` on the machine changes it again, so the copy is written again after the update.
 - The connector waits until the slicer is closed. It then backs up the machine's `system/` to `catalog-backups/<slicer>.zip` in its data folder (only the last backup is kept), and writes the hub's preset files over the folder. It deletes nothing, so the slicer's own files, such as bed models, stay. The vendor presets show at the slicer's next start.
 - It is sent only to a slicer with the same major.minor version as the hub's slicer (2.4 to 2.4). A newer copy may not load in an older slicer, and a newer slicer may replace an older copy when it starts. Otherwise the line says which versions differ. When either version is unknown, it is sent.
 - Server's slicer can't receive: its own folder is the catalog. Its Receive switch is off and locked, and picking a machine as the hub's slicer turns its Receive off.
-- **Receive from server**, on **Catalog → Settings → Sources**, has a card for every machine with the slicer (and This server's slicer). The server's slicer has one too, for user presets only: its System presets line says *Server's slicer*, with no switch. Per slicer, its **System presets** line has the Receive switch, saved with the machine's **Catalog** right, and the `system/` state: off, not received yet, waiting for the slicer to close, received (with the date and the presets' version), or the error. **Folder and backup** shows the last backup; an offline or too old machine says so at the top of its card.
+- **Receive from server**, on **Settings → Catalog → Catalog settings → Sources**, has a card for every machine with the slicer (and This server's slicer). The server's slicer has one too, for user presets only: its System presets line says *Server's slicer*, with no switch. Per slicer, its **System presets** line has the Receive switch, saved with the machine's **Catalog** right, and the `system/` state: off, not received yet, waiting for the slicer to close, received (with the date and the presets' version), or the error. **Folder and backup** shows the last backup; an offline or too old machine says so at the top of its card.
 - A connector older than this answers `device_outdated` when you turn Receive on while it is online, and the switch stays off.
 
 **This server's slicer** receives too: a slicer installed on the computer the server runs on (a folder on this computer, not a managed one) that isn't the hub's slicer. Its switch is `catalogReceive` on its integration (`PATCH /api/integrations/:id`; `not_local` for any other kind, `hub_slicer` on the hub's slicer, and picking it as the hub's slicer turns it off). It follows the same rules: the same major.minor, only while the slicer is closed, a backup to `catalog-backups/<integration>.zip` in the server's data folder first, the preset files laid over its folder. The server looks on each tick and as soon as a new copy comes in; its state is kept on the integration (`catalogInstall`).

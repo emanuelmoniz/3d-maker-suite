@@ -3614,6 +3614,9 @@ Design:
 - **The name belongs to the printer:** a network printer source asks for a name only when it creates a new printer. After that the name is the printer's, renamed on the printer page, never in Integrations.
 - **Sign in where you set up:** a Bambu Cloud account signs in inside its Add and Edit forms. It is saved only once sign-in works, and there's no separate sign-in page.
 - **Synced is not live:** a source with no live status (Bambu Cloud) says it syncs on its schedule, not that nothing reads the printer.
+- **Settings holds the admin pages (alpha.3, added 2026-11-18):** Hub management, Integrations, Users, Roles, Catalog, Data and Logs are tabs of Settings, not sidebar items. Rights per page don't change, and old addresses redirect.
+- **A source is a row:** on Printers, Prints and Filament → Sources, one table with a row per source. A network printer is a prints source whose recording can be switched off.
+- **No alert for what the user just did or what fixes itself:** a manual update check raises none, and an outdated connector alerts only after a grace period.
 
 ## Phase 47 - Pages
 
@@ -3933,16 +3936,177 @@ Do Step 13b of the 6.1.0 plan in PLAN.md.
 Do Step 14 of the 6.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 15 - Docs, push & v6.1.0 release
+## Phase 52 - Settings in one place
+
+Added on 2026-11-18 for alpha.3. The admin pages leave the sidebar and become tabs of Settings, with the same `Tabs` layout as a module's settings (General | Sources | Library).
+
+### [x] Step 15 - Settings tabs  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Scope:**
+- Settings becomes a tab shell (`Tabs`, as `ConfigPage`), one address per tab:
+  - **General** `/settings`: today's Settings page, without Logs (Step 16).
+  - **Hub management** `/settings/hub`: today's `/hub` (only while the hub is on).
+  - **Integrations** `/settings/integrations`: today's `/integrations`.
+  - **Users** `/settings/users` and **Roles** `/settings/roles`: today's Users | Roles tabs, now two tabs of Settings (only while users and roles are on).
+  - **Catalog** `/settings/catalog`: today's `/catalog`.
+  - **Data** `/settings/data`: today's Import | Export.
+  - **Logs** `/settings/logs`: today's `/logs`.
+- Each tab shows only with the right that its page needs today (`users.manage`, `settings.logs`, `catalog` read, an editor's sync or review task for Integrations, admin for Hub management). Settings shows to anyone with at least one tab. Who may see which page doesn't change.
+- Sub-pages keep their own address and their back link goes to their tab (`/integrations/new`, `/integrations/$id/edit`, `/hub/settings`, `/hub/presets`, machine pages, `/catalog/settings`, user and role edit pages, `/import/...` review pages). Only the list pages move.
+- Old addresses redirect, hash and search kept: `/hub`, `/integrations` (with `?via=` and `#<library>`, Step 8), `/catalog`, `/import`, `/logs`, `/users`, `/users/roles`. Update every in-app link (alerts' calls to action, machine page, sources pages, presets hints, printer status widget) and the links that alerts and emails send.
+- Sidebar (`shell/nav.ts`, `AppShell.tsx`): remove Hub management, Integrations, Catalog, Import | Export, Logs and Users | Roles. Settings stays. The mobile bottom bar and its "more" sheet follow.
+- Tabs at phone width: the row scrolls sideways inside itself, never the page; the current tab scrolls into view.
+- `docs/` and README: every "in the sidebar" or menu path for these pages (`docs/hub.md`, `docs/integrations.md`, `docs/catalog.md`, `docs/import.md`, `docs/users.md`, `docs/configuration.md`, the logs doc), `docs/architecture.md` (web routes). Amend the ADRs that place these items in the sidebar (ADR-0021, ADR-0023: Step 15). `pnpm screenshots` for the pages that changed.
+
+**Done when:** each tab opens its page with the right it needs today, and a viewer sees only theirs; every old address lands on its tab with its hash and `via`; the sidebar has none of the six items; tabs work by keyboard and at 375 px; e2e for the redirects and a viewer's tabs; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 15 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 16 - Log settings in the Logs tab
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- `LogSection` moves from General to the top of the Logs tab, above the log list, with the same right (`settings.logs`).
+- With logging off, the Logs tab still shows (today the sidebar item hides while logging is off): its settings, then an empty state that says logging is off.
+- `docs/configuration.md` and the logs doc (where the log settings are).
+
+**Done when:** General has no Logs section; logging is switched on and off from the Logs tab; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 16 of the 6.1.0 plan in PLAN.md.
+```
+
+## Phase 53 - Integrations, sources and cards
+
+### [ ] Step 17 - Slicer card: default slicer and default install in the menu
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `IntegrationCard.tsx`: the **Make default slicer** button above the body goes. It becomes an item in the card's top-right menu (admins, only when this slicer isn't the default). The **Default slicer** pill in the title stays.
+- The **Server's slicer** block (`integrations:hub.*`: title, hint, the picker) goes. The card's body starts at **Installs**.
+- Each install row:
+  - The pill **Server's slicer** becomes **Default install**.
+  - **Change slicer machine** becomes **Make default install**, an item in that install's own menu, on the installs that can be picked today (offered, online, same rules). Its confirm dialog keeps today's text (catalog and system presets change from version X to Y).
+  - The text that the hint and the `isHub` line gave goes into the confirm dialog and the pill's tooltip, so it isn't lost.
+- Remove the unused keys. `docs/slicing.md` and `docs/hub.md` (wording of the default install, where to change it); ADR-0022 if it names the button or the block (amend it, Step 17).
+
+**Done when:** a slicer card with installs on two machines opens at Installs; the default install is changed from the other install's menu, with the version warning; Make default slicer is in the card menu and gone once it is the default; keyboard works; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 17 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 18 - Sources as one table  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Why:** on Printers, Prints and Filament → Settings → Sources, each source is a card that holds a table with a single row (its one data type), so three accounts make three one-row tables.
+**Scope:**
+- `AccountSources.tsx`: one `DataTable` for the page, one row per source. The columns are today's (`LINE_COLUMNS`, `COL`): source (avatar, name, "Reached through" a machine), what, when, how, last sync, and the row's actions (Sync now, edit policy, enable switch, sync log).
+  - Things that were the card's (signed-out or error state, paused, the link to its integration) go in the source cell as a badge and a link.
+  - The table sorts by source name. Phone width uses `DataTable`'s own small-screen layout.
+- Catalog and Projects sources stay as they are (several types per source).
+- Remove what only the per-source blocks used (`SourceBlock` if nothing else uses it).
+- `docs/printers.md`, `docs/prints.md`, `docs/filament.md` (Sources tab); `pnpm screenshots` if a README page changed.
+
+**Done when:** two Bambu Cloud accounts and a Moonraker printer show as three rows of one table on each page they feed; every action of a row works as before; editors with only a sync task see the same table with what they may do; e2e; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 18 of the 6.1.0 plan in PLAN.md. Use frontend-design for the source cell.
+```
+
+### [ ] Step 19 - A network printer is a prints source  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Why:** a printer added in Integrations (Bambu LAN, Moonraker, PrusaLink, OctoPrint) records every print its job tracker sees end, and nothing lets you stop that for one printer. Its review level and usage tracking already sit on its `printerStatus` policy (`printsPolicy` in `sync.ts`), but no Sources page shows it.
+**Scope:**
+- Check first: what each adapter's policies are today, which ones Prints → Sources already lists (Moonraker has `prints`), and whether a network printer source also shows in Printers → Sources (it shouldn't: it never syncs printers).
+- Prints → Settings → Sources lists every network printer source as a row (Step 18's table): **Record prints** on or off, review level, track usage. Off: live status, alerts and the dashboard go on, and the tracker writes no print (the server checks it in `recordPrint` and on a connector's `recordTracked`; a connector that tracks keeps sending, and the hub drops it).
+- A source that also reads history (`prints` capability: Moonraker) gets the schedule as an account does. A live-only one shows "Recorded live as each print ends" and no schedule.
+- Where Record prints lives: a field on the existing policy or the policy's mode, decided in plan mode. A DB migration if needed; existing sources keep recording (on).
+- The integration card of each network printer source gets a **Prints sources** button (or menu item) to `/prints/settings/sources`, opening at its row, like the sources links of the other integrations.
+- `docs/prints.md` (sources, Record prints), the four adapter docs, `docs/architecture.md`; amend ADR-0015 and ADR-0021 (Step 19).
+
+**Done when:** turning Record prints off for one PrusaLink printer stops its prints while its live status goes on, and another printer still records; Moonraker's row has a schedule and PrusaLink's has none; the card's button opens the row; a print ended on a connector with recording off isn't written; tests cover the off switch on the hub and through a connector, and the migration if there is one; e2e; lint, tests, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 19 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 20 - One collapsible card
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `components/Collapsible.tsx` takes the header of the Integrations cards (`FoldCard.tsx`, Step 8): the whole title row is the button (`aria-expanded`), with the chevron, an optional count or badge on the right, and the same padding, border and focus ring. Make `FoldCard` and `Collapsible` share that header, not copy it.
+- Every collapsible card uses it: the project page (plates, prints, description, files), the project form, and any other card-like `details` found (`LibraryTab` and others).
+- Inline disclosures that aren't cards stay plain `details`: a log entry's details, hints, an alert's more info.
+- Open by default and remembered state stay as each place has them today.
+
+**Done when:** each collapsible card opens from anywhere on its title row; they look the same as on Integrations in both themes and at phone width; keyboard and screen reader work; e2e still passes; tests, lint and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 20 of the 6.1.0 plan in PLAN.md. Use frontend-design for the shared header.
+```
+
+## Phase 54 - Alerts after an update
+
+### [ ] Step 21 - Connectors after a hub update: update at once, alert later  **[plan mode]**
+**Model:** Opus · **Effort:** Medium
+**Why:** after the hub updates, an email says connectors are outdated, though they update themselves a moment later. `connector_outdated` is raised as soon as a connector's stream opens with another version (`evaluate.ts`).
+**Scope:**
+- Find why a connector opens its stream still on the old version (`once` in `apps/connector/src/hub.ts` runs `updater.follow` before the stream): a download that runs in the background, the release's assets not published yet, a reconnect without the health check.
+- Both:
+  - On start on a new version, the hub sends `connector.update` to every connected connector, and to each one that connects on another version.
+  - `connector_outdated` waits for a grace period (about 15 minutes, a constant) from the first time the device was seen on another version. A reported update failure (`updateFailed`) alerts at once, as today.
+- Store when the device was first seen outdated, so a hub restart doesn't reset the clock (a column, or derived from what `devices` already has, decided in plan mode).
+- `docs/hub.md` (connector updates and the alert), `docs/architecture.md`.
+
+**Done when:** updating the hub with two connected connectors sends no outdated alert or email when they update within the grace period; a connector that can't update alerts after it; a failed update alerts at once; tests cover the grace period, a restart during it, and the failure; lint, tests, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 21 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 22 - A manual update check raises no alert
+**Model:** Sonnet · **Effort:** Low
+**Scope:**
+- `check()` in `apps/server/src/updates/updates.ts` takes where it comes from: the schedule or the user (Settings → About, **Check for updates**).
+- From the user: no `update_available` alert, so no email or ntfy. The About section shows the result as today.
+- The scheduled check later doesn't alert for that same version either: the checked version is remembered (preference or the updater's state) and only a newer one alerts.
+- `docs/configuration.md` (update checks).
+
+**Done when:** a manual check that finds a release shows it in About and sends nothing; the next scheduled check stays quiet for that release and alerts for a newer one; tests cover both; lint, tests and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 22 of the 6.1.0 plan in PLAN.md.
+```
+
+## Phase 55 - Release
+
+### [ ] Step 23 - Real test, docs, push & v6.1.0-alpha.3
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Settings tabs as admin, editor and viewer, at desktop and phone width; old bookmarks (`/integrations`, `/hub`, `/logs`) and an alert's link.
+- Logging on and off from the Logs tab.
+- The slicer card: default slicer and default install from the menus, on a hub with a machine install.
+- Printers, Prints and Filament sources as one table with two Bambu Cloud accounts.
+- Record prints off on the Bambu LAN A1 for one print, then on again.
+- The collapsible cards on the project page.
+- A hub update with a connected connector: no outdated email; a manual update check: no alert.
+- Fix anything found. CHANGELOG, version `6.1.0-alpha.3`, `pnpm version:check`; commit on `dev`, push, tag `v6.1.0-alpha.3` on `dev`.
+
+**Done when:** every scenario worked; the tag is pushed and the workflow is green.
+**Prompt:**
+```
+Do Step 23 of the 6.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 24 - Docs, push & v6.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `pnpm screenshots` (Integrations with folded cards, the machine page with System, the Printers list), README, CHANGELOG, version `6.1.0`.
+- `pnpm screenshots` (Settings tabs, Integrations with folded cards, the machine page with System, the Printers list, a Sources table), README, CHANGELOG, version `6.1.0`.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.1.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; updating 6.0.0 to 6.1.0 works.
 **Prompt:**
 ```
-Do Step 15 of the 6.1.0 plan in PLAN.md. Only document what changed since the last 6.1.0 pre-release.
+Do Step 24 of the 6.1.0 plan in PLAN.md. Only document what changed since the last 6.1.0 pre-release.
 Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release.
 ```
 
@@ -3951,6 +4115,7 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 - Page Sync for Manual sources (agreed: Auto only).
 - Live re-sorting of the printers by Monitoring.
 - System info history, charts, and alerts (disk almost full).
+- Updating connectors on a schedule or in waves (Step 21 updates them all at once).
 
 ---
 
@@ -4043,3 +4208,11 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 | printer page: confusing "No source reads this printer" on a Bambu Cloud printer | 6.1 · 3b |
 | integrations: printer name only for a new printer, not editable after | 6.1 · 10b |
 | bambu cloud: sign in inside Add and Edit, no "Sign in again" button | 6.1 · 10c |
+| settings: hub, integrations, users, roles, catalog, import/export, logs as tabs; out of the sidebar | 6.1 · 15 |
+| logs settings in the Logs tab | 6.1 · 16 |
+| slicer card: make default slicer and default install in the menus, no "Server's slicer" block | 6.1 · 17 |
+| sources pages: one table, a row per source (printers, prints, filament) | 6.1 · 18 |
+| printer integrations as prints sources: switch print recording off per printer | 6.1 · 19 |
+| collapsible cards: same header as integrations everywhere | 6.1 · 20 |
+| connector outdated email right after an update | 6.1 · 21 (update at once + grace period) |
+| no update alert after a manual check | 6.1 · 22 |

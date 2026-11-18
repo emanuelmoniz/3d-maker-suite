@@ -1,5 +1,4 @@
 {
-  "tabs": { "label": "Users and roles" },
   "fields": {
     "email": "Email",
     "password": "Password",
@@ -45,7 +44,6 @@
     "noAccounts": "Nobody has to sign in right now, so there is no account to manage."
   },
   "list": {
-    "title": "Users",
     "label": "Users",
     "hint": "Each user gets what their role allows. Open a user to give them more or less than their role.",
     "noAccounts": "Nobody has to sign in right now. Create the first admin to turn on accounts and roles.",
@@ -98,7 +96,6 @@
     "saved": "Saved"
   },
   "roles": {
-    "title": "Roles",
     "label": "Roles",
     "hint": "A role is a set of permissions. Changes apply to its users right away.",
     "add": "New role",

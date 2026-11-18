@@ -77,7 +77,7 @@ Every schedule is on a line of a Sources tab, set with **Edit** (today's `Policy
 - **Catalog** keeps brands, models and materials: a Printers tab (brands, models) and a Filament tab (brands, materials). Its Presets and Sources tabs leave.
 - **Presets** is a new module (`/presets`): Printer, Process and Filament tabs, with the tables and preset pages that were in Catalog. Its settings have General, Sources and **Library** (today's Presets tab: versions, owners, conflicts, held deletes, Restore; hub on).
 - A module permission **`presets`** (none · read · write · manage) takes from `catalog` what concerns presets. The migration copies each role's and user's `catalog` level.
-- The sidebar's bottom block, top to bottom: **Hub management, Integrations, Catalog, Presets, Import | Export, Logs, Settings.**
+- The sidebar's bottom block, top to bottom: **Hub management, Integrations, Catalog, Presets, Import | Export, Logs, Settings.** *Amended by 6.1.0 Step 15: these pages are tabs of Settings, and the block holds only Settings.*
 
 ### Machines
 - **One slicer install per machine.** The server and each machine run a slicer once per library, installed (found by the connector or a typed path) or downloaded (managed, ADR-0013), never both.

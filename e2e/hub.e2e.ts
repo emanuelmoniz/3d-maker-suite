@@ -90,8 +90,8 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
     data: { displayName: "Ana Admin", email: "ana@example.com", password: "correct horse" },
   });
 
-  // Hub management is in the menu only while the hub is on.
-  await page.goto("/");
+  // Hub management is a tab of Settings only while the hub is on.
+  await page.goto("/settings");
   const nav = page.getByRole("link", { name: "Hub management" });
   await expect(nav).toHaveCount(0);
   await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
@@ -221,7 +221,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   // A card only when set up (6.1.0 Step 9): a paired machine adds no slicer card.
   await page.goto("/integrations");
   const card = page.getByRole("region", { name: "Bambu Studio" });
-  await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Integrations", level: 2 })).toBeVisible();
   await expect(card).toHaveCount(0);
   // Switch off: Add integration's Where says so and links to the machine page.
   await page.goto("/integrations/new?product=bambu-studio");
@@ -245,7 +245,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await page.goto(`/hub/devices/${deviceId}`);
   await expect(slicers.getByRole("link", { name: "Bambu Studio in Integrations" })).toHaveAttribute(
     "href",
-    `/integrations?via=${deviceId}#bambu-studio`,
+    `/settings/integrations?via=${deviceId}#bambu-studio`,
   );
   await page.goto(`/integrations/new?product=bambu-studio&via=${deviceId}`);
   await expect(where.getByRole("radio", { name: /Laptop/ })).toBeDisabled();
@@ -277,7 +277,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(install).toHaveCount(0);
   // Its last install gone, so is the card.
   await page.goto("/integrations");
-  await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Integrations", level: 2 })).toBeVisible();
   await expect(card).toHaveCount(0);
   await page.goto(`/hub/devices/${deviceId}`);
   // Reach sections link by what exists (6.1.0 Step 11): nothing through it yet, so Set up.

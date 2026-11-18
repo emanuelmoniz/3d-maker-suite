@@ -50,10 +50,7 @@ export function ExportSection() {
   const name = t(ENTITIES[entity].label);
 
   return (
-    <section aria-labelledby="export-title" className="grid gap-4 border-t border-border pt-8">
-      <h2 id="export-title" className="text-lg font-semibold">
-        {t("import:exportAll.title")}
-      </h2>
+    <section aria-label={t("import:exportAll.title")} className="grid gap-4">
       <p className="text-muted">{t("import:exportAll.hint")}</p>
 
       <div className="grid gap-2 rounded-lg border border-border bg-surface p-4">
