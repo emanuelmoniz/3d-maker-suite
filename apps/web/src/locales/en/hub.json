@@ -242,5 +242,12 @@
     "stopReachSpoolLibrariesTitle": "Stop reaching spool libraries through {{name}}?",
     "stopReachBody": "These are paused until you turn this on again and enable them in Integrations. They keep this machine.",
     "stopReach": "Pause and turn off"
+  },
+  "system": {
+    "title": "System",
+    "loading": "Reading the system info…",
+    "waiting": "Waiting for the connector's first report.",
+    "offline": "Offline. Last seen {{when}}.",
+    "seenFrom": "The hub sees this machine from {{address}}."
   }
 }

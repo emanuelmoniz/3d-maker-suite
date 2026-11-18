@@ -183,6 +183,7 @@ const RULES: [RegExp, string, Need][] = [
   // pairing, a user code and Update now stay hub.manage.
   [/^\/api\/hub\/devices$/, "R", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/(settings|folders)$/, "*", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/system$/, "R", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/(restart|stop)$/, "POST", SESSION],
   [/^\/api\/hub\/devices\/[^/]+$/, "PATCH", SESSION],
   // Picks (ADR-0021): hub.manage or projects manage, checked by the route.
@@ -197,7 +198,7 @@ const RULES: [RegExp, string, Need][] = [
   [p("catalog/sources"), "R", either(at("catalog", "read"), on("integrations.manage"))],
   [p("presets"), "R", either(at("projects", "read"), at("catalog", "read"))],
   [p("presets"), "W", at("catalog", "write")],
-  [p("server-config|updates|docs"), "*", on("settings.server")],
+  [p("server|server-config|updates|docs"), "*", on("settings.server")],
   // A restored database carries anyone's rights.
   [/^\/api\/backups\/[^/]+\/restore$/, "*", ADMIN_ROLE],
   [p("backups"), "*", on("settings.backup")],

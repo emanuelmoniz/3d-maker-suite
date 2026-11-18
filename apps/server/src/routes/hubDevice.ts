@@ -34,6 +34,7 @@ import {
   type SlicerPresetKind,
   sharedFolderSchema,
   sliceFileName,
+  systemInfoSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import { parsePreset, presetName } from "@3d-maker-suite/host";
@@ -568,6 +569,16 @@ export const hubDeviceRoutes =
           .set({ catalogInstall: req.body.filter((s) => s.library in libraries) })
           .where(eq(devices.id, id))
           .run();
+        return reply.status(204).send(null);
+      },
+    );
+
+    // Its live CPU, memory, disks and addresses (Step 12 of 6.1.0): kept in memory, never stored.
+    app.put(
+      "/system",
+      { schema: { body: systemInfoSchema, response: { 204: z.null(), ...errors } } },
+      async (req, reply) => {
+        channel.report(deviceOf(req), req.body, req.ip);
         return reply.status(204).send(null);
       },
     );

@@ -13,4 +13,5 @@ export * from "./runSlicer.ts";
 export * from "./scanFolder.ts";
 export * from "./secrets.ts";
 export * from "./slicerInstall.ts";
+export * from "./systemReport.ts";
 export * from "./zip.ts";

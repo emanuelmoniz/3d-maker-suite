@@ -100,6 +100,26 @@ export const formatSize = (bytes: number) =>
     ? num({ style: "unit", unit: "kilobyte", maximumFractionDigits: 0 }).format(bytes / 1024)
     : formatMegabytes(bytes);
 
+const BYTE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte", "petabyte"] as const;
+
+/**
+ * Bytes in, "476 GB", "7.4 GB" or "1.8 TB" out, in steps of 1024 as Windows Explorer and Task
+ * Manager count, so a disk reads the same here as there. One decimal under 100.
+ */
+export function formatBytes(bytes: number) {
+  let value = Math.max(0, bytes);
+  let i = 0;
+  while (value >= 1024 && i < BYTE_UNITS.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return num({
+    style: "unit",
+    unit: BYTE_UNITS[i],
+    maximumFractionDigits: value < 100 && i > 0 ? 1 : 0,
+  }).format(value);
+}
+
 /** Seconds in, "2h 5m" out (narrow unit style). Under a minute shows seconds. */
 export function formatDuration(seconds: number) {
   const unit = (value: number, u: "hour" | "minute" | "second") =>

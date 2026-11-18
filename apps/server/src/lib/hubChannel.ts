@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { DeviceReply, HubEvent } from "@3d-maker-suite/core";
+import type { DeviceReply, DeviceSystem, HubEvent, SystemInfo } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
 import type { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -39,6 +39,8 @@ export function createHubChannel(db: Db) {
   const waiting = new Map<string, Waiting>();
   const comeOnline = new Set<(deviceId: string) => void>();
   const goOffline = new Set<(deviceId: string) => void>();
+  /** Each online device's last system report: in memory only, dropped when it goes offline. */
+  const systems = new Map<string, { system: SystemInfo; seenFrom: string }>();
 
   /** A device is online while its event stream is open (and the hub is on). */
   const online = (deviceId: string) => streams.has(deviceId) && readPreferences(db).hubEnabled;
@@ -54,6 +56,15 @@ export function createHubChannel(db: Db) {
       online(deviceId)
         ? ([...(streams.get(deviceId) ?? [])].at(-1)?.sourceAdapters ?? [])
         : undefined,
+
+    /** Keeps a device's system report, and the address it came from, while it is online. */
+    report(deviceId: string, system: SystemInfo, seenFrom: string) {
+      if (online(deviceId)) systems.set(deviceId, { system, seenFrom });
+    },
+
+    /** A device's last system report; nulls while it's offline or hasn't reported yet. */
+    system: (deviceId: string): DeviceSystem =>
+      (online(deviceId) && systems.get(deviceId)) || { system: null, seenFrom: null },
 
     /** Queues an event for a device and sends it now if the device is connected. */
     publish(deviceId: string, event: HubEvent) {
@@ -91,6 +102,7 @@ export function createHubChannel(db: Db) {
         set.delete(stream);
         if (set.size) return;
         streams.delete(deviceId);
+        systems.delete(deviceId);
         for (const w of waiting.values()) if (w.deviceId === deviceId) w.fail(offline());
         for (const fn of goOffline) fn(deviceId);
       };

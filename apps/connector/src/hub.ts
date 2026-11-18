@@ -27,6 +27,7 @@ import { createSlicers } from "./slicers.ts";
 import { createSourceBridge } from "./sources.ts";
 import type { Store } from "./state.ts";
 import { createHubSync } from "./sync.ts";
+import { createSystemReport } from "./system.ts";
 
 export type LinkStatus = "unpaired" | "connecting" | "online" | "offline" | "hubOff" | "revoked";
 export type PairErrorCode = "badUrl" | "unreachable" | "invalidCode" | "tooManyAttempts" | "hubOff";
@@ -179,6 +180,13 @@ export function createLink({
       duplex: "half",
     } as RequestInit);
   const roots = createRootSync({ request, log, store, dataDir: syncAt?.dataDir });
+  const system = createSystemReport({
+    request,
+    paths: () => [
+      ...(syncAt ? [syncAt.dataDir, syncAt.syncDir] : []),
+      ...(store.get().sharedFolders ?? []).filter((f) => !f.paused).map((f) => f.path),
+    ],
+  });
   const sync =
     syncAt &&
     createHubSync({
@@ -442,6 +450,7 @@ export function createLink({
       log(`online at ${hub}`);
       void roots.start(true);
       void sync?.start();
+      void system.start();
       // Its slicers first: they say which folders to watch.
       void slicers.refresh().then(() => {
         if (signal.aborted || quiet.signal.aborted) return;
@@ -467,6 +476,7 @@ export function createLink({
     } finally {
       clearTimeout(watchdog);
       roots.stop();
+      system.stop();
       sync?.stop();
       presets?.stop();
       presetInstall?.stop();
@@ -550,6 +560,7 @@ export function createLink({
     close: () => {
       running?.abort();
       roots.stop();
+      system.stop();
       sync?.stop();
       presets?.stop();
       presetInstall?.stop();
@@ -567,6 +578,7 @@ export function createLink({
     unpair: () => {
       running?.abort();
       roots.stop();
+      system.stop();
       sync?.stop();
       presets?.stop();
       presetInstall?.stop();

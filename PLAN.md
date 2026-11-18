@@ -3850,7 +3850,7 @@ Do Step 10d of the 6.1.0 plan in PLAN.md.
 Do Step 11 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 12 - System info for machines and this server  **[plan mode]**
+### [x] Step 12 - System info for machines and this server  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Scope:**
 - Core: `systemInfoSchema`, with `cpuPercent`, `cores`, `memory { total, used }`, `disks [{ label, total, free }]`, `addresses` (non-internal IPv4) and `at`.

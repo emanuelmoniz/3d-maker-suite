@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+  formatBytes,
   formatCurrency,
   formatDate,
   formatDateTime,
@@ -22,6 +23,11 @@ test("formats base units for the en locale", () => {
   expect(formatDuration(7200)).toBe("2h");
   expect(formatCurrency(12.5)).toBe("€12.50");
   expect(formatEnergy(1.234)).toBe("1.23 kWh");
+  // Disks and memory: steps of 1024, as Explorer and Task Manager.
+  expect(formatBytes(16 * 1024 ** 3)).toBe("16 GB");
+  expect(formatBytes(7.44 * 1024 ** 3)).toBe("7.4 GB");
+  expect(formatBytes(476 * 1024 ** 3)).toBe("476 GB");
+  expect(formatBytes(1.8 * 1024 ** 4)).toBe("1.8 TB");
 });
 
 test("dates default to YYYY/MM/DD 24h and follow the preferences", () => {

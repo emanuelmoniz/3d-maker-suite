@@ -6,13 +6,12 @@ import {
   testAddressResponseSchema,
   testAddressSchema,
 } from "@3d-maker-suite/core";
-import type { Autostart } from "@3d-maker-suite/host";
+import { type Autostart, detectedIps } from "@3d-maker-suite/host";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   type Config,
   DEFAULT_HOST,
   DEFAULT_PORT,
-  detectedIps,
   linkBase,
   publicUrlOf,
   readSavedConfig,
@@ -47,7 +46,7 @@ export const serverConfigRoutes =
       passwordSet: !!config.password,
       detected: config.docker ? [] : detectedIps(),
       docker: config.docker,
-      link: linkBase(config),
+      link: linkBase(config, detectedIps()),
     });
 
     app.get("/", { schema: { response: { 200: serverConfigResponseSchema } } }, async () => view());

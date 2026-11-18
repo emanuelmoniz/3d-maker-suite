@@ -159,7 +159,8 @@
     "backup": "Backup & export",
     "server": "Network",
     "logs": "Logs",
-    "about": "About & updates"
+    "about": "About & updates",
+    "thisServer": "This server"
   },
   "general": {
     "language": "Language",
@@ -555,5 +556,10 @@
       "needs_installer": "This version needs a newer Node.js than the installed app has. Download its installer from the release page (What’s new) and run it; your data stays.",
       "unknown": "The update could not start."
     }
+  },
+  "thisServer": {
+    "loading": "Reading the system info…",
+    "loadError": "The system info could not be read.",
+    "docker": "In Docker, the host's address isn't visible from the container. Use the address of the NAS or server running it."
   }
 }

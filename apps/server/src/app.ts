@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IntegrationAdapter, LogModule, PrinterStatus, SpoolLoad } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { type Autostart, loadKey } from "@3d-maker-suite/host";
+import { type Autostart, detectedIps, loadKey } from "@3d-maker-suite/host";
 // Types only: reply.sendFile below; main.ts registers the plugin when it serves the web build.
 import type {} from "@fastify/static";
 import swagger from "@fastify/swagger";
@@ -91,6 +91,7 @@ import { projectsRoutes } from "./routes/projects.ts";
 import { rolesRoutes } from "./routes/roles.ts";
 import { rootsRoutes } from "./routes/roots.ts";
 import { serverConfigRoutes } from "./routes/serverConfig.ts";
+import { serverSystemRoutes } from "./routes/serverSystem.ts";
 import { slicerZipRoutes } from "./routes/slicerZip.ts";
 import { statsRoutes } from "./routes/stats.ts";
 import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
@@ -251,7 +252,7 @@ export async function buildApp(
   const key = dataDir ? loadKey(dataDir) : randomBytes(32);
   await app.register(healthRoutes);
   // Links in notifications, read each time so a changed public address needs no restart.
-  const link = () => (opts.serverConfig ? linkBase(opts.serverConfig) : undefined);
+  const link = () => (opts.serverConfig ? linkBase(opts.serverConfig, detectedIps()) : undefined);
   await app.register(authRoutes(db, key, !!opts.access?.password, opts.setupToken, link), {
     prefix: "/api/auth",
   });
@@ -333,6 +334,9 @@ export async function buildApp(
       serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop, opts.autostart),
       { prefix: "/api/server-config" },
     );
+  await app.register(serverSystemRoutes(db, dataDir, opts.serverConfig?.docker ?? false), {
+    prefix: "/api/server",
+  });
   await app.register(fsRoutes(db, hub), { prefix: "/api/fs" });
   await app.register(brandingRoutes(dataDir), { prefix: "/api/branding" });
   const adapters = opts.adapters ?? [];

@@ -16,6 +16,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { cardGrid, Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
+import { SystemInfo, SystemUpdated } from "../../components/SystemInfo.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
 import { textLink } from "../../lib/cx.ts";
@@ -24,6 +25,7 @@ import {
   useConnectorActions,
   useConnectorSettings,
   useDeviceActions,
+  useDeviceSystem,
   useDevices,
 } from "../../lib/hub.ts";
 import {
@@ -229,6 +231,40 @@ function Identity({ device: d, manage }: { device: Device; manage: boolean }) {
           </Button>
         </div>
       </form>
+    </Section>
+  );
+}
+
+/**
+ * Its CPU, memory, disks and addresses, as the connector last reported them (every 30 s while
+ * online). Offline, only when it was last seen: never numbers that stopped being true.
+ */
+function System({ device: d }: { device: Device }) {
+  const { t } = useTranslation();
+  const q = useDeviceSystem(d.id, d.online);
+  const report = d.online ? q.data?.system : undefined;
+  return (
+    <Section title={t("hub:system.title")} action={report && <SystemUpdated at={report.at} />}>
+      {!d.online ? (
+        <p className="text-muted">
+          {d.lastSeenAt
+            ? t("hub:system.offline", { when: formatDateTime(d.lastSeenAt) })
+            : t("hub:devices.neverSeen")}
+        </p>
+      ) : q.isError ? (
+        <Alert error={q.error} />
+      ) : report ? (
+        <SystemInfo
+          system={report}
+          addressNote={
+            q.data?.seenFrom ? t("hub:system.seenFrom", { address: q.data.seenFrom }) : undefined
+          }
+        />
+      ) : (
+        <p className="text-muted">
+          {q.isPending ? t("hub:system.loading") : t("hub:system.waiting")}
+        </p>
+      )}
     </Section>
   );
 }
@@ -833,6 +869,7 @@ export function MachinePage() {
           <div className={cardGrid}>
             <Identity key={device.name} device={device} manage={manage} />
             <Software device={device} manage={manage} />
+            <System device={device} />
             <Connection
               device={device}
               edit={!!rights && mayEditMachine(rights, me?.id, device, "connection")}

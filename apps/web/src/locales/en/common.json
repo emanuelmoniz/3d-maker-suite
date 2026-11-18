@@ -256,5 +256,17 @@
     "fromGlobal": "the default in Prints settings",
     "fromSource": "the default in Prints settings, unless its source sets its own",
     "global": "Prints recorded automatically (a printer's history, a connected account) are written at once. This decides which of their filament slots wait in Filament to review. A source or a printer can set its own."
+  },
+  "system": {
+    "cpu": "CPU",
+    "cpuValue_one": "{{percent}} of {{count}} core",
+    "cpuValue_other": "{{percent}} across {{count}} cores",
+    "memory": "Memory",
+    "used": "{{used}} of {{total}}",
+    "disk": "Disk {{disk}}",
+    "folders": "Holds {{folders}}",
+    "addresses": "Addresses",
+    "noAddress": "No network address found.",
+    "updated": "Updated {{time}}"
   }
 }

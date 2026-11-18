@@ -156,7 +156,7 @@ describe("config", () => {
       writeSavedConfig(dir, { publicUrl: "https://maker.example.com" });
       expect(linkBase(config, ["1.1.1.1"])).toBe("https://maker.example.com");
       const env = loadConfig({ APP_DATA_DIR: dir, APP_PUBLIC_URL: "http://nas.lan:80/" }, []);
-      expect(linkBase(env)).toBe("http://nas.lan:80");
+      expect(linkBase(env, [])).toBe("http://nas.lan:80");
     });
     it("2: a specific host", () => {
       expect(link({ HOST: "10.0.0.9", PORT: "5000" })).toBe("http://10.0.0.9:5000");

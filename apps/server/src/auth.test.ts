@@ -107,12 +107,15 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/fs/list": ["-", "R"],
   "/api/fs/folder": ["-", "W"],
   "/api/server-config": ["-", "-"],
+  "/api/server/system": ["-", "-"],
   "/api/updates": ["-", "-"],
   "/api/users": ["-", "-"],
   "/api/roles": ["-", "-"],
   // ADR-0021: anyone lists their own machines (the route narrows it); the rest is hub.manage.
   "/api/hub/devices": ["R", "R"],
   "/api/hub/devices/abc/user-code": ["-", "-"],
+  // The machine page's System section: whose machine it is, narrowed by the route (`machineGuard`).
+  "/api/hub/devices/abc/system": ["R", "R"],
   "/api/hub/pairing-codes": ["-", "-"],
   // ADR-0017, ADR-0021: who sees projects sees the presets; presets write (Editor by 0111) deletes.
   "/api/presets": ["R", "RW"],

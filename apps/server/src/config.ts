@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { isIP } from "node:net";
-import { homedir, networkInterfaces } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -159,21 +159,16 @@ export type Config = ReturnType<typeof loadConfig>;
 
 const LOOPBACK = ["localhost", "127.0.0.1", "::1", "[::1]"];
 
-/** The machine's non-internal IPv4 addresses. */
-export function detectedIps(): string[] {
-  return Object.values(networkInterfaces())
-    .flat()
-    .filter((i) => i && i.family === "IPv4" && !i.internal)
-    .map((i) => (i as { address: string }).address);
-}
-
 /** The address the user typed in Settings, unless `APP_PUBLIC_URL` is set. */
 export function publicUrlOf(config: Config) {
   return config.publicUrlEnv ?? readSavedConfig(config.dataDir).publicUrl;
 }
 
-/** The app's address for links in notifications; undefined = no link. Read each time, no restart. */
-export function linkBase(config: Config, ips: string[] = detectedIps()): string | undefined {
+/**
+ * The app's address for links in notifications; undefined = no link. Read each time, no restart.
+ * `ips`: the machine's addresses (`detectedIps` in the host package; this file can't import it).
+ */
+export function linkBase(config: Config, ips: string[]): string | undefined {
   const pub = publicUrlOf(config);
   if (pub) return pub;
   const { host, port } = config;

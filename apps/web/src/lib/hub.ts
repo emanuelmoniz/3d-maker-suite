@@ -1,14 +1,17 @@
-import type {
-  ConnectorSettings,
-  ConnectorSettingsPatch,
-  ConnectorSettingsResult,
-  Device,
-  DeviceLibraryUpdate,
-  HubVersionsUsage,
-  PairingCode,
-  Pick,
-  PickLevel,
-  SharedFolder,
+import {
+  type ConnectorSettings,
+  type ConnectorSettingsPatch,
+  type ConnectorSettingsResult,
+  type Device,
+  type DeviceLibraryUpdate,
+  type DeviceSystem,
+  type HubVersionsUsage,
+  type PairingCode,
+  type Pick,
+  type PickLevel,
+  type ServerSystem,
+  type SharedFolder,
+  SYSTEM_REPORT_MS,
 } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
@@ -31,6 +34,25 @@ export const useConnectorSettings = (id: string, online: boolean) =>
     queryFn: () => api<ConnectorSettings>("GET", `/api/hub/devices/${id}/settings`),
     enabled: online,
     retry: false,
+  });
+
+/** A machine's last system report, refreshed as often as the connector sends it; not while offline. */
+export const useDeviceSystem = (id: string, online: boolean) =>
+  useQuery({
+    queryKey: ["hub", "system", id],
+    queryFn: () => api<DeviceSystem>("GET", `/api/hub/devices/${id}/system`),
+    enabled: online,
+    refetchInterval: SYSTEM_REPORT_MS,
+    retry: false,
+  });
+
+/** This server's system info (Settings → Server), read live on each refresh. */
+export const useServerSystem = (enabled: boolean) =>
+  useQuery({
+    queryKey: ["server", "system"],
+    queryFn: () => api<ServerSystem>("GET", "/api/server/system"),
+    enabled,
+    refetchInterval: SYSTEM_REPORT_MS,
   });
 
 export function useConnectorActions(id: string) {

@@ -483,6 +483,67 @@ describe("hub events", () => {
     expect(await s.until("never")).toBeNull();
   });
 
+  it("keeps a device's system report in memory while it's online, for its machine page", async () => {
+    const { app, db, send, open, token, deviceId } = await live();
+    const report = {
+      cpuPercent: 23.5,
+      cores: 8,
+      memory: { total: 16e9, used: 7e9 },
+      disks: [{ label: "C:\\", paths: ["C:\\Prints"], total: 500e9, free: 100e9 }],
+      addresses: ["192.168.1.20"],
+      at: new Date().toISOString(),
+    };
+    const put = () =>
+      app.inject({
+        method: "PUT",
+        url: "/api/hub/device/system",
+        payload: report,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    const system = () => send("GET", `/api/hub/devices/${deviceId}/system`);
+    const none = { system: null, seenFrom: null };
+
+    // Offline: not kept.
+    expect((await put()).statusCode).toBe(204);
+    expect((await system()).json()).toEqual(none);
+
+    const s = await open();
+    await s.until(": open");
+    expect((await put()).statusCode).toBe(204);
+    expect((await system()).json()).toEqual({ system: report, seenFrom: "127.0.0.1" });
+
+    // Someone else's machine is not there for another user.
+    const other = db
+      .insert(schema.users)
+      .values({
+        email: "other@x.io",
+        displayName: "other",
+        roleId: BUILT_IN_ROLE_IDS.viewer,
+        passwordHash: hash,
+      })
+      .returning()
+      .get();
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: other.email, password: PW },
+    });
+    const cookie = String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    const theirs = await app.inject({
+      url: `/api/hub/devices/${deviceId}/system`,
+      headers: { cookie },
+    });
+    expect(theirs.statusCode).toBe(404);
+
+    // Disconnected: dropped, so a reconnect doesn't show stale numbers.
+    await s.cancel();
+    await vi.waitFor(async () => expect((await system()).json()).toEqual(none));
+
+    // With the hub off, a device can't report.
+    await send("PATCH", "/api/preferences", { hubEnabled: false });
+    expect((await put()).statusCode).toBe(404);
+  });
+
   it("beats every 15 s and ends once the user is disabled", async () => {
     const { db, open, viewer } = await live();
     vi.useFakeTimers({ toFake: ["setInterval"] });

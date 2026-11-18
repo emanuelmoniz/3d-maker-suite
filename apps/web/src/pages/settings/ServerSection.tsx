@@ -10,10 +10,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
+import { SystemInfo, SystemUpdated } from "../../components/SystemInfo.tsx";
 import { api } from "../../lib/api.ts";
 import { useCan, useIsAdmin, useMe } from "../../lib/auth.ts";
 import { textLink } from "../../lib/cx.ts";
+import { useServerSystem } from "../../lib/hub.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { useSetServerState } from "../../lib/serverState.ts";
 import { health } from "../../lib/updates.ts";
@@ -352,5 +355,35 @@ export function ServerSection() {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Settings → Server's This server: its CPU, memory, the disks of the data directory and project
+ * folders, and its addresses, refreshed every 30 s while the page is open (Step 12 of 6.1.0).
+ */
+export function ThisServer() {
+  const { t } = useTranslation();
+  const q = useServerSystem(useCan("settings.server"));
+  return (
+    <Section
+      title={t("settings:sections.thisServer")}
+      action={q.data && <SystemUpdated at={q.data.at} />}
+    >
+      {q.isError ? (
+        <p role="alert" className="text-bad">
+          {t("settings:thisServer.loadError")}
+        </p>
+      ) : q.data ? (
+        <SystemInfo
+          system={q.data}
+          addressNote={
+            q.data.docker && !q.data.addresses.length ? t("settings:thisServer.docker") : undefined
+          }
+        />
+      ) : (
+        <p className="text-muted">{t("settings:thisServer.loading")}</p>
+      )}
+    </Section>
   );
 }

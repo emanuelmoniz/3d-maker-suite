@@ -10,6 +10,7 @@ import {
   deviceLibraryUpdateSchema,
   devicePathIn,
   deviceSchema,
+  deviceSystemSchema,
   deviceUpdateSchema,
   deviceUserChangeSchema,
   deviceUserCheckSchema,
@@ -251,6 +252,16 @@ export const hubRoutes =
           connectorSettingsResultSchema,
           { error: deviceError },
         );
+      },
+    );
+
+    // The machine page's System section: the last report it sent while online (`PUT /device/system`).
+    app.get(
+      "/devices/:id/system",
+      { schema: { params, response: { 200: deviceSystemSchema, ...errors } } },
+      async (req) => {
+        machineGuard(db, req.user, req.params.id);
+        return channel.system(req.params.id);
       },
     );
 

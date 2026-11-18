@@ -22,6 +22,7 @@ import {
   ServerActions,
   ServerSection,
   StartAtLogin,
+  ThisServer,
 } from "./settings/ServerSection.tsx";
 
 const ACCENT_LABELS = {
@@ -188,6 +189,7 @@ export function SettingsPage() {
             <ServerSection />
           </Section>
         )}
+        {can.server && <ThisServer />}
 
         {can.backup && (
           <Section title={t("settings:sections.backup")}>

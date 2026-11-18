@@ -29,6 +29,7 @@ export * from "./schemas/roots.ts";
 export * from "./schemas/serverConfig.ts";
 export * from "./schemas/slicerCatalog.ts";
 export * from "./schemas/stats.ts";
+export * from "./schemas/system.ts";
 export * from "./schemas/tags.ts";
 export * from "./schemas/updates.ts";
 export * from "./schemas/users.ts";

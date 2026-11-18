@@ -93,6 +93,7 @@ The Settings page covers general options, appearance, costs (currency, energy, l
 - **User accounts** (Settings → General): see [users.md](users.md#turn-accounts-off).
 - **Branding** (Settings → Appearance): the app name, logo and favicon. Leave the name empty for the default.
 - **Network** (Settings → Network): the host and port saved for the next start. **Restart and open in new tab** applies them. The page shows when a command-line flag or environment variable is overriding the saved value.
+- **This server** (Settings, below Network; the same right as Network): the server's CPU use, memory, the disks of the data directory and of the hub's project folders (one bar per drive, with the folders on it), and its network addresses. It refreshes every 30 seconds while the page is open and is never stored. Sizes count in steps of 1024, like Windows Explorer and Task Manager. In Docker the addresses would be the container's, so none are shown: use the address of the NAS or server that runs it. A hub's machines show the same on their machine page ([hub](hub.md#machine-page)).
 - **Integrations** (Settings → Integrations): slicer config folders and programs belong to their integration. Slicing projects uses the **Slicer program** of the Bambu Studio integration.
 
 These are stored in the database, not in environment variables.
