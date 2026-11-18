@@ -6,6 +6,11 @@
     "inop": "Out of order",
     "retired": "Retired"
   },
+  "tabs": {
+    "label": "Printers and accessories",
+    "printers": "Printers",
+    "accessories": "Accessories"
+  },
   "list": {
     "add": "Add printer",
     "table": "Printers",
@@ -133,7 +138,8 @@
     "title": "Accessories",
     "add": "Add accessory",
     "table": "Accessories",
-    "empty": "No accessories yet. AMS units, hotends, enclosures and the like go here.",
+    "emptyTitle": "No accessories yet",
+    "emptyBody": "AMS units, hotends, enclosures and the like go here.",
     "columns": {
       "name": "Name",
       "type": "Type",

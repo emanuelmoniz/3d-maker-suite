@@ -130,10 +130,15 @@ const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   }),
 );
 
-const printerRoute = (path: string, component: () => ReactNode) =>
+const printerRoute = (
+  path: string,
+  component: () => ReactNode,
+  extra: { beforeLoad?: (ctx: { location: { search: object; hash: string } }) => void } = {},
+) =>
   createRoute({
     getParentRoute: () => root,
     path,
+    ...extra,
     loader: () =>
       Promise.all([
         loadNamespace("printers"),
@@ -284,7 +289,21 @@ const routes: AnyRoute[] = [
       ),
     component: HomePage,
   }),
-  printerRoute("/printers", PrintersPage),
+  printerRoute("/printers", () => <PrintersPage tab="printers" />, {
+    // The accessories table sat below the printers: its `accessories.*` filters land on its tab.
+    beforeLoad: ({ location }) => {
+      const search = Object.fromEntries(
+        Object.entries(location.search).filter(([k]) => k.startsWith("accessories.")),
+      );
+      if (Object.keys(search).length)
+        throw redirect({
+          to: "/printers/accessories",
+          search: search as never,
+          hash: location.hash,
+        });
+    },
+  }),
+  printerRoute("/printers/accessories", () => <PrintersPage tab="accessories" />),
   printerRoute("/printers/new", PrinterCreatePage),
   ...(
     [

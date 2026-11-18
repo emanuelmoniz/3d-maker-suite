@@ -224,7 +224,10 @@ export function AccessoryCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("printers:accessories.form.addTitle")} backTo={{ to: "/printers" }} />
+      <PageHeader
+        title={t("printers:accessories.form.addTitle")}
+        backTo={{ to: "/printers/accessories" }}
+      />
       <AccessoryForm />
     </>
   );

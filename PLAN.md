@@ -4101,7 +4101,7 @@ Added on 2026-11-18 for alpha.3. No DB migration and no API change.
 Do Step 23 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 24 - Printers tabs and the Accessories tab
+### [x] Step 24 - Printers tabs and the Accessories tab
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - The Printers page gets tabs (`Tabs`, one address per tab): **Printers** `/printers` and **Accessories** `/printers/accessories`. The title and the gear stay on every tab. Each tab has its own add and sync actions.

@@ -7,8 +7,8 @@ test("accessories: create, install, remove, install again, delete a record", asy
 }) => {
   const printer = await seedPrinter(app.api);
 
-  await page.goto("/printers");
-  await page.getByRole("link", { name: "Add accessory" }).click();
+  await page.goto("/printers/accessories");
+  await page.locator("header").getByRole("link", { name: "Add accessory" }).click();
   await page.getByLabel("Name", { exact: true }).fill("AMS Unit");
   await page.getByLabel("Type", { exact: true }).fill("AMS");
   await page.getByRole("button", { name: "Save" }).click();
@@ -108,4 +108,25 @@ test("accessory usage and maintenance: due from its prints, logging resets it", 
   await row.getByRole("button", { name: "Log done" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   await expect(row).toContainText("OK");
+});
+
+test("printers page: accessories have their own tab, old filter links land on it", async ({
+  page,
+}) => {
+  await page.goto("/printers");
+  const tabs = page.getByRole("navigation", { name: "Printers and accessories" });
+  await expect(tabs.getByRole("link", { name: "Printers" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.getByRole("link", { name: "Add accessory" })).toHaveCount(0);
+
+  await tabs.getByRole("link", { name: "Accessories" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/printers\/accessories$/);
+  await expect(page.getByText("No accessories yet")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add printer" })).toHaveCount(0);
+
+  await page.goto("/printers?accessories.name=ams&name=x");
+  await expect(page).toHaveURL(/\/printers\/accessories\?accessories\.name=ams$/);
 });

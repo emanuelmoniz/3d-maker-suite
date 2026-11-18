@@ -9,8 +9,8 @@ import {
 } from "@3d-maker-suite/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Plus, Printer as PrinterIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Plus, Printer as PrinterIcon, Puzzle } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchivedBadge, archiveColumn } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
@@ -19,6 +19,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { SyncButton } from "../../components/SyncButton.tsx";
+import { Tabs } from "../../components/Tabs.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
@@ -49,7 +50,59 @@ function useMonitoringLabel() {
   return (v: (typeof MONITORING_FILTERS)[number]) => labels[v];
 }
 
-export function PrintersPage() {
+export type PrintersTab = "printers" | "accessories";
+
+/** Title, gear and tabs around the open tab (6.1.0 Step 24): Printers and Accessories. */
+export function PrintersPage({ tab }: { tab: PrintersTab }) {
+  const { t } = useTranslation();
+  const addAccessory = (
+    <Write can="printers" level="manage">
+      <Link to="/printers/accessories/new" className={addClass}>
+        <Plus className="size-4" aria-hidden />
+        {t("printers:accessories.add")}
+      </Link>
+    </Write>
+  );
+  return (
+    <>
+      <PageHeader
+        title={t("nav:items.printers.label")}
+        description={t("nav:items.printers.description")}
+        actions={
+          <>
+            {tab === "printers" ? <PrinterActions /> : addAccessory}
+            <SettingsLink module="printers" />
+          </>
+        }
+      />
+      <Tabs
+        label={t("printers:tabs.label")}
+        items={[
+          { to: "/printers", label: t("printers:tabs.printers"), exact: true },
+          { to: "/printers/accessories", label: t("printers:tabs.accessories"), exact: true },
+        ]}
+      />
+      {tab === "printers" ? <PrintersTable /> : <AccessoriesTable add={addAccessory} />}
+    </>
+  );
+}
+
+function PrinterActions() {
+  const { t } = useTranslation();
+  return (
+    <span className="flex flex-wrap gap-2">
+      <SyncButton types={["printers"]} />
+      <Write can="printers" level="manage">
+        <Link to="/printers/new" className={addClass}>
+          <Plus className="size-4" aria-hidden />
+          {t("printers:list.add")}
+        </Link>
+      </Write>
+    </span>
+  );
+}
+
+function PrintersTable() {
   const { t } = useTranslation();
   const stateLabel = useStateLabel();
   const states = usePreferences().data?.values.printerStates ?? [];
@@ -71,30 +124,8 @@ export function PrintersPage() {
   }, [data]);
   const changed = byMonitoring && !!data && !!shown && keysOf(data.items) !== shown;
 
-  const add = (
-    <span className="flex flex-wrap gap-2">
-      <SyncButton types={["printers"]} />
-      <Write can="printers" level="manage">
-        <Link to="/printers/new" className={addClass}>
-          <Plus className="size-4" aria-hidden />
-          {t("printers:list.add")}
-        </Link>
-      </Write>
-    </span>
-  );
-
   return (
     <>
-      <PageHeader
-        title={t("nav:items.printers.label")}
-        description={t("nav:items.printers.description")}
-        actions={
-          <>
-            {add}
-            <SettingsLink module="printers" />
-          </>
-        }
-      />
       {isError && (
         <p role="alert" className="text-bad">
           {t("printers:loadError")}
@@ -113,7 +144,7 @@ export function PrintersPage() {
           icon={PrinterIcon}
           title={t("printers:list.emptyTitle")}
           description={t("printers:list.emptyBody")}
-          action={add}
+          action={<PrinterActions />}
         />
       ) : (
         data && (
@@ -219,13 +250,12 @@ export function PrintersPage() {
           />
         )
       )}
-      <AccessoriesTable />
     </>
   );
 }
 
-/** Below the printers: every accessory and the printer it is on. */
-function AccessoriesTable() {
+/** Every accessory and the printer it is on. */
+function AccessoriesTable({ add }: { add: ReactNode }) {
   const { t } = useTranslation();
   const stateLabel = useStateLabel();
   const states = usePreferences().data?.values.printerStates ?? [];
@@ -237,18 +267,14 @@ function AccessoriesTable() {
   const tagColumn = useTagColumn<Accessory>("accessory");
 
   return (
-    <section className="mt-8">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t("printers:accessories.title")}</h2>
-        <Write can="printers" level="manage">
-          <Link to="/printers/accessories/new" className={addClass}>
-            <Plus className="size-4" aria-hidden />
-            {t("printers:accessories.add")}
-          </Link>
-        </Write>
-      </div>
+    <>
       {data && !data.total && !Object.keys(query).length && !hasArchived ? (
-        <p className="text-muted">{t("printers:accessories.empty")}</p>
+        <EmptyState
+          icon={Puzzle}
+          title={t("printers:accessories.emptyTitle")}
+          description={t("printers:accessories.emptyBody")}
+          action={add}
+        />
       ) : (
         data && (
           <DataTable
@@ -346,6 +372,6 @@ function AccessoriesTable() {
           />
         )
       )}
-    </section>
+    </>
   );
 }

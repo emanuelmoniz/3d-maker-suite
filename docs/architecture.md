@@ -372,6 +372,8 @@ The old list addresses (`/hub`, `/integrations`, `/import`, `/logs`, `/users`, `
 
 Catalog is a sidebar item under Filament in Equipment, shown with `catalog` read (`shell/nav.ts` `needsRead`; the mobile More sheet follows). `/catalog/printers` and `/catalog/filament` are its tabs (`pages/catalog/CatalogPage.tsx`); `/catalog` opens the first, a table's `#<id>` on the other tab lands on its own tab, and without `catalog` read the address goes to `/`. `/settings/catalog`, `/settings/catalog/printers` and `/settings/catalog/filament` redirect there and keep search and hash. Catalog settings stay at `/catalog/settings` (Sources, Consumers, Library) with a back link to the Catalog page, and the preset pages at `/catalog/{printer,process,filament}-presets/$id`; the sidebar highlights Catalog on all of them.
 
+The Printers page (`pages/printers/PrintersPage.tsx`) has two tabs, one address each: `/printers` and `/printers/accessories` (6.1.0 Step 24). The title and gear stay on both; each tab has its own add and sync actions. A `/printers` address with `accessories.*` search params redirects to the Accessories tab, keeping only those params and the hash. The accessory pages (`/printers/accessories/new`, `/$id`, `/$id/edit`) keep their addresses and their back link goes to the tab.
+
 ## Runtime layout
 
 See ADR-0001. The data directory holds:

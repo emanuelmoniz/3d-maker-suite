@@ -60,7 +60,7 @@ export function AccessoryDetailPage() {
     <>
       <PageHeader
         title={accessoryName(t, accessory)}
-        backTo={{ to: "/printers" }}
+        backTo={{ to: "/printers/accessories" }}
         description={
           <>
             {accessory.type} {archived && <ArchivedBadge />}
