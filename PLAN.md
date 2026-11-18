@@ -4116,7 +4116,7 @@ Do Step 23 of the 6.1.0 plan in PLAN.md.
 Do Step 24 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 25 - Maintenance as a tab of Printers
+### [x] Step 25 - Maintenance as a tab of Printers
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Maintenance** becomes the third tab of Printers, at `/printers/maintenance`, with what the page has today: what is due, log done, and the maintenance tasks.
@@ -4134,7 +4134,7 @@ Do Step 25 of the 6.1.0 plan in PLAN.md.
 
 ## Phase 56 - Release
 
-### [ ] Step 26 - Real test, docs, push & v6.1.0-alpha.3
+### [x] Step 26 - Real test, docs, push & v6.1.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Settings tabs as admin, editor and viewer, at desktop and phone width; old bookmarks (`/integrations`, `/hub`, `/logs`) and an alert's link.

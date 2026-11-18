@@ -62,7 +62,16 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
   const browsesCleanly = async () => {
     const denied: string[] = [];
     page.on("response", (r) => r.status() === 403 && denied.push(r.url()));
-    for (const path of ["/", "/clients", "/prints", "/settings", "/alerts"]) {
+    // Catalog is in everyone's sidebar since 6.1.0: it must not ask for the admin-only zip sources.
+    for (const path of [
+      "/",
+      "/clients",
+      "/prints",
+      "/settings",
+      "/alerts",
+      "/catalog/printers",
+      "/catalog/filament",
+    ]) {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
     }

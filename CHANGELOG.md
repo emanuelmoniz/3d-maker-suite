@@ -2,6 +2,31 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.1.0-alpha.3] - 2026-11-18
+
+Pre-release, third of 6.1.0. Lists what changed since 6.1.0-alpha.2. Back up before updating. No migration. Updating keeps all data. Connectors update to the hub's version.
+
+### Added
+- **Admin pages are tabs of Settings**: Integrations, Users, Roles, Data (Import and Export) and Logs, each shown with the right its page needed. Old addresses (`/integrations`, `/hub`, `/logs`, `/users`) redirect and keep their search and hash ([docs/users.md](docs/users.md))
+- **Log settings on a gear page of the Logs tab**; the tab always shows and says when logging is off
+- **Sources as one table**: Printers, Prints and Filament sources are a table with a row per source, an account's name before its email. Catalog and Projects settings get a **Consumers** tab for what machines get from the server ([docs/hub.md](docs/hub.md))
+- **Default slicer and default install** are set from the integration card menus
+- **Record prints switch for a network printer**: every printer on the network is a row of Prints > Sources. Off, no print is written (on the hub or from a connector) while live status goes on; Moonraker skips the off period when it is switched back on ([docs/prints.md](docs/prints.md))
+- **Catalog is back in the sidebar**, under Filament, at `/catalog/printers` and `/catalog/filament`; old `/settings/catalog/...` addresses redirect ([docs/catalog.md](docs/catalog.md))
+- **Printers has tabs**: Printers, Accessories and Maintenance (`/printers/maintenance`). Maintenance leaves the sidebar, `/maintenance` redirects, and a maintenance alert links to the tab. Maintenance shows with its own `maintenance` right ([docs/printers.md](docs/printers.md))
+- **One collapsible card header** everywhere (project page and form, deleted presets, source cards): the whole title row is the button
+- The sidebar logo grows to the container width when the app name is hidden, and the switch is named **Show app name**
+
+### Changed
+- A manual **Check for updates** shows its result without an alert; the scheduled check alerts only for a newer version
+
+### Fixed
+- A connector that is downloading its update is no longer reported as outdated: the hub asks it to update once per hub version and alerts after 15 minutes, or at once if the update fails
+- Catalog no longer asks for the admin-only slicer zip sources when an editor or a viewer opens it (a 403 in the browser console)
+- The Maintenance install dialog selects the first option when its list loads after it opens
+- The Catalog link on Printers settings had no text
+- Vitest runs of long synchronous test files no longer fail with "Timeout calling onTaskUpdate"
+
 ## [6.1.0-alpha.2] - 2026-11-18
 
 Pre-release, second of 6.1.0. Lists what changed since 6.1.0-alpha.1. Back up before updating. Migration 0138 applies (a network printer's name moves to its printer). Updating keeps all data. Connectors update to the hub's version.
