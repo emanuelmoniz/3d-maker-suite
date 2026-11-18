@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     exclude: [...configDefaults.exclude, "data/**"],
     maxWorkers: "75%",
+    setupFiles: ["./vitest.setup.ts"],
     ...(ms !== undefined && {
       testTimeout: ms,
       hookTimeout: ms,
