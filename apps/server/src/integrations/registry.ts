@@ -5,7 +5,7 @@ import {
   bambuStudioServerAdapter,
   bambuStudioWorkerAdapter,
 } from "@3d-maker-suite/adapter-bambu";
-import { mockAdapter, mockHostAdapter } from "@3d-maker-suite/adapter-mock";
+import { mockAdapter, mockHostAdapter, mockLoginAdapter } from "@3d-maker-suite/adapter-mock";
 import { moonrakerAdapter } from "@3d-maker-suite/adapter-moonraker";
 import { octoprintAdapter } from "@3d-maker-suite/adapter-octoprint";
 import {
@@ -34,5 +34,5 @@ export const adapters = (opts: { mock: boolean }): IntegrationAdapter[] => [
   orcaSlicerServerAdapter(),
   bambuStudioWorkerAdapter(),
   orcaSlicerWorkerAdapter(),
-  ...(opts.mock ? [mockAdapter(), mockHostAdapter()] : []),
+  ...(opts.mock ? [mockAdapter(), mockHostAdapter(), mockLoginAdapter()] : []),
 ];

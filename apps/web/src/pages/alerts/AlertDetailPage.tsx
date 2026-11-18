@@ -23,6 +23,7 @@ import {
   MODULE,
   SEVERITY,
   SyncTargetLink,
+  signedOutAlert,
   syncTaskLink,
   Title,
   useMayOpenTask,
@@ -171,7 +172,15 @@ export function AlertDetailPage() {
                   </Link>
                 )}
               <SyncTargetLink a={a} />
-              {(a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) ? (
+              {signedOutAlert(a) && integrationsManage ? (
+                <Link
+                  to="/integrations/$id/edit"
+                  params={{ id: String(a.context.integrationId) }}
+                  className={buttonLink}
+                >
+                  {t("alerts:view.signInAgain")}
+                </Link>
+              ) : (a.kind === "sync_error" || a.kind === "sync_success") && mayOpen(a) ? (
                 <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={buttonLink}>
                   {syncTaskLink(a).sources
                     ? t("alerts:view.openSources")

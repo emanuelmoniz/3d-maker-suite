@@ -1,7 +1,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fixture, type MockState, mockAdapter } from "@3d-maker-suite/adapter-mock";
+import {
+  fixture,
+  type MockState,
+  mockAdapter,
+  mockLoginAdapter,
+} from "@3d-maker-suite/adapter-mock";
 import {
   type ExternalPrint,
   type ImportPreview,
@@ -34,7 +39,10 @@ beforeEach(async () => {
   db = openDb(":memory:");
   state = fixture();
   dataDir = mkdtempSync(join(tmpdir(), "integrations-"));
-  app = await buildApp(db, false, dataDir, { adapters: [mockAdapter(state), loginAdapter()] });
+  // The mock vendor plus one with an email-code sign-in: password "pw", then code "123456".
+  app = await buildApp(db, false, dataDir, {
+    adapters: [mockAdapter(state), mockLoginAdapter(state)],
+  });
   // The mock's prints ("Mock print 1") are of this project's file, so a run can import them.
   db.insert(schema.projects)
     .values({
@@ -45,21 +53,6 @@ beforeEach(async () => {
     .run();
 });
 afterEach(() => rmSync(dataDir, { recursive: true, force: true }));
-
-// The mock vendor plus an email-code sign-in: password "pw", then code "123456".
-const loginAdapter = (): IntegrationAdapter => ({
-  ...mockAdapter(state),
-  id: "mock-login",
-  secretsSchema: z.object({ token: z.string().optional() }),
-  login: async (_ctx, input) => {
-    if ("password" in input) {
-      if (input.password !== "pw") throw new IntegrationError("login_failed");
-      return { challenge: "email_code", state: input.email };
-    }
-    if (input.code !== "123456") throw new IntegrationError("code_invalid");
-    return { secrets: { token: `token-for-${input.state}` } };
-  },
-});
 
 const send = (method: "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
   app.inject({ method, url, payload });
@@ -1173,6 +1166,115 @@ describe("sign-in", () => {
     const { id } = await create();
     const res = await login(id, { email: "a@b.c", password: "pw" });
     expect(res.json().error.code).toBe("login_unsupported");
+  });
+});
+
+// 6.1.0 Step 10c: a new account signs in before it is saved.
+describe("sign-in of a new account", () => {
+  const start = (email = "a@b.c", password = "pw") =>
+    send("POST", "/api/integrations/login", {
+      adapterId: "mock-login",
+      config: { label: "Workshop" },
+      email,
+      password,
+    });
+  const finish = (token: string, code = "123456") =>
+    send("POST", "/api/integrations/login", { token, code });
+  const rows = () => db.select().from(schema.integrations).all();
+
+  it("challenge, then the code: creates the account with its token, profile and printers", async () => {
+    const challenge = await start();
+    const body = challenge.json();
+    expect(body).toMatchObject({ status: "challenge", challenge: "email_code" });
+    expect(body.token).toEqual(expect.any(String));
+    // Nothing is saved while the code is asked for.
+    expect(rows()).toHaveLength(0);
+
+    const ok = await finish(body.token);
+    expect(ok.statusCode).toBe(200);
+    const { integration } = ok.json();
+    expect(integration).toMatchObject({
+      adapterId: "mock-login",
+      hasSecrets: true,
+      config: { label: "Workshop" },
+      account: { email: "token-for-a@b.c@example.com" },
+    });
+    expect(rows()).toHaveLength(1);
+    // Secrets are stored encrypted and never answered.
+    expect(rows()[0]?.secrets).not.toContain("token-for");
+    expect(ok.body).not.toContain('token-for-a@b.c"');
+    expect(ok.body).not.toContain(body.token);
+    await vi.waitFor(() => expect(db.select().from(schema.printers).all()).toHaveLength(1));
+    // The token is used up.
+    expect((await finish(body.token)).json().error.code).toBe("login_not_started");
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("signs in at once when the vendor asks for no code", async () => {
+    app = await buildApp(db, false, dataDir, {
+      adapters: [
+        {
+          ...mockLoginAdapter(state),
+          login: async () => ({ secrets: { token: "direct" } }),
+        },
+      ],
+    });
+    const res = await start();
+    expect(res.json()).toMatchObject({ status: "ok", integration: { hasSecrets: true } });
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("a wrong password or a wrong code saves nothing; the code can be typed again", async () => {
+    expect((await start("a@b.c", "nope")).json()).toEqual({
+      status: "error",
+      code: "login_failed",
+    });
+    const { token } = (await start()).json();
+    expect((await finish(token, "000000")).json()).toEqual({
+      status: "error",
+      code: "code_invalid",
+    });
+    expect(rows()).toHaveLength(0);
+    expect((await finish(token)).json().status).toBe("ok");
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("an expired or unknown token saves nothing", async () => {
+    const { token } = (await start()).json();
+    const later = Date.now() + 11 * 60 * 1000;
+    const now = vi.spyOn(Date, "now").mockReturnValue(later);
+    try {
+      const res = await finish(token);
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe("login_not_started");
+    } finally {
+      now.mockRestore();
+    }
+    expect((await finish("made-up")).statusCode).toBe(409);
+    expect(rows()).toHaveLength(0);
+  });
+
+  it("the same account twice is refused and saves nothing", async () => {
+    await finish((await start()).json().token);
+    const res = await finish((await start("A@B.C")).json().token);
+    // Bambu's email casing differs between sign-ins; the profile's email decides.
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("integration_exists");
+    expect(rows()).toHaveLength(1);
+    // Another account is fine.
+    expect((await finish((await start("x@y.z")).json().token)).json().status).toBe("ok");
+    expect(rows()).toHaveLength(2);
+  });
+
+  it("refuses an adapter without a sign-in", async () => {
+    const res = await send("POST", "/api/integrations/login", {
+      adapterId: "mock",
+      email: "a@b.c",
+      password: "pw",
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("login_unsupported");
+    expect(rows()).toHaveLength(0);
   });
 });
 

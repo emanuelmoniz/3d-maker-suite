@@ -247,6 +247,27 @@ export function mockAdapter(state: MockState = fixture()): IntegrationAdapter {
 }
 
 /**
+ * The mock account with an interactive sign-in (e2e, 6.1.0 Step 10c): password "pw", then the
+ * emailed code "123456". The token is named after the email, and so is the profile, so the same
+ * account twice is told apart.
+ */
+export function mockLoginAdapter(state: MockState = fixture()): IntegrationAdapter {
+  return {
+    ...mockAdapter(state),
+    id: "mock-login",
+    secretsSchema: z.object({ token: z.string().min(1).optional() }),
+    login: async (_ctx, input) => {
+      if ("password" in input) {
+        if (input.password !== "pw") throw new IntegrationError("login_failed");
+        return { challenge: "email_code", state: input.email };
+      }
+      if (input.code !== "123456") throw new IntegrationError("code_invalid");
+      return { secrets: { token: `token-for-${input.state}` } };
+    },
+  };
+}
+
+/**
  * The fake printer as a printer on the network (`host`), for a hub that reaches it through a
  * connector (ADR-0015, LAN reach): the same state, printers, history and live status, no spools.
  */

@@ -73,7 +73,6 @@ import {
   IntegrationCreatePage,
   IntegrationEditPage,
 } from "./pages/settings/IntegrationFormPage.tsx";
-import { IntegrationLoginPage } from "./pages/settings/IntegrationLoginPage.tsx";
 import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { MyAccountPage } from "./pages/settings/MyAccountPage.tsx";
 import { ProjectFolderPage } from "./pages/settings/ProjectFolderPage.tsx";
@@ -651,7 +650,6 @@ const routes: AnyRoute[] = [
   ...[
     ["/integrations", IntegrationsPage],
     ["/integrations/new", IntegrationCreatePage],
-    ["/integrations/$id/login", IntegrationLoginPage],
     ["/integrations/$id/edit", IntegrationEditPage],
   ].map(([path, component]) =>
     createRoute({
@@ -662,6 +660,14 @@ const routes: AnyRoute[] = [
       component: component as () => ReactNode,
     }),
   ),
+  // An account signed in on a page of its own before 6.1.0 Step 10c: now on its Edit page.
+  createRoute({
+    getParentRoute: () => root,
+    path: "/integrations/$id/login",
+    beforeLoad: ({ params }) => {
+      throw redirect({ to: "/integrations/$id/edit", params });
+    },
+  }),
 ];
 
 if (import.meta.env.DEV) {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { id, isoDate, syncPolicySchema } from "./entities.ts";
+import { id, integrationSchema, isoDate, syncPolicySchema } from "./entities.ts";
 import {
   CAPABILITIES,
   type Capability,
@@ -397,6 +397,33 @@ export const loginResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("error"), code: z.enum(INTEGRATION_ERROR_CODES) }),
 ]);
 
+/**
+ * A new account's sign-in (6.1.0 Step 10c): nothing is saved until it succeeds. Step 1 sends the
+ * config with email + password; a challenge answers a short-lived `token`, step 2 sends it with
+ * the code.
+ */
+export const newLoginInputSchema = z.union([
+  z
+    .object({
+      adapterId: z.string().min(1),
+      config: z.record(z.string(), z.json()).default({}),
+      email: z.string().trim().min(1),
+      password: z.string().min(1),
+    })
+    .strict(),
+  z.object({ token: z.string().min(1).max(100), code: z.string().trim().min(1) }).strict(),
+]);
+
+export const newLoginResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok"), integration: integrationSchema }),
+  z.object({
+    status: z.literal("challenge"),
+    challenge: z.enum(LOGIN_CHALLENGES),
+    token: z.string(),
+  }),
+  z.object({ status: z.literal("error"), code: z.enum(INTEGRATION_ERROR_CODES) }),
+]);
+
 const WEEKLY: readonly Capability[] = [
   "brands",
   "printerModels",
@@ -596,6 +623,8 @@ export type SourceTestResult = z.infer<typeof sourceTestResultSchema>;
 export type FoundPrinter = z.infer<typeof foundPrinterSchema>;
 export type LoginRequest = z.infer<typeof loginInputSchema>;
 export type LoginResult = z.infer<typeof loginResultSchema>;
+export type NewLoginRequest = z.input<typeof newLoginInputSchema>;
+export type NewLoginResult = z.infer<typeof newLoginResultSchema>;
 export type SlicerRelease = z.infer<typeof slicerReleaseSchema>;
 export type SlicerInstallStatus = z.infer<typeof slicerInstallStatusSchema>;
 export type WorkerConfig = z.infer<typeof workerConfigSchema>;

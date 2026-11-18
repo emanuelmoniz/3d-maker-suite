@@ -190,7 +190,7 @@ Bambu Cloud  (2 accounts)                      [Add another account]
                 [x] Prints                             → Prints settings
                 [x] Spools                             → Filament settings
                 [ ] User presets
-  (WA)  Workshop account                (Signed out) [Sign in again]
+  (WA)  Workshop account                (Signed out → Edit page)
         workshop@example.com · Global
         Allow   [x] Printers                           → Printers settings
 
@@ -198,7 +198,7 @@ Bambu Studio
   This server · managed 02.09.01.70                    (Ready) [Update]
   [x] Use as slicer
 ```
-`(AS)` is the account's photo, else its initials. A type turned off shows no link. Turning one off asks: "Stop syncing spools from this account? The spools already imported stay."
+`(AS)` is the account's photo, else its initials. *Amended in 6.1.0 Step 10c:* the **Signed out** badge links to the account's Edit page, where it signs in again; the card has no Sign in button. A type turned off shows no link. Turning one off asks: "Stop syncing spools from this account? The spools already imported stay."
 
 **3. Printers settings → Sources** (Prints and Filament look the same: one section, one line per account)
 ```

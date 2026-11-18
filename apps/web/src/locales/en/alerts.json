@@ -32,6 +32,7 @@
     "syncResult_other": "{{count}} new, {{updated}} updated",
     "result": "Result",
     "openIntegration": "Open integration",
+    "signInAgain": "Sign in again",
     "openSources": "Open sources",
     "openUpdates": "Open updates",
     "sync": {

@@ -11,17 +11,22 @@ No LAN mode, developer mode or access code is needed.
 
 ## Connect
 
-1. Open **Integrations** and choose **Bambu Cloud**.
+1. Open **Integrations**, click **Add integration** and choose **Bambu Cloud**.
 2. Pick your region: **Global** or **China**.
-3. Enter your account email and password. The password is sent to Bambu once and never stored.
-4. If Bambu asks for a verification code (email or 2FA), enter it.
-5. Click **Test connection** on the account. You should see your printers listed.
+3. Enter your account email and password and click **Save**. The password is sent to Bambu once and never stored.
+4. If Bambu asks for a verification code (email or 2FA), the same form asks for it. Enter it and click **Save** again. The code is valid for 10 minutes; after that, or after a server restart, the form asks for the password again.
+
+The account is created only when the sign-in goes through: a wrong password, a wrong code or leaving the form saves nothing. Its printers are imported right away. An account that is already set up (the same Bambu email) is refused.
 
 The app stores only the access token, encrypted on disk (see [ADR-0005](adr/0005-secrets-storage.md)).
 
+## Sign in again
+
+When an account is signed out (its token expired, or Bambu refused it), its block shows a **Signed out** badge and syncs raise a **Sync failed** alert. Click the badge, or the alert's **Sign in again**, to open the account's **Edit** page. Its **Sign in** section takes your email and password, then the code, and the account syncs again. The region and other settings on that page save with **Save changes** as before.
+
 ## Your accounts
 
-The **Bambu Cloud** card on the Integrations page is folded until you open it; its header shows the account count and an Error or Paused badge, and a card with an error opens by itself. Open, it has one block per account, with **Add another account** at the top. Each block shows the account's photo (or its initials), name, email and region, and whether it is signed in. **Sign in again**, **Test connection** and the **Enabled** switch sit next to the name; switched off, nothing syncs from that account. **More actions** on an account deletes it. The card's own **⋯** menu (top right) has **Remove integration**: it removes every account on the card after a confirmation that names them. Imported printers, prints and spools stay, unlinked; credentials, schedules and the sync log go. It is blocked while an account is syncing.
+The **Bambu Cloud** card on the Integrations page is folded until you open it; its header shows the account count and an Error or Paused badge, and a card with an error opens by itself. Open, it has one block per account, with **Add another account** at the top. Each block shows the account's photo (or its initials), name, email and region, and whether it is signed in (**Signed out** links to its Edit page, see [Sign in again](#sign-in-again)). **Test connection** and the **Enabled** switch sit next to the name; switched off, nothing syncs from that account. **More actions** on an account edits or deletes it. The card's own **⋯** menu (top right) has **Remove integration**: it removes every account on the card after a confirmation that names them. Imported printers, prints and spools stay, unlinked; credentials, schedules and the sync log go. It is blocked while an account is syncing.
 
 The name, email and photo are read from your Bambu profile when you sign in and on each sync. If that read fails, the last values stay and the sync goes on. The server downloads the photo from `public-cdn.bblmw.com` and keeps a copy, so your browser never calls Bambu. On a NAS or server with a firewall, allow that host too, or the card shows initials.
 
@@ -60,7 +65,7 @@ The remaining weight Bambu reports is an estimate, not a measurement:
 
 | Message | Meaning | What to do |
 |---|---|---|
-| Sign-in expired | Tokens last about 3 months | Sign in again on the Integrations page |
+| Sign-in expired | Tokens last about 3 months | Click **Signed out** on the account and sign in again on its Edit page |
 | Rate limited | Bambu slowed the requests | Wait an hour; sync pauses automatically |
 | Refused this app's request | Bambu's Cloudflare protection rejected the app | If it keeps happening, update the app |
 | API changed | Bambu changed its response format | Update the app; see [CONTRIBUTING.md](../CONTRIBUTING.md) |

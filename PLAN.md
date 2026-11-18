@@ -3802,7 +3802,7 @@ Do Step 10 of the 6.1.0 plan in PLAN.md.
 Do Step 10b of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10c - Bambu Cloud: sign in inside the Add and Edit forms  **[plan mode]**
+### [x] Step 10c - Bambu Cloud: sign in inside the Add and Edit forms  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Why:** adding a Bambu Cloud account saves the row first and then opens a separate sign-in page (`/integrations/$id/login`), so a failed or cancelled sign-in leaves a signed-out account behind. The card's **Sign in again** button is a second way into the same page.
 **Scope:**

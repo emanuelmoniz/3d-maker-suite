@@ -46,8 +46,6 @@
     "delete": "Delete",
     "edit": "Edit",
     "actionError": "That didn't work. Try again.",
-    "signIn": "Sign in",
-    "signInAgain": "Sign in again",
     "menu": "More actions for {{name}}",
     "log": "Sync log",
     "addLocation": "Add to this server",
@@ -74,6 +72,7 @@
     "through": "Reached through {{machine}}",
     "untitled": "{{adapter}} account",
     "signedOut": "Signed out",
+    "signedOutLink": "Signed out: sign {{name}} in again",
     "disabledHint": "Switched off: nothing is synced from this account.",
     "enabledOf": "Enabled: {{name}}"
   },
@@ -179,6 +178,13 @@
         "token": "Token"
       }
     },
+    "mock-login": {
+      "name": "Demo account with sign-in (mock)",
+      "fields": {
+        "label": "Label",
+        "liveCycleSec": "Live print loop (seconds)"
+      }
+    },
     "mock-host": {
       "name": "Demo printer on the network (mock)",
       "fields": {
@@ -265,7 +271,11 @@
     }
   },
   "login": {
-    "title": "Sign in to {{name}}",
+    "section": "Sign in",
+    "signedOutHint": "This account is signed out, so nothing syncs from it. Sign in again to go on.",
+    "signedInHint": "Signed in. Sign in again to use another password or to renew the sign-in.",
+    "done": "Signed in. The printers are synced now.",
+    "expired": "The sign-in timed out. Enter your email and password again.",
     "email": "Email",
     "password": "Password",
     "passwordHint": "Used once to sign in. Only the access token is stored, encrypted on this computer.",

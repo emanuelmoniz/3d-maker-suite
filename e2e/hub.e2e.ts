@@ -85,13 +85,13 @@ test("hub: change a connector's user with a code from the hub", async ({ page, a
 
 test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/");
+  // No page before setup: its auth check could answer after it and redirect a later page to login.
   await page.request.post("/api/auth/setup", {
     data: { displayName: "Ana Admin", email: "ana@example.com", password: "correct horse" },
   });
 
   // Hub management is in the menu only while the hub is on.
-  await page.reload();
+  await page.goto("/");
   const nav = page.getByRole("link", { name: "Hub management" });
   await expect(nav).toHaveCount(0);
   await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
@@ -221,7 +221,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   // A card only when set up (6.1.0 Step 9): a paired machine adds no slicer card.
   await page.goto("/integrations");
   const card = page.getByRole("region", { name: "Bambu Studio" });
-  await expect(page.getByRole("heading", { name: "Integrations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
   await expect(card).toHaveCount(0);
   // Switch off: Add integration's Where says so and links to the machine page.
   await page.goto("/integrations/new?product=bambu-studio");
@@ -277,7 +277,7 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(install).toHaveCount(0);
   // Its last install gone, so is the card.
   await page.goto("/integrations");
-  await expect(page.getByRole("heading", { name: "Integrations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Integrations", level: 1 })).toBeVisible();
   await expect(card).toHaveCount(0);
   await page.goto(`/hub/devices/${deviceId}`);
   await actions.getByRole("button", { name: "Revoke" }).click();

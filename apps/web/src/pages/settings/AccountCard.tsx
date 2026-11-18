@@ -25,6 +25,8 @@ import { ActionSwitches } from "./PolicyRow.tsx";
 import { RemoveIntegration } from "./RemoveIntegration.tsx";
 import { SyncSources } from "./Sources.tsx";
 
+const badgeClass = "inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium";
+
 /** One card per API (ADR-0021): a block per account, the Add button on the right while open. */
 export function AccountsCard({
   adapterId,
@@ -129,7 +131,6 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
   const region = (i.config as { region?: unknown } | undefined)?.region;
   const signedOut =
     !i.hasSecrets || i.lastError === "auth_expired" || i.lastError === "auth_required";
-  const login = admin && i.enabled && adapter?.login;
   const failed = [patch, remove].some((m) => m.isError);
 
   const state = !i.enabled ? "disabled" : i.status;
@@ -161,29 +162,36 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
             <h3 id={heading} className="min-w-0 wrap-anywhere text-base font-semibold">
               {title}
             </h3>
-            {adapter?.login && i.enabled && (
-              <span
-                className={cx(
-                  "inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-                  signedOut ? "bg-warn/15 text-warn" : "bg-ok/15 text-ok",
-                )}
-              >
-                {signedOut ? t("integrations:account.signedOut") : t("integrations:card.signedIn")}
-              </span>
-            )}
+            {adapter?.login &&
+              i.enabled &&
+              // Signed out: the badge opens the Edit page, where the account signs in again.
+              (signedOut && admin ? (
+                <Link
+                  to="/integrations/$id/edit"
+                  params={{ id: i.id }}
+                  aria-label={t("integrations:account.signedOutLink", { name: title })}
+                  className={cx(
+                    badgeClass,
+                    "bg-warn/15 text-warn underline-offset-2 hover:underline",
+                  )}
+                >
+                  {t("integrations:account.signedOut")}
+                </Link>
+              ) : (
+                <span
+                  className={cx(
+                    badgeClass,
+                    signedOut ? "bg-warn/15 text-warn" : "bg-ok/15 text-ok",
+                  )}
+                >
+                  {signedOut
+                    ? t("integrations:account.signedOut")
+                    : t("integrations:card.signedIn")}
+                </span>
+              ))}
           </div>
           {admin && (
             <div className="flex flex-wrap items-center gap-2">
-              {login && (
-                <Button
-                  variant={signedOut ? "primary" : "secondary"}
-                  onClick={() => navigate({ to: "/integrations/$id/login", params: { id: i.id } })}
-                >
-                  {i.hasSecrets
-                    ? t("integrations:card.signInAgain")
-                    : t("integrations:card.signIn")}
-                </Button>
-              )}
               {i.enabled && !signedOut && (
                 <Button disabled={test.isPending} onClick={() => test.mutate()}>
                   {t("integrations:card.test")}

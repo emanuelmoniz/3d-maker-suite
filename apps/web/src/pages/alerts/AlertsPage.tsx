@@ -67,6 +67,11 @@ const LEFT: Record<NonNullable<SyncLogEntry["reason"]>, string> = {
 export const buttonLink =
   "inline-flex h-9 items-center whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
 
+const SIGNED_OUT = new Set(["auth_required", "auth_expired", "login_failed", "code_invalid"]);
+/** A sync that failed because the account is signed out: fixed on its Edit page (6.1.0 Step 10c). */
+export const signedOutAlert = (a: Alert) =>
+  a.kind === "sync_error" && SIGNED_OUT.has(String(a.context.code));
+
 /** The integration's card on the integrations page. */
 export const integrationHash = (a: Alert) => `integration-${a.context.integrationId}`;
 
@@ -271,6 +276,16 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "sync_success":
     case "sync_error":
+      if (signedOutAlert(a) && integrationsManage)
+        return (
+          <Link
+            to="/integrations/$id/edit"
+            params={{ id: String(c.integrationId) }}
+            className={textLink}
+          >
+            {text}
+          </Link>
+        );
       if (!mayOpen(a)) return <span className="font-medium">{text}</span>;
       return (
         <Link to={syncTaskLink(a).to} hash={syncTaskLink(a).hash} className={textLink}>

@@ -167,11 +167,22 @@ export function AccountBlock({
       icon={<Avatar integration={i} text={account?.name || account?.email || title} />}
       title={title}
       badge={
-        signedOut && (
+        signedOut &&
+        // An admin fixes it on the account's Edit page (6.1.0 Step 10c).
+        (admin ? (
+          <Link
+            to="/integrations/$id/edit"
+            params={{ id: i.id }}
+            aria-label={t("integrations:account.signedOutLink", { name: title })}
+            className="inline-block shrink-0 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn underline-offset-2 hover:underline"
+          >
+            {t("integrations:account.signedOut")}
+          </Link>
+        ) : (
           <span className="inline-block shrink-0 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
             {t("integrations:account.signedOut")}
           </span>
-        )
+        ))
       }
       link={
         admin

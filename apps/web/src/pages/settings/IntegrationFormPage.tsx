@@ -2,6 +2,8 @@ import {
   type AdapterInfo,
   type Integration,
   isNetworkPrinter,
+  type LoginChallenge,
+  type NewLoginRequest,
   PRINTER_SERIAL_FIELD,
   type SourceTestResult,
 } from "@3d-maker-suite/core";
@@ -24,6 +26,8 @@ import {
   useAdapters,
   useCreateIntegration,
   useIntegrations,
+  useLogin,
+  useNewLogin,
   usePatchIntegration,
   useTryIntegration,
   useWorkerSetUp,
@@ -31,10 +35,11 @@ import {
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
 import { ERRORS, PICK_ERRORS } from "./integrationLabels.ts";
+import { SignInFields, signInValues } from "./SignInFields.tsx";
 
 // The adapter's zod schemas arrive as JSON Schema; flat string/number/boolean fields are enough
 // for API-key and URL style vendors. Adapters with an interactive sign-in (2FA, email codes) get
-// their secrets from IntegrationLoginPage instead.
+// their secrets from SignInFields instead (6.1.0 Step 10c).
 type Field = { name: string; type: string; required: boolean; options?: string[] };
 const fieldsOf = (s: AdapterInfo["config"]): Field[] => {
   const props = (s.properties ?? {}) as Record<string, { type?: string; enum?: string[] }>;
@@ -479,6 +484,10 @@ export function IntegrationCreatePage() {
   const adapters = (useAdapters().data ?? []).filter((a) => a.kind !== "worker");
   const existing = useIntegrations().data ?? [];
   const create = useCreateIntegration();
+  // An account that signs in is created by its sign-in (6.1.0 Step 10c): the code step stays here.
+  const newLogin = useNewLogin();
+  const [signIn, setSignIn] = useState<{ token: string; challenge: LoginChallenge }>();
+  const [expired, setExpired] = useState(false);
 
   // One product per library (a slicer's local and server adapters), else per adapter.
   const products = [...new Set(adapters.map((a) => a.libraryId ?? a.id))];
@@ -553,6 +562,33 @@ export function IntegrationCreatePage() {
       });
       return;
     }
+    if (adapter.login) {
+      const step = signInValues(e.currentTarget, signIn?.challenge);
+      let body: NewLoginRequest;
+      if (signIn && "code" in step) body = { token: signIn.token, code: step.code };
+      else if ("email" in step) {
+        const v = form.values(e.currentTarget);
+        if (!v) return;
+        body = { adapterId: adapter.id, config: v.config, ...step };
+      } else return;
+      setExpired(false);
+      newLogin.mutate(body, {
+        onSuccess: (r) => {
+          if (r.status === "challenge") setSignIn({ token: r.token, challenge: r.challenge });
+          if (r.status === "ok")
+            navigate({ to: "/integrations", hash: `integration-${r.integration.id}` });
+        },
+        onError: (err) => {
+          // The code step timed out (or the server restarted): start over with the password.
+          if (err instanceof ApiError && err.code === "login_not_started") {
+            setSignIn(undefined);
+            setExpired(true);
+            newLogin.reset();
+          }
+        },
+      });
+      return;
+    }
     const v = form.values(e.currentTarget);
     if (!v) return;
     create.mutate(
@@ -564,14 +600,10 @@ export function IntegrationCreatePage() {
         ...(v.printer && { printer: v.printer }),
         ...(v.printerName && { printerName: v.printerName }),
       },
-      {
-        onSuccess: (row) =>
-          adapter.login
-            ? navigate({ to: "/integrations/$id/login", params: { id: row.id } })
-            : navigate({ to: "/integrations", hash: `integration-${row.id}` }),
-      },
+      { onSuccess: (row) => navigate({ to: "/integrations", hash: `integration-${row.id}` }) },
     );
   };
+  const loginFailed = newLogin.data?.status === "error" ? newLogin.data.code : undefined;
 
   return (
     <>
@@ -587,6 +619,7 @@ export function IntegrationCreatePage() {
                   name={`${id}-product`}
                   className="mt-1"
                   checked={product === p}
+                  disabled={!!signIn}
                   onChange={() => {
                     setProduct(p);
                     form.changed();
@@ -617,7 +650,25 @@ export function IntegrationCreatePage() {
         )}
 
         {once && <p className="text-warn">{t("integrations:form.takenSource")}</p>}
-        {!once && !toMachine && form.hasFields && form.fields}
+        {!once &&
+          !toMachine &&
+          form.hasFields &&
+          // While the code is asked for, the config it signs in with stays as it is.
+          (signIn ? <fieldset disabled>{form.fields}</fieldset> : form.fields)}
+        {!once && adapter?.login && (
+          <div className="sm:max-w-md">
+            <SignInFields
+              challenge={signIn?.challenge}
+              failed={loginFailed}
+              expired={expired}
+              error={
+                newLogin.isError
+                  ? (errorKey(newLogin.error) ?? "integrations:login.error")
+                  : undefined
+              }
+            />
+          </div>
+        )}
         {testable && <TestLine tryOut={form.tryOut} />}
         {failed.isError && (
           <p role="alert" className="text-bad">
@@ -628,7 +679,7 @@ export function IntegrationCreatePage() {
           <Button
             type="submit"
             variant="primary"
-            disabled={!adapter || blocked || once || failed.isPending}
+            disabled={!adapter || blocked || once || failed.isPending || newLogin.isPending}
           >
             {t("integrations:form.save")}
           </Button>
@@ -723,6 +774,76 @@ export function IntegrationEditPage() {
           </div>
         </form>
       )}
+      {saved && adapter?.login && <SignInBlock integration={saved} />}
     </>
+  );
+}
+
+/**
+ * Signs a saved account in again (6.1.0 Step 10c): email and password, then the code in place.
+ * Its own form, next to the account's other fields: those save with Save changes.
+ */
+function SignInBlock({ integration: i }: { integration: Integration }) {
+  const { t } = useTranslation();
+  const heading = useId();
+  const login = useLogin(i.id);
+  const [challenge, setChallenge] = useState<LoginChallenge>();
+  const [expired, setExpired] = useState(false);
+  const failed = login.data?.status === "error" ? login.data.code : undefined;
+  const signedOut =
+    !i.hasSecrets || i.lastError === "auth_expired" || i.lastError === "auth_required";
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setExpired(false);
+    login.mutate(signInValues(e.currentTarget, challenge), {
+      onSuccess: (r) => {
+        if (r.status === "challenge") setChallenge(r.challenge);
+        if (r.status === "ok") setChallenge(undefined);
+      },
+      onError: (err) => {
+        if (err instanceof ApiError && err.code === "login_not_started") {
+          setChallenge(undefined);
+          setExpired(true);
+          login.reset();
+        }
+      },
+    });
+  };
+
+  return (
+    <section aria-labelledby={heading} className="mt-10 grid max-w-2xl gap-4">
+      <h2 id={heading} className="text-lg font-semibold">
+        {t("integrations:login.section")}
+      </h2>
+      <p className="text-muted">
+        {signedOut ? t("integrations:login.signedOutHint") : t("integrations:login.signedInHint")}
+      </p>
+      <form key={challenge ?? "password"} onSubmit={onSubmit} className="grid gap-4 sm:max-w-md">
+        <SignInFields
+          challenge={challenge}
+          failed={failed}
+          expired={expired}
+          error={login.isError ? "integrations:login.error" : undefined}
+        />
+        {login.data?.status === "ok" && (
+          <p role="status" className="text-ok">
+            {t("integrations:login.done")}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="submit"
+            variant={signedOut ? "primary" : "secondary"}
+            busy={login.isPending}
+          >
+            {challenge ? t("integrations:login.verify") : t("integrations:login.submit")}
+          </Button>
+          {challenge && (
+            <Button onClick={() => setChallenge(undefined)}>{t("common:actions.cancel")}</Button>
+          )}
+        </div>
+      </form>
+    </section>
   );
 }

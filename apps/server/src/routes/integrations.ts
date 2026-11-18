@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import {
   accountConfigOf,
   accountMode,
@@ -22,6 +23,9 @@ import {
   listQuery,
   loginInputSchema,
   loginResultSchema,
+  type NewLoginResult,
+  newLoginInputSchema,
+  newLoginResultSchema,
   type Page,
   PRINTER_SERIAL_FIELD,
   type PrinterChoice,
@@ -145,6 +149,43 @@ export const integrationsRoutes =
     const slicerOf = (id: string) => (workers.isWorker(id) ? workers : installer);
     // ponytail: a sign-in waiting for its code lives in memory; a restart means starting over.
     const pendingLogins = new Map<string, { state: string; expires: number }>();
+    // A new account's sign-in, by its opaque token: nothing is in the database yet (Step 10c).
+    const pendingNew = new Map<
+      string,
+      { adapterId: string; config: unknown; state: string; expires: number }
+    >();
+    /**
+     * Who a new account is, from the secrets its sign-in returned (ADR-0021). Best effort: a failed
+     * read leaves it to the first sync.
+     */
+    const profileOf = async (
+      adapter: (typeof syncer.adapters)[number],
+      config: unknown,
+      secrets: Record<string, string>,
+      log: ReturnType<FastifyRequest["log"]["child"]>,
+    ) => {
+      const kept = { ...secrets };
+      try {
+        const instance = adapter.create?.({
+          config,
+          secrets: {
+            get: async (k) => kept[k],
+            set: async (k, v) => {
+              kept[k] = v;
+            },
+            delete: async (k) => {
+              delete kept[k];
+            },
+          },
+          log,
+          signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
+        });
+        return await instance?.profile?.();
+      } catch {
+        log.warn("account profile not read");
+        return undefined;
+      }
+    };
     const adapterOf = (id: string) => {
       const adapter = syncer.adapters.find((a) => a.id === id);
       if (!adapter) throw new HttpError(400, "unknown_adapter", `Unknown adapter "${id}"`);
@@ -374,6 +415,60 @@ export const integrationsRoutes =
       return rest;
     };
 
+    /**
+     * A new row with its secrets and default policies: Save on the add form, and a new account
+     * once its sign-in went through (6.1.0 Step 10c). `link`: the printer a network source is.
+     */
+    const insertIntegration = (
+      adapter: (typeof syncer.adapters)[number],
+      values: typeof integrations.$inferInsert,
+      secrets: Record<string, string>,
+      link?: false | { found: FoundLink; printer: PrinterChoice; printerName?: string },
+    ) =>
+      db.transaction(() => {
+        const row = db.insert(integrations).values(values).returning().get();
+        writeSecrets(db, key, row.id, secrets);
+        if (link) {
+          const printerId = linkNetworkPrinter(
+            db,
+            syncer.adapters,
+            row.id,
+            link.found,
+            link.printer,
+            link.printerName,
+          );
+          db.update(integrations)
+            .set({
+              config: withoutSerial(adapter, row.config as Record<string, unknown>, printerId),
+            })
+            .where(eq(integrations.id, row.id))
+            .run();
+        }
+        // Spool weights from a vendor are estimates: not tracked until you opt in. Without a
+        // row a type follows `defaultPolicy`, so integrations added before keep their setting.
+        if (adapter.capabilities.includes("spools"))
+          db.insert(syncPolicies)
+            .values({
+              integrationId: row.id,
+              type: "spools",
+              ...defaultPolicy("spools"),
+              trackUsage: false,
+            })
+            .run();
+        // An account's user presets are read when you ask, like migration 0102's (ADR-0019).
+        if (!isSlicerKind(adapter.kind))
+          for (const type of adapter.capabilities.filter(isUserPresetType))
+            db.insert(syncPolicies)
+              .values({
+                integrationId: row.id,
+                type,
+                ...defaultPolicy(type),
+                mode: accountMode(type),
+              })
+              .run();
+        return row.id;
+      });
+
     app.get("/", { schema: { response: { 200: z.array(integrationSchema) } } }, async (req) =>
       db
         .select()
@@ -437,47 +532,12 @@ export const integrationsRoutes =
                 printer,
               )
             : undefined;
-        const id = db.transaction(() => {
-          const row = db.insert(integrations).values(values).returning().get();
-          writeSecrets(db, key, row.id, plain as Record<string, string>);
-          if (found && printer) {
-            const printerId = linkNetworkPrinter(
-              db,
-              syncer.adapters,
-              row.id,
-              found,
-              printer,
-              printerName,
-            );
-            db.update(integrations)
-              .set({ config: withoutSerial(adapter, values.config, printerId) })
-              .where(eq(integrations.id, row.id))
-              .run();
-          }
-          // Spool weights from a vendor are estimates: not tracked until you opt in. Without a
-          // row a type follows `defaultPolicy`, so integrations added before keep their setting.
-          if (adapter.capabilities.includes("spools"))
-            db.insert(syncPolicies)
-              .values({
-                integrationId: row.id,
-                type: "spools",
-                ...defaultPolicy("spools"),
-                trackUsage: false,
-              })
-              .run();
-          // An account's user presets are read when you ask, like migration 0102's (ADR-0019).
-          if (!isSlicerKind(adapter.kind))
-            for (const type of adapter.capabilities.filter(isUserPresetType))
-              db.insert(syncPolicies)
-                .values({
-                  integrationId: row.id,
-                  type,
-                  ...defaultPolicy(type),
-                  mode: accountMode(type),
-                })
-                .run();
-          return row.id;
-        });
+        const id = insertIntegration(
+          adapter,
+          values,
+          plain as Record<string, string>,
+          found && printer ? { found, printer, printerName } : undefined,
+        );
         if (deviceId) workers.syncWorker(deviceId);
         return reply.status(201).send(toApi(get(id)));
       },
@@ -819,6 +879,97 @@ export const integrationsRoutes =
         ) as Record<string, string>;
         if (deviceId !== (saved?.deviceId ?? null)) mayPickMachine(req);
         return probe(adapter, config, keys, deviceId, printer, saved);
+      },
+    );
+
+    /**
+     * A new account signs in before it is saved (6.1.0 Step 10c): the config and email + password
+     * start it, a challenge is kept against a short-lived opaque token, and the token with the code
+     * finishes it. Only a sign-in that went through creates the row; a failure, a cancel or an
+     * expired token saves nothing.
+     */
+    app.post(
+      "/login",
+      {
+        schema: {
+          body: newLoginInputSchema,
+          response: { 200: newLoginResultSchema, 409: apiErrorSchema },
+        },
+      },
+      async (req): Promise<NewLoginResult> => {
+        const now = Date.now();
+        for (const [token, p] of pendingNew) if (p.expires < now) pendingNew.delete(token);
+        let start: { adapterId: string; config: unknown };
+        let input: LoginInput;
+        let token: string | undefined;
+        if ("token" in req.body) {
+          token = req.body.token;
+          const pending = pendingNew.get(token);
+          if (!pending)
+            throw new HttpError(409, "login_not_started", "Sign in with email and password first");
+          start = pending;
+          input = { code: req.body.code, state: pending.state };
+        } else {
+          const { adapterId, config, email, password } = req.body;
+          start = { adapterId, config };
+          input = { email, password };
+        }
+        const adapter = adapterOf(start.adapterId);
+        const login = adapter.login;
+        if (!login) throw new HttpError(400, "login_unsupported", "No sign-in for this adapter");
+        const config = parse(adapter.configSchema, start.config, "invalid_config");
+        usageTargetExists(adapter);
+        const log = req.log.child({ adapterId: adapter.id });
+        try {
+          const signal = AbortSignal.timeout(LOGIN_TIMEOUT_MS);
+          const step = await login({ config, log, signal }, input);
+          if ("challenge" in step) {
+            token ??= randomBytes(24).toString("base64url");
+            pendingNew.set(token, {
+              adapterId: adapter.id,
+              config,
+              state: step.state,
+              expires: Date.now() + LOGIN_TTL_MS,
+            });
+            return { status: "challenge", challenge: step.challenge, token };
+          }
+          if (token) pendingNew.delete(token);
+          const profile = await profileOf(adapter, config, step.secrets, log);
+          const email = profile?.email?.toLowerCase();
+          const twice =
+            email &&
+            db
+              .select()
+              .from(integrations)
+              .where(eq(integrations.adapterId, adapter.id))
+              .all()
+              .some((r) => accountConfigOf(r.config).email?.toLowerCase() === email);
+          if (twice)
+            throw new HttpError(409, "integration_exists", "This account is already set up");
+          const id = insertIntegration(
+            adapter,
+            {
+              adapterId: adapter.id,
+              config: {
+                ...(config as object),
+                ...(profile && {
+                  email: profile.email,
+                  name: profile.name,
+                  avatarUrl: profile.avatarUrl,
+                }),
+              },
+            },
+            step.secrets,
+          );
+          // Import the printers right away; the card shows "syncing", failures land in the sync log.
+          syncer.run(id, "manual", { type: "printers" }).catch(() => {});
+          return { status: "ok", integration: toApi(get(id)) };
+        } catch (e) {
+          if (e instanceof HttpError) throw e;
+          if (e instanceof IntegrationError) return { status: "error", code: e.code };
+          log.warn({ err: e }, "sign-in failed");
+          return { status: "error", code: "unknown" };
+        }
       },
     );
 

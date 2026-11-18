@@ -39,7 +39,8 @@ test("Remove integration removes the card after a confirmation", async ({ page }
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.waitForURL(/\/integrations#integration-/);
 
-  await page.getByRole("button", { name: /^More actions for Demo data/ }).click();
+  // The ⋯ menu is a <summary>: found by its label, it has no button role.
+  await page.getByLabel("More actions for Demo data (mock)", { exact: true }).click();
   await page.getByRole("button", { name: "Remove integration" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Stays: imported printers, prints and spools");

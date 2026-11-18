@@ -12,6 +12,8 @@ import {
   isSlicerKind,
   type LoginRequest,
   type LoginResult,
+  type NewLoginRequest,
+  type NewLoginResult,
   pickSlicer,
   type SlicerCheck,
   type SlicerInstallStatus,
@@ -428,5 +430,15 @@ export const useRemoveSlicer = (id: string) =>
 export const useLogin = (id: string) =>
   useInvalidating(
     (v: LoginRequest) => api<LoginResult>("POST", `/api/integrations/${id}/login`, v),
+    true,
+  );
+
+/**
+ * A new account's sign-in (6.1.0 Step 10c): the account is created only when it goes through.
+ * A challenge answers a token, sent back with the code.
+ */
+export const useNewLogin = () =>
+  useInvalidating(
+    (v: NewLoginRequest) => api<NewLoginResult>("POST", "/api/integrations/login", v),
     true,
   );

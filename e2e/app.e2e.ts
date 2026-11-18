@@ -217,6 +217,8 @@ test.describe("responsive", () => {
     ["desktop", 1440, 900],
   ] as const) {
     test(`no horizontal scroll at ${name}`, async ({ page, app }) => {
+      // Every route waits for the network to settle (~0.7 s each): 30 routes don't fit in 30 s.
+      test.slow();
       await seedPrinter(app.api);
       await seedSpool(app.api);
       await page.setViewportSize({ width, height });
