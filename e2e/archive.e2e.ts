@@ -103,7 +103,7 @@ const MODULES: {
   { module: "printers", list: "/printers", name: /Test Printer/, seed: (api) => seedPrinter(api) },
   {
     module: "maintenance",
-    list: "/maintenance",
+    list: "/printers/maintenance",
     name: /Clean nozzle/,
     seed: (api) =>
       api("POST", "/api/maintenance/types", {
@@ -431,8 +431,9 @@ test("archived printers and accessories are marked where they show", async ({ pa
   await expect(badge(page)).toBeVisible();
 
   // Their own rows under Show archived, and their pages.
-  await page.goto("/printers?archived=all&accessories.archived=all");
+  await page.goto("/printers?archived=all");
   await expect(badge(page.getByRole("row", { name: /Test Printer/ }))).toBeVisible();
+  await page.goto("/printers/accessories?accessories.archived=all");
   await expect(badge(page.getByRole("row", { name: /AMS/ }))).toBeVisible();
   await page.goto(`/printers/${printer.id}`);
   await expect(badge(page.locator("header"))).toBeVisible();

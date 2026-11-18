@@ -13,7 +13,6 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
-import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { textLink } from "../../lib/cx.ts";
 import { dateInputToIso, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
@@ -155,7 +154,8 @@ export function LogDialog({
   );
 }
 
-export function MaintenancePage() {
+/** The Maintenance tab of Printers (6.1.0 Step 25): what is due, log done and the tasks. */
+export function MaintenanceTab() {
   const { t, i18n } = useTranslation();
   const due = useDue();
   const [query, setQuery] = useUrlListQuery();
@@ -181,10 +181,6 @@ export function MaintenancePage() {
 
   return (
     <>
-      <PageHeader
-        title={t("nav:items.maintenance.label")}
-        description={t("nav:items.maintenance.description")}
-      />
       {(due.isError || types.isError) && (
         <p role="alert" className="text-bad">
           {t("maintenance:loadError")}

@@ -159,7 +159,7 @@ test("README screenshots", async ({ page, app }) => {
     ["printers", "/printers"],
     ["printer", `/printers/${mockPrinter?.id ?? printer.id}`],
     ["accessory", `/printers/accessories/${ams.id}`],
-    ["maintenance", "/maintenance"],
+    ["maintenance", "/printers/maintenance"],
     ["maintenance-type", `/maintenance/types/${type.id}`],
     ["filament", "/filament"],
     ["spool", `/filament/spools/${spools[0]?.id}`],

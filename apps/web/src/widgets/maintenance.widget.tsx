@@ -25,7 +25,7 @@ defineWidget({
       <WidgetCard
         title={t("dashboard:widgets.maintenanceDue")}
         more={
-          <Link to="/maintenance" className={textLink}>
+          <Link to="/printers/maintenance" className={textLink}>
             {t("dashboard:viewAll")}
           </Link>
         }

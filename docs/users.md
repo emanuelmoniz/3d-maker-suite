@@ -28,12 +28,12 @@ Editor and Viewer are ordinary roles: rename them, change their permissions, dis
 
 ### Permissions
 
-Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.
+Modules have four steps: **None** (hidden), **Read**, **Write** and **Manage**.  Printers and Accessories need Printers read, the Maintenance tab needs Maintenance read, so a role can have one without the other.
 
 | Module | Write | Manage |
 |---|---|---|
 | Printers and accessories | Log accessory installs | Add and edit printers and accessories |
-| Maintenance | Log work done | Edit the tasks and types |
+| Maintenance (a tab of Printers) | Log work done | Edit the tasks and types |
 | Filament | Add and edit spools | Archive and delete many spools at once |
 | Projects | Add and edit projects and their files | Set up the project folders |
 | Prints | Log and edit prints | Change print settings |

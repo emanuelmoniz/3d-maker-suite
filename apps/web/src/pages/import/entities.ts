@@ -35,12 +35,12 @@ export const ENTITIES: Record<ImportEntity, { label: string; to: string; view: s
   orders: { label: "import:entities.orders", to: "/orders", view: "import:done.viewOrders" },
   maintenanceTypes: {
     label: "import:entities.maintenanceTypes",
-    to: "/maintenance",
+    to: "/printers/maintenance",
     view: "import:done.viewMaintenance",
   },
   maintenance: {
     label: "import:entities.maintenance",
-    to: "/maintenance",
+    to: "/printers/maintenance",
     view: "import:done.viewMaintenance",
   },
   orderProjects: {

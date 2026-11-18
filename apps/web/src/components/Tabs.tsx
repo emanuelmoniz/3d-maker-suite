@@ -30,7 +30,7 @@ export function Tabs({ label, items }: { label: string; items: TabItem[] }) {
         <Link
           key={String(i.to)}
           to={i.to}
-          activeOptions={{ exact: i.exact ?? false }}
+          activeOptions={{ exact: i.exact ?? false, includeSearch: false }}
           className="-mb-px inline-flex min-h-10 shrink-0 items-center whitespace-nowrap border-b-2 border-transparent px-1 font-medium text-muted hover:text-fg focus-visible:rounded-sm data-[status=active]:border-accent data-[status=active]:text-fg"
         >
           {i.label}

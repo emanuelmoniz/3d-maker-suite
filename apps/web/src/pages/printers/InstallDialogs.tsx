@@ -66,7 +66,9 @@ export function InstallDialog({
 }) {
   const { t } = useTranslation();
   const install = useInstall();
-  const [pick, setPick] = useState(options[0]?.value ?? "");
+  const [picked, setPick] = useState("");
+  // The options can load after the dialog opens: until one is picked, the first is selected.
+  const pick = options.some((o) => o.value === picked) ? picked : (options[0]?.value ?? "");
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState("");
   const onPrinter = printerId !== undefined;

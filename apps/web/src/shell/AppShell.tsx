@@ -56,14 +56,17 @@ function SideLink({ item }: { item: NavItem }) {
   const { t } = useTranslation();
   const Icon = item.icon;
   // A sub-page of a Settings tab keeps its own address (`/integrations/new`) but is still Settings.
-  const underSettings = useRouterState({
-    select: (s) => item === SETTINGS_ITEM && SETTINGS_SUB_PAGES.test(s.location.pathname),
+  const underItem = useRouterState({
+    select: (s) =>
+      item === SETTINGS_ITEM
+        ? SETTINGS_SUB_PAGES.test(s.location.pathname)
+        : !!item.alsoActive?.test(s.location.pathname),
   });
   return (
     <Link
       to={item.to}
       activeOptions={{ exact: item.to === "/" }}
-      data-status={underSettings ? "active" : undefined}
+      data-status={underItem ? "active" : undefined}
       className={linkClass}
       title={t(item.label)}
     >

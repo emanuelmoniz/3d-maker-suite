@@ -31,7 +31,7 @@ export function TypeDetailPage() {
       <PageHeader
         title={type.name}
         description={type.description ?? undefined}
-        backTo={{ to: "/maintenance" }}
+        backTo={{ to: "/printers/maintenance" }}
         actions={
           <Write can="maintenance" level="manage">
             <Link to="/maintenance/types/$id/edit" params={{ id }} className={linkButton}>
@@ -41,7 +41,7 @@ export function TypeDetailPage() {
               path={`/api/maintenance/types/${id}`}
               name={type.name}
               archived={archived}
-              onDeleted={() => navigate({ to: "/maintenance" })}
+              onDeleted={() => navigate({ to: "/printers/maintenance" })}
             />
           </Write>
         }

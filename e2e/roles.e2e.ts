@@ -285,3 +285,64 @@ test("filament catalog rows follow the catalog permission, not the filament one"
   await page.getByRole("link", { name: "Acme" }).click();
   await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
 });
+
+test("maintenance is a tab of Printers, shown by its own permission", async ({ page }) => {
+  await page.goto("/");
+  await post(page, "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password: PASSWORD,
+  });
+  const type = await post(page, "/api/maintenance/types", {
+    name: "Clean nozzle",
+    target: "printer",
+    intervalDays: 30,
+  });
+
+  // The old page and an old link land on the tab; the sidebar has no Maintenance item.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/maintenance?name=nozzle#tasks");
+  await expect(page).toHaveURL(/\/printers\/maintenance\?name=nozzle#tasks$/);
+  const sidebar = page.getByRole("navigation", { name: "Main navigation" });
+  await expect(sidebar.getByRole("link", { name: "Maintenance" })).toHaveCount(0);
+  const tabs = page.getByRole("navigation", { name: "Printers, accessories and maintenance" });
+  await expect(tabs.getByRole("link", { name: "Maintenance" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  // A task page keeps its address and Printers stays highlighted.
+  await page.goto(`/maintenance/types/${type.id}`);
+  await expect(sidebar.getByRole("link", { name: "Printers" })).toHaveAttribute(
+    "data-status",
+    "active",
+  );
+
+  const only = async (name: string, permissions: Record<string, string>, email: string) => {
+    const role = await post(page, "/api/roles", { name, permissions });
+    await post(page, "/api/users", {
+      displayName: name,
+      email,
+      password: PASSWORD,
+      roleId: role.id,
+    });
+    await signInAs(page, email);
+  };
+
+  // Only `maintenance` read: Printers opens on the Maintenance tab and has no other.
+  await only("Tech", { printers: "none", maintenance: "read" }, "tech@example.com");
+  await page.goto("/printers");
+  await expect(page).toHaveURL(/\/printers\/maintenance$/);
+  const techTabs = page.getByRole("navigation", { name: "Printers, accessories and maintenance" });
+  await expect(techTabs.getByRole("link")).toHaveCount(1);
+
+  // Only `printers` read: no Maintenance tab, and its address goes to the printers.
+  await signInAs(page, "ana@example.com");
+  await only("Looker", { printers: "read", maintenance: "none" }, "look@example.com");
+  await page.goto("/printers/maintenance");
+  await expect(page).toHaveURL(/\/printers$/);
+  await expect(
+    page
+      .getByRole("navigation", { name: "Printers, accessories and maintenance" })
+      .getByRole("link", { name: "Maintenance" }),
+  ).toHaveCount(0);
+});

@@ -67,7 +67,9 @@ function TypeForm({ type }: { type?: MaintenanceType }) {
     (type ? patch.mutateAsync({ id: type.id, patch: body }) : create.mutateAsync(body))
       .then(() =>
         navigate(
-          type ? { to: "/maintenance/types/$id", params: { id: type.id } } : { to: "/maintenance" },
+          type
+            ? { to: "/maintenance/types/$id", params: { id: type.id } }
+            : { to: "/printers/maintenance" },
         ),
       )
       .catch(() => {}); // errors show via the mutation state
@@ -217,7 +219,10 @@ export function TypeCreatePage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("maintenance:types.addTitle")} backTo={{ to: "/maintenance" }} />
+      <PageHeader
+        title={t("maintenance:types.addTitle")}
+        backTo={{ to: "/printers/maintenance" }}
+      />
       <TypeForm />
     </>
   );

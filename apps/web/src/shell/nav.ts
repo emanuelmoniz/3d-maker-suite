@@ -12,7 +12,6 @@ import {
   Settings,
   Spool,
   Users,
-  Wrench,
 } from "lucide-react";
 
 export type NavItem = {
@@ -24,6 +23,8 @@ export type NavItem = {
   primary?: boolean;
   /** Only for who may read this part of the data (the `catalog` permission). */
   needsRead?: "catalog";
+  /** Pages with their own address that still belong to this item (it stays highlighted). */
+  alsoActive?: RegExp;
 };
 
 // i18n keys are written out in full so `pnpm i18n:check` can see them.
@@ -48,12 +49,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Printer,
         label: "nav:items.printers.label",
         description: "nav:items.printers.description",
-      },
-      {
-        to: "/maintenance",
-        icon: Wrench,
-        label: "nav:items.maintenance.label",
-        description: "nav:items.maintenance.description",
+        // Maintenance is a tab of Printers (6.1.0 Step 25); its task pages keep /maintenance/.
+        alsoActive: /^\/maintenance\//,
       },
       {
         to: "/filament",

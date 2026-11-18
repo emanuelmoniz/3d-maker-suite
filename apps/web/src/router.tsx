@@ -31,7 +31,6 @@ import { SlicerZipPage } from "./pages/import/SlicerZipPage.tsx";
 import { SourceReviewPage } from "./pages/import/SourceReviewPage.tsx";
 import { LogsPage } from "./pages/LogsPage.tsx";
 import { ModulePage } from "./pages/ModulePage.tsx";
-import { MaintenancePage } from "./pages/maintenance/MaintenancePage.tsx";
 import { TypeDetailPage } from "./pages/maintenance/TypeDetailPage.tsx";
 import { TypeCreatePage, TypeEditPage } from "./pages/maintenance/TypeFormPage.tsx";
 import { OrderDetailPage } from "./pages/orders/OrderDetailPage.tsx";
@@ -111,7 +110,6 @@ const built = [
   "/",
   SETTINGS_ITEM.to,
   "/printers",
-  "/maintenance",
   "/filament",
   "/catalog",
   "/prints",
@@ -142,6 +140,7 @@ const printerRoute = (
     loader: () =>
       Promise.all([
         loadNamespace("printers"),
+        loadNamespace("maintenance"),
         loadNamespace("settings"),
         loadNamespace("tags"),
         // The catalog forms' locked names.
@@ -319,11 +318,18 @@ const routes: AnyRoute[] = [
   printerRoute("/printers/accessories/$id/edit", AccessoryEditPage),
   printerRoute("/printers/$id", PrinterDetailPage),
   printerRoute("/printers/$id/edit", PrinterEditPage),
+  printerRoute("/printers/maintenance", () => <PrintersPage tab="maintenance" />),
+  // Maintenance was a page of its own before 6.1.0 Step 25: it is a tab of Printers now.
   createRoute({
     getParentRoute: () => root,
     path: "/maintenance",
-    loader: () => loadNamespace("maintenance"),
-    component: MaintenancePage,
+    beforeLoad: ({ location }) => {
+      throw redirect({
+        to: "/printers/maintenance",
+        search: location.search as never,
+        hash: location.hash,
+      });
+    },
   }),
   createRoute({
     getParentRoute: () => root,

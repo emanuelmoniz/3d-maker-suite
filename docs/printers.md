@@ -1,6 +1,8 @@
 # Printers and maintenance
 
-The **Printers** page has two tabs: **Printers** (`/printers`) and **Accessories** (`/printers/accessories`). Each tab has its own add button (**Add printer** with **Sync**, or **Add accessory**), and the title and the gear stay on both. The Accessories tab lists every accessory with its type, state, printer and usage; it keeps the filters, sorting and archive of the table it replaced. A saved link to the old accessories filters on `/printers` lands on the tab.
+The **Printers** page has three tabs: **Printers** (`/printers`), **Accessories** (`/printers/accessories`) and **Maintenance** (`/printers/maintenance`). Printers and Accessories show with `printers` read, Maintenance with `maintenance` read; someone with only one of them opens Printers on the tab they can read. The title and the gear stay on every tab. The Printers and Accessories tabs each have their own add button (**Add printer** with **Sync**, or **Add accessory**). The Accessories tab lists every accessory with its type, state, printer and usage; it keeps the filters, sorting and archive of the table it replaced. A saved link to the old accessories filters on `/printers` lands on that tab.
+
+The **Maintenance** tab has what is due (with **Log done**) and the maintenance tasks with **Add task**. It used to be a page of its own in the sidebar; `/maintenance` and old links land on the tab. A task keeps its page (`/maintenance/types/<id>`) and its back link goes to the tab.
 
 A printer's or accessory's usage is its print hours and print count: the prints logged on it (an accessory counts the prints of the printers it was installed on, while it was on them) plus any corrections. Maintenance due dates count from that usage.
 

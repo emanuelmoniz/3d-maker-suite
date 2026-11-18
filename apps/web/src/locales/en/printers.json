@@ -7,9 +7,10 @@
     "retired": "Retired"
   },
   "tabs": {
-    "label": "Printers and accessories",
+    "label": "Printers, accessories and maintenance",
     "printers": "Printers",
-    "accessories": "Accessories"
+    "accessories": "Accessories",
+    "maintenance": "Maintenance"
   },
   "list": {
     "add": "Add printer",

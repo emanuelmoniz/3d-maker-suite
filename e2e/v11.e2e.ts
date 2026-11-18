@@ -110,7 +110,7 @@ test("maintenance task for models and a specific printer shows on each matching 
   await page.getByLabel("Only for printers").fill("Beta");
   await page.getByRole("button", { name: "Beta" }).click();
   await page.getByRole("button", { name: "Save task" }).click();
-  await expect(page).toHaveURL(/\/maintenance$/);
+  await expect(page).toHaveURL(/\/printers\/maintenance$/);
   const due = page.getByRole("table", { name: "Maintenance due" });
   await expect(due.getByRole("cell", { name: "Alpha" })).toBeVisible();
   await expect(due.getByRole("cell", { name: "Beta" })).toBeVisible();

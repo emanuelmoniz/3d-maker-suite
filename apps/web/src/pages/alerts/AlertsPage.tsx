@@ -270,7 +270,7 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "maintenance_due":
       return (
-        <Link to="/maintenance" className={textLink}>
+        <Link to="/printers/maintenance" className={textLink}>
           {text}
         </Link>
       );

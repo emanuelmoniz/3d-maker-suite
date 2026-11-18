@@ -74,7 +74,10 @@ const DEPENDENTS: Record<DependentType, { key: string; to?: string }> = {
     to: "/maintenance/types/$id",
   },
   // A logged task has no page of its own.
-  maintenanceTask: { key: "common:archive.dependents.maintenanceTask", to: "/maintenance" },
+  maintenanceTask: {
+    key: "common:archive.dependents.maintenanceTask",
+    to: "/printers/maintenance",
+  },
   filamentPreset: {
     key: "common:archive.dependents.filamentPreset",
     to: "/catalog/filament-presets/$id",

@@ -98,7 +98,7 @@ test("accessory usage and maintenance: due from its prints, logging resets it", 
   await page.getByLabel("Only for accessory types").fill("AM");
   await page.getByRole("button", { name: "AMS" }).click();
   await page.getByRole("button", { name: "Save task" }).click();
-  await expect(page).toHaveURL(/\/maintenance$/);
+  await expect(page).toHaveURL(/\/printers\/maintenance$/);
 
   const row = page
     .getByRole("table", { name: "Maintenance due" })
@@ -114,7 +114,7 @@ test("printers page: accessories have their own tab, old filter links land on it
   page,
 }) => {
   await page.goto("/printers");
-  const tabs = page.getByRole("navigation", { name: "Printers and accessories" });
+  const tabs = page.getByRole("navigation", { name: "Printers, accessories and maintenance" });
   await expect(tabs.getByRole("link", { name: "Printers" })).toHaveAttribute(
     "aria-current",
     "page",
