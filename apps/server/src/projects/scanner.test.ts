@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testTimeout } from "../../../../test-timeout.ts";
 import { buildApp } from "../app.ts";
 import { setRoots } from "../testRoots.ts";
 
@@ -53,47 +54,67 @@ afterEach(async () => {
 });
 
 describe("project watcher", () => {
-  it("one click is one pass, even if another request arrives while it runs", async () => {
-    await app.inject({ method: "POST", url: "/api/projects/scan" });
-    await app.inject({ method: "POST", url: "/api/projects/scan" });
-    await idle();
-    await settle();
-    expect(scanned.sort()).toEqual([join(root(), "A"), join(root(), "B")]);
-  }, 15_000);
+  it(
+    "one click is one pass, even if another request arrives while it runs",
+    async () => {
+      await app.inject({ method: "POST", url: "/api/projects/scan" });
+      await app.inject({ method: "POST", url: "/api/projects/scan" });
+      await idle();
+      await settle();
+      expect(scanned.sort()).toEqual([join(root(), "A"), join(root(), "B")]);
+    },
+    testTimeout(15_000),
+  );
 
-  it("a change scans only the project folder it is in", async () => {
-    await put("A/extra.stl");
-    await settle();
-    expect(scanned).toEqual([join(root(), "A")]);
-  }, 15_000);
+  it(
+    "a change scans only the project folder it is in",
+    async () => {
+      await put("A/extra.stl");
+      await settle();
+      expect(scanned).toEqual([join(root(), "A")]);
+    },
+    testTimeout(15_000),
+  );
 
-  it("a change deeper than the root's files depth scans nothing", async () => {
-    await put("A/x/y/deep.stl"); // files depth 1: A/x is listed, A/x/y is not
-    await settle();
-    expect(scanned).toEqual([]);
-    await put("A/x/ok.stl");
-    await settle();
-    expect(scanned).toEqual([join(root(), "A")]);
-  }, 20_000);
+  it(
+    "a change deeper than the root's files depth scans nothing",
+    async () => {
+      await put("A/x/y/deep.stl"); // files depth 1: A/x is listed, A/x/y is not
+      await settle();
+      expect(scanned).toEqual([]);
+      await put("A/x/ok.stl");
+      await settle();
+      expect(scanned).toEqual([join(root(), "A")]);
+    },
+    testTimeout(20_000),
+  );
 
-  it("a new folder is picked up without re-scanning the others", async () => {
-    await put("C/c.stl");
-    await settle();
-    expect(scanned).toEqual([join(root(), "C")]);
-    const items = (await app.inject("/api/projects?sort=name")).json().items;
-    expect(items.map((p: { name: string }) => p.name)).toEqual(["A", "B", "C"]);
-  }, 15_000);
+  it(
+    "a new folder is picked up without re-scanning the others",
+    async () => {
+      await put("C/c.stl");
+      await settle();
+      expect(scanned).toEqual([join(root(), "C")]);
+      const items = (await app.inject("/api/projects?sort=name")).json().items;
+      expect(items.map((p: { name: string }) => p.name)).toEqual(["A", "B", "C"]);
+    },
+    testTimeout(15_000),
+  );
 
-  it("a write made by the app scans its folder once", async () => {
-    const { id } = (await app.inject("/api/projects?sort=name")).json().items[0];
-    const up = await app.inject({
-      method: "PUT",
-      url: `/api/projects/${id}/files/content?path=notes.txt`,
-      payload: "hi",
-      headers: { "content-type": "application/octet-stream" },
-    });
-    expect(up.statusCode).toBe(201);
-    await settle();
-    expect(scanned).toEqual([join(root(), "A")]);
-  }, 15_000);
+  it(
+    "a write made by the app scans its folder once",
+    async () => {
+      const { id } = (await app.inject("/api/projects?sort=name")).json().items[0];
+      const up = await app.inject({
+        method: "PUT",
+        url: `/api/projects/${id}/files/content?path=notes.txt`,
+        payload: "hi",
+        headers: { "content-type": "application/octet-stream" },
+      });
+      expect(up.statusCode).toBe(201);
+      await settle();
+      expect(scanned).toEqual([join(root(), "A")]);
+    },
+    testTimeout(15_000),
+  );
 });

@@ -26,6 +26,7 @@ import {
 } from "@3d-maker-suite/core";
 import { openDb } from "@3d-maker-suite/db";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { buildApp } from "./app.ts";
 import { applyPendingRestore } from "./backup/backup.ts";
 import { modelIdFor } from "./lib/catalog.ts";
@@ -50,7 +51,7 @@ vi.mock("nodemailer", () => ({
 }));
 
 // Real data has hundreds of rows per list, and a real slicer run takes its time.
-if (REAL_DB) vi.setConfig({ testTimeout: 300_000, hookTimeout: 120_000 });
+if (REAL_DB) vi.setConfig({ testTimeout: testTimeout(300_000), hookTimeout: testTimeout(120_000) });
 
 /** This machine's Bambu Studio, used only with real data: its presets differ per machine. */
 const STUDIO = "C:\\Program Files\\Bambu Studio\\bambu-studio.exe";

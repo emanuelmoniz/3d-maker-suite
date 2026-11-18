@@ -3820,7 +3820,7 @@ Do Step 10b of the 6.1.0 plan in PLAN.md.
 Do Step 10c of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10d - TEST_TIMEOUT reaches e2e and every unit test
+### [x] Step 10d - TEST_TIMEOUT reaches e2e and every unit test
 **Model:** Sonnet · **Effort:** Low
 **Why:** `TEST_TIMEOUT` (the standing test rule) only reaches vitest's defaults. Playwright ignores it, so "timeouts removed" still left e2e at 30 s per test and 5 s per check (Step 10c's runs). A test with its own limit ignores it too: `apps/connector/src/hub.test.ts:516` timed out at its hard-coded 120 s with `TEST_TIMEOUT=0`.
 **Scope:**

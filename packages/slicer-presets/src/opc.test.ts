@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { crc32 } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { cliSlicer, slicerPresetLibrary, systemPresets } from "./index.ts";
 import { opcStamp, parseOpc } from "./opc.ts";
 
@@ -343,17 +344,21 @@ describe("a config folder with caches", () => {
 // The check for each Orca release (CONTRIBUTING): the real files of this machine, when it has them.
 const real = join(process.env.APPDATA ?? "", "OrcaSlicer");
 describe.skipIf(!existsSync(join(real, "system")))("this machine's OrcaSlicer", () => {
-  it("reads every cache, and every filament finds its material and brand", async () => {
-    const warn = vi.mocked(console.warn);
-    const { models, machines, processes } = (await library().readCatalog?.(real)) ?? {};
-    expect(models?.length).toBeGreaterThan(50);
-    expect(machines?.length).toBeGreaterThan(50);
-    expect(processes?.length).toBeGreaterThan(50);
-    const filaments = await library().read(real, { includeSystem: true });
-    const system = filaments.filter((f) => f.scope === "system");
-    expect(system.length).toBeGreaterThan(50);
-    expect(system.filter((f) => !f.material)).toEqual([]);
-    expect(warn).not.toHaveBeenCalled();
-    expect(await library().catalogFingerprint?.(real)).toContain("BBL=");
-  }, 60_000);
+  it(
+    "reads every cache, and every filament finds its material and brand",
+    async () => {
+      const warn = vi.mocked(console.warn);
+      const { models, machines, processes } = (await library().readCatalog?.(real)) ?? {};
+      expect(models?.length).toBeGreaterThan(50);
+      expect(machines?.length).toBeGreaterThan(50);
+      expect(processes?.length).toBeGreaterThan(50);
+      const filaments = await library().read(real, { includeSystem: true });
+      const system = filaments.filter((f) => f.scope === "system");
+      expect(system.length).toBeGreaterThan(50);
+      expect(system.filter((f) => !f.material)).toEqual([]);
+      expect(warn).not.toHaveBeenCalled();
+      expect(await library().catalogFingerprint?.(real)).toContain("BBL=");
+    },
+    testTimeout(60_000),
+  );
 });

@@ -2,6 +2,7 @@ import { type CostContext, computeCost, type PrintDetail, type Stats } from "@3d
 import { openDb, schema, seed } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { buildApp } from "./app.ts";
 
 const NOW = new Date("2026-06-01T12:00:00Z");
@@ -241,32 +242,36 @@ describe("stats", () => {
     expect(lines.at(-1)).toMatch(new RegExp(`^total,${filtered.totals.prints},`));
   });
 
-  it("answers every view quickly with 10k prints", async () => {
-    const { app, db } = await setup(10_000);
-    const [printer] = db.select().from(schema.printers).all();
-    const [tag] = db.select().from(schema.tags).all();
-    const [spool] = db.select().from(schema.spools).all();
-    const views = {
-      all: "",
-      "last 30 days": "?from=2026-05-02",
-      printer: `?printerId=${printer?.id}`,
-      "spool + month": `?spoolId=${spool?.id}&bucket=month`,
-      "outcome + week": "?outcome=failed&bucket=week",
-      tag: `?bucket=month&tagId=${tag?.id}`,
-    };
-    const times: string[] = [];
-    for (const [name, query] of Object.entries(views)) {
-      const t0 = performance.now();
-      const stats = await get(app, query);
-      const ms = performance.now() - t0;
-      times.push(`${name}: ${ms.toFixed(0)} ms`);
-      expect(stats.totals).toBeDefined();
-      // ponytail: wall-clock budget for shared CI runners (local ~300 ms, CI saw ~725 ms); catches order-of-magnitude regressions only.
-      // Skipped with TEST_TIMEOUT set: a slow or busy machine runs it several times slower.
-      if (!process.env.TEST_TIMEOUT) expect(ms).toBeLessThan(1500);
-    }
-    expect((await get(app)).totals.prints).toBe(10_000);
-    expect((await get(app, `?tagId=${tag?.id}`)).totals.prints).toBeGreaterThan(900);
-    console.info(`stats with 10k prints -> ${times.join(", ")}`);
-  }, 60_000);
+  it(
+    "answers every view quickly with 10k prints",
+    async () => {
+      const { app, db } = await setup(10_000);
+      const [printer] = db.select().from(schema.printers).all();
+      const [tag] = db.select().from(schema.tags).all();
+      const [spool] = db.select().from(schema.spools).all();
+      const views = {
+        all: "",
+        "last 30 days": "?from=2026-05-02",
+        printer: `?printerId=${printer?.id}`,
+        "spool + month": `?spoolId=${spool?.id}&bucket=month`,
+        "outcome + week": "?outcome=failed&bucket=week",
+        tag: `?bucket=month&tagId=${tag?.id}`,
+      };
+      const times: string[] = [];
+      for (const [name, query] of Object.entries(views)) {
+        const t0 = performance.now();
+        const stats = await get(app, query);
+        const ms = performance.now() - t0;
+        times.push(`${name}: ${ms.toFixed(0)} ms`);
+        expect(stats.totals).toBeDefined();
+        // ponytail: wall-clock budget for shared CI runners (local ~300 ms, CI saw ~725 ms); catches order-of-magnitude regressions only.
+        // Skipped with TEST_TIMEOUT set: a slow or busy machine runs it several times slower.
+        if (!process.env.TEST_TIMEOUT) expect(ms).toBeLessThan(1500);
+      }
+      expect((await get(app)).totals.prints).toBe(10_000);
+      expect((await get(app, `?tagId=${tag?.id}`)).totals.prints).toBeGreaterThan(900);
+      console.info(`stats with 10k prints -> ${times.join(", ")}`);
+    },
+    testTimeout(60_000),
+  );
 });

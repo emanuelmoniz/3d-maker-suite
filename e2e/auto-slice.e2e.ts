@@ -1,5 +1,6 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
+import { testTimeout } from "../test-timeout.ts";
 import { expect, test } from "./fixtures.ts";
 import { addRoots, roots, savedRoots } from "./helpers.ts";
 
@@ -78,7 +79,7 @@ test("a changed file slices again; a new slot raises an alert that opens the pri
   // Same plates and slots, other bytes: the watcher's scan slices it again.
   copyFileSync(fixture("single_color"), file);
   await expect
-    .poll(async () => (await plate())?.result?.slicedAt, { timeout: 15_000 })
+    .poll(async () => (await plate())?.result?.slicedAt, { timeout: testTimeout(15_000, 0) })
     .not.toBe(first);
   expect(await plate()).toMatchObject({ state: "ok", job: null });
 
@@ -91,8 +92,8 @@ test("a changed file slices again; a new slot raises an alert that opens the pri
   });
   await expect(async () => {
     await page.reload();
-    await expect(alert).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15_000 });
+    await expect(alert).toBeVisible({ timeout: testTimeout(1000, 0) });
+  }).toPass({ timeout: testTimeout(15_000, 0) });
   expect((await plate())?.result).toBeNull();
   await alert.click();
   await page.getByRole("link", { name: "Open print setup" }).click();

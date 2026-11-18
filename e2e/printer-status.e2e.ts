@@ -1,10 +1,11 @@
+import { testTimeout } from "../test-timeout.ts";
 import { expect, test } from "./fixtures.ts";
 import { pick, seedSpool } from "./helpers.ts";
 
 // Plan 6.0.0 Step 3: the mock printer prints in a loop (here every 20 s); its card on the
 // dashboard and printer page shows it live, and each print it finishes lands in Prints.
 test("the mock printer shows live and its print lands when it ends", async ({ page, app }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(testTimeout(90_000, 0));
   const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
     config: { liveCycleSec: 20 },
@@ -15,8 +16,8 @@ test("the mock printer shows live and its print lands when it ends", async ({ pa
   await page.goto("/");
   const card = page.getByRole("article", { name: "01-Mock printer" });
   // The server looks for new sources every 10 s.
-  await expect(card).toBeVisible({ timeout: 20_000 });
-  await expect(card.getByText("Printing")).toBeVisible({ timeout: 25_000 });
+  await expect(card).toBeVisible({ timeout: testTimeout(20_000, 0) });
+  await expect(card.getByText("Printing")).toBeVisible({ timeout: testTimeout(25_000, 0) });
   const progress = card.getByRole("progressbar", { name: "Print progress" });
   await expect(progress).toHaveAttribute("aria-valuetext", /^Layer \d+ of 50$/);
   await expect(card.getByText(/left, done at/)).toBeVisible();
@@ -30,7 +31,7 @@ test("the mock printer shows live and its print lands when it ends", async ({ pa
         (await app.api<{ items: { title: string }[] }>("GET", "/api/prints")).items.filter(
           (p) => p.title === "Mock live print",
         ).length,
-      { timeout: 45_000 },
+      { timeout: testTimeout(45_000, 0) },
     )
     .toBeGreaterThan(0);
 
@@ -43,7 +44,7 @@ test("the mock printer shows live and its print lands when it ends", async ({ pa
 
 // Plan 6.0.0 Step 5: a red PLA spool loaded in slot 1 is charged for the mock's orange PLA print.
 test("a spool loaded in a slot is charged for the next print there", async ({ page, app }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(testTimeout(90_000, 0));
   const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "mock",
     config: { liveCycleSec: 20 },
@@ -62,7 +63,7 @@ test("a spool loaded in a slot is charged for the next print there", async ({ pa
   await pick(page.getByRole("combobox", { name: "Spool in Slot 1" }), 1);
   await expect.poll(async () => (await spoolOf()).loadedSlot).toBe(0);
   await expect
-    .poll(async () => (await spoolOf()).remainingGrams, { timeout: 60_000 })
+    .poll(async () => (await spoolOf()).remainingGrams, { timeout: testTimeout(60_000, 0) })
     .toBeLessThan(1000);
 
   // The spool page says where it is, and links back.

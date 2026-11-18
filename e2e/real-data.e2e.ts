@@ -1,10 +1,11 @@
 // A real server and browser on a sterile copy of real data; only runs when given one:
 //   REAL_DB=/path/app.sqlite pnpm exec playwright test real-data
 import type { Page } from "@playwright/test";
+import { testTimeout } from "../test-timeout.ts";
 import { expect, test } from "./fixtures.ts";
 
 test.skip(!process.env.REAL_DB, "needs REAL_DB");
-test.setTimeout(600_000);
+test.setTimeout(testTimeout(600_000, 0));
 
 const PASSWORD = "password123";
 const signIn = async (page: Page, name: string) => {
@@ -114,7 +115,7 @@ test("a manager bulk archives all the real prints from the browser; stats don't 
   await expect(page.getByText(`${count} selected`)).toBeVisible();
   await page.getByRole("button", { name: `Archive ${count}` }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Archive" }).click();
-  await expect.poll(() => total("archived=true"), { timeout: 120_000 }).toBe(count);
+  await expect.poll(() => total("archived=true"), { timeout: testTimeout(120_000, 0) }).toBe(count);
   expect(await total("archived=false")).toBe(0);
   expect(await stats()).toEqual(before);
 
@@ -124,6 +125,8 @@ test("a manager bulk archives all the real prints from the browser; stats don't 
   await page.getByRole("button", { name: `Restore ${count}` }).click();
   const confirm = page.getByRole("dialog").getByRole("button", { name: "Restore" });
   if (await confirm.isVisible()) await confirm.click();
-  await expect.poll(() => total("archived=false"), { timeout: 120_000 }).toBe(count);
+  await expect
+    .poll(() => total("archived=false"), { timeout: testTimeout(120_000, 0) })
+    .toBe(count);
   expect(await stats()).toEqual(before);
 });

@@ -26,6 +26,7 @@ import { loadKey, presetSha } from "@3d-maker-suite/host";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import yazl from "yazl";
+import { testTimeout } from "../../../test-timeout.ts";
 import { buildApp } from "./app.ts";
 import { keepPresets, linkLibraries } from "./integrations/managedSlicer.ts";
 import {
@@ -221,7 +222,7 @@ describe("user presets reach the catalog on their own (ADR-0019)", () => {
     await addSlicer("orca-slicer-server");
     await upload({ "user/default/filament/Zipped.json": preset("Zipped") });
     await vi.waitFor(() => expect(presets()).toMatchObject([{ name: "Zipped" }]), {
-      timeout: 5000,
+      timeout: testTimeout(5000),
     });
   });
 

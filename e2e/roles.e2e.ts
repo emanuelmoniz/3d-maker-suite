@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { testTimeout } from "../test-timeout.ts";
 import { expect, test } from "./fixtures.ts";
 import { editLine, lineMenu } from "./helpers.ts";
 
@@ -220,7 +221,9 @@ test("bulk needs manage: a write user gets no selection and the API refuses them
   const { id } = await post(page, "/api/clients", { name: "Bea", mobile: "911" });
   await expect(async () => {
     await page.goto("/clients");
-    await expect(page.getByRole("checkbox", { name: "Select Bea" })).toBeVisible({ timeout: 1000 });
+    await expect(page.getByRole("checkbox", { name: "Select Bea" })).toBeVisible({
+      timeout: testTimeout(1000, 0),
+    });
   }).toPass();
 
   const write = await post(page, "/api/roles", {

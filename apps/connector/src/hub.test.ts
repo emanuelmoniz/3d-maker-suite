@@ -1,3 +1,4 @@
+import { testTimeout } from "../../../test-timeout.ts";
 // A real connector link against a real hub (the server's buildApp on a free port).
 
 import { createHash } from "node:crypto";
@@ -432,239 +433,260 @@ describe("connector and hub", () => {
       return { h, c, device, root, projects };
     };
 
-    it("indexes a device root, updates after a save, and shows offline", async () => {
-      const { h, c, device, root, projects } = await setup();
+    it(
+      "indexes a device root, updates after a save, and shows offline",
+      async () => {
+        const { h, c, device, root, projects } = await setup();
 
-      // The folder browser goes through the connector.
-      const listed = (
-        await h.send("GET", `/api/fs/list?device=${device.id}&path=${encodeURIComponent(root)}`)
-      ).json();
-      expect(listed.entries.map((e: { name: string }) => e.name)).toEqual(["001_Box"]);
-      expect(
-        (
-          await h.send("POST", "/api/roots", { path: join(root, "nope"), location: device.id })
-        ).json().error.code,
-      ).toBe("invalid_folder");
-
-      const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
-      expect(added.statusCode).toBe(201);
-      expect(added.json()).toMatchObject({ location: device.id, state: "ok", deviceName: "WS-1" });
-      await until(() => c.link.roots.state().watching === 1);
-      await until(async () => (await projects()).length === 1);
-      const [p] = await projects();
-      expect(p).toMatchObject({ name: "Box", offline: false, meta: { multicolor: false } });
-      expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("ok");
-
-      // Plate previews came with the scan; the cover is the first plate's.
-      const entry = p.meta.models[0].plates[0].thumbnail;
-      const preview = async () =>
-        (await h.send("GET", `/api/projects/${p.id}/file?path=box.3mf&entry=${entry}`)).rawPayload;
-      const thumbnail = async () =>
-        (await h.send("GET", `/api/projects/${p.id}/thumbnail`)).rawPayload;
-      const first = await preview();
-      expect(first.subarray(1, 4).toString()).toBe("PNG");
-      expect(first.equals(await thumbnail())).toBe(true);
-
-      // A picked cover and gallery come from the device the same way; a pick over the caps is
-      // left out (shown while online, pulled).
-      writeFileSync(join(root, "001_Box", "photo.png"), "photo");
-      writeFileSync(join(root, "001_Box", "big.png"), Buffer.alloc(DEVICE_GALLERY_IMAGE_MAX + 1));
-      await until(async () => (await projects())[0].meta.files.length === 3, 15_000);
-      const image = (path: string) =>
-        h.send("GET", `/api/projects/${p.id}/files/image?path=${path}`);
-      expect((await image("big.png")).rawPayload.length).toBe(DEVICE_GALLERY_IMAGE_MAX + 1);
-      const picked = await h.send("PATCH", `/api/projects/${p.id}`, {
-        coverFile: "photo.png",
-        gallery: { folders: [], images: ["photo.png", "big.png"] },
-      });
-      expect(picked.statusCode).toBe(200);
-      await until(async () => (await thumbnail()).toString() === "photo", 15_000);
-      expect((await h.send("GET", `/api/projects/${p.id}`)).json().galleryLeftOut).toEqual([
-        "big.png",
-      ]);
-
-      // A slicer's save: write <file>.tmp, rename it over the file.
-      const file = join(root, "001_Box", "box.3mf");
-      copyFileSync(fixture("multi_color.3mf"), `${file}.tmp`);
-      renameSync(`${file}.tmp`, file);
-      await until(async () => (await projects())[0].meta.multicolor, 15_000);
-      const saved = await preview();
-      expect(saved.equals(first)).toBe(false);
-      expect((await thumbnail()).toString()).toBe("photo");
-
-      // The connector stops: last known data, offline.
-      c.link.close();
-      await until(async () => (await projects())[0].offline);
-      expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
-      expect((await h.send("GET", "/api/roots")).json()[0].state).toBe("offline");
-      expect((await preview()).equals(saved)).toBe(true);
-      expect((await image("photo.png")).rawPayload.toString()).toBe("photo");
-      expect((await h.send("GET", `/api/projects/${p.id}`)).json().galleryLeftOut).toEqual([
-        "big.png",
-      ]);
-      expect((await h.send("GET", `/api/fs/list?device=${device.id}`)).json().error.code).toBe(
-        "device_offline",
-      );
-
-      // Changed while it was stopped: caught up on the next connect.
-      mkdirSync(join(root, "002_Cup"));
-      copyFileSync(fixture("unsliced.3mf"), join(root, "002_Cup", "cup.3mf"));
-      const again = connector(c.dir);
-      again.link.start();
-      await until(async () => (await projects()).length === 2);
-      expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
-    }, 120_000);
-
-    it("lists any folder, adds project folders only inside the shared ones; an unshared root keeps its data", async () => {
-      const { h, c, device, root, projects } = await setup();
-      const outside = realpathSync(mkdtempSync(join(tmpdir(), "device-outside-")));
-      cleanup.push(() => rmSync(outside, { recursive: true, force: true }));
-      const list = async (path?: string) =>
-        (
-          await h.send(
-            "GET",
-            `/api/fs/list?device=${device.id}${path === undefined ? "" : `&path=${encodeURIComponent(path)}`}`,
-          )
+        // The folder browser goes through the connector.
+        const listed = (
+          await h.send("GET", `/api/fs/list?device=${device.id}&path=${encodeURIComponent(root)}`)
         ).json();
-      // The whole disk lists, folders only (ADR-0021), to pick the shared folders.
-      expect((await list()).entries.length).toBeGreaterThan(0);
-      expect((await list(outside)).path).toBe(outside);
-      const denied = await h.send("POST", "/api/roots", { path: outside, location: device.id });
-      expect(denied.statusCode).toBe(403);
-      expect(denied.json().error.code).toBe("path_denied");
-
-      const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
-      await until(async () => (await projects()).length === 1, 10_000);
-      const [p] = await projects();
-
-      // Paused on the hub: last known data, never missing; resumed: back to ok.
-      const url = `/api/hub/devices/${device.id}/folders`;
-      const pause = (paused: boolean) => h.send("PATCH", url, { path: root, paused });
-      expect((await pause(true)).statusCode).toBe(200);
-      const roots = async () => (await h.send("GET", "/api/roots")).json();
-      await until(async () => (await roots())[0].state === "unshared");
-      expect((await roots())[0].id).toBe(added.json().id);
-      expect(c.link.roots.state().watching).toBe(0);
-      expect(await projects()).toMatchObject([{ id: p.id, offline: true }]);
-      expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
-      expect((await pause(false)).statusCode).toBe(200);
-      await until(async () => (await roots())[0].state === "ok");
-      expect((await projects())[0].offline).toBe(false);
-
-      // Share to the hub off (ADR-0021): every root unshared, the list kept; on again, back.
-      const shareAll = (on: boolean) =>
-        h.send("PATCH", `/api/hub/devices/${device.id}`, { shareProjects: on });
-      expect((await shareAll(false)).statusCode).toBe(204);
-      await until(async () => (await roots())[0].state === "unshared");
-      expect(c.store.get().sharedFolders).toEqual([{ path: root, paused: false }]);
-      expect((await shareAll(true)).statusCode).toBe(204);
-      await until(async () => (await roots())[0].state === "ok");
-
-      // Removed with a project folder in it: unshared until it's shared again.
-      expect((await h.send("DELETE", url, { path: root })).json()).toEqual([]);
-      await until(async () => (await roots())[0].state === "unshared");
-    }, 30_000);
-
-    it("pulls a file when needed, slices it on the hub, and writes on the device", async () => {
-      const mock = mockState();
-      const { h, device, root, projects } = await setup({ adapters: [mockAdapter(mock)] });
-      const rootId = (
-        await h.send("POST", "/api/roots", { path: root, location: device.id })
-      ).json().id;
-      await until(async () => (await projects()).length === 1, 10_000);
-      const [p] = await projects();
-      const box = join(root, "001_Box", "box.3mf");
-
-      // Download and the 3D view: pulled from the device, checked by its hash.
-      const file = await h.send("GET", `/api/projects/${p.id}/file?path=box.3mf`);
-      expect(file.statusCode).toBe(200);
-      expect(file.rawPayload.equals(readFileSync(box))).toBe(true);
-      expect((await h.send("GET", `/api/projects/${p.id}/paint?path=box.3mf`)).statusCode).toBe(
-        200,
-      );
-      // Only files its scan lists are ever asked for.
-      for (const path of ["../../outside.3mf", "box.3mf/../../x.3mf", "nope.3mf"])
+        expect(listed.entries.map((e: { name: string }) => e.name)).toEqual(["001_Box"]);
         expect(
-          (await h.send("GET", `/api/projects/${p.id}/file?${new URLSearchParams({ path })}`))
-            .statusCode,
-        ).toBe(404);
+          (
+            await h.send("POST", "/api/roots", { path: join(root, "nope"), location: device.id })
+          ).json().error.code,
+        ).toBe("invalid_folder");
 
-      // Sliced on the hub.
-      const slicer = (
-        await h.send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
-      ).json().id;
-      await h.send("PATCH", `/api/integrations/${slicer}`, { slicerPath: process.execPath });
-      // Its plate uses slot 4: auto slicing keeps a setup that maps every slot.
-      const filaments = [null, null, null, null];
-      const plate = { file: "box.3mf", plate: 1, processPresetId: null, filaments };
-      expect(
-        (await h.send("PUT", `/api/projects/${p.id}/slicing`, { plates: [plate] })).statusCode,
-      ).toBe(200);
-      await h.send("POST", `/api/projects/${p.id}/slicing/run`);
-      const slicing = async () => (await h.send("GET", `/api/projects/${p.id}/slicing`)).json();
-      await until(async () => (await slicing()).plates[0].needsSlicing === false);
-      expect(mock.sliced).toHaveLength(1);
-      expect((await slicing()).plates[0].state).toBe("ok");
+        const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
+        expect(added.statusCode).toBe(201);
+        expect(added.json()).toMatchObject({
+          location: device.id,
+          state: "ok",
+          deviceName: "WS-1",
+        });
+        await until(() => c.link.roots.state().watching === 1);
+        await until(async () => (await projects()).length === 1);
+        const [p] = await projects();
+        expect(p).toMatchObject({ name: "Box", offline: false, meta: { multicolor: false } });
+        expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("ok");
 
-      // Saved with other bytes on the device: auto slicing pulls it and slices again.
-      const saved = readFileSync(box);
-      // The same 3MF with a zip comment: other bytes, the same plates.
-      const comment = Buffer.from("save");
-      writeFileSync(
-        `${box}.tmp`,
-        Buffer.concat([saved.subarray(0, -2), Buffer.from([comment.length, 0]), comment]),
-      );
-      renameSync(`${box}.tmp`, box);
-      await until(() => mock.sliced?.length === 2, 15_000);
+        // Plate previews came with the scan; the cover is the first plate's.
+        const entry = p.meta.models[0].plates[0].thumbnail;
+        const preview = async () =>
+          (await h.send("GET", `/api/projects/${p.id}/file?path=box.3mf&entry=${entry}`))
+            .rawPayload;
+        const thumbnail = async () =>
+          (await h.send("GET", `/api/projects/${p.id}/thumbnail`)).rawPayload;
+        const first = await preview();
+        expect(first.subarray(1, 4).toString()).toBe("PNG");
+        expect(first.equals(await thumbnail())).toBe(true);
 
-      // A new project's folder is made on the device, and trashed there.
-      const made = await h.send("POST", "/api/projects", {
-        name: "Cup",
-        createFolder: true,
-        rootId,
-      });
-      expect(made.statusCode).toBe(201);
-      const cup = made.json();
-      expect(existsSync(cup.folderPath)).toBe(true);
-      expect((await h.send("GET", `/api/projects/${cup.id}`)).json().folderState).toBe("ok");
-      const trashed = await h.send("DELETE", `/api/projects/${cup.id}/folder?files=trash`);
-      expect(trashed.statusCode).toBe(200);
-      expect(trashed.json().trashedTo).toContain(PROJECT_TRASH_DIR);
-      expect(existsSync(cup.folderPath)).toBe(false);
-      expect(readdirSync(join(root, PROJECT_TRASH_DIR))).toHaveLength(1);
-    }, 60_000);
+        // A picked cover and gallery come from the device the same way; a pick over the caps is
+        // left out (shown while online, pulled).
+        writeFileSync(join(root, "001_Box", "photo.png"), "photo");
+        writeFileSync(join(root, "001_Box", "big.png"), Buffer.alloc(DEVICE_GALLERY_IMAGE_MAX + 1));
+        await until(async () => (await projects())[0].meta.files.length === 3, 15_000);
+        const image = (path: string) =>
+          h.send("GET", `/api/projects/${p.id}/files/image?path=${path}`);
+        expect((await image("big.png")).rawPayload.length).toBe(DEVICE_GALLERY_IMAGE_MAX + 1);
+        const picked = await h.send("PATCH", `/api/projects/${p.id}`, {
+          coverFile: "photo.png",
+          gallery: { folders: [], images: ["photo.png", "big.png"] },
+        });
+        expect(picked.statusCode).toBe(200);
+        await until(async () => (await thumbnail()).toString() === "photo", 15_000);
+        expect((await h.send("GET", `/api/projects/${p.id}`)).json().galleryLeftOut).toEqual([
+          "big.png",
+        ]);
 
-    it("writes a web upload on the device, checked against the hash its scan listed", async () => {
-      const { h, device, root, projects } = await setup();
-      await h.send("POST", "/api/roots", { path: root, location: device.id });
-      await until(async () => (await projects()).length === 1, 10_000);
-      const [p] = await projects();
-      const box = join(root, "001_Box", "box.3mf");
-      const sha = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
-      const listed = p.meta.files.find((f: { path: string }) => f.path === "box.3mf");
-      expect(listed.sha256).toBe(sha(readFileSync(box)));
+        // A slicer's save: write <file>.tmp, rename it over the file.
+        const file = join(root, "001_Box", "box.3mf");
+        copyFileSync(fixture("multi_color.3mf"), `${file}.tmp`);
+        renameSync(`${file}.tmp`, file);
+        await until(async () => (await projects())[0].meta.multicolor, 15_000);
+        const saved = await preview();
+        expect(saved.equals(first)).toBe(false);
+        expect((await thumbnail()).toString()).toBe("photo");
 
-      // A new file; one that is listed needs replace.
-      const added = await h.upload(p.id, { path: "notes.txt" }, "hello");
-      expect(added.statusCode).toBe(201);
-      expect(readFileSync(join(root, "001_Box", "notes.txt"), "utf8")).toBe("hello");
-      expect((await h.upload(p.id, { path: "box.3mf" }, "x")).json().error.code).toBe(
-        "path_exists",
-      );
+        // The connector stops: last known data, offline.
+        c.link.close();
+        await until(async () => (await projects())[0].offline);
+        expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
+        expect((await h.send("GET", "/api/roots")).json()[0].state).toBe("offline");
+        expect((await preview()).equals(saved)).toBe(true);
+        expect((await image("photo.png")).rawPayload.toString()).toBe("photo");
+        expect((await h.send("GET", `/api/projects/${p.id}`)).json().galleryLeftOut).toEqual([
+          "big.png",
+        ]);
+        expect((await h.send("GET", `/api/fs/list?device=${device.id}`)).json().error.code).toBe(
+          "device_offline",
+        );
 
-      // Still at the listed hash: replaced. Again from that hash: changed since, a conflict copy.
-      const replace = { path: "box.3mf", replace: "true", base: listed.sha256 };
-      expect((await h.upload(p.id, replace, "mine")).json()).toEqual({ path: "box.3mf" });
-      expect(readFileSync(box, "utf8")).toBe("mine");
-      const conflict = (await h.upload(p.id, replace, "theirs")).json();
-      expect(conflict).toEqual({
-        path: expect.stringMatching(/^box \(conflict admin .+\)\.3mf$/),
-        conflict: true,
-      });
-      expect(readFileSync(join(root, "001_Box", conflict.path), "utf8")).toBe("theirs");
-      expect(readFileSync(box, "utf8")).toBe("mine");
-      const alerts = (await h.send("GET", "/api/alerts")).json();
-      expect(JSON.stringify(alerts)).toContain(conflict.path);
-    }, 60_000);
+        // Changed while it was stopped: caught up on the next connect.
+        mkdirSync(join(root, "002_Cup"));
+        copyFileSync(fixture("unsliced.3mf"), join(root, "002_Cup", "cup.3mf"));
+        const again = connector(c.dir);
+        again.link.start();
+        await until(async () => (await projects()).length === 2);
+        expect((await projects()).every((x: { offline: boolean }) => !x.offline)).toBe(true);
+      },
+      testTimeout(120_000),
+    );
+
+    it(
+      "lists any folder, adds project folders only inside the shared ones; an unshared root keeps its data",
+      async () => {
+        const { h, c, device, root, projects } = await setup();
+        const outside = realpathSync(mkdtempSync(join(tmpdir(), "device-outside-")));
+        cleanup.push(() => rmSync(outside, { recursive: true, force: true }));
+        const list = async (path?: string) =>
+          (
+            await h.send(
+              "GET",
+              `/api/fs/list?device=${device.id}${path === undefined ? "" : `&path=${encodeURIComponent(path)}`}`,
+            )
+          ).json();
+        // The whole disk lists, folders only (ADR-0021), to pick the shared folders.
+        expect((await list()).entries.length).toBeGreaterThan(0);
+        expect((await list(outside)).path).toBe(outside);
+        const denied = await h.send("POST", "/api/roots", { path: outside, location: device.id });
+        expect(denied.statusCode).toBe(403);
+        expect(denied.json().error.code).toBe("path_denied");
+
+        const added = await h.send("POST", "/api/roots", { path: root, location: device.id });
+        await until(async () => (await projects()).length === 1, 10_000);
+        const [p] = await projects();
+
+        // Paused on the hub: last known data, never missing; resumed: back to ok.
+        const url = `/api/hub/devices/${device.id}/folders`;
+        const pause = (paused: boolean) => h.send("PATCH", url, { path: root, paused });
+        expect((await pause(true)).statusCode).toBe(200);
+        const roots = async () => (await h.send("GET", "/api/roots")).json();
+        await until(async () => (await roots())[0].state === "unshared");
+        expect((await roots())[0].id).toBe(added.json().id);
+        expect(c.link.roots.state().watching).toBe(0);
+        expect(await projects()).toMatchObject([{ id: p.id, offline: true }]);
+        expect((await h.send("GET", `/api/projects/${p.id}`)).json().folderState).toBe("offline");
+        expect((await pause(false)).statusCode).toBe(200);
+        await until(async () => (await roots())[0].state === "ok");
+        expect((await projects())[0].offline).toBe(false);
+
+        // Share to the hub off (ADR-0021): every root unshared, the list kept; on again, back.
+        const shareAll = (on: boolean) =>
+          h.send("PATCH", `/api/hub/devices/${device.id}`, { shareProjects: on });
+        expect((await shareAll(false)).statusCode).toBe(204);
+        await until(async () => (await roots())[0].state === "unshared");
+        expect(c.store.get().sharedFolders).toEqual([{ path: root, paused: false }]);
+        expect((await shareAll(true)).statusCode).toBe(204);
+        await until(async () => (await roots())[0].state === "ok");
+
+        // Removed with a project folder in it: unshared until it's shared again.
+        expect((await h.send("DELETE", url, { path: root })).json()).toEqual([]);
+        await until(async () => (await roots())[0].state === "unshared");
+      },
+      testTimeout(30_000),
+    );
+
+    it(
+      "pulls a file when needed, slices it on the hub, and writes on the device",
+      async () => {
+        const mock = mockState();
+        const { h, device, root, projects } = await setup({ adapters: [mockAdapter(mock)] });
+        const rootId = (
+          await h.send("POST", "/api/roots", { path: root, location: device.id })
+        ).json().id;
+        await until(async () => (await projects()).length === 1, 10_000);
+        const [p] = await projects();
+        const box = join(root, "001_Box", "box.3mf");
+
+        // Download and the 3D view: pulled from the device, checked by its hash.
+        const file = await h.send("GET", `/api/projects/${p.id}/file?path=box.3mf`);
+        expect(file.statusCode).toBe(200);
+        expect(file.rawPayload.equals(readFileSync(box))).toBe(true);
+        expect((await h.send("GET", `/api/projects/${p.id}/paint?path=box.3mf`)).statusCode).toBe(
+          200,
+        );
+        // Only files its scan lists are ever asked for.
+        for (const path of ["../../outside.3mf", "box.3mf/../../x.3mf", "nope.3mf"])
+          expect(
+            (await h.send("GET", `/api/projects/${p.id}/file?${new URLSearchParams({ path })}`))
+              .statusCode,
+          ).toBe(404);
+
+        // Sliced on the hub.
+        const slicer = (
+          await h.send("POST", "/api/integrations", { adapterId: "mock", secrets: { token: "t" } })
+        ).json().id;
+        await h.send("PATCH", `/api/integrations/${slicer}`, { slicerPath: process.execPath });
+        // Its plate uses slot 4: auto slicing keeps a setup that maps every slot.
+        const filaments = [null, null, null, null];
+        const plate = { file: "box.3mf", plate: 1, processPresetId: null, filaments };
+        expect(
+          (await h.send("PUT", `/api/projects/${p.id}/slicing`, { plates: [plate] })).statusCode,
+        ).toBe(200);
+        await h.send("POST", `/api/projects/${p.id}/slicing/run`);
+        const slicing = async () => (await h.send("GET", `/api/projects/${p.id}/slicing`)).json();
+        await until(async () => (await slicing()).plates[0].needsSlicing === false);
+        expect(mock.sliced).toHaveLength(1);
+        expect((await slicing()).plates[0].state).toBe("ok");
+
+        // Saved with other bytes on the device: auto slicing pulls it and slices again.
+        const saved = readFileSync(box);
+        // The same 3MF with a zip comment: other bytes, the same plates.
+        const comment = Buffer.from("save");
+        writeFileSync(
+          `${box}.tmp`,
+          Buffer.concat([saved.subarray(0, -2), Buffer.from([comment.length, 0]), comment]),
+        );
+        renameSync(`${box}.tmp`, box);
+        await until(() => mock.sliced?.length === 2, 15_000);
+
+        // A new project's folder is made on the device, and trashed there.
+        const made = await h.send("POST", "/api/projects", {
+          name: "Cup",
+          createFolder: true,
+          rootId,
+        });
+        expect(made.statusCode).toBe(201);
+        const cup = made.json();
+        expect(existsSync(cup.folderPath)).toBe(true);
+        expect((await h.send("GET", `/api/projects/${cup.id}`)).json().folderState).toBe("ok");
+        const trashed = await h.send("DELETE", `/api/projects/${cup.id}/folder?files=trash`);
+        expect(trashed.statusCode).toBe(200);
+        expect(trashed.json().trashedTo).toContain(PROJECT_TRASH_DIR);
+        expect(existsSync(cup.folderPath)).toBe(false);
+        expect(readdirSync(join(root, PROJECT_TRASH_DIR))).toHaveLength(1);
+      },
+      testTimeout(60_000),
+    );
+
+    it(
+      "writes a web upload on the device, checked against the hash its scan listed",
+      async () => {
+        const { h, device, root, projects } = await setup();
+        await h.send("POST", "/api/roots", { path: root, location: device.id });
+        await until(async () => (await projects()).length === 1, 10_000);
+        const [p] = await projects();
+        const box = join(root, "001_Box", "box.3mf");
+        const sha = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
+        const listed = p.meta.files.find((f: { path: string }) => f.path === "box.3mf");
+        expect(listed.sha256).toBe(sha(readFileSync(box)));
+
+        // A new file; one that is listed needs replace.
+        const added = await h.upload(p.id, { path: "notes.txt" }, "hello");
+        expect(added.statusCode).toBe(201);
+        expect(readFileSync(join(root, "001_Box", "notes.txt"), "utf8")).toBe("hello");
+        expect((await h.upload(p.id, { path: "box.3mf" }, "x")).json().error.code).toBe(
+          "path_exists",
+        );
+
+        // Still at the listed hash: replaced. Again from that hash: changed since, a conflict copy.
+        const replace = { path: "box.3mf", replace: "true", base: listed.sha256 };
+        expect((await h.upload(p.id, replace, "mine")).json()).toEqual({ path: "box.3mf" });
+        expect(readFileSync(box, "utf8")).toBe("mine");
+        const conflict = (await h.upload(p.id, replace, "theirs")).json();
+        expect(conflict).toEqual({
+          path: expect.stringMatching(/^box \(conflict admin .+\)\.3mf$/),
+          conflict: true,
+        });
+        expect(readFileSync(join(root, "001_Box", conflict.path), "utf8")).toBe("theirs");
+        expect(readFileSync(box, "utf8")).toBe("mine");
+        const alerts = (await h.send("GET", "/api/alerts")).json();
+        expect(JSON.stringify(alerts)).toContain(conflict.path);
+      },
+      testTimeout(60_000),
+    );
   });
 });

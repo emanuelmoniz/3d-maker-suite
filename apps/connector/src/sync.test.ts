@@ -18,6 +18,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
 import { afterEach, describe, expect, it } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { createLink } from "./hub.ts";
 import { openStore } from "./state.ts";
 import { folderName, type HubSync } from "./sync.ts";
@@ -141,149 +142,169 @@ describe("hub root sync", () => {
     };
   };
 
-  it("a removed pick takes the local copies away and leaves the hub alone", async () => {
-    const h = await hub();
-    await h.put("p/m.stl", "model");
-    await h.put("q/n.stl", "other");
-    const a = await device(h, "WS-A");
-    await until(() => read(join(a.folder, "q/n.stl")) === "other");
+  it(
+    "a removed pick takes the local copies away and leaves the hub alone",
+    async () => {
+      const h = await hub();
+      await h.put("p/m.stl", "model");
+      await h.put("q/n.stl", "other");
+      const a = await device(h, "WS-A");
+      await until(() => read(join(a.folder, "q/n.stl")) === "other");
 
-    // Its whole-root pick removed: the local copies go, and nothing goes on the hub.
-    const [whole] = (await h.send("GET", "/api/hub/devices")).json()[0].picks;
-    await h.send("DELETE", `/api/hub/devices/${a.id}/picks/${whole.id}`);
-    await until(
-      () => !existsSync(join(a.folder, "p/m.stl")) && !existsSync(join(a.folder, "q/n.stl")),
-    );
-    expect(read(join(h.dir, "p/m.stl"))).toBe("model");
-    expect(h.open("hub_mass_delete")).toEqual([]);
-  }, 120_000);
+      // Its whole-root pick removed: the local copies go, and nothing goes on the hub.
+      const [whole] = (await h.send("GET", "/api/hub/devices")).json()[0].picks;
+      await h.send("DELETE", `/api/hub/devices/${a.id}/picks/${whole.id}`);
+      await until(
+        () => !existsSync(join(a.folder, "p/m.stl")) && !existsSync(join(a.folder, "q/n.stl")),
+      );
+      expect(read(join(h.dir, "p/m.stl"))).toBe("model");
+      expect(h.open("hub_mass_delete")).toEqual([]);
+    },
+    testTimeout(120_000),
+  );
 
-  it("keeps two devices and the hub in sync through edits, renames, deletes and a conflict", async () => {
-    const h = await hub();
-    await h.put("p/a.txt", "one");
-    const a = await device(h, "WS-A");
-    const b = await device(h, "WS-B");
-    await until(() => read(join(a.folder, "p/a.txt")) === "one");
-    await until(() => read(join(b.folder, "p/a.txt")) === "one");
+  it(
+    "keeps two devices and the hub in sync through edits, renames, deletes and a conflict",
+    async () => {
+      const h = await hub();
+      await h.put("p/a.txt", "one");
+      const a = await device(h, "WS-A");
+      const b = await device(h, "WS-B");
+      await until(() => read(join(a.folder, "p/a.txt")) === "one");
+      await until(() => read(join(b.folder, "p/a.txt")) === "one");
 
-    // Edit on A → the hub and B.
-    writeFileSync(join(a.folder, "p/a.txt"), "two");
-    await until(() => read(join(h.dir, "p/a.txt")) === "two");
-    await until(() => read(join(b.folder, "p/a.txt")) === "two");
+      // Edit on A → the hub and B.
+      writeFileSync(join(a.folder, "p/a.txt"), "two");
+      await until(() => read(join(h.dir, "p/a.txt")) === "two");
+      await until(() => read(join(b.folder, "p/a.txt")) === "two");
 
-    // Edit on the hub → both.
-    await h.put("p/a.txt", "three");
-    await until(() => read(join(a.folder, "p/a.txt")) === "three");
-    await until(() => read(join(b.folder, "p/a.txt")) === "three");
+      // Edit on the hub → both.
+      await h.put("p/a.txt", "three");
+      await until(() => read(join(a.folder, "p/a.txt")) === "three");
+      await until(() => read(join(b.folder, "p/a.txt")) === "three");
 
-    // Rename on A: the old name goes to the hub's trash, B follows.
-    renameSync(join(a.folder, "p/a.txt"), join(a.folder, "p/b.txt"));
-    await until(
-      () => read(join(h.dir, "p/b.txt")) === "three" && !existsSync(join(h.dir, "p/a.txt")),
-    );
-    expect(readdirSync(join(h.dir, PROJECT_TRASH_DIR), { recursive: true }).join()).toMatch(
-      /a\.txt/,
-    );
-    await until(() => read(join(b.folder, "p/b.txt")) === "three");
-    await until(() => !existsSync(join(b.folder, "p/a.txt")));
+      // Rename on A: the old name goes to the hub's trash, B follows.
+      renameSync(join(a.folder, "p/a.txt"), join(a.folder, "p/b.txt"));
+      await until(
+        () => read(join(h.dir, "p/b.txt")) === "three" && !existsSync(join(h.dir, "p/a.txt")),
+      );
+      expect(readdirSync(join(h.dir, PROJECT_TRASH_DIR), { recursive: true }).join()).toMatch(
+        /a\.txt/,
+      );
+      await until(() => read(join(b.folder, "p/b.txt")) === "three");
+      await until(() => !existsSync(join(b.folder, "p/a.txt")));
 
-    // Delete on B → trashed on the hub, gone on A.
-    rmSync(join(b.folder, "p/b.txt"));
-    await until(() => !existsSync(join(h.dir, "p/b.txt")));
-    await until(() => !existsSync(join(a.folder, "p/b.txt")));
+      // Delete on B → trashed on the hub, gone on A.
+      rmSync(join(b.folder, "p/b.txt"));
+      await until(() => !existsSync(join(h.dir, "p/b.txt")));
+      await until(() => !existsSync(join(a.folder, "p/b.txt")));
 
-    // B edits while offline, A edits the same version meanwhile: A's wins, B's is a conflict copy.
-    await h.put("p/c.txt", "base");
-    await until(() => read(join(b.folder, "p/c.txt")) === "base");
-    await until(() => read(join(a.folder, "p/c.txt")) === "base");
-    b.link.close();
-    writeFileSync(join(a.folder, "p/c.txt"), "from A");
-    await until(() => read(join(h.dir, "p/c.txt")) === "from A");
-    writeFileSync(join(b.folder, "p/c.txt"), "from B");
-    const b2 = await device(h, "WS-B", "admin", b.dir);
-    await until(() => read(join(b2.folder, "p/c.txt")) === "from A");
-    const copy = () => readdirSync(join(h.dir, "p")).find((f) => f.includes("(conflict WS-B"));
-    await until(() => !!copy());
-    expect(read(join(h.dir, "p", copy() ?? ""))).toBe("from B");
-    await until(() => read(join(a.folder, "p", copy() ?? "")) === "from B");
-    await until(() => read(join(b2.folder, "p", copy() ?? "")) === "from B");
-    expect(h.open("hub_conflict")).toHaveLength(1);
-  }, 120_000);
+      // B edits while offline, A edits the same version meanwhile: A's wins, B's is a conflict copy.
+      await h.put("p/c.txt", "base");
+      await until(() => read(join(b.folder, "p/c.txt")) === "base");
+      await until(() => read(join(a.folder, "p/c.txt")) === "base");
+      b.link.close();
+      writeFileSync(join(a.folder, "p/c.txt"), "from A");
+      await until(() => read(join(h.dir, "p/c.txt")) === "from A");
+      writeFileSync(join(b.folder, "p/c.txt"), "from B");
+      const b2 = await device(h, "WS-B", "admin", b.dir);
+      await until(() => read(join(b2.folder, "p/c.txt")) === "from A");
+      const copy = () => readdirSync(join(h.dir, "p")).find((f) => f.includes("(conflict WS-B"));
+      await until(() => !!copy());
+      expect(read(join(h.dir, "p", copy() ?? ""))).toBe("from B");
+      await until(() => read(join(a.folder, "p", copy() ?? "")) === "from B");
+      await until(() => read(join(b2.folder, "p", copy() ?? "")) === "from B");
+      expect(h.open("hub_conflict")).toHaveLength(1);
+    },
+    testTimeout(120_000),
+  );
 
-  it("holds a mass delete until it is restored or confirmed", async () => {
-    const h = await hub();
-    await h.send("PATCH", "/api/preferences", { hubDeleteGuard: 3 });
-    for (const n of [1, 2, 3, 4, 5]) await h.put(`p/${n}.txt`, `file ${n}`);
-    const a = await device(h, "WS-A");
-    await until(() => read(join(a.folder, "p/5.txt")) === "file 5");
+  it(
+    "holds a mass delete until it is restored or confirmed",
+    async () => {
+      const h = await hub();
+      await h.send("PATCH", "/api/preferences", { hubDeleteGuard: 3 });
+      for (const n of [1, 2, 3, 4, 5]) await h.put(`p/${n}.txt`, `file ${n}`);
+      const a = await device(h, "WS-A");
+      await until(() => read(join(a.folder, "p/5.txt")) === "file 5");
 
-    for (const n of [1, 2, 3, 4]) rmSync(join(a.folder, `p/${n}.txt`));
-    await until(() => a.sync().state().state === "paused");
-    expect(a.sync().state().held).toMatchObject([{ rootId: h.root.id, files: 4 }]);
-    expect(existsSync(join(h.dir, "p/1.txt"))).toBe(true);
-    await until(() => h.open("hub_mass_delete").length === 1);
-    const [d] = (await h.send("GET", "/api/hub/devices")).json();
-    expect(d.sync).toMatchObject({ state: "paused", held: [{ files: 4 }] });
+      for (const n of [1, 2, 3, 4]) rmSync(join(a.folder, `p/${n}.txt`));
+      await until(() => a.sync().state().state === "paused");
+      expect(a.sync().state().held).toMatchObject([{ rootId: h.root.id, files: 4 }]);
+      expect(existsSync(join(h.dir, "p/1.txt"))).toBe(true);
+      await until(() => h.open("hub_mass_delete").length === 1);
+      const [d] = (await h.send("GET", "/api/hub/devices")).json();
+      expect(d.sync).toMatchObject({ state: "paused", held: [{ files: 4 }] });
 
-    await a.sync().restore(h.root.id);
-    await until(() => read(join(a.folder, "p/1.txt")) === "file 1");
-    expect(a.sync().state().held).toEqual([]);
-    await until(() => h.open("hub_mass_delete").length === 0);
+      await a.sync().restore(h.root.id);
+      await until(() => read(join(a.folder, "p/1.txt")) === "file 1");
+      expect(a.sync().state().held).toEqual([]);
+      await until(() => h.open("hub_mass_delete").length === 0);
 
-    for (const n of [1, 2, 3, 4]) rmSync(join(a.folder, `p/${n}.txt`));
-    await until(() => a.sync().state().state === "paused");
-    await a.sync().confirm(h.root.id);
-    await until(() => !existsSync(join(h.dir, "p/1.txt")) && !existsSync(join(h.dir, "p/4.txt")));
-    expect(read(join(h.dir, "p/5.txt"))).toBe("file 5");
-  }, 120_000);
+      for (const n of [1, 2, 3, 4]) rmSync(join(a.folder, `p/${n}.txt`));
+      await until(() => a.sync().state().state === "paused");
+      await a.sync().confirm(h.root.id);
+      await until(() => !existsSync(join(h.dir, "p/1.txt")) && !existsSync(join(h.dir, "p/4.txt")));
+      expect(read(join(h.dir, "p/5.txt"))).toBe("file 5");
+    },
+    testTimeout(120_000),
+  );
 
-  it("resumes without downloading again, and keeps download-only files read-only", async () => {
-    const h = await hub();
-    for (const n of [1, 2, 3]) await h.put(`p/${n}.txt`, `file ${n}`);
-    const a = await device(h, "WS-A");
-    await until(() => read(join(a.folder, "p/3.txt")) === "file 3");
-    await a.sync().idle();
-    const mtime = (n: number) => statSync(join(a.folder, `p/${n}.txt`)).mtimeMs;
-    const before = [mtime(1), mtime(2), mtime(3)];
+  it(
+    "resumes without downloading again, and keeps download-only files read-only",
+    async () => {
+      const h = await hub();
+      for (const n of [1, 2, 3]) await h.put(`p/${n}.txt`, `file ${n}`);
+      const a = await device(h, "WS-A");
+      await until(() => read(join(a.folder, "p/3.txt")) === "file 3");
+      await a.sync().idle();
+      const mtime = (n: number) => statSync(join(a.folder, `p/${n}.txt`)).mtimeMs;
+      const before = [mtime(1), mtime(2), mtime(3)];
 
-    // Killed (no goodbye), the hub changes one file meanwhile.
-    a.link.close();
-    await h.put("p/3.txt", "file 3 v2");
-    const again = await device(h, "WS-A", "admin", a.dir);
-    await until(() => read(join(again.folder, "p/3.txt")) === "file 3 v2");
-    await again.sync().idle();
-    expect([mtime(1), mtime(2)]).toEqual(before.slice(0, 2));
+      // Killed (no goodbye), the hub changes one file meanwhile.
+      a.link.close();
+      await h.put("p/3.txt", "file 3 v2");
+      const again = await device(h, "WS-A", "admin", a.dir);
+      await until(() => read(join(again.folder, "p/3.txt")) === "file 3 v2");
+      await again.sync().idle();
+      expect([mtime(1), mtime(2)]).toEqual(before.slice(0, 2));
 
-    // A viewer may only download: read-only, and a delete comes back.
-    const v = await device(h, "WS-V", "viewer");
-    const file = join(v.folder, "p/1.txt");
-    // Made read-only just after it lands.
-    await until(() => read(file) === "file 1" && (statSync(file).mode & 0o222) === 0);
-    rmSync(file, { force: true });
-    await until(() => read(file) === "file 1");
-    expect(existsSync(join(h.dir, "p/1.txt"))).toBe(true);
-  }, 120_000);
+      // A viewer may only download: read-only, and a delete comes back.
+      const v = await device(h, "WS-V", "viewer");
+      const file = join(v.folder, "p/1.txt");
+      // Made read-only just after it lands.
+      await until(() => read(file) === "file 1" && (statSync(file).mode & 0o222) === 0);
+      rmSync(file, { force: true });
+      await until(() => read(file) === "file 1");
+      expect(existsSync(join(h.dir, "p/1.txt"))).toBe(true);
+    },
+    testTimeout(120_000),
+  );
 
   const writable = (p: string) => (statSync(p).mode & 0o200) !== 0;
-  it("no locks: nothing turns read-only offline, and an older connector's lock is undone", async () => {
-    const h = await hub();
-    await h.put("p/m.stl", "one");
-    const a = await device(h, "WS-A");
-    const file = join(a.folder, "p/m.stl");
-    await until(() => read(file) === "one");
-    await a.sync().idle();
-    a.link.close();
-    await a.sync().idle();
-    expect(writable(file)).toBe(true);
+  it(
+    "no locks: nothing turns read-only offline, and an older connector's lock is undone",
+    async () => {
+      const h = await hub();
+      await h.put("p/m.stl", "one");
+      const a = await device(h, "WS-A");
+      const file = join(a.folder, "p/m.stl");
+      await until(() => read(file) === "one");
+      await a.sync().idle();
+      a.link.close();
+      await a.sync().idle();
+      expect(writable(file)).toBe(true);
 
-    // What a 5.5 connector left: read-only because another device had it checked out.
-    const state = join(a.dir, "sync.json");
-    const saved = JSON.parse(readFileSync(state, "utf8"));
-    for (const e of Object.values(saved.files)) Object.assign(e as object, { readOnly: true });
-    writeFileSync(state, JSON.stringify({ ...saved, locks: "strict" }));
-    chmodSync(file, 0o444);
-    await device(h, "WS-A", "admin", a.dir);
-    await until(() => writable(file));
-    expect(read(file)).toBe("one");
-  }, 120_000);
+      // What a 5.5 connector left: read-only because another device had it checked out.
+      const state = join(a.dir, "sync.json");
+      const saved = JSON.parse(readFileSync(state, "utf8"));
+      for (const e of Object.values(saved.files)) Object.assign(e as object, { readOnly: true });
+      writeFileSync(state, JSON.stringify({ ...saved, locks: "strict" }));
+      chmodSync(file, 0o444);
+      await device(h, "WS-A", "admin", a.dir);
+      await until(() => writable(file));
+      expect(read(file)).toBe("one");
+    },
+    testTimeout(120_000),
+  );
 });

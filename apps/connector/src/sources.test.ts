@@ -1,3 +1,4 @@
+import { testTimeout } from "../../../test-timeout.ts";
 // The source bridge (ADR-0015, LAN reach): a real connector link against a real hub (the server's
 // buildApp on a port), with the mock printer as a printer on the network that only the connector
 // reads, and the fake Spoolman as a spool library only the connector reaches (Step 14b).
@@ -47,7 +48,7 @@ const snap = (state: PrinterSnapshot["state"], progress = 50): PrinterSnapshot =
 
 // Pairing, a sync through the connector and a hub restart take a few seconds each.
 describe("printers through a connector", {
-  timeout: process.env.TEST_TIMEOUT ? Number(process.env.TEST_TIMEOUT) || 2_147_483_647 : 60_000,
+  timeout: testTimeout(60_000),
 }, () => {
   const cleanup: (() => unknown)[] = [];
   afterEach(async () => {

@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { BUILT_IN_ROLE_IDS, type Pick, PROJECT_TRASH_DIR } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { buildApp } from "./app.ts";
 import { hashPassword } from "./lib/password.ts";
 
@@ -241,23 +242,27 @@ describe("hub file sync", () => {
     ]);
   });
 
-  it("indexes what the watcher sees, and an upload only once", async () => {
-    const s = await setup({ watchProjects: true });
-    await s.scan(); // points the watcher at the new root
-    await new Promise((r) => setTimeout(r, 1000)); // let the watcher settle
-    await s.put("up.stl", "up", 0);
-    writeFileSync(join(s.dir, "by-hand.stl"), "hand");
-    const rows = () =>
-      s.db
-        .select({ path: schema.hubFiles.path, version: schema.hubFiles.version })
-        .from(schema.hubFiles)
-        .all();
-    await expect.poll(rows, { timeout: 10_000, interval: 200 }).toContainEqual({
-      path: "by-hand.stl",
-      version: 1,
-    });
-    expect(rows()).toContainEqual({ path: "up.stl", version: 1 });
-  }, 15_000);
+  it(
+    "indexes what the watcher sees, and an upload only once",
+    async () => {
+      const s = await setup({ watchProjects: true });
+      await s.scan(); // points the watcher at the new root
+      await new Promise((r) => setTimeout(r, 1000)); // let the watcher settle
+      await s.put("up.stl", "up", 0);
+      writeFileSync(join(s.dir, "by-hand.stl"), "hand");
+      const rows = () =>
+        s.db
+          .select({ path: schema.hubFiles.path, version: schema.hubFiles.version })
+          .from(schema.hubFiles)
+          .all();
+      await expect.poll(rows, { timeout: testTimeout(10_000), interval: 200 }).toContainEqual({
+        path: "by-hand.stl",
+        version: 1,
+      });
+      expect(rows()).toContainEqual({ path: "up.stl", version: 1 });
+    },
+    testTimeout(15_000),
+  );
 
   it("follows the user's rights: hidden projects left out, download-only read-only", async () => {
     const s = await setup();

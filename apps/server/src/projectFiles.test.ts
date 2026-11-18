@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { openDb } from "@3d-maker-suite/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { buildApp } from "./app.ts";
 import { setRoots } from "./testRoots.ts";
 import { unzip } from "./testZip.ts";
@@ -469,27 +470,31 @@ describe("scanner", () => {
     expect(await project()).toMatchObject({ descriptionFile: null });
   });
 
-  it("watched project folders stay movable through the API", async () => {
-    await app.close();
-    await rm(root(), { recursive: true, force: true });
-    await mkdir(root());
-    await boot({ watchProjects: true });
-    await mkdirApi("images");
-    await upload("images/cover.png", "png"); // a watch on a subfolder is what locks a folder
-    await upload("vase.stl", "solid");
-    await scan(); // the watcher starts after a scan
-    await new Promise((r) => setTimeout(r, 1000)); // let the watcher settle
-    expect((await move("images", "pictures")).statusCode).toBe(200); // EPERM if locked
-    // And the project folder itself can still be renamed by hand.
-    await rename(folder, join(root(), "001_Pot"));
-    await expect
-      .poll(
-        async () =>
-          (await app.inject("/api/projects"))
-            .json()
-            .items.some((p: { folderPath: string }) => p.folderPath === join(root(), "001_Pot")),
-        { timeout: 10_000, interval: 200 },
-      )
-      .toBe(true);
-  }, 15_000);
+  it(
+    "watched project folders stay movable through the API",
+    async () => {
+      await app.close();
+      await rm(root(), { recursive: true, force: true });
+      await mkdir(root());
+      await boot({ watchProjects: true });
+      await mkdirApi("images");
+      await upload("images/cover.png", "png"); // a watch on a subfolder is what locks a folder
+      await upload("vase.stl", "solid");
+      await scan(); // the watcher starts after a scan
+      await new Promise((r) => setTimeout(r, 1000)); // let the watcher settle
+      expect((await move("images", "pictures")).statusCode).toBe(200); // EPERM if locked
+      // And the project folder itself can still be renamed by hand.
+      await rename(folder, join(root(), "001_Pot"));
+      await expect
+        .poll(
+          async () =>
+            (await app.inject("/api/projects"))
+              .json()
+              .items.some((p: { folderPath: string }) => p.folderPath === join(root(), "001_Pot")),
+          { timeout: testTimeout(10_000), interval: 200 },
+        )
+        .toBe(true);
+    },
+    testTimeout(15_000),
+  );
 });

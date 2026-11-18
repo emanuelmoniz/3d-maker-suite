@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { testTimeout } from "../test-timeout.ts";
 import { expect, test } from "./fixtures.ts";
 import { addRoots, hasHorizontalScroll, pick } from "./helpers.ts";
 
@@ -72,7 +73,7 @@ for (const viewport of VIEWPORTS) {
     await expect(async () => {
       const put = page.waitForResponse(
         (r) => r.request().method() === "PUT" && r.url().includes("/content?"),
-        { timeout: 2000 },
+        { timeout: testTimeout(2000, 0) },
       );
       await files
         .locator("li", { hasText: "notes.txt" })

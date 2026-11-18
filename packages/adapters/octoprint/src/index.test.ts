@@ -7,6 +7,7 @@ import {
   track,
 } from "@3d-maker-suite/core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { testTimeout } from "../../../../test-timeout.ts";
 import { baseUrl, octoprintAdapter } from "./index.ts";
 
 // The Step 1 fixtures (fixtures/SOURCE.md: OctoPrint 1.11.8 with its virtual printer), the push
@@ -288,16 +289,20 @@ it("a printer that is offline reads as offline, then idle when it connects", asy
   expect((await src.status?.readStatus())?.[0]?.state).toBe("idle");
 });
 
-it("a socket that closes leaves the printer offline until it answers again", async () => {
-  const src = instance();
-  await src.status?.readStatus();
-  live().close();
-  FakeSocket.first = [];
-  const [snap] = (await src.status?.readStatus()) ?? [];
-  // Reconnected, but nothing said yet.
-  expect(snap?.state).toBe("offline");
-  expect(FakeSocket.all).toHaveLength(2);
-}, 15_000);
+it(
+  "a socket that closes leaves the printer offline until it answers again",
+  async () => {
+    const src = instance();
+    await src.status?.readStatus();
+    live().close();
+    FakeSocket.first = [];
+    const [snap] = (await src.status?.readStatus()) ?? [];
+    // Reconnected, but nothing said yet.
+    expect(snap?.state).toBe("offline");
+    expect(FakeSocket.all).toHaveLength(2);
+  },
+  testTimeout(15_000),
+);
 
 it("reads a text G-code's totals from its tail, by range or from a server that ignores it", async () => {
   const text = jobFile("prusaslicer-klipper.gcode");

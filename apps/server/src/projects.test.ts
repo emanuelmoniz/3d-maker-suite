@@ -5,6 +5,7 @@ import { mockAdapter } from "@3d-maker-suite/adapter-mock";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testTimeout } from "../../../test-timeout.ts";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
 import { setRoots as setAllRoots } from "./testRoots.ts";
@@ -142,19 +143,25 @@ describe("project scanner", () => {
     ]);
   });
 
-  it("watched folders stay renamable and a rename triggers a re-scan", async () => {
-    await app.close();
-    app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { watchProjects: true });
-    await put("Cat/Vase/vase.stl", "solid");
-    await put("Cat/Vase/images/cover.png", "png"); // a watched subfolder is what locks Vase
-    await setRoots(2);
-    await scan();
-    expect(await byName("Vase")).toBeDefined();
+  it(
+    "watched folders stay renamable and a rename triggers a re-scan",
+    async () => {
+      await app.close();
+      app = await buildApp(openDb(":memory:"), false, join(dir, "data"), { watchProjects: true });
+      await put("Cat/Vase/vase.stl", "solid");
+      await put("Cat/Vase/images/cover.png", "png"); // a watched subfolder is what locks Vase
+      await setRoots(2);
+      await scan();
+      expect(await byName("Vase")).toBeDefined();
 
-    await new Promise((r) => setTimeout(r, 1000)); // let the watcher settle
-    await rename(join(root(), "Cat", "Vase"), join(root(), "Cat", "Pot")); // EPERM if locked
-    await expect.poll(() => byName("Pot"), { timeout: 10_000, interval: 200 }).toBeDefined();
-  }, 15_000);
+      await new Promise((r) => setTimeout(r, 1000)); // let the watcher settle
+      await rename(join(root(), "Cat", "Vase"), join(root(), "Cat", "Pot")); // EPERM if locked
+      await expect
+        .poll(() => byName("Pot"), { timeout: testTimeout(10_000), interval: 200 })
+        .toBeDefined();
+    },
+    testTimeout(15_000),
+  );
 
   it("honours the scan depth", async () => {
     await sampleTree();
