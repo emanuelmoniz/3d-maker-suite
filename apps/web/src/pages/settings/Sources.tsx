@@ -1,9 +1,10 @@
 import { isCatalogType } from "@3d-maker-suite/core";
 import { Link, type LinkProps } from "@tanstack/react-router";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
+import { FoldHeader } from "../../components/FoldHeader.tsx";
 import { type SettingsModule, useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { cx, textLink } from "../../lib/cx.ts";
@@ -132,42 +133,30 @@ export function SourceBlock({
       aria-labelledby={heading}
       className="scroll-mt-4 rounded-lg border border-border bg-surface"
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2 sm:px-4">
-        <h3 id={heading} className="min-w-0 text-base font-semibold">
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={body}
-            onClick={toggle}
-            className="flex min-h-11 max-w-full items-center gap-3 rounded-md text-left"
-          >
-            <ChevronRight
-              aria-hidden
-              className={cx(
-                "size-4 shrink-0 text-muted transition-transform motion-reduce:transition-none",
-                open && "rotate-90",
-              )}
-            />
-            {icon}
-            <span className="grid min-w-0">
-              <span className="wrap-anywhere">{title}</span>
-              {subtitle && <span className="text-sm font-normal text-muted">{subtitle}</span>}
-            </span>
-            {badge}
-          </button>
-        </h3>
-        {link && (
-          <Link
-            to={link.to}
-            params={link.params as never}
-            hash={link.hash}
-            className={`text-sm ${textLink}`}
-          >
-            {link.label}
-          </Link>
-        )}
-      </div>
-      <div id={body} hidden={!open} className="grid gap-4 border-t border-border p-3 sm:p-4">
+      <FoldHeader
+        as="h3"
+        headingId={heading}
+        bodyId={body}
+        open={open}
+        onToggle={toggle}
+        title={title}
+        subtitle={subtitle}
+        icon={icon}
+        meta={badge}
+        end={
+          link && (
+            <Link
+              to={link.to}
+              params={link.params as never}
+              hash={link.hash}
+              className={`text-sm ${textLink}`}
+            >
+              {link.label}
+            </Link>
+          )
+        }
+      />
+      <div id={body} hidden={!open} className="grid gap-4 border-t border-border p-4 sm:p-5">
         {children}
       </div>
     </li>

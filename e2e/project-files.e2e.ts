@@ -35,7 +35,7 @@ for (const viewport of VIEWPORTS) {
     const confirm = (name: string) => page.getByRole("dialog").getByRole("button", { name });
     // Sections start closed: open with the keyboard.
     await expect(files.getByRole("button", { name: "New folder", exact: true })).toBeHidden();
-    await files.locator("summary").focus();
+    await files.getByRole("button", { name: "Files", exact: true }).focus();
     await page.keyboard.press("Enter");
 
     // Upload by picker.

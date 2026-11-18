@@ -1,6 +1,6 @@
-import { ChevronRight } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FoldHeader } from "../../components/FoldHeader.tsx";
 import { cx } from "../../lib/cx.ts";
 
 const KEY = "integrations.fold";
@@ -100,23 +100,14 @@ export function FoldCard({
             : "border-l-border",
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pr-4 sm:pr-5">
-        <h2 id={heading} className="min-w-0 flex-1 text-base font-semibold">
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={body}
-            onClick={toggle}
-            className="flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-lg py-2 pr-2 pl-3 text-left hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent sm:pl-4"
-          >
-            <ChevronRight
-              aria-hidden
-              className={cx(
-                "size-4 shrink-0 text-muted transition-transform motion-reduce:transition-none",
-                open && "rotate-90",
-              )}
-            />
-            <span className="wrap-anywhere">{title}</span>
+      <FoldHeader
+        headingId={heading}
+        bodyId={body}
+        open={open}
+        onToggle={toggle}
+        title={title}
+        meta={
+          <>
             <span className="text-sm font-normal text-muted">{count}</span>
             {pill}
             {badge && (
@@ -129,15 +120,17 @@ export function FoldCard({
                 {t(badge === "error" ? "integrations:fold.error" : "integrations:fold.paused")}
               </span>
             )}
-          </button>
-        </h2>
-        {((open && action) || menu) && (
-          <div className="flex items-center gap-2">
-            {open && action}
-            {menu}
-          </div>
-        )}
-      </div>
+          </>
+        }
+        end={
+          ((open && action) || menu) && (
+            <>
+              {open && action}
+              {menu}
+            </>
+          )
+        }
+      />
       {open && (
         <div id={body} className="grid gap-4 border-t border-border p-4 sm:p-5">
           {children}

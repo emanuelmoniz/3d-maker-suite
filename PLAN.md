@@ -4032,7 +4032,7 @@ Do Step 18 of the 6.1.0 plan in PLAN.md. Use frontend-design for the source cell
 Do Step 19 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 20 - One collapsible card
+### [x] Step 20 - One collapsible card
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `components/Collapsible.tsx` takes the header of the Integrations cards (`FoldCard.tsx`, Step 8): the whole title row is the button (`aria-expanded`), with the chevron, an optional count or badge on the right, and the same padding, border and focus ring. Make `FoldCard` and `Collapsible` share that header, not copy it.

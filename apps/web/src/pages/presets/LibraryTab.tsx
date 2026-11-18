@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Dependents } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
+import { Collapsible } from "../../components/Collapsible.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { useCan } from "../../lib/auth.ts";
@@ -448,10 +449,7 @@ export function PresetsTab() {
           </section>
 
           {gone.length > 0 && (
-            <details className="rounded-lg border border-border bg-surface px-4 py-3">
-              <summary className="cursor-pointer font-semibold">
-                {t("hub:presets.deletedTitle", { count: gone.length })}
-              </summary>
+            <Collapsible className="" title={t("hub:presets.deletedTitle", { count: gone.length })}>
               <p className="mt-1 max-w-prose text-muted">{t("hub:presets.deletedHint")}</p>
               <ul className="mt-2 divide-y divide-border">
                 {gone.map((p) => (
@@ -472,7 +470,7 @@ export function PresetsTab() {
                   </li>
                 ))}
               </ul>
-            </details>
+            </Collapsible>
           )}
         </div>
       )}

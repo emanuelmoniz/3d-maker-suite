@@ -514,7 +514,7 @@ export function ProjectDetailPage() {
       )}
       {project.description && (
         <Collapsible title={t("projects:detail.description")} defaultOpen>
-          <div className="rounded-lg border border-border bg-surface p-4">
+          <div>
             {project.descriptionFile?.toLowerCase().endsWith(".txt") ? (
               <p className="whitespace-pre-line">{project.description}</p>
             ) : (

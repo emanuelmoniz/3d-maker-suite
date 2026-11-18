@@ -28,7 +28,7 @@ test("upload over a file: a conflict copy when it changed since the list, else a
 
   await page.goto(`/projects/${vase.id}`);
   const files = page.getByRole("region", { name: "Files" });
-  await files.locator("summary").click();
+  await files.getByRole("button", { name: "Files", exact: true }).click();
   await expect(files.getByText("notes.txt")).toBeVisible();
   const replace = (text: string) =>
     files
@@ -47,7 +47,7 @@ test("upload over a file: a conflict copy when it changed since the list, else a
 
   // From the fresh list: replaced, and the old content is a version.
   await page.reload();
-  await files.locator("summary").click();
+  await files.getByRole("button", { name: "Files", exact: true }).click();
   await expect(files.getByText("notes.txt", { exact: true })).toBeVisible();
   await replace("v2");
   await expect.poll(() => readFileSync(notes, "utf8")).toBe("v2");
