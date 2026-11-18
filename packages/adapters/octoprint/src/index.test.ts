@@ -178,8 +178,8 @@ it("tests the connection with the API key", async () => {
 });
 
 it("is one printer, named in the config", async () => {
-  const [p] = (await instance({ name: "Ender", brand: "Creality" }).printers?.listPrinters()) ?? [];
-  expect(p).toEqual({ externalId: "octoprint", name: "Ender", brand: "Creality", model: "" });
+  const [p] = (await instance({ brand: "Creality" }).printers?.listPrinters()) ?? [];
+  expect(p).toEqual({ externalId: "octoprint", name: "OctoPrint", brand: "Creality", model: "" });
   expect(await instance().profile?.()).toEqual({ name: "OctoPrint" });
 });
 

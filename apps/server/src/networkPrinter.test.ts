@@ -79,12 +79,13 @@ async function byHand(name: string, serial?: string) {
   return made.json().id as string;
 }
 
-const klipper = (printer?: string, token = "t") =>
+const klipper = (printer?: string, token = "t", printerName?: string) =>
   send("POST", "/api/integrations", {
     adapterId: "mock-host",
     config: { host: "voron.lan" },
     secrets: { token },
     ...(printer && { printer }),
+    ...(printerName && { printerName }),
   });
 const printers = () => db.select().from(schema.printers).all();
 const links = () => db.select().from(schema.printerSources).all();
@@ -147,6 +148,39 @@ describe("a printer on the network is one printer, linked at save", () => {
       },
     ]);
     expect(made.json().printerId).toBe(printers()[0]?.id);
+  });
+
+  it("names a new printer as typed; one you pick keeps its own name (Step 10b)", async () => {
+    const made = await klipper("new", "t", "  Shop Voron ");
+    expect(made.statusCode).toBe(201);
+    expect(printers()).toMatchObject([{ name: "Shop Voron" }]);
+    expect(made.json().config).not.toHaveProperty("name");
+    const mine = await byHand("A1");
+    const other = await send("POST", "/api/integrations", {
+      adapterId: "by-serial",
+      config: { host: "a.lan" },
+      secrets: { accessCode: "c" },
+      printer: mine,
+      printerName: "Ignored",
+    });
+    expect(other.statusCode).toBe(201);
+    expect(printers().find((x) => x.id === mine)?.name).toBe("A1");
+  });
+
+  it("a PATCH can't rename the printer, and a rename on the printer sticks", async () => {
+    const made = await klipper("new", "t", "Shop Voron");
+    const id = made.json().id as string;
+    const printerId = made.json().printerId as string;
+    expect(
+      (await send("PATCH", `/api/integrations/${id}`, { printerName: "Other" })).statusCode,
+    ).toBe(400);
+    await send("PATCH", `/api/integrations/${id}`, { config: { host: "v2.lan", name: "Other" } });
+    expect(printers().find((x) => x.id === printerId)?.name).toBe("Shop Voron");
+    expect(
+      (await send("PATCH", `/api/printers/${printerId}`, { name: "Renamed" })).statusCode,
+    ).toBe(200);
+    await send("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+    expect(printers().find((x) => x.id === printerId)?.name).toBe("Renamed");
   });
 
   it("a new printer with the serial of one you have (its cloud account's) is that one", async () => {

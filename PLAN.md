@@ -3785,7 +3785,7 @@ Do Step 9 of the 6.1.0 plan in PLAN.md.
 Do Step 10 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 10b - A network printer's name is the printer's  **[plan mode]**
+### [x] Step 10b - A network printer's name is the printer's  **[plan mode]**
 **Model:** Sonnet · **Effort:** Medium
 **Why:** the add and edit forms of a network printer source (Bambu LAN, Moonraker, PrusaLink, OctoPrint) have a Name field (`config.name`) next to the **Printer** pick (6.0.0 Step 17). With one of your printers picked, the field can name it differently; after setup, Integrations can rename a printer that the printer page owns.
 **Scope:**

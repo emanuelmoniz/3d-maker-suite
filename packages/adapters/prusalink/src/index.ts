@@ -35,8 +35,6 @@ const FILE_TRIES = 3;
 export const prusalinkConfigSchema = z.object({
   /** "192.168.1.60", "prusa-mk4.local" or "http://...". */
   host: z.string().trim().min(1).max(255),
-  /** The printer's name in the app; unset = the host name the printer says. */
-  name: z.string().trim().max(100).optional(),
   model: z.string().trim().max(100).optional(),
   /** The Digest user; PrusaLink's own is `maker`. */
   username: z.string().trim().max(100).optional(),
@@ -191,8 +189,7 @@ export function prusalinkAdapter(): IntegrationAdapter {
       const config = ctx.config as Config;
       const get = client(ctx);
       const json = <T>(path: string, schema: z.ZodType<T>) => getJson(get, ctx.log, path, schema);
-      const hostName = async () =>
-        config.name || (await json("/api/v1/info", infoSchema))?.hostname;
+      const hostName = async () => (await json("/api/v1/info", infoSchema))?.hostname;
 
       // The job the status shows: read once per job id, not on every poll.
       let info: JobInfo | undefined;
@@ -245,7 +242,7 @@ export function prusalinkAdapter(): IntegrationAdapter {
             return [
               {
                 externalId: PRINTER_ID,
-                name: config.name || i?.hostname || "Prusa",
+                name: i?.hostname || "Prusa",
                 brand: "Prusa",
                 model: config.model || "",
                 ...(i?.serial && { serial: i.serial }),

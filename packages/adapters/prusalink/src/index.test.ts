@@ -169,7 +169,7 @@ it("names the printer from its info", async () => {
     serial: "serial-1337",
     nozzleDiameterMm: 0.4,
   });
-  expect(await instance({ name: "Shop" }).profile?.()).toEqual({ name: "Shop" });
+  expect(await instance().profile?.()).toEqual({ name: "PrusaXL" });
 });
 
 it("an idle printer, or one that keeps its last job, is idle with no job", async () => {

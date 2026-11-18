@@ -153,6 +153,10 @@ function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
       secrets: read(f, "secrets", secrets) as Record<string, string>,
       deviceId: reach ? String(f.get("deviceId") ?? "") || null : (saved?.deviceId ?? null),
       ...(network && { printer }),
+      // A new printer's name: at create only, the printer's own after that (6.1.0 Step 10b).
+      ...(network &&
+        !saved &&
+        printer === "new" && { printerName: String(f.get("printerName") ?? "").trim() }),
     };
   };
 
@@ -248,6 +252,31 @@ function useSourceForm(adapter: AdapterInfo | undefined, saved?: Integration) {
           )}
         </FormField>
       )}
+      {network &&
+        (printer === "new"
+          ? !saved && (
+              <FormField
+                key={`${adapter?.id}-printerName`}
+                label={t("integrations:form.printerName")}
+                hint={t("integrations:form.printerNameHint")}
+              >
+                {(p) => <input {...p} name="printerName" maxLength={100} className={inputClass} />}
+              </FormField>
+            )
+          : chosen && (
+              <p className="wrap-anywhere">
+                <span className="text-muted">{t("integrations:form.printerCurrentName")}: </span>
+                {printerName(t, chosen)}
+                {saved && (
+                  <>
+                    {" "}
+                    <Link to="/printers/$id/edit" params={{ id: chosen.id }} className={textLink}>
+                      {t("integrations:form.printerRename")}
+                    </Link>
+                  </>
+                )}
+              </p>
+            ))}
       {config.map((field) => input("config", field))}
       {secrets.map((field) => input("secrets", field))}
       {reach ? (
@@ -533,6 +562,7 @@ export function IntegrationCreatePage() {
         secrets: v.secrets,
         ...(v.deviceId && { deviceId: v.deviceId }),
         ...(v.printer && { printer: v.printer }),
+        ...(v.printerName && { printerName: v.printerName }),
       },
       {
         onSuccess: (row) =>

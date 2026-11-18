@@ -14,7 +14,7 @@ A printer whose source reports live status shows a card on the dashboard and on 
 
 Which printers report status depends on the source: Klipper printers through [Moonraker](moonraker.md), Bambu Lab printers through [Bambu LAN](bambu-lan.md). Prusa printers through [PrusaLink](prusalink.md), and any printer behind [OctoPrint](octoprint.md).
 
-A printer on the network is one printer, linked when you add its integration: pick the printer you already have (added by hand, or from Bambu Cloud) or **New printer from this source**. Your printer keeps its name, model and costs, and there is no **Printers** sync that could add it twice. The integration's **Edit** page links it to another printer; removing the integration keeps the printer.
+A printer on the network is one printer, linked when you add its integration: pick the printer you already have (added by hand, or from Bambu Cloud) or **New printer from this source**. The name is the printer's: you type it only for a new printer, and a source never renames it. Rename a printer on its printer page; the integration's **Edit** page shows the name read-only with a link there. Your printer keeps its name, model and costs, and there is no **Printers** sync that could add it twice. The integration's **Edit** page links it to another printer; removing the integration keeps the printer.
 
 The **serial number** belongs to the printer. While a source gives it, Bambu LAN or the Bambu Cloud account that brought the printer in, the printer's edit page shows it read-only with that source's name. Otherwise you edit it there.
 

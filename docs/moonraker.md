@@ -12,8 +12,8 @@ The Moonraker integration reads a Klipper printer through Moonraker, the API beh
 
 1. Open **Integrations**, press **Add** and choose **Moonraker (Klipper)**.
 2. Enter the address, and the API key if you need one.
-3. Optional: a name for the printer (else Klipper's host name), its brand and its model. Without a model the app takes the one your slicer wrote in the newest job file.
-4. Under **Printer**, pick the printer if you already have it (added by hand, for example), else **New printer from this source**. A printer you pick keeps its own name, model and costs.
+3. Optional: its brand and its model. Without a model the app takes the one your slicer wrote in the newest job file.
+4. Under **Printer**, pick the printer if you already have it (added by hand, for example), else **New printer from this source**. A printer you pick keeps its own name, model and costs; rename it on its printer page. With a new printer, **Name** is its name (else Klipper's host name).
 5. Press **Test**, then **Add**. Saving asks the printer what it is, as Test does: if it doesn't answer, nothing is saved. Then switch on **Live status** on the card. The printer's page shows where it is read from and whether it answers ([Connection and monitoring](printers.md#connection-and-monitoring)).
 
 One integration is one printer, linked when you add it: there is no **Printers** sync for it, so a printer you added by hand never comes back twice. To link it to another printer, open **Edit** on its card and pick another **Printer**; the one it had stays, unlinked. Removing the integration keeps the printer. Add one per Klipper printer. The API key is stored encrypted on disk ([ADR-0005](adr/0005-secrets-storage.md)).

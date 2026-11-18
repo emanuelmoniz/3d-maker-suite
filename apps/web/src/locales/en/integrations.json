@@ -151,6 +151,10 @@
     "testFoundMany_other": "Connection works. Found {{count}} printers.",
     "printer": "Printer",
     "printerNew": "New printer from this source",
+    "printerName": "Name",
+    "printerNameHint": "Leave empty to use the name the printer announces. You can rename it on the printer page later.",
+    "printerCurrentName": "Printer name",
+    "printerRename": "Rename on the printer page",
     "printerHint": "A printer you already have keeps its name, model and costs. Saving asks the printer what it is, as Test does.",
     "anyOfPrinter": "This printer has no serial number yet. Enter its IP.",
     "errors": {
@@ -200,7 +204,6 @@
       "fields": {
         "host": "Printer IP (optional when the server is on the same network)",
         "serial": "Serial number (optional when the IP is set)",
-        "name": "Printer name",
         "accessCode": "Access code (on the printer's screen)"
       },
       "anyOf": "Enter the printer's IP or its serial number."
@@ -209,7 +212,6 @@
       "name": "Moonraker (Klipper)",
       "fields": {
         "host": "Address (IP or host name, with :7125 when Mainsail or Fluidd isn't on port 80)",
-        "name": "Printer name",
         "brand": "Brand",
         "model": "Model",
         "apiKey": "API key (only if Moonraker asks for one)",
@@ -220,7 +222,6 @@
       "name": "OctoPrint",
       "fields": {
         "host": "Address (IP or host name of OctoPrint)",
-        "name": "Printer name",
         "brand": "Brand",
         "model": "Model",
         "apiKey": "API key (OctoPrint: Settings → API)"
@@ -230,7 +231,6 @@
       "name": "PrusaLink (Prusa)",
       "fields": {
         "host": "Address (IP or host name of the printer)",
-        "name": "Printer name",
         "model": "Model",
         "username": "User (maker unless you changed it)",
         "password": "Password (on the printer: Settings → Network → PrusaLink)",

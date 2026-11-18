@@ -28,8 +28,6 @@ const FILE_TRIES = 3;
 export const octoprintConfigSchema = z.object({
   /** "192.168.1.70", "octopi.local" or "http://...". */
   host: z.string().trim().min(1).max(255),
-  /** The printer's name in the app. */
-  name: z.string().trim().max(100).optional(),
   brand: z.string().trim().max(100).optional(),
   model: z.string().trim().max(100).optional(),
 });
@@ -265,12 +263,12 @@ export function octoprintAdapter(): IntegrationAdapter {
             return { ok: false, code: e instanceof IntegrationError ? e.code : "unknown" };
           }
         },
-        profile: async () => ({ name: config.name || "OctoPrint" }),
+        profile: async () => ({ name: "OctoPrint" }),
         printers: {
           listPrinters: async () => [
             {
               externalId: PRINTER_ID,
-              name: config.name || "OctoPrint",
+              name: "OctoPrint",
               brand: config.brand || "",
               model: config.model || "",
             },

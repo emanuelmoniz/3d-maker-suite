@@ -239,6 +239,8 @@ export const integrationInputSchema = z.object({
   secrets: z.record(z.string(), z.string()).default({}),
   /** A printer on the network: required, it is one printer, linked at save. */
   printer: printerChoiceSchema.optional(),
+  /** A new printer's name (`printer: "new"`); empty = what it announces. Only at create (10b). */
+  printerName: z.string().trim().max(100).optional(),
 });
 
 /**

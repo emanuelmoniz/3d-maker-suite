@@ -398,7 +398,15 @@ export const integrationsRoutes =
         },
       },
       async (req, reply) => {
-        const { adapterId, enabled, config, secrets, deviceId: via, printer } = req.body;
+        const {
+          adapterId,
+          enabled,
+          config,
+          secrets,
+          deviceId: via,
+          printer,
+          printerName,
+        } = req.body;
         const adapter = adapterOf(adapterId);
         if (via) checkVia(req, adapter, via);
         // A printer on the network is one printer, linked now (ADR-0015).
@@ -433,7 +441,14 @@ export const integrationsRoutes =
           const row = db.insert(integrations).values(values).returning().get();
           writeSecrets(db, key, row.id, plain as Record<string, string>);
           if (found && printer) {
-            const printerId = linkNetworkPrinter(db, syncer.adapters, row.id, found, printer);
+            const printerId = linkNetworkPrinter(
+              db,
+              syncer.adapters,
+              row.id,
+              found,
+              printer,
+              printerName,
+            );
             db.update(integrations)
               .set({ config: withoutSerial(adapter, values.config, printerId) })
               .where(eq(integrations.id, row.id))

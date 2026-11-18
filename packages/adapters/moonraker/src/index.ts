@@ -30,8 +30,6 @@ const PAGE = 50;
 export const moonrakerConfigSchema = z.object({
   /** "192.168.1.50", "voron.local:7125" or "http://...": Mainsail's or Fluidd's address works too. */
   host: z.string().trim().min(1).max(255),
-  /** The printer's name in the app; unset = Klipper's host name. */
-  name: z.string().trim().max(100).optional(),
   brand: z.string().trim().max(100).optional(),
   model: z.string().trim().max(100).optional(),
   /**
@@ -114,7 +112,7 @@ export function moonrakerAdapter(): IntegrationAdapter {
       const config = ctx.config as Config;
       const get = client(ctx);
       const name = async () =>
-        config.name || (await get("/printer/info", printerInfo))?.result.hostname || "Klipper";
+        (await get("/printer/info", printerInfo))?.result.hostname || "Klipper";
 
       // The job the status shows: read once per job, not on every poll.
       let info: JobInfo | undefined;

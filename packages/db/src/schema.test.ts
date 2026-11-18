@@ -2587,3 +2587,37 @@ describe("migration 0136", () => {
     });
   });
 });
+
+describe("migration 0138", () => {
+  it("removes a network source's printer name once it is linked, and keeps an unlinked one's", () => {
+    const now = migrateAcross(137, (sqlite) => {
+      sqlite.exec(`
+        insert into brands (id, name, created_at, updated_at) values ('b', 'Acme', 'x', 'x');
+        insert into printer_models (id, brand_id, model, created_at, updated_at) values ('m', 'b', 'X1', 'x', 'x');
+        insert into integrations (id, adapter_id, config, created_at, updated_at) values
+          ('own', 'moonraker', '{"host":"a.lan","name":"Voron"}', 'x', 'x'),
+          ('linked', 'octoprint', '{"host":"b.lan","name":"Ender"}', 'x', 'x'),
+          ('none', 'prusalink', '{"host":"c.lan","name":"Mk4"}', 'x', 'x'),
+          ('spoolman', 'spoolman', '{"name":"Keep"}', 'x', 'x');
+        insert into printers (id, number, name, model_id, state, origin, integration_id, external_id, created_at, updated_at) values
+          ('pa', 1, 'A', 'm', 'working', 'integration', 'own', 'e', 'x', 'x'),
+          ('pb', 2, 'B', 'm', 'working', 'manual', null, null, 'x', 'x');
+        insert into printer_sources (id, printer_id, integration_id, external_id, created_at, updated_at) values
+          ('l1', 'pb', 'linked', 'e2', 'x', 'x');
+      `);
+    });
+    const configs = Object.fromEntries(
+      now
+        .select()
+        .from(s.integrations)
+        .all()
+        .map((i) => [i.id, i.config]),
+    );
+    expect(configs).toEqual({
+      own: { host: "a.lan" },
+      linked: { host: "b.lan" },
+      none: { host: "c.lan", name: "Mk4" },
+      spoolman: { name: "Keep" },
+    });
+  });
+});

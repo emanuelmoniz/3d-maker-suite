@@ -225,6 +225,7 @@ export function linkNetworkPrinter(
   integrationId: string,
   found: FoundLink,
   choice: PrinterChoice,
+  name?: string,
 ): string {
   const taken = networkPrinters(db, adapters);
   taken.delete(integrationId);
@@ -257,7 +258,7 @@ export function linkNetworkPrinter(
     if (found.serial && !twin.serial?.trim())
       db.update(printers).set({ serial: found.serial }).where(eq(printers.id, twin.id)).run();
   } else {
-    const [row] = printerRows(db, integrationId, [found]);
+    const [row] = printerRows(db, integrationId, [name ? { ...found, name } : found]);
     if (!row) throw new HttpError(500, "link_failed", "No printer to make");
     printerId = printerImport.create(db, row.raw as ImportValues, row);
   }

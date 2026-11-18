@@ -42,8 +42,6 @@ export const bambuLanConfigSchema = z
     host: z.string().trim().max(255).optional(),
     /** On the printer's screen and in Bambu Studio's device page. Unset: read from the printer. */
     serial: z.string().trim().max(64).optional(),
-    /** The printer's name in the app; unset = the name it announces. */
-    name: z.string().trim().max(100).optional(),
   })
   .refine((c) => !!c.host || !!c.serial, { message: "host or serial" });
 type Config = z.infer<typeof bambuLanConfigSchema>;
@@ -303,7 +301,7 @@ function link(
       return model ?? (announced?.modelCode && MODELS[announced.modelCode]) ?? undefined;
     },
     get name() {
-      return config.name || announced?.name || undefined;
+      return announced?.name || undefined;
     },
     get report() {
       return report;

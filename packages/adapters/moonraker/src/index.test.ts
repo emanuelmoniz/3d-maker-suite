@@ -324,8 +324,8 @@ it("lists the printer: its name from Klipper, its model from the newest job", as
   expect(await instance().printers?.listPrinters()).toEqual([
     { externalId: "klipper", name: "25533e3d5d25", brand: "Klipper", model: "Voron 2.4 300" },
   ]);
-  const named = instance({ name: "V2.4", brand: "Voron", model: "2.4 350" });
+  const named = instance({ brand: "Voron", model: "2.4 350" });
   expect(await named.printers?.listPrinters()).toEqual([
-    { externalId: "klipper", name: "V2.4", brand: "Voron", model: "2.4 350" },
+    { externalId: "klipper", name: "25533e3d5d25", brand: "Voron", model: "2.4 350" },
   ]);
 });
