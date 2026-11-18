@@ -22,16 +22,15 @@ for (const width of [375, 1440])
     const card = page.getByRole("region", { name: "Bambu Studio" });
     const where = "This server";
     await expect(card.getByRole("heading", { name: where, level: 4 })).toBeVisible();
-    const hub = card.getByRole("region", { name: "Server's slicer" });
-    await expect(hub.getByText(where, { exact: true })).toBeVisible();
-    await expect(hub.getByText("Slicer machine used by the server.")).toBeVisible();
-    // Nothing else to pick: no Change.
-    await expect(hub.getByRole("button", { name: "Change slicer machine" })).toHaveCount(0);
+    // The body starts at Installs; the only install is the default one, with nothing else to pick.
+    await expect(card.getByRole("heading", { name: "Server's slicer" })).toHaveCount(0);
+    await expect(card.getByRole("heading", { name: "Installs" })).toBeVisible();
+    await expect(card.getByText("Default install", { exact: true })).toBeVisible();
     // Switched off, it can't be picked, but it stays set up.
     // The only install on the card: its switch and its line.
     const row = card.getByRole("list");
     await row.getByRole("switch", { name: "Enabled" }).dispatchEvent("click");
-    await expect(row.getByText("Switched off, so it can't be picked.")).toBeVisible();
+    await expect(row.getByText("Switched off, so it can't be the default install.")).toBeVisible();
     await row.getByRole("switch", { name: "Enabled" }).dispatchEvent("click");
     await expect(row.getByText("Switched off, so it can't be picked.")).toHaveCount(0);
     await expect(

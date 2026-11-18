@@ -116,13 +116,11 @@ export function LibraryCard({
   const adapters = (useAdapters().data ?? []).filter((a) => a.libraryId === library);
   const type = adapters.length > 0;
   const lib = useCatalogSources(admin && type).data?.find((l) => l.library === library);
-  // The default one has its pill in the title; another has Make default slicer at the top.
+  // The default one has its pill in the title; another has Make default slicer in the card's menu.
   const def = useDefaultSlicer(library, rows);
   const isDefault = def?.isDefault;
   const makeDefault = admin && def && !def.isDefault ? def.target : undefined;
   const save = useSavePreferences();
-  // Only content above the hub's slicer gets a divider under it; else the body starts at the top.
-  const above = !!makeDefault || here.length > 1;
   return (
     <FoldCard
       id={library}
@@ -132,7 +130,25 @@ export function LibraryCard({
       badge={badgeOf(rows)}
       reveal={reveal}
       scroll={scroll}
-      menu={<RemoveIntegration library={library} rows={rows} name={adapterName(library)} />}
+      menu={
+        <RemoveIntegration
+          library={library}
+          rows={rows}
+          name={adapterName(library)}
+          extra={
+            makeDefault && (
+              <Button
+                variant="ghost"
+                className="justify-start"
+                disabled={save.isPending}
+                onClick={() => save.mutate({ defaultSlicerId: makeDefault.id })}
+              >
+                {t("integrations:slicer.makeDefault")}
+              </Button>
+            )
+          }
+        />
+      }
       action={
         admin &&
         slicer &&
@@ -148,24 +164,13 @@ export function LibraryCard({
         )
       }
     >
-      {makeDefault && (
-        <div>
-          <Button
-            variant="ghost"
-            disabled={save.isPending}
-            onClick={() => save.mutate({ defaultSlicerId: makeDefault.id })}
-          >
-            {t("integrations:slicer.makeDefault")}
-          </Button>
-        </div>
-      )}
       {here.length > 1 && (
         <p role="note" className="text-warn">
           {t("integrations:card.twoInstalls")}
         </p>
       )}
       {admin && type ? (
-        <HubSlicer library={library} rows={rows} lib={lib} divided={above} />
+        <HubSlicer library={library} rows={rows} lib={lib} />
       ) : (
         <ul>
           {rows.map((i) => (
@@ -185,31 +190,27 @@ export function LibraryCard({
 }
 
 /**
- * The hub's slicer (ADR-0022), on a panel of its own, and Change slicer machine below it: a dialog
- * that picks among the enabled installs and says what the change does. Then the installs, each with
- * its setup; a machine that has the slicer without one gets Set up, any other is in Add a machine.
+ * The installs of a slicer type (ADR-0022), each with its setup. The default install (the hub's
+ * slicer) has a pill; another install that can be picked has Make default install in its menu: a
+ * dialog that says what the change does. A machine that has the slicer without an install gets
+ * Set up, any other is in Add a machine.
  */
 function HubSlicer({
   library,
   rows,
   lib,
-  divided,
 }: {
   library: string;
   rows: Integration[];
   lib: LibrarySources | undefined;
-  /** Something sits above it in the card's body (Make default slicer): a divider between. */
-  divided: boolean;
 }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const locationLabel = useLocationLabel();
   const legend = useId();
-  const hubHeading = useId();
   const { worker, devices, withRow, setUp, create } = useWorkerSetUp(library);
   const pick = usePickHubSlicer(library);
-  const [changing, setChanging] = useState(false);
-  const [choice, setChoice] = useState("");
+  const [chosen, setChosen] = useState<Integration | null>(null);
   const current = rows.find((i) => i.id === lib?.cardsOf);
   // A switched-off install is never an option (the server agrees).
   const pickable = (i: Integration) =>
@@ -228,154 +229,104 @@ function HubSlicer({
     : [];
   const error = pick.error ?? create.error;
   const code = error instanceof ApiError && error.code ? PICK_ERRORS[error.code] : undefined;
-  const others = rows.filter((i) => i.id !== current?.id && pickable(i));
-  const chosen = others.find((i) => i.id === choice) ?? others[0];
-  const optionLabel = (i: Integration) =>
-    i.slicerVersion
-      ? t("integrations:hub.option", { where: locationLabel(i), version: i.slicerVersion })
-      : locationLabel(i);
-  const CurrentIcon = current && LOCATION_ICONS[current.kind];
   return (
-    <>
-      <section
-        aria-labelledby={hubHeading}
-        className={cx("grid gap-2", divided && "border-t border-border pt-4")}
-      >
-        <h3 id={hubHeading} className="font-semibold">
-          {t("integrations:hub.title")}
-        </h3>
-        {current && CurrentIcon ? (
-          // The one bold thing on the card: which install slices for the hub.
-          <div className="flex min-w-0 items-start gap-3 rounded-lg border border-accent/40 bg-accent/10 p-3">
-            <span
-              aria-hidden
-              className={cx(NODE, "mt-0 shrink-0 border-accent bg-accent text-accent-fg")}
-            >
-              <CurrentIcon className="size-4" />
+    <section aria-labelledby={legend} className="grid min-w-0 gap-1">
+      <h3 id={legend} className="font-semibold">
+        {t("integrations:hub.installs")}
+      </h3>
+      <ul>
+        {rows.map((i) => (
+          <IntegrationCard
+            key={i.id}
+            integration={i}
+            hub={{
+              checked: lib?.cardsOf === i.id,
+              notOffered: !i.enabled,
+              makeDefault:
+                i.id !== current?.id && pickable(i)
+                  ? () => {
+                      pick.reset();
+                      setChosen(i);
+                    }
+                  : undefined,
+            }}
+          />
+        ))}
+        {offered.map((m) => (
+          <li key={m.deviceId} className={RAIL}>
+            <span aria-hidden className={cx(NODE, "border-dashed border-border text-muted")}>
+              <LOCATION_ICONS.worker className="size-4" />
             </span>
-            <div className="min-w-0">
-              <p className="font-semibold wrap-anywhere">
-                {locationLabel(current)}
-                {current.slicerVersion && (
-                  <span className="ml-2 font-normal text-muted">
-                    {t("integrations:hub.version", { version: current.slicerVersion })}
-                  </span>
-                )}
-              </p>
-              <p className="text-muted">{t("integrations:hub.isHub")}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-muted">{t("integrations:hub.noneYet")}</p>
-        )}
-        {others.length > 0 && (
-          <div>
-            <Button
-              disabled={pick.isPending}
-              onClick={() => {
-                pick.reset();
-                setChoice("");
-                setChanging(true);
-              }}
-            >
-              {t("integrations:hub.changeMachine")}
-            </Button>
-          </div>
-        )}
-        <p className="max-w-prose text-sm text-muted">{t("integrations:hub.hint")}</p>
-      </section>
-      <section aria-labelledby={legend} className="mt-4 grid min-w-0 gap-1">
-        <h3 id={legend} className="font-semibold">
-          {t("integrations:hub.installs")}
-        </h3>
-        <ul>
-          {rows.map((i) => (
-            <IntegrationCard
-              key={i.id}
-              integration={i}
-              hub={{
-                checked: lib?.cardsOf === i.id,
-                notOffered: !i.enabled,
-              }}
-            />
-          ))}
-          {offered.map((m) => (
-            <li key={m.deviceId} className={RAIL}>
-              <span aria-hidden className={cx(NODE, "border-dashed border-border text-muted")}>
-                <LOCATION_ICONS.worker className="size-4" />
-              </span>
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <div className="min-w-0">
-                  <p className="flex min-h-11 items-center font-semibold wrap-anywhere">{m.name}</p>
-                  <p className="text-muted">{t("integrations:hub.offers")}</p>
-                </div>
-                {worker && (
-                  <Button disabled={create.isPending} onClick={() => setUp(m.deviceId)}>
-                    {t("integrations:hub.setUp")}
-                  </Button>
-                )}
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <div className="min-w-0">
+                <p className="flex min-h-11 items-center font-semibold wrap-anywhere">{m.name}</p>
+                <p className="text-muted">{t("integrations:hub.offers")}</p>
               </div>
-            </li>
-          ))}
-        </ul>
-        {more.length > 0 && (
-          <div className="sm:max-w-sm">
-            <Combobox
-              aria-label={t("integrations:hub.addMachine")}
-              value=""
-              disabled={create.isPending}
-              options={[
-                { value: "", label: t("integrations:hub.addMachine") },
-                ...more.map((d) => ({ value: d.id, label: d.name })),
-              ]}
-              onChange={(v) => v && setUp(v)}
-            />
-          </div>
-        )}
-        {error && (
-          <p role="alert" className="text-bad">
-            {t(code ?? "integrations:card.actionError")}
-          </p>
-        )}
-        {/* Another install changes the catalog, and every receiver gets the new one: it says so. */}
-        <ConfirmDialog
-          open={changing && !!chosen}
-          title={t("integrations:hub.changeTitle", { name: adapterName(library) })}
-          description={
-            chosen?.slicerVersion && current?.slicerVersion === chosen.slicerVersion
-              ? t("integrations:hub.pickBodySame")
-              : current?.slicerVersion && chosen?.slicerVersion
-                ? t("integrations:hub.pickBody", {
-                    from: current.slicerVersion,
-                    to: chosen.slicerVersion,
-                  })
-                : t("integrations:hub.pickBodyUnknown")
-          }
-          confirmLabel={t("integrations:hub.pick")}
-          onCancel={() => setChanging(false)}
-          onConfirm={() => {
-            if (chosen) pick.mutate(chosen.id);
-            setChanging(false);
-          }}
-        >
-          <FormField label={t("integrations:hub.machine")}>
-            {(p) => (
-              <Combobox
-                {...p}
-                value={chosen?.id ?? ""}
-                options={others.map((i) => ({ value: i.id, label: optionLabel(i) }))}
-                onChange={setChoice}
-              />
-            )}
-          </FormField>
-        </ConfirmDialog>
-      </section>
-    </>
+              {worker && (
+                <Button disabled={create.isPending} onClick={() => setUp(m.deviceId)}>
+                  {t("integrations:hub.setUp")}
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {more.length > 0 && (
+        <div className="sm:max-w-sm">
+          <Combobox
+            aria-label={t("integrations:hub.addMachine")}
+            value=""
+            disabled={create.isPending}
+            options={[
+              { value: "", label: t("integrations:hub.addMachine") },
+              ...more.map((d) => ({ value: d.id, label: d.name })),
+            ]}
+            onChange={(v) => v && setUp(v)}
+          />
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-bad">
+          {t(code ?? "integrations:card.actionError")}
+        </p>
+      )}
+      {/* Another install changes the catalog, and every receiver gets the new one: it says so. */}
+      <ConfirmDialog
+        open={!!chosen}
+        title={t("integrations:hub.changeTitle", {
+          name: adapterName(library),
+          where: chosen ? locationLabel(chosen) : "",
+        })}
+        description={
+          chosen?.slicerVersion && current?.slicerVersion === chosen.slicerVersion
+            ? t("integrations:hub.pickBodySame")
+            : current?.slicerVersion && chosen?.slicerVersion
+              ? t("integrations:hub.pickBody", {
+                  from: current.slicerVersion,
+                  to: chosen.slicerVersion,
+                })
+              : t("integrations:hub.pickBodyUnknown")
+        }
+        confirmLabel={t("integrations:hub.pick")}
+        onCancel={() => setChosen(null)}
+        onConfirm={() => {
+          if (chosen) pick.mutate(chosen.id);
+          setChosen(null);
+        }}
+      >
+        <p className="text-muted">{t("integrations:hub.isHub")}</p>
+      </ConfirmDialog>
+    </section>
   );
 }
 
-/** A row on its slicer type's card: whether it is the hub's slicer, or a machine not offering it. */
-type HubRole = { checked: boolean; notOffered: boolean };
+/** A row on its slicer type's card: whether it is the default install, or one not offered. */
+type HubRole = {
+  checked: boolean;
+  notOffered: boolean;
+  /** Opens the confirm dialog; set only for an install that can be picked now. */
+  makeDefault?: () => void;
+};
 
 /**
  * One place a slicer runs (or an account): where and on/off, no status line; then its account
@@ -446,7 +397,11 @@ export function IntegrationCard({
                 {t("integrations:hub.version", { version: i.slicerVersion })}
               </span>
             )}
-            {hub?.checked && <SourceBadge>{t("integrations:hub.title")}</SourceBadge>}
+            {hub?.checked && (
+              <span title={t("integrations:hub.isHub")} className="inline-flex">
+                <SourceBadge>{t("integrations:hub.default")}</SourceBadge>
+              </span>
+            )}
           </H>
           {admin && (
             <div className="flex items-center gap-1">
@@ -457,6 +412,11 @@ export function IntegrationCard({
                 onChange={(e) => patch.mutate({ enabled: e.target.checked })}
               />
               <Menu label={t("integrations:card.menu", { name })}>
+                {hub?.makeDefault && (
+                  <Button variant="ghost" className="justify-start" onClick={hub.makeDefault}>
+                    {t("integrations:hub.makeDefault")}
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   className="justify-start text-bad"

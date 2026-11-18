@@ -562,19 +562,17 @@
     }
   },
   "hub": {
-    "title": "Server's slicer",
-    "hint": "This server's installs and every machine's install can be picked.",
-    "isHub": "Slicer machine used by the server. Its catalog and system presets are the server's, and every machine that receives them gets this copy.",
-    "notOffered": "Switched off, so it can't be picked. Turn it on to pick it above.",
+    "default": "Default install",
+    "isHub": "The server's slicer install. Its catalog and system presets are the server's, and every machine that receives them gets this copy.",
+    "notOffered": "Switched off, so it can't be the default install. Turn it on to pick it.",
     "offers": "Has it installed, not set up yet.",
     "setUp": "Set up",
     "addMachine": "Add a machine…",
     "version": "v{{version}}",
     "pickBody": "The catalog and system presets change from version {{from}} to {{to}}: every machine that receives them gets the new ones, and plates sliced with the old version are sliced again.",
-    "pick": "Make it the hub's slicer",
-    "changeMachine": "Change slicer machine",
-    "changeTitle": "Change the {{name}} slicer machine",
-    "machine": "Slicer machine",
+    "pick": "Make default install",
+    "makeDefault": "Make default install",
+    "changeTitle": "Make {{where}} the default {{name}} install?",
     "pickBodySame": "The same version: the catalog and system presets stay as they are, and the new machine slices for the hub.",
     "errors": {
       "device_offline": "That machine is offline. Pick it once it is online.",
@@ -584,8 +582,6 @@
       "slicer_exists": "This slicer is already set up on that machine."
     },
     "pickBodyUnknown": "The catalog and system presets become this install's: every machine that receives them gets the new ones, and plates sliced with another version are sliced again.",
-    "option": "{{where}}, version {{version}}",
-    "noneYet": "None yet: set up an install below.",
     "installs": "Installs"
   },
   "typeSync": {

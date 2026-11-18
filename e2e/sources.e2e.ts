@@ -87,21 +87,18 @@ for (const width of [375, 1440])
     // the catalog.
     await expect(share2).toBeVisible();
     await expect(hubSlicer(share2)).toHaveCount(0);
-    // Picked in Integrations: Change slicer machine, below the hub's slicer's panel, asks first.
+    // Picked in Integrations: Make default install, in the other install's menu, asks first.
     await page.goto("/integrations");
     const card = page.getByRole("region", { name: "Bambu Studio" });
     // Cards start folded.
     await card.getByRole("button", { name: /^Bambu Studio/ }).click();
-    await card.getByRole("button", { name: "Change slicer machine" }).click();
-    const dialog = page
-      .getByRole("dialog")
-      .filter({ hasText: "Change the Bambu Studio slicer machine" });
-    await dialog.getByLabel("Slicer machine").click();
-    await page.getByRole("option", { name: /^WS-2/ }).click();
+    await card.getByLabel("More actions for Bambu Studio (WS-2)").click();
+    await page.getByRole("button", { name: "Make default install" }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: "default Bambu Studio install" });
     const picked = page.waitForResponse((r) =>
       r.url().endsWith("/api/integrations/slicers/bambu-studio"),
     );
-    await dialog.getByRole("button", { name: "Make it the hub's slicer" }).click();
+    await dialog.getByRole("button", { name: "Make default install" }).click();
     expect((await picked).status()).toBe(204);
     await page.goto("/catalog/settings/sources");
     await openSources(page);

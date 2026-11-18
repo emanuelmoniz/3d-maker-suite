@@ -68,3 +68,6 @@ A card only when set up. A slicer type has a card once it has an install (this s
 
 ## Amendment (6.1.0, Step 10)
 Remove integration. A card's `⋯` menu (admins) removes everything under it: `DELETE /api/integrations?library=<id>` (`integrations.manage`) takes every row whose adapter's library, or its own id, is that card. It checks all rows first: one syncing gives 409 `sync_running` and nothing is removed. Each row then goes through `removeIntegration` (managed installs removed, workers re-synced, avatars dropped); imported printers, prints and spools stay, unlinked. The answer is `{ removed: [id] }`. A removed default slicer behaves as deleting its last row does; the dialog says so. Add integration brings the card back (Step 9).
+
+## Amendment (6.1.0, Step 17)
+The **Server's slicer** panel and **Change slicer machine** button on a slicer's card are gone: the body opens at **Installs**. The default install carries a **Default install** pill (its tooltip says what that means); another install that can be picked (switched on, offered) has **Make default install** in its own menu, with the same confirm dialog (catalog and system presets change from version X to Y). **Make default slicer** moved from the body into the card's top-right menu, shown only while the slicer isn't the default. The machine page and the Sources tabs still say *Server's slicer*.

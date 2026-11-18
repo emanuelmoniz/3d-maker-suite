@@ -1,5 +1,5 @@
 import { type Integration, isSlicerKind } from "@3d-maker-suite/core";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
@@ -21,11 +21,14 @@ export function RemoveIntegration({
   library,
   rows,
   name,
+  extra,
 }: {
   library: string;
   rows: Integration[];
   /** The card's title. */
   name: string;
+  /** Other items of the menu, above Remove integration (Make default slicer). */
+  extra?: ReactNode;
 }) {
   const { t } = useTranslation();
   const admin = useCan("integrations.manage");
@@ -48,6 +51,7 @@ export function RemoveIntegration({
   return (
     <>
       <Menu label={t("integrations:card.menu", { name })}>
+        {extra}
         <Button
           variant="ghost"
           className="justify-start text-bad"

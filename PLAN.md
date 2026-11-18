@@ -3979,7 +3979,7 @@ Do Step 16 of the 6.1.0 plan in PLAN.md.
 
 ## Phase 53 - Integrations, sources and cards
 
-### [ ] Step 17 - Slicer card: default slicer and default install in the menu
+### [x] Step 17 - Slicer card: default slicer and default install in the menu
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `IntegrationCard.tsx`: the **Make default slicer** button above the body goes. It becomes an item in the card's top-right menu (admins, only when this slicer isn't the default). The **Default slicer** pill in the title stays.
