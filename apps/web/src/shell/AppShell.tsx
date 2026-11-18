@@ -83,7 +83,7 @@ function Brand({ mobile = false }: { mobile?: boolean }) {
   const showName = usePreferences().data?.values.brandShowName ?? true;
   const mark = brandMark({ logo, showName });
   const wrap = cx(
-    "flex min-w-0 items-center gap-2.5 font-semibold",
+    "flex w-full min-w-0 items-center gap-2.5 font-semibold",
     !showName && "justify-center",
     mobile && "mb-4 md:hidden",
   );
