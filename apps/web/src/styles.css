@@ -122,8 +122,27 @@ dialog::backdrop {
     opacity: 1;
   }
 }
+/*
+ * In a button the spinner also takes no room for that first second (zero width, and a negative
+ * margin that cancels the button's gap), so a fast action doesn't make the button grow and shrink.
+ */
+button > .busy-spinner {
+  width: 0;
+  margin-inline-end: -0.5rem;
+  animation:
+    busy-spin 1s linear infinite,
+    busy-fit 0s 1s forwards;
+}
+@keyframes busy-fit {
+  to {
+    opacity: 1;
+    width: 1rem;
+    margin-inline-end: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .busy-spinner {
+  .busy-spinner,
+  button > .busy-spinner {
     animation-duration: 3s, 0s;
   }
 }

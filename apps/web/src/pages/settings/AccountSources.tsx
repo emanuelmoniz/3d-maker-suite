@@ -54,7 +54,8 @@ const EMPTY: Record<AccountType, { title: string; body: string }> = {
 // Each block is its own table: the same widths keep the columns in line from one to the next.
 export const COL = {
   item: "min-w-44",
-  when: "min-w-48",
+  // Cells never wrap (DataTable), so the schedule wraps itself: else it runs over the next column.
+  when: "min-w-48 whitespace-normal",
   what: "inline-block min-w-44",
   how: "inline-block min-w-48",
 };

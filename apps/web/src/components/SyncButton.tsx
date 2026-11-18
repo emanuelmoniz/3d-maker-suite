@@ -6,7 +6,7 @@ import {
 } from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { textLink } from "../lib/cx.ts";
 import { formatList } from "../lib/format.ts";
@@ -20,6 +20,8 @@ import {
 import { CAPS, ERRORS } from "../pages/settings/integrationLabels.ts";
 import { AddDialog } from "./AddDialog.tsx";
 import { Button } from "./Button.tsx";
+
+const STATUS_MS = 5000;
 
 /**
  * A page's Sync: `types`, now, in every source that has them on Auto and that the caller may sync
@@ -35,6 +37,12 @@ export function SyncButton({ types, all }: { types: readonly SyncType[]; all?: b
   const sync = useSyncTypes();
   const [results, setResults] = useState<TypeSyncResult[]>();
   const [written, setWritten] = useState<number>();
+  // The status fades after a few seconds.
+  useEffect(() => {
+    if (written === undefined) return;
+    const timer = window.setTimeout(() => setWritten(undefined), STATUS_MS);
+    return () => window.clearTimeout(timer);
+  }, [written]);
   if (targets.length === 0) return null;
 
   const run = () => {
@@ -60,6 +68,9 @@ export function SyncButton({ types, all }: { types: readonly SyncType[]; all?: b
 
   return (
     <span className="flex flex-wrap items-center gap-2">
+      <span role="status" aria-live="polite" className="text-sm text-muted">
+        {written !== undefined && t("integrations:typeSync.done", { count: written })}
+      </span>
       <Button
         busy={sync.isPending}
         aria-label={all ? undefined : t("integrations:typeSync.of", { what })}
@@ -68,9 +79,6 @@ export function SyncButton({ types, all }: { types: readonly SyncType[]; all?: b
         <RefreshCw className="size-4" aria-hidden />
         {t(all ? "integrations:typeSync.all" : "integrations:typeSync.button")}
       </Button>
-      <span role="status" aria-live="polite" className="text-sm text-muted">
-        {written !== undefined && t("integrations:typeSync.done", { count: written })}
-      </span>
       <SyncResultDialog results={results} onClose={() => setResults(undefined)} />
     </span>
   );
