@@ -3873,7 +3873,7 @@ Do Step 11 of the 6.1.0 plan in PLAN.md.
 Do Step 12 of the 6.1.0 plan in PLAN.md. Use frontend-design for the System section.
 ```
 
-### [ ] Step 13 - Show the app name in the sidebar
+### [x] Step 13 - Show the app name in the sidebar
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `brandShowName` in `schemas/preferences.ts`, default `true`, in the branding permission group (`lib/auth.ts`). Update the defaults in `app.test.ts`.

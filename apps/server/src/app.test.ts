@@ -34,6 +34,7 @@ describe("api", () => {
       currency: "EUR",
       accent: "teal",
       hubEnabled: false,
+      brandShowName: true,
       tagsEnabled: true,
       accountsEnabled: true,
     });

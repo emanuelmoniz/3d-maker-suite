@@ -186,6 +186,7 @@
     "everyone": "Applies to everyone who uses this server.",
     "name": "App name",
     "nameHint": "Shown in the sidebar and browser tab. Leave empty for the default.",
+    "showName": "Show app name in sidebar",
     "upload": "Upload image",
     "reset": "Reset to default",
     "error": "Couldn't update the image. Use a PNG, JPEG or WebP up to 5 MB.",

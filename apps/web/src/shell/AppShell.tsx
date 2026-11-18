@@ -80,10 +80,32 @@ function SideLink({ item }: { item: NavItem }) {
 function Brand({ mobile = false }: { mobile?: boolean }) {
   const name = useAppName();
   const logo = useBrandingUrl("logo");
+  const showName = usePreferences().data?.values.brandShowName ?? true;
+  const wrap = cx("flex min-w-0 items-center gap-2.5 font-semibold", mobile && "mb-4 md:hidden");
+  if (!showName && logo) {
+    return (
+      <div className={wrap}>
+        <img src={logo} alt={name} className="h-8 w-auto max-w-full object-contain" />
+      </div>
+    );
+  }
+  if (!showName) {
+    // The horizontal logo replaces icon + name; the narrow sidebar keeps the icon.
+    return (
+      <div className={wrap}>
+        <img
+          src="/logo.svg"
+          alt={name}
+          className={cx("h-8 w-auto max-w-full object-contain", !mobile && "hidden lg:block")}
+        />
+        {!mobile && (
+          <img src="/icon.svg" alt={name} className="size-8 shrink-0 object-contain lg:hidden" />
+        )}
+      </div>
+    );
+  }
   return (
-    <div
-      className={cx("flex min-w-0 items-center gap-2.5 font-semibold", mobile && "mb-4 md:hidden")}
-    >
+    <div className={wrap}>
       {logo ? (
         <img src={logo} alt={name} className="size-8 shrink-0 rounded-md object-contain" />
       ) : (

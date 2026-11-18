@@ -79,7 +79,7 @@ Per-user display keys, which any role (viewer included) may change for themselve
 
 Every other key is global and admin-only, so new keys start admin-only: costs, workflow, alert and module settings (`currency`, `markupPct`, `printerStates`, `orderStatuses`, `defaultPrinterId`, `lowSpoolGrams`, `maintenanceLead*` and the rest), plus:
 
-Infrastructure keys: `appName`, `projectRoots`, `projectScanMaxFiles`, `viewerMaxMb`, `projectUploadMaxMb`, `backupAuto`, `backupKeep`, `logActive`, `logLevels`, `logModules`, `logRetentionDays`, `logMaxEntries`, `updateChannel`.
+Infrastructure keys: `appName`, `brandShowName`, `projectRoots`, `projectScanMaxFiles`, `viewerMaxMb`, `projectUploadMaxMb`, `backupAuto`, `backupKeep`, `logActive`, `logLevels`, `logModules`, `logRetentionDays`, `logMaxEntries`, `updateChannel`.
 
 A PATCH with any key the caller may not change is rejected as a whole (403), nothing is half-saved.
 

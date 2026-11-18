@@ -42,7 +42,7 @@ The table is today's role × prefix table (ADR-0012) and the rules `can()` adds 
 | `settings.server` | `/server-config`, `/updates`, `/docs`; key `updateChannel` | on | off | off |
 | `settings.backup` | `/backups` except restore; keys `backupAuto`, `backupKeep` | on | off | off |
 | `settings.logs` | `/logs`; keys `logActive`, `logLevels`, `logModules`, `logRetentionDays`, `logMaxEntries` | on | off | off |
-| `settings.branding` | `/branding` writes; key `appName` | on | off | off |
+| `settings.branding` | `/branding` writes; keys `appName`, `brandShowName` | on | off | off |
 | `settings.alerts` | `/alerts/channels` (the mail and ntfy servers); keys `lowSpoolGrams`, `maintenanceLeadDays`, `maintenanceLeadHours`, `maintenanceLeadPrints` | on | off | off |
 | `users.manage` | `/users`, `/roles`. `GET /users` also with `projects` manage, for a root's picked editors | on | off | off |
 

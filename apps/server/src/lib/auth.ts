@@ -250,7 +250,7 @@ const KEYS: Record<string, Need> = Object.fromEntries([
     "logRetentionDays",
     "logMaxEntries",
   ),
-  ...keys(on("settings.branding"), "appName"),
+  ...keys(on("settings.branding"), "appName", "brandShowName"),
   ...keys(
     on("settings.alerts"),
     "lowSpoolGrams",

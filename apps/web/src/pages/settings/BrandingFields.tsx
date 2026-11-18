@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { Switch } from "../../components/Switch.tsx";
 import { type BrandingKind, useBrandingUrl, useSaveBranding } from "../../lib/branding.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { linkButton } from "../filament/SpoolDetailPage.tsx";
@@ -65,7 +66,9 @@ function ImageField({ kind }: { kind: BrandingKind }) {
 /** Custom app name (empty = default), logo and favicon. */
 export function BrandingFields() {
   const { t } = useTranslation();
-  const name = usePreferences().data?.values.appName ?? "";
+  const values = usePreferences().data?.values;
+  const name = values?.appName ?? "";
+  const showName = values?.brandShowName ?? true;
   const save = useSavePreferences();
   return (
     <>
@@ -85,6 +88,12 @@ export function BrandingFields() {
           />
         )}
       </FormField>
+      <Switch
+        label={t("settings:branding.showName")}
+        checked={showName}
+        disabled={save.isPending}
+        onChange={(e) => save.mutate({ brandShowName: e.target.checked })}
+      />
       <ImageField kind="logo" />
       <ImageField kind="favicon" />
     </>

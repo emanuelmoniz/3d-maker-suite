@@ -38,6 +38,8 @@ const shape = {
   accent: z.enum(ACCENT_COLORS),
   /** Custom app name shown in the sidebar and tab title. Empty = the default (`common:appName`). */
   appName: z.string().trim().max(60),
+  /** Show the app name next to the logo in the sidebar. Off with no uploaded logo shows the horizontal logo. */
+  brandShowName: z.boolean(),
   currency: z.string().regex(/^[A-Z]{3}$/),
   energyCostPerKwh: z.number().nonnegative(),
   /** Printer wear: purchase price / these hours. 0 leaves wear out of the cost. Per-printer override. */
@@ -126,6 +128,7 @@ export const PREFERENCE_DEFAULTS: z.infer<typeof preferencesSchema> = {
   themeMode: "system",
   accent: "teal",
   appName: "",
+  brandShowName: true,
   currency: "EUR",
   energyCostPerKwh: 0.25,
   printerLifetimeHours: 0,
