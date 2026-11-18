@@ -3614,7 +3614,8 @@ Design:
 - **The name belongs to the printer:** a network printer source asks for a name only when it creates a new printer. After that the name is the printer's, renamed on the printer page, never in Integrations.
 - **Sign in where you set up:** a Bambu Cloud account signs in inside its Add and Edit forms. It is saved only once sign-in works, and there's no separate sign-in page.
 - **Synced is not live:** a source with no live status (Bambu Cloud) says it syncs on its schedule, not that nothing reads the printer.
-- **Settings holds the admin pages (alpha.3, added 2026-11-18):** Hub management, Integrations, Users, Roles, Catalog, Data and Logs are tabs of Settings, not sidebar items. Rights per page don't change, and old addresses redirect.
+- **Settings holds the admin pages (alpha.3, added 2026-11-18):** Hub management, Integrations, Users, Roles, Data and Logs are tabs of Settings, not sidebar items. Rights per page don't change, and old addresses redirect.
+- **Equipment in one place (alpha.3, added 2026-11-18):** Catalog is a sidebar item under Filament again, as one page with its Printers and Filament tabs, and its settings stay behind its gear. Printers has the tabs Printers, Accessories and Maintenance. Rights per page don't change, and old addresses redirect.
 - **A source is a row:** on Printers, Prints and Filament → Sources, one table with a row per source. A network printer is a prints source whose recording can be switched off.
 - **No alert for what the user just did or what fixes itself:** a manual update check raises none, and an outdated connector alerts only after a grace period.
 
@@ -4078,9 +4079,62 @@ Do Step 21 of the 6.1.0 plan in PLAN.md.
 Do Step 22 of the 6.1.0 plan in PLAN.md.
 ```
 
-## Phase 55 - Release
+## Phase 55 - Equipment pages
 
-### [ ] Step 23 - Real test, docs, push & v6.1.0-alpha.3
+Added on 2026-11-18 for alpha.3. No DB migration and no API change.
+
+### [ ] Step 23 - Catalog back in the sidebar
+**Model:** Sonnet · **Effort:** Medium
+**Why:** Catalog is used day to day with Printers and Filament, so it belongs with them and not among the admin pages. It stays one page: a machine's System and User presets switches can't be split between printers and filament (ADR-0023).
+**Scope:**
+- Sidebar (`shell/nav.ts`, `AppShell.tsx`): **Catalog** under Filament in Equipment, with the `Library` icon, only with `catalog` read, as before Step 15. The mobile "more" sheet follows.
+- The page moves out of `SettingsShell` to `/catalog/printers` and `/catalog/filament`, with its tabs, Sync all and gear. `/catalog` opens the first tab. A table's `#<id>` on the other tab still lands on its own tab. Without `catalog` read the address goes home.
+- Settings loses its Catalog tab (`useSettingsTabs`, `settings:tabs.catalog`).
+- Catalog settings don't change: Sources, Consumers and Library stay at `/catalog/settings`, and their back link goes to the Catalog page (`ConfigPage`). `SETTINGS_SUB_PAGES` drops `catalog`, so the preset pages and catalog settings highlight Catalog in the sidebar.
+- Old addresses redirect, hash and search kept: `/settings/catalog`, `/settings/catalog/printers`, `/settings/catalog/filament`. The older redirects (`/presets...`, a table's `#<id>` on `/printers/settings`) go straight to the new addresses.
+- Update every in-app link (`syncTargets.ts`, `import/entities.ts`, the preset page and catalog forms' back links, the note on Printers settings).
+- `docs/` and README: every "Settings → Catalog" path (`docs/hub.md`, `docs/import.md`, `docs/slicing.md`, `docs/users.md`), `docs/architecture.md` (web routes). Amend ADR-0023 and ADR-0021 (Step 23).
+
+**Done when:** Catalog opens from the sidebar under Filament, at desktop and phone width; a viewer without `catalog` read sees no item and is sent home from the address; Settings has no Catalog tab; every old address lands on the right tab with its hash and search; catalog settings work as before; e2e for the redirects and the right; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 23 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 24 - Printers tabs and the Accessories tab
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- The Printers page gets tabs (`Tabs`, one address per tab): **Printers** `/printers` and **Accessories** `/printers/accessories`. The title and the gear stay on every tab. Each tab has its own add and sync actions.
+- `AccessoriesTable` moves from below the printers list to its tab, unchanged: columns, filters, archive and Add accessory. It gets the empty state of a list page.
+- A link with `accessories.*` filters on `/printers` lands on the new tab with them.
+- The accessory pages keep their addresses (`/printers/accessories/new`, `/printers/accessories/$id`, `/printers/accessories/$id/edit`), and their back link goes to the tab.
+- `docs/printers.md` (where accessories are), `docs/architecture.md` (web routes).
+
+**Done when:** the Printers tab shows only printers; the Accessories tab has every action the table had; old filter links land on it; tabs work by keyboard and at 375 px; e2e; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 24 of the 6.1.0 plan in PLAN.md.
+```
+
+### [ ] Step 25 - Maintenance as a tab of Printers
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Maintenance** becomes the third tab of Printers, at `/printers/maintenance`, with what the page has today: what is due, log done, and the maintenance tasks.
+- The sidebar and the mobile "more" sheet lose Maintenance. Printers stays highlighted on the tab and on the task pages.
+- Rights don't change. Printers and Accessories show with `printers` read, Maintenance with `maintenance` read. Someone with only `maintenance` read opens Printers on the Maintenance tab.
+- `/maintenance` redirects, hash and search kept. The task pages keep their addresses (`/maintenance/new`, `/maintenance/types/$id`, `/maintenance/types/$id/edit`), and their back link goes to the tab.
+- Update every in-app link (`AlertsPage`, `maintenance.widget.tsx`, `ArchiveActions`, `import/entities.ts`, the task pages) and the page in `scripts/screenshots.shot.ts`.
+- `docs/printers.md`, `docs/alerts.md`, `docs/users.md` and `docs/architecture.md` where they say where Maintenance is; README's feature list if it names the page.
+
+**Done when:** Maintenance opens as a tab and is gone from the sidebar; `/maintenance` and an alert's link land on the tab; a role with only `maintenance` read sees only that tab, and a role with only `printers` read doesn't see it; logging a task as done works from the tab; e2e for the redirect and both roles; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 25 of the 6.1.0 plan in PLAN.md.
+```
+
+## Phase 56 - Release
+
+### [ ] Step 26 - Real test, docs, push & v6.1.0-alpha.3
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Settings tabs as admin, editor and viewer, at desktop and phone width; old bookmarks (`/integrations`, `/hub`, `/logs`) and an alert's link.
@@ -4090,24 +4144,26 @@ Do Step 22 of the 6.1.0 plan in PLAN.md.
 - Record prints off on the Bambu LAN A1 for one print, then on again.
 - The collapsible cards on the project page.
 - A hub update with a connected connector: no outdated email; a manual update check: no alert.
+- Catalog from the sidebar as admin, editor and viewer, and an old `/settings/catalog/filament` bookmark.
+- The Printers tabs at desktop and phone width: Accessories and Maintenance, `/maintenance` and a maintenance alert's link.
 - Fix anything found. CHANGELOG, version `6.1.0-alpha.3`, `pnpm version:check`; commit on `dev`, push, tag `v6.1.0-alpha.3` on `dev`.
 
 **Done when:** every scenario worked; the tag is pushed and the workflow is green.
 **Prompt:**
 ```
-Do Step 23 of the 6.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 26 of the 6.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 24 - Docs, push & v6.1.0 release
+### [ ] Step 27 - Docs, push & v6.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
-- `pnpm screenshots` (Settings tabs, Integrations with folded cards, the machine page with System, the Printers list, a Sources table), README, CHANGELOG, version `6.1.0`.
+- `pnpm screenshots` (Settings tabs, Integrations with folded cards, the machine page with System, the Printers list, a Sources table, the Catalog page, the Printers tabs, the Maintenance tab), README, CHANGELOG, version `6.1.0`.
 - Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.1.0` on `main`. Check the run, the release and the images.
 
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; updating 6.0.0 to 6.1.0 works.
 **Prompt:**
 ```
-Do Step 24 of the 6.1.0 plan in PLAN.md. Only document what changed since the last 6.1.0 pre-release.
+Do Step 27 of the 6.1.0 plan in PLAN.md. Only document what changed since the last 6.1.0 pre-release.
 Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release.
 ```
 
@@ -4117,6 +4173,7 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 - Live re-sorting of the printers by Monitoring.
 - System info history, charts, and alerts (disk almost full).
 - Updating connectors on a schedule or in waves (Step 21 updates them all at once).
+- Catalog split between the Printers and Filament pages (agreed: one page, its consumers can't be divided, ADR-0023).
 
 ---
 
@@ -4217,3 +4274,6 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 | collapsible cards: same header as integrations everywhere | 6.1 · 20 |
 | connector outdated email right after an update | 6.1 · 21 (update at once + grace period) |
 | no update alert after a manual check | 6.1 · 22 |
+| catalog: out of Settings, into the sidebar under Filament (one page, not split) | 6.1 · 23 |
+| printers: Accessories tab | 6.1 · 24 |
+| printers: Maintenance as a tab | 6.1 · 25 |
