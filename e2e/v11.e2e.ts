@@ -73,7 +73,7 @@ test("the back link returns to the parent page", async ({ page, app }) => {
 
 test("branding: app name, logo and favicon", async ({ page }) => {
   await page.goto("/settings");
-  const name = page.getByLabel("App name");
+  const name = page.getByRole("textbox", { name: "App name" });
   await name.fill("Print Farm");
   await name.blur();
   await expect(page).toHaveTitle(/Print Farm/);
