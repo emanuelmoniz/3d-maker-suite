@@ -9,7 +9,6 @@ import {
   hasHorizontalScroll,
   lineMenu,
   offScreen,
-  openSources,
   pick,
   seedPreset,
   seedPrinter,
@@ -179,10 +178,12 @@ test("Sources: two accounts feed printers on their own schedules; no sync on the
     await expect(page.getByRole("button", { name: /^Sync from/ })).toHaveCount(0);
   }
 
-  // One block per account; the second one runs weekly, the first stays daily.
+  // One row per account; the second one runs weekly, the first stays daily.
   await page.goto("/printers/settings/sources");
-  await openSources(page);
-  await expect(page.getByRole("region", { name: /^What .* syncs$/ })).toHaveCount(2);
+  // The header and the two accounts.
+  await expect(
+    page.getByRole("table", { name: "Sources of Printers" }).getByRole("row"),
+  ).toHaveCount(3);
   const dialog = await editLine(page, "printers", "Printers", 1);
   await pick(dialog.getByRole("combobox", { name: "Frequency: Printers" }), "Every week");
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -199,17 +200,18 @@ test("Sources: two accounts feed printers on their own schedules; no sync on the
     .toBe(1);
 
   // A line turned off keeps what it brought; on again, it syncs as a new account does.
-  await page
-    .getByRole("switch", { name: /^Sync Printers from / })
-    .first()
-    .click({ force: true });
+  // By its name: the sync just read it, which can move the row.
+  const on = page
+    .getByRole("row")
+    .filter({ hasText: "Ana" })
+    .getByRole("switch", { name: /^Sync Printers from / });
+  await on.click({ force: true });
   await expect.poll(() => policy(ids[0] as string)).toMatchObject({ mode: "off" });
   await expect(page.getByRole("cell", { name: "Off" })).toBeVisible();
   expect((await app.api<{ total: number }>("GET", "/api/printers")).total).toBe(1);
-  await page
-    .getByRole("switch", { name: /^Sync Printers from / })
-    .first()
-    .click({ force: true });
+  // It stays disabled until the page has refreshed after the change.
+  await expect(on).toBeEnabled();
+  await on.click({ force: true });
   await expect.poll(() => policy(ids[0] as string)).toMatchObject({ mode: "auto" });
 });
 

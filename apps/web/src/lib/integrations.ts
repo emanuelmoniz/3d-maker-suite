@@ -28,7 +28,8 @@ import {
   type TypeSyncResult,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { KINDS, LOCATIONS } from "../pages/settings/integrationLabels.ts";
 import { api } from "./api.ts";
@@ -242,12 +243,42 @@ export const useSyncRuns = (id: string, query: Record<string, string>) =>
   useListPage<SyncRun>(["integrations", id, "runs"], `/api/integrations/${id}/runs`, query);
 
 /** A sync can import printers, prints, spools..., so everything is refreshed afterwards. */
-function useInvalidating<V, R = unknown>(fn: (v: V) => Promise<R>, all = false) {
+function useInvalidating<V, R = unknown>(
+  fn: (v: V) => Promise<R>,
+  all = false,
+  mutationKey?: readonly unknown[],
+) {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey,
     mutationFn: fn,
     onSettled: () => qc.invalidateQueries(all ? undefined : { queryKey: ["integrations"] }),
   });
+}
+
+/** What a source's switch and Sync now share, so other cells of its row can see them run. */
+const actionKey = (id: string) => ["integrations", id, "action"] as const;
+
+/**
+ * A source's actions since this row appeared: the type syncing now and whether the latest action
+ * failed. The cells of a Sources row are separate components, each with its own mutation.
+ */
+export function useSourceActivity(id: string) {
+  const [since] = useState(Date.now);
+  const runs = useMutationState({
+    filters: { mutationKey: actionKey(id) },
+    select: (m) => ({
+      at: m.state.submittedAt,
+      pending: m.state.status === "pending",
+      failed:
+        m.state.status === "error" || (m.state.data as SyncResult | undefined)?.status === "error",
+      type: (m.state.variables as Partial<SyncRequest> | undefined)?.type,
+    }),
+  }).filter((r) => r.at >= since);
+  return {
+    syncing: (type: string) => runs.some((r) => r.pending && r.type === type),
+    failed: runs.at(-1)?.failed ?? false,
+  };
 }
 
 // Adding or removing a workstation also makes its device a slice worker or not: all of it.
@@ -290,6 +321,7 @@ export const usePatchIntegration = (id: string) =>
   useInvalidating(
     (v: IntegrationPatch) => api<Integration>("PATCH", `/api/integrations/${id}`, v),
     true,
+    actionKey(id),
   );
 
 /**
@@ -372,6 +404,7 @@ export const useSyncIntegration = (id: string) =>
   useInvalidating(
     (req: SyncRequest) => api<SyncResult>("POST", `/api/integrations/${id}/sync`, req),
     true,
+    actionKey(id),
   );
 
 /** A slicer's printer and filament brands and whether you have them, for the Catalog row. */

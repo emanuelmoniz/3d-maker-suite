@@ -79,7 +79,7 @@ The **review level** decides which slots wait in **Prints → Filament to review
 | A guess among several spools, or a loaded spool that contradicts the printer | not tracked | waits, guess suggested | waits, guess suggested |
 | No spool | not tracked | waits | waits |
 
-Set it in **Prints → Settings → General** for everything, on a source line's **Edit** under **Sources**, or on the printer's form. Each is **Use the default** or a level; the most specific one wins (printer, then source, then global), and each place shows the level in effect and whose it is.
+Set it in **Prints → Settings → General** for everything, on a source row's **Edit** under **Sources**, or on the printer's form. Each is **Use the default** or a level; the most specific one wins (printer, then source, then global), and each place shows the level in effect and whose it is.
 
 In Filament to review a suggested spool is preselected, and **Accept** charges it. Nothing is charged until you accept, and picking another spool charges only that one. **Accept suggestions** in the bar accepts every row's own suggestion. Estimated grams are marked and can be corrected in the row.
 

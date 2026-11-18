@@ -28,10 +28,9 @@ test("picks: add one in Projects settings → Sources, pause it, the machine pag
     os: "win32",
   });
 
-  await page.goto("/projects/settings/sources");
+  await page.goto("/projects/settings/consumers");
   await openSources(page);
   const card = page
-    .getByRole("region", { name: "Receive from server" })
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: /WS-1/, level: 3 }) });
   await expect(card).toContainText("No picks yet");
@@ -74,7 +73,7 @@ test("picks: add one in Projects settings → Sources, pause it, the machine pag
   await expect(page.getByText("1 pick", { exact: true })).toBeVisible();
 
   // Removed from its line.
-  await page.goto("/projects/settings/sources");
+  await page.goto("/projects/settings/consumers");
   await openSources(page);
   await line.getByLabel("More for Models (whole folder)").click();
   await line.getByRole("button", { name: "Remove", exact: true }).click();

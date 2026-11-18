@@ -595,21 +595,28 @@ const routes: AnyRoute[] = [
       ],
     ] as const
   ).flatMap(([path, component, ns]) =>
-    // Data types also have a Sources tab; Catalog has Library too (ADR-0023).
-    [path, `${path}/sources`, ...(path === "/catalog/settings" ? [`${path}/library`] : [])].map(
-      (path) =>
-        createRoute({
-          getParentRoute: () => root,
-          path,
-          // A catalog table's old address lands on its tab; the page keeps the default printer.
-          beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
-            if (location.pathname !== "/printers/settings") return;
-            const tab = tabOf(location.hash);
-            if (tab) throw redirect({ to: `/settings/catalog/${tab}`, hash: location.hash });
-          },
-          loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
-          component,
-        }),
+    // Data types also have a Sources tab; Catalog and Projects have Consumers, Catalog Library too
+    // (ADR-0023).
+    [
+      path,
+      `${path}/sources`,
+      ...(path === "/catalog/settings" || path === "/projects/settings"
+        ? [`${path}/consumers`]
+        : []),
+      ...(path === "/catalog/settings" ? [`${path}/library`] : []),
+    ].map((path) =>
+      createRoute({
+        getParentRoute: () => root,
+        path,
+        // A catalog table's old address lands on its tab; the page keeps the default printer.
+        beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
+          if (location.pathname !== "/printers/settings") return;
+          const tab = tabOf(location.hash);
+          if (tab) throw redirect({ to: `/settings/catalog/${tab}`, hash: location.hash });
+        },
+        loader: () => Promise.all(["settings", ...ns].map(loadNamespace)),
+        component,
+      }),
     ),
   ),
   // After "/alerts/settings" so that wins the match.

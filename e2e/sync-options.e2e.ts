@@ -44,7 +44,7 @@ test("sync options: what to sync and how to sync, with a hint per choice", async
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(printers).toMatchObject({ scope: "imported", merge: "keepEdits" });
-  const line = page.getByRole("region", { name: /^What .* syncs$/ });
+  const line = page.getByRole("table", { name: "Sources of Printers" });
   await expect(line.getByRole("cell", { name: "Only what I already have" })).toBeVisible();
   await expect(line.getByRole("cell", { name: "Keep my edits" })).toBeVisible();
 

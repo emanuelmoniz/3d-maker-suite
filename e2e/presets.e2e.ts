@@ -195,11 +195,9 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   await openPresets();
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Farm PLA" })).toBeVisible();
-  await tabs.getByRole("link", { name: "Sources" }).click();
+  await tabs.getByRole("link", { name: "Consumers" }).click();
   await openSources(page);
-  const machine = page
-    .getByRole("region", { name: "Receive from server" })
-    .getByRole("region", { name: "OrcaSlicer", exact: true });
+  const machine = page.getByRole("region", { name: "OrcaSlicer", exact: true });
   // One User presets line for every kind (ADR-0023); no switch without the machine's right.
   await expect(machine.getByRole("row", { name: /User presets/ })).toContainText(
     "1 waiting for the slicer to close",
@@ -233,17 +231,14 @@ test("slicer presets without hub.manage: an editor's switches, a viewer's list, 
   expect((await page.request.patch(slicer, receive)).status()).toBe(404);
 
   // The machine page lists its slicer with no switches, and links to its card on Catalog
-  // settings → Sources, where they are.
+  // settings → Consumers, where they are.
   await signInAs("ana@example.com");
   await page.goto(`/hub/devices/${id}`);
   const slicers = page.getByRole("region", { name: "Slicers", exact: true });
   await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
   await expect(slicers.getByRole("switch", { name: "Use slicer as server worker" })).toBeVisible();
-  await page
-    .getByRole("region", { name: "Sync sources configurations" })
-    .getByRole("link", { name: "Catalog sources" })
-    .click();
-  await expect(page).toHaveURL(new RegExp(`/catalog/settings/sources#machine-${id}$`));
+  await page.getByRole("link", { name: "Catalog consumers" }).click();
+  await expect(page).toHaveURL(new RegExp(`/catalog/settings/consumers#receive-${id}$`));
   await expect(
     page.getByRole("switch", { name: "Receive user presets in OrcaSlicer on Desk PC" }),
   ).toBeChecked();

@@ -43,7 +43,7 @@ for (const width of [375, 1440])
 
     // No printers line: it has no printers sync.
     await page.goto("/printers/settings/sources");
-    await expect(page.locator(`#source-${id}`)).toHaveCount(0);
+    await expect(page.locator(`#source-${id}-printers`)).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );

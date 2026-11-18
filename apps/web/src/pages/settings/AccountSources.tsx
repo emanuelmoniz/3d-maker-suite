@@ -9,7 +9,7 @@ import {
 } from "@3d-maker-suite/core";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Cable, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AddDialog } from "../../components/AddDialog.tsx";
 import { Button } from "../../components/Button.tsx";
@@ -23,14 +23,17 @@ import {
   type AccountType,
   feeds,
   useAdapterName,
+  useAdapters,
   useIntegrations,
   useMayTask,
   usePatchIntegration,
+  useSourceActivity,
   useSyncIntegration,
 } from "../../lib/integrations.ts";
+import { usePrinters } from "../../lib/printers.ts";
 import { Avatar } from "./AccountCard.tsx";
 import { SyncLog } from "./IntegrationCard.tsx";
-import { CAPS } from "./integrationLabels.ts";
+import { CAPS, ERRORS } from "./integrationLabels.ts";
 import {
   LastSync,
   mergeLabel,
@@ -40,7 +43,7 @@ import {
   useRunPolicy,
   useSummary,
 } from "./PolicyRow.tsx";
-import { LINE_COLUMNS, SourceBlock, SourcesSection, type StateLine } from "./Sources.tsx";
+import { LINE_COLUMNS, SourceBlock, type StateLine } from "./Sources.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
 const EMPTY: Record<AccountType, { title: string; body: string }> = {
@@ -81,10 +84,10 @@ export function otherTracking(
   return type === "prints" ? has("spools") : undefined;
 }
 
-/** What a block calls the account: its email, else its name. */
-export const accountName = (i: Integration) => i.account?.email || i.account?.name || null;
+/** What a source calls the account: its name, else its email. */
+export const accountName = (i: Integration) => i.account?.name || i.account?.email || null;
 
-/** A block's title for an account: "Bambu Cloud · ana@example.com". */
+/** A source's title for an account: "Bambu Cloud · Ana". */
 export function useAccountTitle() {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
@@ -96,19 +99,36 @@ export function useAccountTitle() {
   };
 }
 
+/** One source of a Sources table: its line of the page's type and what the row calls it. */
+type SourceRow = {
+  integration: Integration;
+  policy: SyncPolicy;
+  /** The source in full, for the row's labels. */
+  title: string;
+  /** Under the source type: the account, or the printer a network source is. */
+  name: string | null;
+};
+
 /**
- * Printers, Prints or Filament settings → Sources: Share to the hub, one block per account that
- * allows the type, one line each (ADR-0021 wireframe 3). Without the settings, only the accounts
- * with a task of the caller's (ADR-0012).
+ * Printers, Prints or Filament settings → Sources: one table with a row per source of the type
+ * (ADR-0021 wireframe 3, 6.1.0 Step 18). Only the sources the caller may manage or has a task on
+ * (ADR-0012).
  */
-export function AccountSources({ type, settings }: { type: AccountType; settings: boolean }) {
-  const { t } = useTranslation();
+export function AccountSources({ type }: { type: AccountType }) {
+  const { t, i18n } = useTranslation();
   const admin = useCan("integrations.manage");
   const may = useMayTask();
+  const adapterName = useAdapterName();
+  const titleOf = useAccountTitle();
   const { data } = useIntegrations();
+  const listed = (data ?? []).filter((i) => feeds(i, type) && may(i.id, type, "any"));
+  // A network source is named by its printer. Someone who can't read printers sees the type alone.
+  const printers = usePrinters({
+    archived: "all",
+    enabled: listed.some((i) => i.printerId),
+  }).data?.items;
   if (!data) return null;
-  const rows = data.filter((i) => feeds(i, type) && (settings || may(i.id, type, "any")));
-  if (!rows.length)
+  if (!listed.length)
     return (
       <EmptyState
         icon={Cable}
@@ -117,12 +137,249 @@ export function AccountSources({ type, settings }: { type: AccountType; settings
         action={admin && <IntegrationsLink />}
       />
     );
+  const { compare } = new Intl.Collator(i18n.resolvedLanguage);
+  const rows = listed
+    .flatMap((integration): SourceRow[] => {
+      const policy = integration.policies.find((p) => p.type === type);
+      if (!policy) return [];
+      const printer = printers?.find((p) => p.id === integration.printerId)?.name;
+      return [
+        {
+          integration,
+          policy,
+          title: titleOf(integration),
+          name: accountName(integration) ?? printer ?? null,
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        compare(adapterName(a.integration.adapterId), adapterName(b.integration.adapterId)) ||
+        compare(a.name ?? "", b.name ?? ""),
+    );
+  // Prints never change once imported: nothing to choose about what or how.
+  const options = type !== "prints";
   return (
-    <SourcesSection direction="share">
-      {rows.map((i) => (
-        <AccountBlock key={i.id} integration={i} types={[type]} />
-      ))}
-    </SourcesSection>
+    <DataTable
+      label={t("settings:sources.table", { type: t(CAPS[type]) })}
+      rows={rows}
+      rowKey={(r) => r.integration.id}
+      columns={[
+        {
+          id: "source",
+          header: t("settings:sources.columns.source"),
+          className: LINE_COLUMNS.item,
+          cell: (r) => <SourceCell row={r} />,
+        },
+        {
+          id: "on",
+          header: t("settings:sources.columns.on"),
+          className: LINE_COLUMNS.on,
+          cell: (r) => <SourceSwitch row={r} />,
+        },
+        {
+          id: "when",
+          header: t("settings:sources.columns.when"),
+          cell: (r) => <SourceWhen row={r} />,
+        },
+        ...(options
+          ? [
+              {
+                id: "what",
+                header: t("settings:sources.columns.what"),
+                cell: (r: SourceRow) => (
+                  <span className={ROW_TEXT}>
+                    {r.policy.mode !== "off" && t(scopeLabel(r.policy.scope))}
+                  </span>
+                ),
+              },
+              {
+                id: "how",
+                header: t("settings:sources.columns.how"),
+                cell: (r: SourceRow) => (
+                  <span className={ROW_TEXT}>
+                    {r.policy.mode !== "off" && t(mergeLabel(r.policy.merge))}
+                  </span>
+                ),
+              },
+            ]
+          : []),
+        {
+          id: "actions",
+          header: t("settings:sources.columns.actions"),
+          headerCell: <span className="sr-only">{t("settings:sources.columns.actions")}</span>,
+          className: LINE_COLUMNS.actions,
+          cell: (r) => <SourceActions row={r} />,
+        },
+      ]}
+    />
+  );
+}
+
+// Cells never wrap (DataTable); these do, so the table fits a laptop.
+const ROW_TEXT = "inline-block min-w-32 whitespace-normal";
+const BADGE = "inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium";
+
+/**
+ * Who the source is, on two lines: its type, then its account or printer. What needs attention
+ * follows the type as badges, so a healthy row stays quiet.
+ */
+function SourceCell({ row: { integration: i, policy: p, title, name } }: { row: SourceRow }) {
+  const { t } = useTranslation();
+  const admin = useCan("integrations.manage");
+  const adapterName = useAdapterName();
+  const signedOut = useSignedOut()(i);
+  const { failed } = useSourceActivity(i.id);
+  const anchor = `source-${i.id}-${p.type}`;
+  const root = useRef<HTMLDivElement>(null);
+  // An alert's link: the row only exists once the list is in.
+  useEffect(() => {
+    if (location.hash === `#${anchor}`) root.current?.scrollIntoView({ block: "center" });
+  }, [anchor]);
+  const type = adapterName(i.adapterId);
+  const error = !signedOut && i.status === "error";
+  const reason = error && i.lastError ? t(ERRORS[i.lastError]) : undefined;
+  const through = i.viaDeviceName;
+  return (
+    <div
+      ref={root}
+      id={anchor}
+      className="grid min-w-52 scroll-mt-4 gap-0.5 whitespace-normal py-1.5"
+    >
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {admin ? (
+          <Link
+            to="/settings/integrations"
+            hash={`integration-${i.id}`}
+            aria-label={t("settings:sources.toIntegration", { source: title })}
+            className="wrap-anywhere font-medium underline-offset-2 hover:underline"
+          >
+            {type}
+          </Link>
+        ) : (
+          <span className="wrap-anywhere font-medium">{type}</span>
+        )}
+        {signedOut && <SignedOutBadge integration={i} title={title} />}
+        {error && (
+          <span title={reason} className={cx(BADGE, "bg-bad/15 text-bad")}>
+            {t("integrations:fold.error")}
+            {reason && <span className="sr-only"> {reason}</span>}
+          </span>
+        )}
+        {p.mode === "off" && (
+          <span className={cx(BADGE, "bg-warn/15 text-warn")}>{t("integrations:fold.paused")}</span>
+        )}
+        {p.pending > 0 && p.mode !== "off" && (
+          <span className={cx(BADGE, "bg-warn/15 text-warn")}>
+            {t("integrations:policies.pending", { count: p.pending })}
+          </span>
+        )}
+      </span>
+      {(name || through) && (
+        <span className="wrap-anywhere text-sm text-muted">
+          {name && through
+            ? t("settings:sources.nameThrough", { name, machine: through })
+            : (name ?? t("integrations:account.through", { machine: through }))}
+        </span>
+      )}
+      {failed && (
+        <span role="alert" className="text-sm text-bad">
+          {t("integrations:card.actionError")}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** A row's switch: off is the policy `off`; on again, the type's default mode. */
+function SourceSwitch({ row: { integration: i, policy: p, title } }: { row: SourceRow }) {
+  const { t } = useTranslation();
+  const admin = useManagesLine(p.type);
+  const patch = usePatchIntegration(i.id);
+  return (
+    <Switch
+      label={t("settings:sources.lineOn", { type: t(CAPS[p.type]), source: title })}
+      labelClassName="sr-only"
+      checked={p.mode !== "off"}
+      disabled={!admin || patch.isPending}
+      onChange={(e) =>
+        patch.mutate({
+          policies: [{ type: p.type, mode: e.target.checked ? accountMode(p.type) : "off" }],
+        })
+      }
+    />
+  );
+}
+
+function SourceWhen({ row: { integration: i, policy: p } }: { row: SourceRow }) {
+  const { syncing } = useSourceActivity(i.id);
+  return <When policy={p} files={false} syncing={syncing(p.type)} />;
+}
+
+/** A row's Edit and `⋯`, each only for who may use it. */
+function SourceActions({ row: { integration: i, policy: p, title } }: { row: SourceRow }) {
+  const { t } = useTranslation();
+  const admin = useManagesLine(p.type);
+  const sync = useSyncIntegration(i.id);
+  const [editing, setEditing] = useState(false);
+  const { data: all } = useIntegrations();
+  const name = t(CAPS[p.type]);
+  return (
+    <span className="flex items-center justify-end gap-1">
+      {admin && (
+        <Button
+          aria-label={t("settings:sources.editOf", { type: name, source: title })}
+          onClick={() => setEditing(true)}
+        >
+          {t("settings:sources.edit")}
+        </Button>
+      )}
+      <LineMenu integration={i} policy={p} name={name} title={title} sync={sync} admin={admin} />
+      {editing && (
+        <PolicyEditDialog
+          integration={i}
+          policy={p}
+          title={t("settings:sources.editTitle", {
+            type: name,
+            source: accountName(i) ?? title,
+          })}
+          otherTracks={otherTracking(all ?? [i], i.id, p.type)}
+          onClose={() => setEditing(false)}
+        />
+      )}
+    </span>
+  );
+}
+
+/**
+ * Whether a source needs signing in again. Only a source with a sign-in can be signed out: a
+ * printer without an API key has no secrets and nothing wrong. `hasSecrets` is an admin's; anyone
+ * sees an expired sign-in.
+ */
+function useSignedOut() {
+  const admin = useCan("integrations.manage");
+  const adapters = useAdapters().data;
+  return (i: Integration) =>
+    (admin && !i.hasSecrets && !!adapters?.find((a) => a.id === i.adapterId)?.login) ||
+    i.lastError === "auth_expired" ||
+    i.lastError === "auth_required";
+}
+
+/** "Signed out": an admin fixes it on the account's Edit page (6.1.0 Step 10c). */
+function SignedOutBadge({ integration: i, title }: { integration: Integration; title: string }) {
+  const { t } = useTranslation();
+  const admin = useCan("integrations.manage");
+  return admin ? (
+    <Link
+      to="/integrations/$id/edit"
+      params={{ id: i.id }}
+      aria-label={t("integrations:account.signedOutLink", { name: title })}
+      className={cx(BADGE, "bg-warn/15 text-warn underline-offset-2 hover:underline")}
+    >
+      {t("integrations:account.signedOut")}
+    </Link>
+  ) : (
+    <span className={cx(BADGE, "bg-warn/15 text-warn")}>{t("integrations:account.signedOut")}</span>
   );
 }
 
@@ -148,42 +405,22 @@ export function AccountBlock({
 }: {
   integration: Integration;
   types: SyncPolicy["type"][];
-  /** In place of the lines, e.g. a slicer heading around them. */
-  children?: React.ReactNode;
+  /** Its lines, e.g. under a slicer heading. */
+  children: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const admin = useCan("integrations.manage");
   const account = i.account;
   const title = useAccountTitle()(i);
-  // `hasSecrets` is an admin's; anyone sees an expired sign-in.
-  const signedOut =
-    (admin && !i.hasSecrets) || i.lastError === "auth_expired" || i.lastError === "auth_required";
+  const signedOut = useSignedOut()(i);
   if (!i.policies.some((p) => types.includes(p.type))) return null;
-  const prints = types.length === 1 && types[0] === "prints";
   return (
     <SourceBlock
       // Its lines' anchors (`source-<id>-<type>`, an alert's link) open it.
       id={`source-${i.id}`}
       icon={<Avatar integration={i} text={account?.name || account?.email || title} />}
       title={title}
-      badge={
-        signedOut &&
-        // An admin fixes it on the account's Edit page (6.1.0 Step 10c).
-        (admin ? (
-          <Link
-            to="/integrations/$id/edit"
-            params={{ id: i.id }}
-            aria-label={t("integrations:account.signedOutLink", { name: title })}
-            className="inline-block shrink-0 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn underline-offset-2 hover:underline"
-          >
-            {t("integrations:account.signedOut")}
-          </Link>
-        ) : (
-          <span className="inline-block shrink-0 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-medium text-warn">
-            {t("integrations:account.signedOut")}
-          </span>
-        ))
-      }
+      badge={signedOut && <SignedOutBadge integration={i} title={title} />}
       link={
         admin
           ? {
@@ -194,10 +431,7 @@ export function AccountBlock({
           : undefined
       }
     >
-      {children ?? (
-        // Prints never change once imported: nothing to choose about what or how.
-        <PolicyLines integration={i} types={types} title={title} what={!prints} how={!prints} />
-      )}
+      {children}
     </SourceBlock>
   );
 }

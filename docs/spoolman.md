@@ -18,7 +18,7 @@ One Spoolman can be set up. Give it a **Name** (optional) to tell it apart: the 
 
 ## Import spools
 
-On **Filament → Settings → Sources**, the Spoolman line imports your spools: **Sync now** brings in the new ones, and **Review and import** shows every spool before anything changes. A Spoolman spool becomes a spool with its brand (Spoolman's vendor), material, name (the filament's name) and colour hex, and its weights. Spoolman has no colour name, so that stays empty. Archived Spoolman spools are left out.
+On **Filament → Settings → Sources**, the Spoolman row imports your spools: **Sync now** brings in the new ones, and **Review and import** shows every spool before anything changes. A Spoolman spool becomes a spool with its brand (Spoolman's vendor), material, name (the filament's name) and colour hex, and its weights. Spoolman has no colour name, so that stays empty. Archived Spoolman spools are left out.
 
 ### A spool you already have
 

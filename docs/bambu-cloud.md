@@ -30,7 +30,7 @@ The **Bambu Cloud** card on the Integrations page is folded until you open it; i
 
 The name, email and photo are read from your Bambu profile when you sign in and on each sync. If that read fails, the last values stay and the sync goes on. The server downloads the photo from `public-cdn.bblmw.com` and keeps a copy, so your browser never calls Bambu. On a NAS or server with a firewall, allow that host too, or the card shows initials.
 
-**Sync sources configurations**, at the bottom of the card, has a button per type the accounts feed: **Printers**, **Prints**, **Filament** and **Catalog**. Each opens that type's **Settings → Sources** tab, where every account is listed.
+**Sync sources configurations**, at the bottom of the card, has a button per type the accounts feed: **Printers**, **Prints**, **Filament** and **Catalog**. Each opens that type's **Settings → Sources** tab, where every account is a row of one table.
 
 Each type is set on that type's **Settings → Sources** tab: **Printers**, **Prints** and **Filament** (spools), and **Catalog** for user presets. There, each account has a block with one line per type. The line's switch turns the sync off or on again, and **Edit** opens its settings: when it runs, what and how to sync, new spools, track usage, alerts and what editors may do. The line's **⋯** menu has **Sync now**, **Review and import** (with how many rows wait) and the sync log. For print history, it also has **Review and import a period…**. An editor whose role lets them sync or review a type reaches that tab from the gear on the type's page and sees only those tasks.
 
@@ -45,7 +45,7 @@ Each slot of a print is matched to a spool by material and colour. A match only 
 
 **Live status** (state, progress, the AMS, a print recorded the moment it ends) comes from the printer on your network: add [Bambu LAN](bambu-lan.md) for the same printer. It is the same printer in the app, and each print is recorded once whichever source sees it first. Bambu Cloud alone gives no live status: the printer shows **Synced only** in the Printers list and **Synced**, with its last sync, in its Connection section.
 
-By default print history syncs every hour and printers every day. **Review and import** opens the review screen with what the integration offers; printers and spools can also be imported that way. To sync one now, use **Sync now** on the type's line in its **Settings → Sources**. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic.
+By default print history syncs every hour and printers every day. **Review and import** opens the review screen with what the integration offers; printers and spools can also be imported that way. To sync one now, use **Sync now** in the **⋯** menu of the account's row in that type's **Settings → Sources**. Each sync reports its result as an alert: new and updated rows, rows waiting for review, or an error. Spools are imported by hand unless you set them to automatic.
 
 ## Spools: why they are off by default
 

@@ -18,6 +18,8 @@ The two modules overlapped too: Catalog has brands, models and materials, Preset
 - The **Presets** page, its nav item and its settings go; `/presets/*` lands on the matching Catalog tab and table. The **Preset library** (hub on) is a tab of Catalog settings.
 
 ### One Sources tab
+
+*Amended in 6.1.0 Step 18:* Receive from the hub moved to a **Consumers** tab of Catalog settings.
 - Catalog settings → Sources. Each source's card is one table with the lines it has, of: Printer brands, Printer models, Printer system presets, Process system presets, Filament brands, Filament materials, Filament system presets, Printer user presets, Process user presets, Filament user presets.
 
 ### Two Receive switches

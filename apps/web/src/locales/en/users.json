@@ -191,7 +191,7 @@
     "machineCatalog": "Catalog",
     "machineCatalogHint": "Turn System and User presets Receive and Share on or off on machines paired to them. Also needs Catalog at Write.",
     "machineProjects": "Projects",
-    "machineProjectsHint": "Turn Receive from server and Share to server on or off on machines paired to them. Also needs Projects at Write.",
+    "machineProjectsHint": "Turn Get projects from server and Send projects to server on or off on machines paired to them. Also needs Projects at Write.",
     "server": "Server and updates",
     "serverHint": "Address, restart and updates.",
     "backup": "Backups",

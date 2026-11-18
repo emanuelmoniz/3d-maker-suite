@@ -5,25 +5,29 @@ import {
   mayEditMachine,
   type PresetDevice,
 } from "@3d-maker-suite/core";
+import { Cable } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AddDialog } from "../../components/AddDialog.tsx";
 import { Button } from "../../components/Button.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
+import { EmptyState } from "../../components/EmptyState.tsx";
 import { Menu } from "../../components/Menu.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useCan, useMe, useRights } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useDeviceActions } from "../../lib/hub.ts";
-import { useAdapterName, usePatchIntegration } from "../../lib/integrations.ts";
+import { useAdapterName, useIntegrations, usePatchIntegration } from "../../lib/integrations.ts";
+import { usePreferences } from "../../lib/preferences.ts";
+import { useCatalogSources, usePresetDevices } from "../../lib/presets.ts";
 import { isSource, MachineBlock, useMayEdit } from "./CatalogSources.tsx";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
 import {
   SlicerGroup,
   SourceBlock,
+  SourceCards,
   SourceIcon,
-  SourcesSection,
   type StateLine,
   StateLines,
 } from "./Sources.tsx";
@@ -55,7 +59,7 @@ export function receiversOf(libraries: LibrarySources[], list: Integration[]): R
       if (i.kind === "local" && i.presetLibrary === lib.library)
         server.slicers.push({ lib, integration: i });
     for (const m of lib.machines) {
-      // Its Slicers catalog Receive from server switch (the machine page): off, it isn't listed.
+      // Its Get catalog from server switch (the machine page): off, it isn't listed.
       if (!m.receiveCatalog) continue;
       const r = machines.get(m.deviceId) ?? {
         id: m.deviceId,
@@ -70,18 +74,25 @@ export function receiversOf(libraries: LibrarySources[], list: Integration[]): R
   return [...(server.slicers.length ? [server] : []), ...machines.values()];
 }
 
-/** Receive from the hub, on Catalog settings → Sources: a card per receiver, its lines per slicer. */
-export function ReceiveSection({
-  receivers,
-  devices,
-}: {
-  receivers: Receiver[];
-  /** The machines' preset switches; none without `catalog` write. */
-  devices: PresetDevice[];
-}) {
+/** Catalog settings → Consumers: a card per install that can get the catalog, its lines per slicer. */
+export function CatalogConsumers() {
   const { t } = useTranslation();
   const admin = useCan("integrations.manage");
-  if (!receivers.length) return null;
+  const hub = !!usePreferences().data?.values.hubEnabled;
+  const list = useIntegrations().data;
+  const libraries = useCatalogSources().data;
+  // The machines' preset switches; none without `catalog` write.
+  const devices = usePresetDevices(useCan("catalog", "write") && hub).data ?? [];
+  if (!list || !libraries) return null;
+  const receivers = receiversOf(libraries, list);
+  if (!receivers.length)
+    return (
+      <EmptyState
+        icon={Cable}
+        title={t("settings:consumers.emptyTitle")}
+        description={t("settings:consumers.catalogEmpty")}
+      />
+    );
   const slicers = (r: Receiver) =>
     r.slicers.map((s) => {
       const d = devices.find((x) => x.id === s.machine?.deviceId);
@@ -96,7 +107,7 @@ export function ReceiveSection({
       );
     });
   return (
-    <SourcesSection direction="receive">
+    <SourceCards>
       {receivers.map((r) =>
         r.machine ? (
           <MachineBlock key={r.id} id={r.id} name={r.name} receive>
@@ -119,7 +130,7 @@ export function ReceiveSection({
           </SourceBlock>
         ),
       )}
-    </SourcesSection>
+    </SourceCards>
   );
 }
 

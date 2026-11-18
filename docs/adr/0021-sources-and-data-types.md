@@ -212,6 +212,16 @@ Share to the hub
   Bambu Cloud · workshop@example.com                           → Account
     Printers    [ ]  Off                                                    [Edit]
 ```
+*Amended in 6.1.0 Step 18:* Printers, Prints and Filament have one table with a row per source, sorted by source, and no card per account:
+```
+Source                        On   When                       What        How
+Bambu Cloud  [Signed out]     [x]  Auto, every day at 03:00   Everything  Let me review   [Edit] [⋯]
+Ana                                Synced 5 min. ago
+Bambu Cloud  [Paused]         [ ]  Off                                                    [Edit] [⋯]
+Workshop                           Not synced yet
+```
+The source type links to its integration (admins). Badges say signed out, error, paused (the row's switch is off) and how many rows wait for review. The second line is the account's name (its email when it has none), or the printer of a network source, and the machine it is reached through.
+
 `[⋯]` holds Sync now, Review and import (with its count) and the sync log. With no account allowing printers: the `EmptyState` "No sources. Printers here are added by hand. To sync them from an account, allow printers on it in Integrations." [Go to Integrations].
 
 **Edit** (a `FormDialog` with today's `PolicyRow` fields):
@@ -394,6 +404,7 @@ The profile has no region; the card keeps the region from the integration's conf
 - A slicer type's card in Integrations drops its installs' sync log and status line; like the account card, it has one Sync sources configurations section.
 - A slicer install's **Enabled** switch (this server's or a machine's) only says whether it can be picked as the hub's slicer. Switched off, it keeps syncing and stays on Catalog settings → Sources; an account's Enabled still turns its sync off (`working()` in `capabilities.ts`).
 - Labels (2026-11-12): *The hub's slicer* reads **Server's slicer**, *Share to the hub* **Share to server** and *Receive from the hub* **Receive from server**, on Sources and on the machine page alike. The text above keeps the old names.
+- Consumers (6.1.0 Step 18): the two sections of a Sources tab become tabs. Catalog and Projects settings have **Sources** (what feeds the server) and **Consumers** (what gets from it; Projects only while the hub is on), with no card around their source cards. Printers, Prints and Filament only feed the server, so they have Sources alone. The machine page's switches read **Get catalog from server**, **Send catalog to server**, **Get projects from server** and **Send projects to server**, each with a button to that machine's card on the matching tab.
 
 ## Amendment (2026-11-12, Plan 5.5.0 Step 17): a pick has a level, not a list
 

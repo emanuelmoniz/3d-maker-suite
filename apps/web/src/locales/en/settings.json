@@ -3,6 +3,7 @@
     "label": "Settings sections",
     "general": "General",
     "sources": "Sources",
+    "consumers": "Consumers",
     "library": "Preset library",
     "hub": "Hub management",
     "integrations": "Integrations",
@@ -15,16 +16,23 @@
   "catalog": {
     "nothing": "Nothing to set here yet."
   },
+  "consumers": {
+    "emptyTitle": "No consumers yet",
+    "catalogEmpty": "Slicers on this server and machines with Get catalog from server on are listed here. Turn it on on a machine's page in Hub management.",
+    "projectsEmpty": "Machines with Get projects from server on are listed here. Turn it on on a machine's page in Hub management."
+  },
   "sources": {
     "emptyTitle": "No sources yet",
     "integrations": "Open Integrations",
     "hub": "Open Hub management",
-    "share": "Share to server",
-    "receive": "Receive from server",
     "account": "{{adapter}} · {{account}}",
     "toAccount": "Account",
     "lines": "What {{source}} syncs",
+    "table": "Sources of {{type}}",
+    "toIntegration": "Open {{source}} in Integrations",
+    "nameThrough": "{{name}}, reached through {{machine}}",
     "columns": {
+      "source": "Source",
       "item": "Item",
       "on": "On",
       "when": "When",
@@ -130,7 +138,7 @@
       "removeConfirm": "Its files leave {{machine}}, except ones changed there that the server doesn't have yet. Nothing on the server changes."
     },
     "folders": {
-      "empty": "Machines that share folders with the server or receive projects from it are listed here. Turn on Share to server or Receive from server on a machine's page in Hub management.",
+      "empty": "Machines with Send projects to server on are listed here. Turn it on on a machine's page in Hub management.",
       "lines": "Folders {{machine}} shares",
       "on": "Share {{path}}",
       "menu": "More for {{path}}",

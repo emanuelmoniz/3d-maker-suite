@@ -25,12 +25,25 @@ import { usePreferences } from "../../lib/preferences.ts";
 import { useRoots } from "../../lib/roots.ts";
 import { MachineBlock } from "./CatalogSources.tsx";
 import { DeviceState } from "./ReceiveSources.tsx";
-import { SourcesSection, type StateLine, StateLines } from "./Sources.tsx";
+import { SourceCards, type StateLine, StateLines } from "./Sources.tsx";
+
+/** The way to Hub management, where a machine's switches are. */
+function HubLink() {
+  const { t } = useTranslation();
+  return (
+    <Link
+      to="/settings/hub"
+      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
+    >
+      <Server className="size-4" aria-hidden="true" />
+      {t("settings:sources.hub")}
+    </Link>
+  );
+}
 
 /**
- * Projects settings → Sources (ADR-0021): each machine with Share to the server on, one line per
- * shared folder (its switch pauses it) and Add folder, which browses the machine's whole disk; each
- * machine with Receive from the server on, one line per pick and Add pick.
+ * Projects settings → Sources (ADR-0021): each machine with Send projects to server on, one line
+ * per shared folder (its switch pauses it) and Add folder, which browses the machine's whole disk.
  */
 export function ProjectSources() {
   const { t } = useTranslation();
@@ -39,41 +52,50 @@ export function ProjectSources() {
   const roots = useRoots();
   if (hubOn && !devices.data) return null;
   const sharing = (devices.data ?? []).filter((d) => d.shareProjects);
-  const receiving = (devices.data ?? []).filter((d) => d.receiveProjects);
-  if (!hubOn || (!sharing.length && !receiving.length))
+  if (!hubOn || !sharing.length)
     return (
       <EmptyState
         icon={Server}
         title={t("settings:sources.emptyTitle")}
         description={t("settings:sources.folders.empty")}
-        action={
-          <Link
-            to="/settings/hub"
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 font-medium transition-colors hover:bg-surface-2"
-          >
-            <Server className="size-4" aria-hidden="true" />
-            {t("settings:sources.hub")}
-          </Link>
-        }
+        action={<HubLink />}
       />
     );
   return (
-    <div className="grid gap-10">
-      {sharing.length > 0 && (
-        <SourcesSection direction="share">
-          {sharing.map((d) => (
-            <MachineFolders key={d.id} device={d} roots={roots} />
-          ))}
-        </SourcesSection>
-      )}
-      {receiving.length > 0 && (
-        <SourcesSection direction="receive">
-          {receiving.map((d) => (
-            <MachinePicks key={d.id} device={d} roots={roots} />
-          ))}
-        </SourcesSection>
-      )}
-    </div>
+    <SourceCards>
+      {sharing.map((d) => (
+        <MachineFolders key={d.id} device={d} roots={roots} />
+      ))}
+    </SourceCards>
+  );
+}
+
+/**
+ * Projects settings → Consumers: each machine with Get projects from server on, one line per pick
+ * and Add pick.
+ */
+export function ProjectConsumers() {
+  const { t } = useTranslation();
+  const hubOn = !!usePreferences().data?.values.hubEnabled;
+  const devices = useDevices(hubOn);
+  const roots = useRoots();
+  if (hubOn && !devices.data) return null;
+  const receiving = (devices.data ?? []).filter((d) => d.receiveProjects);
+  if (!receiving.length)
+    return (
+      <EmptyState
+        icon={Server}
+        title={t("settings:consumers.emptyTitle")}
+        description={t("settings:consumers.projectsEmpty")}
+        action={<HubLink />}
+      />
+    );
+  return (
+    <SourceCards>
+      {receiving.map((d) => (
+        <MachinePicks key={d.id} device={d} roots={roots} />
+      ))}
+    </SourceCards>
   );
 }
 
@@ -94,7 +116,7 @@ function usePickName() {
       : t("settings:sources.picks.wholeFolder", { root: p.rootName });
 }
 
-/** One machine's card in Receive from the server: its picks, each at Read or Edit, Add pick. */
+/** One machine's card on Consumers: its picks, each at Read or Edit, Add pick. */
 function MachinePicks({ device: d, roots }: { device: Device; roots: Root[] }) {
   const { t } = useTranslation();
   const name = usePickName();

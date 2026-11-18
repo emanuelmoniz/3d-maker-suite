@@ -221,7 +221,9 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   // A card only when set up (6.1.0 Step 9): a paired machine adds no slicer card.
   await page.goto("/integrations");
   const card = page.getByRole("region", { name: "Bambu Studio" });
-  await expect(page.getByRole("heading", { name: "Integrations", level: 2 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Integrations", level: 2, exact: true }),
+  ).toBeVisible();
   await expect(card).toHaveCount(0);
   // Switch off: Add integration's Where says so and links to the machine page.
   await page.goto("/integrations/new?product=bambu-studio");
@@ -256,11 +258,14 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(slicers.getByText("Bambu Studio", { exact: true })).toBeVisible();
   await expect(slicers.getByRole("switch")).toHaveCount(1);
   await expect(page.getByRole("region", { name: "Slicers catalog" })).toBeVisible();
-  await expect(
-    page
-      .getByRole("region", { name: "Sync sources configurations" })
-      .getByRole("link", { name: "Catalog sources" }),
-  ).toHaveAttribute("href", `/catalog/settings/sources#machine-${deviceId}`);
+  await expect(page.getByRole("link", { name: "Catalog sources" })).toHaveAttribute(
+    "href",
+    `/catalog/settings/sources#machine-${deviceId}`,
+  );
+  await expect(page.getByRole("link", { name: "Catalog consumers" })).toHaveAttribute(
+    "href",
+    `/catalog/settings/consumers#receive-${deviceId}`,
+  );
   // Once per machine, from the API too.
   const again = await page.request.post("/api/integrations", {
     data: { adapterId: "bambu-studio-worker", config: { deviceId, source: "managed" } },
@@ -277,7 +282,9 @@ test("hub: pair a device, edit it, revoke it", async ({ page, app }) => {
   await expect(install).toHaveCount(0);
   // Its last install gone, so is the card.
   await page.goto("/integrations");
-  await expect(page.getByRole("heading", { name: "Integrations", level: 2 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Integrations", level: 2, exact: true }),
+  ).toBeVisible();
   await expect(card).toHaveCount(0);
   await page.goto(`/hub/devices/${deviceId}`);
   // Reach sections link by what exists (6.1.0 Step 11): nothing through it yet, so Set up.
@@ -357,13 +364,9 @@ test("hub: a machine's own user sees its slicers and edits only what their switc
   const slicers = page.getByRole("region", { name: "Slicers", exact: true });
   await expect(slicers.getByText("OrcaSlicer", { exact: true })).toBeVisible();
   await expect(slicers.getByRole("switch")).toHaveCount(0);
-  await expect(
-    page
-      .getByRole("region", { name: "Sync sources configurations" })
-      .getByRole("link", { name: "Catalog sources" }),
-  ).toBeVisible();
-  await expect(page.getByRole("switch", { name: "Receive from server" })).toHaveCount(0);
-  await expect(page.getByText("Receive from server: on")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Catalog sources" })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Get projects from server" })).toHaveCount(0);
+  await expect(page.getByText("Get projects from server: on")).toBeVisible();
   await expect(page.getByRole("button", { name: "Revoke" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Actions" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Change user" })).toHaveCount(0);

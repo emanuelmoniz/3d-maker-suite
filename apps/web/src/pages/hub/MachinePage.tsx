@@ -4,7 +4,7 @@ import {
   mayEditMachine,
   type PairingCode,
 } from "@3d-maker-suite/core";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, type LinkProps, useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
@@ -15,6 +15,7 @@ import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { cardGrid, Section } from "../../components/Section.tsx";
+import { useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { SystemInfo, SystemUpdated } from "../../components/SystemInfo.tsx";
 import { ApiError } from "../../lib/api.ts";
@@ -39,7 +40,7 @@ import {
 import { usePrinters } from "../../lib/printers.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
 import { useUsers } from "../../lib/users.ts";
-import { SourceBadge, SyncSources } from "../settings/Sources.tsx";
+import { SourceBadge } from "../settings/Sources.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
@@ -505,9 +506,40 @@ function Slicers({ device: d }: { device: Device }) {
   );
 }
 
+// A switch and what belongs to it, on one line.
+const SWITCH_LINE = "flex flex-wrap items-center gap-x-4 gap-y-1";
+
 /**
- * Slicers catalog, where the machine has a slicer: Receive from server and Share to server, as
- * Projects'. Off, it isn't that kind of source on Catalog settings → Sources.
+ * Where what a switch turns on is set up, opening this machine's card: Send goes to the module's
+ * Sources tab, Get to its Consumers tab. Only for who may open that tab.
+ */
+function SwitchTabLink({
+  module,
+  tab,
+  device: d,
+  children,
+}: {
+  module: "catalog" | "projects";
+  tab: "sources" | "consumers";
+  device: Device;
+  children: string;
+}) {
+  const { sources } = useSettingsAccess(module);
+  if (!sources) return null;
+  return (
+    <Link
+      to={`/${module}/settings/${tab}` as LinkProps["to"]}
+      hash={`${tab === "sources" ? "machine" : "receive"}-${d.id}`}
+      className="inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
+    >
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Slicers catalog, where the machine has a slicer: Get catalog from server and Send catalog to
+ * server, as Projects'. Off, it isn't listed that way on Catalog settings → Consumers or Sources.
  */
 function SlicersCatalog({ device: d }: { device: Device }) {
   const { t } = useTranslation();
@@ -516,32 +548,37 @@ function SlicersCatalog({ device: d }: { device: Device }) {
   if (!librariesOf(d).length) return null;
   return (
     <Section title={t("hub:machine.catalog")}>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
+      <div className={SWITCH_LINE}>
         <Setting
           edit={edit}
           label={t("hub:machine.receiveCatalog")}
-          name={t("hub:machine.receiveCatalogOf")}
+          name={t("hub:machine.receiveCatalog")}
           checked={d.receiveCatalog}
           busy={slicers.isPending}
           onChange={(on) => slicers.mutate({ id: d.id, receiveCatalog: on })}
         />
+        {d.receiveCatalog && (
+          <SwitchTabLink module="catalog" tab="consumers" device={d}>
+            {t("hub:machine.catalogConsumers")}
+          </SwitchTabLink>
+        )}
+      </div>
+      <div className={SWITCH_LINE}>
         <Setting
           edit={edit}
           label={t("hub:machine.shareCatalog")}
-          name={t("hub:machine.shareCatalogOf")}
+          name={t("hub:machine.shareCatalog")}
           checked={d.shareCatalog}
           busy={slicers.isPending}
           onChange={(on) => slicers.mutate({ id: d.id, shareCatalog: on })}
         />
+        {d.shareCatalog && (
+          <SwitchTabLink module="catalog" tab="sources" device={d}>
+            {t("hub:machine.catalogSources")}
+          </SwitchTabLink>
+        )}
       </div>
       <Alert error={slicers.error} />
-      {(d.receiveCatalog || d.shareCatalog) && (
-        <SyncSources
-          types={["machinePresets"]}
-          hash={`machine-${d.id}`}
-          labels={{ catalog: t("hub:machine.catalogSources") }}
-        />
-      )}
     </Section>
   );
 }
@@ -552,11 +589,9 @@ function Projects({ device: d }: { device: Device }) {
   const edit = may.edit("projects");
   const { projects } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
-  // Its picks and shared folders are set on the Sources tab: the Projects sources button below.
-  const line = "flex flex-wrap items-center gap-x-4 gap-y-1";
   return (
     <Section title={t("hub:machine.projects")}>
-      <div className={line}>
+      <div className={SWITCH_LINE}>
         <Setting
           edit={edit}
           label={t("hub:machine.receiveProjects")}
@@ -568,13 +603,18 @@ function Projects({ device: d }: { device: Device }) {
           }
         />
         {d.receiveProjects && (
+          <SwitchTabLink module="projects" tab="consumers" device={d}>
+            {t("hub:machine.projectConsumers")}
+          </SwitchTabLink>
+        )}
+        {d.receiveProjects && (
           <span className="text-muted">
             {t("hub:machine.pickCount", { count: d.picks.length })}
           </span>
         )}
         {d.receiveProjects && d.sync && <SyncLine sync={d.sync} />}
       </div>
-      <div className={line}>
+      <div className={SWITCH_LINE}>
         <Setting
           edit={edit}
           label={t("hub:machine.shareProjects")}
@@ -583,6 +623,11 @@ function Projects({ device: d }: { device: Device }) {
           busy={projects.isPending}
           onChange={(on) => projects.mutate({ id: d.id, shareProjects: on })}
         />
+        {d.shareProjects && (
+          <SwitchTabLink module="projects" tab="sources" device={d}>
+            {t("hub:machine.projectSources")}
+          </SwitchTabLink>
+        )}
         {d.shareProjects && (
           <span className="text-muted">
             {t("hub:machine.folderCount", { count: d.sharedFolders?.length ?? 0 })}
@@ -595,13 +640,6 @@ function Projects({ device: d }: { device: Device }) {
         )}
       </div>
       <Alert error={projects.error} />
-      {(d.receiveProjects || d.shareProjects) && (
-        <SyncSources
-          types={["projects"]}
-          hash={`machine-${d.id}`}
-          labels={{ projects: t("hub:machine.projectSources") }}
-        />
-      )}
       <ConfirmDialog
         open={confirm}
         title={t("hub:machine.stopReceivingTitle", { name: d.name })}

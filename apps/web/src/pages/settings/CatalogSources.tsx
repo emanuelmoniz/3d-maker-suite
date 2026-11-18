@@ -30,13 +30,13 @@ import {
 import { ChooseBrands } from "./ChooseBrands.tsx";
 import { LOCATION_ICONS } from "./integrationLabels.ts";
 import { PresetsFromZip } from "./ManagedSlicer.tsx";
-import { DeviceState, ReceiveSection, receiversOf, SwitchError } from "./ReceiveSources.tsx";
+import { DeviceState, SwitchError } from "./ReceiveSources.tsx";
 import {
   SlicerGroup,
   SourceBadge,
   SourceBlock,
+  SourceCards,
   SourceIcon,
-  SourcesSection,
   type StateLine,
   StateLines,
 } from "./Sources.tsx";
@@ -92,10 +92,9 @@ const serverRows = (lib: LibrarySources, list: Integration[]) =>
   );
 
 /**
- * Catalog settings → Sources (ADR-0023). Share to the hub: this server's slicers, the accounts that
- * have user presets, the machines with a slicer (the hub's slicer, or one it reports) and the
- * zip, each slicer one table of its lines. Receive from the hub: every other install, per slicer its
- * System and User presets lines.
+ * Catalog settings → Sources (ADR-0023): this server's slicers, the accounts that have user
+ * presets, the machines with a slicer (the hub's slicer, or one it reports) and the zip, each
+ * slicer one table of its lines. The installs that get them are on the Consumers tab.
  */
 export function CatalogSources() {
   const { t } = useTranslation();
@@ -143,13 +142,12 @@ export function CatalogSources() {
   for (const lib of libraries)
     for (const m of lib.machines)
       if (isSource(lib, { deviceId: m.deviceId })) add(m.deviceId, m.name, lib.library);
-  // Its Slicers catalog Share to server switch (the machine page): off, it shares nothing here.
+  // Its Send catalog to server switch (the machine page): off, it shares nothing here.
   for (const d of devices)
     if (d.shareCatalog)
       for (const l of d.libraries) if (l.reported || l.send) add(d.id, d.name, l.library);
-  const receivers = receiversOf(libraries, list);
   const zipLibs = admin ? zips : [];
-  if (!server.length && !accounts.length && !machines.size && !receivers.length && !zipLibs.length)
+  if (!server.length && !accounts.length && !machines.size && !zipLibs.length)
     return (
       <EmptyState
         icon={Cable}
@@ -159,49 +157,46 @@ export function CatalogSources() {
       />
     );
   return (
-    <>
-      <SourcesSection direction="share">
-        {server.length > 0 && (
-          <SourceBlock
-            id="server"
-            icon={<SourceIcon icon={LOCATION_ICONS.server} />}
-            title={t("settings:sources.server")}
-            link={
-              admin
-                ? { to: "/settings/integrations", label: t("settings:sources.toIntegrations") }
-                : undefined
-            }
-          >
-            {server.map(({ lib, i }) => (
-              <ServerSlicer key={`${lib.library}-${i.id}`} lib={lib} integration={i} list={list} />
+    <SourceCards>
+      {server.length > 0 && (
+        <SourceBlock
+          id="server"
+          icon={<SourceIcon icon={LOCATION_ICONS.server} />}
+          title={t("settings:sources.server")}
+          link={
+            admin
+              ? { to: "/settings/integrations", label: t("settings:sources.toIntegrations") }
+              : undefined
+          }
+        >
+          {server.map(({ lib, i }) => (
+            <ServerSlicer key={`${lib.library}-${i.id}`} lib={lib} integration={i} list={list} />
+          ))}
+        </SourceBlock>
+      )}
+      {accounts.map((i) => (
+        <AccountPresets key={i.id} integration={i} libraries={libraries} />
+      ))}
+      {[...machines].map(([id, m]) => {
+        const d = devices.find((x) => x.id === id);
+        return (
+          <MachineBlock key={id} id={id} name={m.name}>
+            {d && <DeviceState device={d} />}
+            {m.libraries.map((library) => (
+              <ShareSlicer
+                key={library}
+                id={id}
+                device={d}
+                library={library}
+                lib={libraries.find((l) => l.library === library)}
+                list={list}
+              />
             ))}
-          </SourceBlock>
-        )}
-        {accounts.map((i) => (
-          <AccountPresets key={i.id} integration={i} libraries={libraries} />
-        ))}
-        {[...machines].map(([id, m]) => {
-          const d = devices.find((x) => x.id === id);
-          return (
-            <MachineBlock key={id} id={id} name={m.name}>
-              {d && <DeviceState device={d} />}
-              {m.libraries.map((library) => (
-                <ShareSlicer
-                  key={library}
-                  id={id}
-                  device={d}
-                  library={library}
-                  lib={libraries.find((l) => l.library === library)}
-                  list={list}
-                />
-              ))}
-            </MachineBlock>
-          );
-        })}
-        {zipLibs.length > 0 && <ZipBlock libraries={zipLibs} list={list} sources={libraries} />}
-      </SourcesSection>
-      <ReceiveSection receivers={receivers} devices={devices} />
-    </>
+          </MachineBlock>
+        );
+      })}
+      {zipLibs.length > 0 && <ZipBlock libraries={zipLibs} list={list} sources={libraries} />}
+    </SourceCards>
   );
 }
 
@@ -217,7 +212,7 @@ export function MachineBlock({
   name: string;
   /** Its user, where it matters whose machine it is. */
   subtitle?: string;
-  /** In Receive from the hub: its own anchor. */
+  /** On a Consumers tab: its own anchor. */
   receive?: boolean;
   children: React.ReactNode;
 }) {

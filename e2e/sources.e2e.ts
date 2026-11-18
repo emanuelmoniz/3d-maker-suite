@@ -5,10 +5,9 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
 import { hasHorizontalScroll, openSources } from "./helpers.ts";
 
-/** A machine's block in a section of a Sources tab: its heading names it. */
-const block = (page: Page, section: string, machine: string) =>
+/** A machine's card on a Sources or Consumers tab: its heading names it. */
+const block = (page: Page, machine: string) =>
   page
-    .getByRole("region", { name: section, exact: true })
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: machine, exact: true, level: 3 }) });
 
@@ -79,8 +78,8 @@ for (const width of [375, 1440])
     await worker("WS-2");
     await page.goto("/catalog/settings/sources");
     await openSources(page);
-    const share1 = block(page, "Share to server", "WS-1");
-    const share2 = block(page, "Share to server", "WS-2");
+    const share1 = block(page, "WS-1");
+    const share2 = block(page, "WS-2");
     const hubSlicer = (b: typeof share1) => b.getByText("Server's slicer", { exact: true });
     await expect(hubSlicer(share1)).toBeVisible();
     // Every machine with the slicer is listed for its user presets; only the hub's slicer shares
@@ -110,9 +109,11 @@ for (const width of [375, 1440])
       "/settings/integrations#bambu-studio",
     );
 
-    // Receive from server: every machine with the slicer, its System and User presets lines on one
-    // card. Server's slicer receives user presets only: its own folder is the catalog.
-    const receive2 = block(page, "Receive from server", "WS-2");
+    // Consumers: every machine with the slicer, its System and User presets lines on one card.
+    // Server's slicer receives user presets only: its own folder is the catalog.
+    await page.goto("/catalog/settings/consumers");
+    await openSources(page);
+    const receive2 = block(page, "WS-2");
     await expect(receive2.getByText("Server's slicer", { exact: true })).toBeVisible();
     await expect(receive2.getByRole("switch", { name: /Receive the system presets/ })).toHaveCount(
       0,
@@ -122,7 +123,7 @@ for (const width of [375, 1440])
     ).toBeVisible();
     const catalogLine =
       "Receive the system presets, brands and printer models in Bambu Studio on WS-1";
-    const receive1 = block(page, "Receive from server", "WS-1");
+    const receive1 = block(page, "WS-1");
     const system = receive1.getByRole("switch", { name: catalogLine });
     await expect(system).not.toBeChecked();
     await expect(receive1.getByText("Offline", { exact: true })).toBeVisible();
@@ -145,7 +146,9 @@ for (const width of [375, 1440])
 
     // WS-1 shares Bambu Studio's filament presets and nothing else: a kind on turns Share on.
     // OrcaSlicer is listed too, every kind off.
-    const shares = block(page, "Share to server", "WS-1");
+    await page.goto("/catalog/settings/sources");
+    await openSources(page);
+    const shares = block(page, "WS-1");
     const kindLine = (kind: string, slicer = "Bambu Studio") =>
       shares.getByRole("switch", { name: `Share ${kind} from ${slicer} on WS-1` });
     for (const kind of ["Printer presets", "Process presets", "Filament presets"])
@@ -171,9 +174,9 @@ for (const width of [375, 1440])
     // A slicer WS-1 no longer reports keeps its lines and values, which can't change.
     await set("WS-1", "orca-slicer", { user: { receive: true } });
     await ws1(["bambu-studio"]);
-    await page.reload();
+    await page.goto("/catalog/settings/consumers");
     await openSources(page);
-    const receives = block(page, "Receive from server", "WS-1");
+    const receives = block(page, "WS-1");
     await expect(
       receives.getByText("OrcaSlicer is no longer found on this machine."),
     ).toBeVisible();
@@ -193,9 +196,7 @@ for (const width of [375, 1440])
     });
     await page.reload();
     await openSources(page);
-    const server = page
-      .getByRole("region", { name: "Receive from server", exact: true })
-      .locator("#receive-server");
+    const server = page.locator("#receive-server");
     const userLine = server.getByRole("switch", {
       name: "Receive user presets in Bambu Studio on This server",
     });

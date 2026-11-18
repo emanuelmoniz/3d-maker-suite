@@ -3996,7 +3996,7 @@ Do Step 16 of the 6.1.0 plan in PLAN.md.
 Do Step 17 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 18 - Sources as one table  **[plan mode]**
+### [x] Step 18 - Sources as one table  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Why:** on Printers, Prints and Filament → Settings → Sources, each source is a card that holds a table with a single row (its one data type), so three accounts make three one-row tables.
 **Scope:**
@@ -4005,7 +4005,8 @@ Do Step 17 of the 6.1.0 plan in PLAN.md.
   - The table sorts by source name. Phone width uses `DataTable`'s own small-screen layout.
 - Catalog and Projects sources stay as they are (several types per source).
 - Remove what only the per-source blocks used (`SourceBlock` if nothing else uses it).
-- `docs/printers.md`, `docs/prints.md`, `docs/filament.md` (Sources tab); `pnpm screenshots` if a README page changed.
+- Added in review: no card around the table; an account shows its name before its email. Catalog and Projects settings get a **Consumers** tab with what was Receive from server, and no card around the source cards. The machine page's switches become **Get catalog/projects from server** and **Send catalog/projects to server**, each with a button to its Consumers or Sources tab, and its Sync sources configurations block goes.
+- `docs/import.md`, `docs/hub.md`, `docs/bambu-cloud.md`, `docs/spoolman.md`, `docs/printers.md` (Sources and Consumers tabs); ADR-0021, ADR-0022, ADR-0023; `pnpm screenshots` if a README page changed.
 
 **Done when:** two Bambu Cloud accounts and a Moonraker printer show as three rows of one table on each page they feed; every action of a row works as before; editors with only a sync task see the same table with what they may do; e2e; tests, lint and `pnpm i18n:check` pass.
 **Prompt:**

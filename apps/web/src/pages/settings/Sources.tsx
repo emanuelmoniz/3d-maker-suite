@@ -4,30 +4,13 @@ import { ChevronRight, type LucideIcon } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "../../components/DataTable.tsx";
-import { Section } from "../../components/Section.tsx";
 import { type SettingsModule, useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { cx, textLink } from "../../lib/cx.ts";
 
-/**
- * A Sources tab's section (ADR-0021): the sources that feed the hub, or the machines it sends to.
- * Its blocks are the children, one card per source.
- */
-export function SourcesSection({
-  direction,
-  children,
-}: {
-  direction: "share" | "receive";
-  children: ReactNode;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Section
-      title={direction === "share" ? t("settings:sources.share") : t("settings:sources.receive")}
-    >
-      <ul className="grid gap-3">{children}</ul>
-    </Section>
-  );
+/** The cards of a Sources or Consumers tab (ADR-0021), one per source or machine. */
+export function SourceCards({ children }: { children: ReactNode }) {
+  return <ul className="grid gap-3">{children}</ul>;
 }
 
 // The Sources tabs a source's data types are set up on, in menu order.
@@ -45,16 +28,7 @@ const moduleOf = (type: string): SettingsModule | undefined =>
  * Sync sources configurations: a button per Sources tab that `types` feed, which the viewer may
  * open. A source's lines are set up there (ADR-0021), not on its card.
  */
-export function SyncSources({
-  types,
-  hash,
-  labels,
-}: {
-  types: readonly string[];
-  hash?: string;
-  /** A button's label per module, instead of the module's name. */
-  labels?: Partial<Record<SettingsModule, string>>;
-}) {
+export function SyncSources({ types }: { types: readonly string[] }) {
   const { t } = useTranslation();
   const heading = useId();
   const may: Record<(typeof SOURCE_MODULES)[number], boolean> = {
@@ -73,10 +47,9 @@ export function SyncSources({
         <Link
           key={m}
           to={`/${m}/settings/sources` as LinkProps["to"]}
-          hash={hash}
           className="inline-flex h-9 items-center whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
         >
-          {labels?.[m] ?? t(`nav:items.${m}.label`)}
+          {t(`nav:items.${m}.label`)}
         </Link>
       ))}
     </div>

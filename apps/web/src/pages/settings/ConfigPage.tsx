@@ -16,7 +16,8 @@ import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { PresetsTab } from "../presets/LibraryTab.tsx";
 import { AccountSources } from "./AccountSources.tsx";
 import { CatalogSources } from "./CatalogSources.tsx";
-import { ProjectSources } from "./ProjectSources.tsx";
+import { ProjectConsumers, ProjectSources } from "./ProjectSources.tsx";
+import { CatalogConsumers } from "./ReceiveSources.tsx";
 
 /** Data types: their settings have General and Sources tabs (ADR-0021). */
 const SOURCE_MODULES: SettingsModule[] = ["printers", "prints", "filament", "projects", "catalog"];
@@ -68,11 +69,17 @@ export function ConfigPage({
   // denied page) navigate again on each one, and never stop.
   const path = useLocation({ select: (l) => l.pathname });
   const tab0 =
-    path === `${base}/sources` ? "sources" : path === `${base}/library` ? "library" : "general";
+    path === `${base}/sources`
+      ? "sources"
+      : path === `${base}/consumers`
+        ? "consumers"
+        : path === `${base}/library`
+          ? "library"
+          : "general";
   const hasTabs = SOURCE_MODULES.includes(module);
-  // An editor with a sync or review task gets only the Sources tab (ADR-0012, ADR-0021).
+  // An editor with a sync or review task gets only Sources and Consumers (ADR-0012, ADR-0021).
   const { settings: allowed, sources, loading } = useSettingsAccess(module);
-  const tab = !hasTabs ? "general" : allowed ? tab0 : "sources";
+  const tab = !hasTabs ? "general" : allowed || tab0 === "consumers" ? tab0 : "sources";
   const accountType = ACCOUNT_TYPE[module];
 
   // Without the permission, back to the module.
@@ -95,6 +102,9 @@ export function ConfigPage({
   const hub = data.values.hubEnabled;
   // The library is the hub's: without the hub there is no tab.
   if (tab === "library" && !hub) return <Navigate to={base as LinkProps["to"]} replace />;
+  // Only machines get projects; this server's own slicer can get the catalog without the hub.
+  const consumers = module === "catalog" || (module === "projects" && hub);
+  if (tab === "consumers" && !consumers) return <Navigate to={base as LinkProps["to"]} replace />;
   const v = data.values;
   const commit = (patch: Partial<Preferences>) => save.mutate(patch);
   // `key` must be passed directly in JSX; React warns when it arrives through a spread.
@@ -152,6 +162,14 @@ export function ConfigPage({
               ? [{ to: base as LinkProps["to"], label: t("settings:tabs.general"), exact: true }]
               : []),
             { to: `${base}/sources` as LinkProps["to"], label: t("settings:tabs.sources") },
+            ...(consumers
+              ? [
+                  {
+                    to: `${base}/consumers` as LinkProps["to"],
+                    label: t("settings:tabs.consumers"),
+                  },
+                ]
+              : []),
             ...(module === "catalog" && hub
               ? [{ to: `${base}/library` as LinkProps["to"], label: t("settings:tabs.library") }]
               : []),
@@ -159,13 +177,17 @@ export function ConfigPage({
         />
       )}
       {tab === "sources" && accountType ? (
-        <AccountSources type={accountType} settings={allowed} />
+        <AccountSources type={accountType} />
       ) : tab === "sources" && module === "catalog" ? (
         <div className="grid gap-10">
           <CatalogSources />
         </div>
       ) : tab === "sources" && module === "projects" ? (
         <ProjectSources />
+      ) : tab === "consumers" && module === "catalog" ? (
+        <CatalogConsumers />
+      ) : tab === "consumers" ? (
+        <ProjectConsumers />
       ) : tab === "library" ? (
         <PresetsTab />
       ) : (

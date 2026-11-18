@@ -68,9 +68,7 @@ test("shared folders: picked on the server, then a project folder from them (375
 
   await page.goto("/projects/settings/sources");
   await openSources(page);
-  // Its Receive from server card has the same heading.
   const card = page
-    .getByRole("region", { name: "Share to server" })
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: /WS-1/, level: 3 }) });
   await expect(card).toContainText("Ana Admin");
