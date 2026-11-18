@@ -24,6 +24,8 @@ pnpm --filter @3d-maker-suite/server start -- --port 4400 --host 0.0.0.0
 
 The update channel (Stable or Dev) is in Settings → About & updates; Stable is the default and Dev is for testers. See [install.md](install.md#updating).
 
+Update checks: the server checks for a new release on a schedule and raises an "update available" alert (and its email or ntfy) once per version. **Check for updates** in the same section shows the result without an alert, and the next scheduled check stays quiet for that version; only a newer one alerts. The version you saw is remembered in `update-seen.json` in the data folder.
+
 ## Alerts
 
 The alerts page lists what needs attention. Each alert has a severity (error, warning, success), its module and the task that raised it. Open an alert to see its details, mark it read or unread, snooze it, dismiss it, or jump to its spool, task or integration. Dismissed and snoozed alerts move to the history table on the same page.

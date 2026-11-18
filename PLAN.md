@@ -4065,7 +4065,7 @@ Do Step 20 of the 6.1.0 plan in PLAN.md. Use frontend-design for the shared head
 Do Step 21 of the 6.1.0 plan in PLAN.md.
 ```
 
-### [ ] Step 22 - A manual update check raises no alert
+### [x] Step 22 - A manual update check raises no alert
 **Model:** Sonnet · **Effort:** Low
 **Scope:**
 - `check()` in `apps/server/src/updates/updates.ts` takes where it comes from: the schedule or the user (Settings → About, **Check for updates**).

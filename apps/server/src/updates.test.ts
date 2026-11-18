@@ -17,6 +17,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import { buildApp } from "./app.ts";
+import { createUpdater } from "./updates/updates.ts";
 
 let dir: string;
 let db: ReturnType<typeof openDb>;
@@ -46,17 +47,74 @@ describe("update check", () => {
 
     const checked = (await app.inject({ method: "POST", url: "/api/updates/check" })).json();
     expect(checked.latest).toEqual({ tag: "v1.0.0", url: "u1" });
-    await app.inject({ method: "POST", url: "/api/updates/check" });
-    expect(updateAlerts()).toMatchObject([{ entityId: "v1.0.0", module: "system" }]);
+    // A manual check shows the release but raises no alert.
+    expect(updateAlerts()).toEqual([]);
+  });
 
-    // dev sees the pre-release; the next check resolves the stable one's alert.
-    await app.inject({
-      method: "PATCH",
-      url: "/api/preferences",
-      payload: { updateChannel: "dev" },
-    });
-    expect((await app.inject("/api/updates")).json().latest.tag).toBe("v1.1.0-alpha.1");
-    await app.inject({ method: "POST", url: "/api/updates/check" });
+  it("raises one alert per version from the schedule, none for what a manual check showed", async () => {
+    let list = await releases();
+    const updater = createUpdater(
+      db,
+      dir,
+      { warn() {} },
+      {
+        version: "1.0.0-alpha.9",
+        install: "other",
+        releases: async () => list,
+      },
+    );
+    await updater.check("user");
+    await updater.check();
+    await updater.check();
+    expect(updateAlerts()).toEqual([]);
+
+    // A newer release alerts, once.
+    list = [{ tag: "v1.1.0", prerelease: false, url: "u3" }, ...list];
+    await updater.check();
+    await updater.check();
+    expect(updateAlerts()).toMatchObject([{ entityId: "v1.1.0", module: "system" }]);
+
+    // A restart remembers what the user saw.
+    const again = createUpdater(
+      db,
+      dir,
+      { warn() {} },
+      {
+        version: "1.0.0-alpha.9",
+        install: "other",
+        releases: async () => list,
+      },
+    );
+    await again.check("user");
+    db.delete(schema.alerts).run();
+    await createUpdater(
+      db,
+      dir,
+      { warn() {} },
+      {
+        version: "1.0.0-alpha.9",
+        install: "other",
+        releases: async () => list,
+      },
+    ).check();
+    expect(updateAlerts()).toEqual([]);
+  });
+
+  it("moves the alert when the channel changes", async () => {
+    const updater = createUpdater(
+      db,
+      dir,
+      { warn() {} },
+      {
+        version: "1.0.0-alpha.9",
+        install: "other",
+        releases,
+      },
+    );
+    await updater.check();
+    expect(updateAlerts()).toMatchObject([{ entityId: "v1.0.0" }]);
+    db.insert(schema.settings).values({ key: "updateChannel", value: "dev" }).run();
+    await updater.check();
     const open = updateAlerts().filter((a) => !a.resolvedAt);
     expect(open.map((a) => a.entityId)).toEqual(["v1.1.0-alpha.1"]);
   });

@@ -195,8 +195,27 @@ export function createUpdater(
   const latest = () =>
     releases && pickRelease(releases, readPreferences(db).updateChannel, version);
 
-  /** Reads GitHub; a newer release on the channel raises one alert per version. */
-  async function check() {
+  /** The newest version a manual check already showed the user: the schedule doesn't alert for it. */
+  const seenFile = dataDir && join(dataDir, "update-seen.json");
+  const readSeen = (): string => {
+    try {
+      return z.string().parse(JSON.parse(readFileSync(seenFile, "utf8")));
+    } catch {
+      return "";
+    }
+  };
+  let seen = readSeen();
+  const markSeen = (tag: string) => {
+    if (seen && compareVersions(tag, seen) <= 0) return;
+    seen = tag;
+    if (seenFile) writeFileSync(seenFile, JSON.stringify(tag));
+  };
+
+  /**
+   * Reads GitHub. From the schedule, a newer release on the channel raises one alert per version
+   * (none for one the user already saw); from the user (Settings → About) it raises none.
+   */
+  async function check(source: "schedule" | "user" = "schedule") {
     try {
       releases = await fetchAll();
       checkFailed = false;
@@ -208,7 +227,8 @@ export function createUpdater(
     if (!releases) return;
     const l = latest();
     resolveAlerts((tag) => tag !== l?.tag);
-    if (l)
+    if (l && source === "user") markSeen(l.tag);
+    else if (l && !(seen && compareVersions(l.tag, seen) <= 0))
       raise(db, {
         kind: "update_available",
         severity: "success",

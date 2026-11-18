@@ -23,7 +23,7 @@ export const updatesRoutes =
     );
 
     app.post("/check", { schema: { response: { 200: updatesResponseSchema } } }, async () => {
-      await updater.check();
+      await updater.check("user");
       return updater.view();
     });
 
