@@ -244,7 +244,7 @@ function ChangeHubSlicer({ library }: { library: string }) {
   const { t } = useTranslation();
   if (!useCan("integrations.manage")) return null;
   return (
-    <Link to="/integrations" hash={`library-${library}`} className={`text-sm ${textLink}`}>
+    <Link to="/integrations" hash={library} className={`text-sm ${textLink}`}>
       {t("settings:sources.catalog.change")}
     </Link>
   );

@@ -41,6 +41,7 @@ import {
 } from "../../lib/integrations.ts";
 import { useSavePreferences } from "../../lib/preferences.ts";
 import { useCatalogSources } from "../../lib/presets.ts";
+import { badgeOf, FoldCard } from "./FoldCard.tsx";
 import { CAPS, ERRORS, LOCATION_ICONS } from "./integrationLabels.ts";
 import { ManagedSlicer } from "./ManagedSlicer.tsx";
 import { ActionSwitches } from "./PolicyRow.tsx";
@@ -113,7 +114,20 @@ function DefaultSlicer({ library, rows }: { library: string; rows: Integration[]
  * slicer, its import cards' summary, and every install of it. For integrations.manage the installs
  * are the hub's slicer's choices; a machine's is set up here too.
  */
-export function LibraryCard({ library, rows }: { library: string; rows: Integration[] }) {
+export function LibraryCard({
+  library,
+  rows,
+  reveal,
+  scroll,
+  via,
+}: {
+  library: string;
+  rows: Integration[];
+  reveal: boolean;
+  scroll?: string | true;
+  /** The machine the page was opened for: the Add form preselects it. */
+  via?: string;
+}) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const admin = useCan("integrations.manage");
@@ -125,35 +139,38 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
   const type = adapters.length > 0;
   const lib = useCatalogSources(admin && type).data?.find((l) => l.library === library);
   return (
-    <section
-      aria-labelledby={`library-${library}`}
-      className="rounded-lg border border-border bg-surface p-4 sm:p-5"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="grid min-w-0 gap-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 id={`library-${library}`} className="scroll-mt-4 text-lg font-semibold">
-              {adapterName(library)}
-            </h2>
-            <DefaultSlicer library={library} rows={rows} />
-          </div>
-        </div>
-        {admin && slicer && !here.length && (
-          <Link to="/integrations/new" search={{ product: library }} className={addClass}>
+    <FoldCard
+      id={library}
+      title={adapterName(library)}
+      count={t("integrations:fold.installs", { count: rows.length })}
+      badge={badgeOf(rows)}
+      reveal={reveal}
+      scroll={scroll}
+      action={
+        admin &&
+        slicer &&
+        !here.length && (
+          <Link
+            to="/integrations/new"
+            search={{ product: library, ...(via && { via }) }}
+            className={addClass}
+          >
             <Plus aria-hidden className="size-4" />
             {t("integrations:card.addLocation")}
           </Link>
-        )}
-      </div>
+        )
+      }
+    >
+      <DefaultSlicer library={library} rows={rows} />
       {here.length > 1 && (
-        <p role="note" className="mt-2 text-warn">
+        <p role="note" className="text-warn">
           {t("integrations:card.twoInstalls")}
         </p>
       )}
       {admin && type ? (
         <HubSlicer library={library} rows={rows} lib={lib} />
       ) : (
-        <ul className="mt-2">
+        <ul>
           {rows.map((i) => (
             <IntegrationCard key={i.id} integration={i} />
           ))}
@@ -166,11 +183,11 @@ export function LibraryCard({ library, rows }: { library: string; rows: Integrat
           ...adapters.flatMap((a) => a.capabilities),
         ]}
       />
-    </section>
+    </FoldCard>
   );
 }
 
-const deviceOf = (i: Integration) =>
+export const deviceOf = (i: Integration) =>
   i.kind === "worker" ? workerConfigSchema.safeParse(i.config).data?.deviceId : undefined;
 
 /**

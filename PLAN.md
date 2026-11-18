@@ -3732,7 +3732,7 @@ Do Step 7 of the 6.1.0 plan in PLAN.md. Push dev, push the tag and confirm the p
 
 ## Phase 49 - Integrations page
 
-### [ ] Step 8 - Collapsible cards, add button labels
+### [x] Step 8 - Collapsible cards, add button labels
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - One card frame for `AccountsCard` and `LibraryCard`.

@@ -67,3 +67,7 @@ A hub on a VPS reaches a Spoolman on your LAN through a machine there: pick it u
 
 - **Can't be reached:** open `http://<address>/api/v1/info` in a browser on the server's machine (on the machine it is reached through, for a hub on another network); it answers with Spoolman's version. In Docker on a bridged network, use the IP, not a `.local` name.
 - **A charge keeps waiting:** the integrations log says why ([logs.md](logs.md)). A Spoolman spool you deleted is skipped, and the log names it.
+
+## On the Integrations page
+
+The Spoolman card is folded until you open it. A second Spoolman source isn't possible (its spools are keyed by the source), so the card has no add button once one is set up.

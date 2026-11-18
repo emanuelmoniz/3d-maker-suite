@@ -6,39 +6,62 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Menu } from "../../components/Menu.tsx";
-import { Section } from "../../components/Section.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatRelative } from "../../lib/format.ts";
 import {
+  sourceNoun,
+  sourceTaken,
   useAdapterName,
   useAdapters,
   useDeleteIntegration,
   usePatchIntegration,
   useTestIntegration,
 } from "../../lib/integrations.ts";
+import { ADD_KEYS, badgeOf, COUNT_KEYS, FoldCard } from "./FoldCard.tsx";
 import { ERRORS } from "./integrationLabels.ts";
 import { ActionSwitches } from "./PolicyRow.tsx";
 import { SyncSources } from "./Sources.tsx";
 
-/** One card per API (ADR-0021): a block per account, "Add another account" on the right. */
-export function AccountsCard({ adapterId, rows }: { adapterId: string; rows: Integration[] }) {
+/** One card per API (ADR-0021): a block per account, the Add button on the right while open. */
+export function AccountsCard({
+  adapterId,
+  rows,
+  reveal,
+  scroll,
+  via,
+}: {
+  adapterId: string;
+  rows: Integration[];
+  reveal: boolean;
+  scroll?: string | true;
+  /** The machine the page was opened for: the Add form preselects it. */
+  via?: string;
+}) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const admin = useCan("integrations.manage");
+  const adapter = useAdapters().data?.find((a) => a.id === adapterId);
+  const noun = sourceNoun(adapter);
   return (
-    <Section
+    <FoldCard
+      id={adapterId}
       title={adapterName(adapterId)}
+      count={t(COUNT_KEYS[noun], { count: rows.length })}
+      badge={badgeOf(rows)}
+      reveal={reveal}
+      scroll={scroll}
       action={
-        admin && (
+        admin &&
+        !sourceTaken(adapter, rows) && (
           <Link
             to="/integrations/new"
-            search={{ product: adapterId }}
+            search={{ product: adapterId, ...(via && { via }) }}
             className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
           >
             <Plus aria-hidden className="size-4" />
-            {t("integrations:account.addAnother")}
+            {t(ADD_KEYS[noun])}
           </Link>
         )
       }
@@ -50,7 +73,7 @@ export function AccountsCard({ adapterId, rows }: { adapterId: string; rows: Int
       </ul>
       {/* For the whole card: every account's types are on the same Sources tabs (ADR-0021). */}
       <SyncSources types={rows.flatMap((i) => i.policies.map((p) => p.type))} />
-    </Section>
+    </FoldCard>
   );
 }
 

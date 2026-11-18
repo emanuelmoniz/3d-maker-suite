@@ -183,7 +183,7 @@ A section the viewer can't edit shows its values as text, without switches. A ma
 
 **2. Integrations**
 ```
-Bambu Cloud                                        [Add another account]
+Bambu Cloud  (2 accounts)                      [Add another account]
   (AS)  Ana Silva                         (Signed in) [Test connection]
         ana@example.com · Global
         Allow   [x] Printers                           → Printers settings

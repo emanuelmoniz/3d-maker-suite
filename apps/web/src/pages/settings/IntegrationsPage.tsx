@@ -1,5 +1,5 @@
-import { INTEGRATION_KINDS, isSlicerKind } from "@3d-maker-suite/core";
-import { Link } from "@tanstack/react-router";
+import { INTEGRATION_KINDS, type Integration, isSlicerKind } from "@3d-maker-suite/core";
+import { Link, useLocation, useSearch } from "@tanstack/react-router";
 import { Plug, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "../../components/EmptyState.tsx";
@@ -14,7 +14,7 @@ import {
   useMayTask,
 } from "../../lib/integrations.ts";
 import { AccountsCard } from "./AccountCard.tsx";
-import { LibraryCard } from "./IntegrationCard.tsx";
+import { deviceOf, LibraryCard } from "./IntegrationCard.tsx";
 
 const addClass =
   "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md bg-accent px-3 font-medium text-accent-fg hover:opacity-90";
@@ -51,6 +51,24 @@ export function IntegrationsPage() {
     ? (adapters ?? []).flatMap((a) => (a.kind === "worker" && a.libraryId ? [a.libraryId] : []))
     : [];
   const libraries = [...new Set([...rows.map(libraryOf), ...onMachines])];
+  // A link opens its cards (ADR-0022): `#<library>`, `#integration-<id>` or `?via=<deviceId>` (the
+  // machine's cards); the first of them is scrolled to.
+  const hash = useLocation({ select: (l) => l.hash });
+  const via = (useSearch({ strict: false }) as { via?: string }).via;
+  const devices = useDevices(admin).data ?? [];
+  const target = hash.replace(/^library-/, "");
+  const reveals = (lib: string, of: Integration[]) =>
+    target === lib ||
+    of.some((i) => hash === `integration-${i.id}`) ||
+    (!!via &&
+      (of.some((i) => (i.deviceId ?? deviceOf(i)) === via) ||
+        devices.find((d) => d.id === via)?.slicers.some((s) => s.id === lib) === true));
+  const firstReveal = libraries.find((lib) =>
+    reveals(
+      lib,
+      rows.filter((i) => libraryOf(i) === lib),
+    ),
+  );
   return (
     <>
       <PageHeader
@@ -70,10 +88,20 @@ export function IntegrationsPage() {
             {libraries.map((lib) => {
               const of = rows.filter((i) => libraryOf(i) === lib);
               // An API's accounts (ADR-0021); a slicer's places.
+              const open = {
+                reveal: reveals(lib, of),
+                scroll:
+                  lib === firstReveal
+                    ? hash.startsWith("integration-")
+                      ? hash
+                      : (true as const)
+                    : undefined,
+                via,
+              };
               return of.length && of.every((i) => !isSlicerKind(i.kind)) ? (
-                <AccountsCard key={lib} adapterId={lib} rows={of} />
+                <AccountsCard key={lib} adapterId={lib} rows={of} {...open} />
               ) : (
-                <LibraryCard key={lib} library={lib} rows={of} />
+                <LibraryCard key={lib} library={lib} rows={of} {...open} />
               );
             })}
           </div>

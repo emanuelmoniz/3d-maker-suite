@@ -90,6 +90,8 @@ for (const width of [375, 1440])
     // Picked in Integrations: Change slicer machine, below the hub's slicer's panel, asks first.
     await page.goto("/integrations");
     const card = page.getByRole("region", { name: "Bambu Studio" });
+    // Cards start folded.
+    await card.getByRole("button", { name: /^Bambu Studio/ }).click();
     await card.getByRole("button", { name: "Change slicer machine" }).click();
     const dialog = page
       .getByRole("dialog")
@@ -108,7 +110,7 @@ for (const width of [375, 1440])
     // Its heading says where it is changed.
     await expect(share2.getByRole("link", { name: "Change in Integrations" })).toHaveAttribute(
       "href",
-      "/integrations#library-bambu-studio",
+      "/integrations#bambu-studio",
     );
 
     // Receive from server: every machine with the slicer, its System and User presets lines on one

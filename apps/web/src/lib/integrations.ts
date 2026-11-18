@@ -260,6 +260,29 @@ export const isNetworkSource = (a: Pick<AdapterInfo, "kind" | "capabilities">) =
   a.kind === "host" &&
   a.capabilities.some((c) => c === "printerStatus" || c === "spools" || c === "spoolUsage");
 
+/**
+ * A source that takes usage back (a spool library) is set up once: its spools are keyed by the
+ * adapter. The Add form and the card's Add button share this rule.
+ */
+export const sourceTaken = (
+  adapter: Pick<AdapterInfo, "id" | "kind" | "capabilities"> | undefined,
+  existing: readonly Pick<Integration, "adapterId">[],
+) =>
+  !!adapter &&
+  !isSlicerKind(adapter.kind) &&
+  adapter.capabilities.includes("spoolUsage") &&
+  existing.some((i) => i.adapterId === adapter.id);
+
+/** What a card of this adapter counts and offers to add: accounts, printers or sources. */
+export const sourceNoun = (
+  adapter: Pick<AdapterInfo, "login" | "capabilities"> | undefined,
+): "accounts" | "printers" | "sources" =>
+  adapter?.login
+    ? "accounts"
+    : adapter?.capabilities.includes("printerStatus")
+      ? "printers"
+      : "sources";
+
 export const useDeleteIntegration = (id: string) =>
   useInvalidating(() => api("DELETE", `/api/integrations/${id}`), true);
 

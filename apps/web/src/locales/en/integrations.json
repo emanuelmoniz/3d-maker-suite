@@ -53,9 +53,25 @@
     "addLocation": "Add to this server",
     "twoInstalls": "Installed twice on this server: the copy found installed here and a download. Both keep working; delete one."
   },
+  "addAnother": {
+    "accounts": "Add another account",
+    "printers": "Add another printer",
+    "sources": "Add another source"
+  },
+  "fold": {
+    "error": "Error",
+    "paused": "Paused",
+    "accounts_one": "{{count}} account",
+    "accounts_other": "{{count}} accounts",
+    "printers_one": "{{count}} printer",
+    "printers_other": "{{count}} printers",
+    "sources_one": "{{count}} source",
+    "sources_other": "{{count}} sources",
+    "installs_one": "{{count}} install",
+    "installs_other": "{{count}} installs"
+  },
   "account": {
     "through": "Reached through {{machine}}",
-    "addAnother": "Add another account",
     "untitled": "{{adapter}} account",
     "signedOut": "Signed out",
     "disabledHint": "Switched off: nothing is synced from this account.",

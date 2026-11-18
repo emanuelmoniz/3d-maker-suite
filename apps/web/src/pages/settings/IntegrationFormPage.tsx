@@ -18,6 +18,7 @@ import { useDevices } from "../../lib/hub.ts";
 import {
   isNetworkSource,
   libraryOf,
+  sourceTaken,
   useAdapterName,
   useAdapters,
   useCreateIntegration,
@@ -382,10 +383,7 @@ export function IntegrationCreatePage() {
     (i) => libraryOf(i) === product && (i.kind === "local" || i.kind === "server"),
   );
   // A source that takes usage back is set up once (its spools are keyed by the adapter).
-  const once =
-    !slicer &&
-    !!adapter?.capabilities.includes("spoolUsage") &&
-    existing.some((i) => i.adapterId === adapter.id);
+  const once = !slicer && sourceTaken(adapter, existing);
   const form = useSourceForm(adapter);
   // An account that signs in has no key to test before it does.
   const testable = !!adapter && !slicer && !adapter.login && !once;
