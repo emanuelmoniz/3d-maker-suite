@@ -105,6 +105,7 @@ The first that answers wins:
 - `always`: every slot waits, with its match suggested.
 - A suggestion (`suggestedSpoolId` on the usage) **charges nothing until a person accepts it**. Accepting, or picking another spool, books the spool's history once.
 - The global level is a preference, a source's is on its `sync_policies` row for prints (set in Prints settings → Sources, ADR-0021), a printer's on the printer. A source with no print history (PrusaLink, OctoPrint) keeps it, and its track-usage switch, on its `printerStatus` row instead; a source with both reads `prints`.
+- **Record prints (amendment, 6.1.0 Step 19).** The same row of a network printer has `record_prints`, default on. Off, the tracker keeps running and live status goes on, but `recordPrint` writes nothing, also for a print a connector sends. Mode couldn't carry this: `off` on `printerStatus` stops live status. A source with a history (Moonraker) stops reading it too, and switching back on moves its cursor to now, so the off period stays out unless a person reviews that period.
 
 ### Alerts
 New kinds in the kind catalog (ADR-0016):

@@ -36,6 +36,8 @@
     "unknown": "Something went wrong. See the server log for details."
   },
   "card": {
+    "printsSources": "Prints sources",
+    "printsSourcesOf": "Prints sources: {{name}}",
     "lastSync": "Synced {{date}}",
     "never": "Not synced yet",
     "syncing": "Syncing…",
@@ -187,6 +189,14 @@
     },
     "mock-host": {
       "name": "Demo printer on the network (mock)",
+      "fields": {
+        "host": "Address",
+        "liveCycleSec": "Live print loop (seconds)",
+        "token": "Token"
+      }
+    },
+    "mock-live": {
+      "name": "Demo live-only printer (mock)",
       "fields": {
         "host": "Address",
         "liveCycleSec": "Live print loop (seconds)",

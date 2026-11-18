@@ -1,0 +1,1 @@
+ALTER TABLE `sync_policies` ADD `record_prints` integer DEFAULT true NOT NULL;

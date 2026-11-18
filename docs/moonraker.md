@@ -25,6 +25,7 @@ One integration is one printer, linked when you add it: there is no **Printers**
 - **Printer:** the one you picked when you added it, or a new one made from what Klipper reports then.
 - **Live status:** state, progress, time left, layer, nozzle and bed temperatures, and the filament from the job file. Switch it on with **Live status** on the card. Klipper only knows the layer when the slicer sends it (`SET_PRINT_STATS_INFO`); otherwise the app works it out from the height and the file's layer heights.
 - **Print history:** jobs that ended while the app was off, from Moonraker's history. A job the app watched live and the same job in the history are one print.
+- **To stop recording** one printer's prints while its live status goes on, switch off **Record prints** on its row in **Prints → Settings → Sources** ([prints.md](prints.md#record-prints)). The **Prints sources** button on its card opens the row. Its history isn't read while it is off, and jobs from that time aren't imported by themselves when you switch it back on.
 
 ## Grams and spools
 

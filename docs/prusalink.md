@@ -26,6 +26,7 @@ One integration is one printer, linked when you add it: there is no **Printers**
 - **Printer:** the one you picked when you added it, or a new one made from what the printer reports then, with its serial number and nozzle size.
 - **Live status:** state, progress, time left, nozzle and bed temperatures, the file being printed and the loaded material where the printer says it. PrusaLink doesn't report layers. A printer waiting for you (filament out, a door open) shows as paused.
 - **No print history.** PrusaLink keeps none: a print that ends while the app isn't running is missed. Keep the app running (a server, a NAS) to catch every print.
+- **To stop recording** one printer's prints while its live status goes on, switch off **Record prints** on its row in **Prints → Settings → Sources** ([prints.md](prints.md#record-prints)). The **Prints sources** button on its card opens the row.
 
 ## Grams and spools
 

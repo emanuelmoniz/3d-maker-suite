@@ -902,6 +902,7 @@ describe("capabilities", () => {
       pending: 0,
       alertSeverities: null,
       trackUsage: true,
+      recordPrints: true,
       reviewPolicy: null,
       scope: "all",
       merge: "keepEdits",

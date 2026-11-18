@@ -296,7 +296,9 @@ export function PolicyFields({
   const { t } = useTranslation();
   const detailsId = useId();
   const accounts = !!useMe();
-  const name = t(CAPS[p.type]);
+  // A network printer without a history keeps its prints' settings on its live status line.
+  const live = p.type === "printerStatus";
+  const name = t(CAPS[live ? "prints" : p.type]);
   // A slicer's cards read files: a change in them runs the type, so it has no schedule (ADR-0019).
   const files = isSlicerKind(i.kind);
   const options = (map: Record<string, string>) =>
@@ -307,9 +309,51 @@ export function PolicyFields({
   const picked = (s: AlertSeverity) => p.alertSeverities?.includes(s) ?? true;
   const trackHint = `${detailsId}-track`;
   const globalLevel = usePreferences().data?.values.printReview ?? "unmatched";
-  // A source with live status but no print history keeps its level on its status policy.
-  const recordsPrints = prints || (type === "printerStatus" && !i.capabilities.includes("prints"));
   const auto = p.mode === "auto";
+  const level = (
+    <ReviewLevelField
+      value={p.reviewPolicy}
+      onChange={(v) => set({ reviewPolicy: v })}
+      disabled={disabled}
+      above={{ level: globalLevel, from: "common:reviewLevel.fromGlobal" }}
+    />
+  );
+  const usage = (
+    <div>
+      <label className="flex min-h-9 items-center gap-2 font-medium">
+        <input
+          type="checkbox"
+          aria-describedby={trackHint}
+          checked={p.trackUsage}
+          disabled={disabled}
+          onChange={(e) => set({ trackUsage: e.target.checked })}
+        />
+        {t("integrations:policies.trackUsage")}
+      </label>
+      <p id={trackHint} className="text-muted">
+        {type === "spools"
+          ? t("integrations:policies.trackUsageSpools")
+          : t("integrations:policies.trackUsageOf", { type: name })}
+      </p>
+      {p.trackUsage && otherTracks && (
+        <p role="status" className="mt-1 text-warn">
+          {type === "spools" && otherTracks === "spools"
+            ? t("integrations:policies.doubleTrackingSpools")
+            : t("integrations:policies.doubleTracking")}
+        </p>
+      )}
+    </div>
+  );
+
+  // Recorded as each print ends: no schedule, nothing to run, only what happens to the print.
+  if (live)
+    return (
+      <fieldset className="grid content-start gap-3">
+        <legend className="mb-2 font-semibold">{t("integrations:policies.whatHow")}</legend>
+        {level}
+        {usage}
+      </fieldset>
+    );
 
   return (
     <>
@@ -440,41 +484,9 @@ export function PolicyFields({
                 )}
               </>
             )}
-            {recordsPrints && (
-              <ReviewLevelField
-                value={p.reviewPolicy}
-                onChange={(v) => set({ reviewPolicy: v })}
-                disabled={disabled}
-                above={{ level: globalLevel, from: "common:reviewLevel.fromGlobal" }}
-              />
-            )}
+            {prints && level}
             {/* Runs without a review (scheduled, "sync now"); a review asks on its own. */}
-            {(prints || type === "spools") && (
-              <div>
-                <label className="flex min-h-9 items-center gap-2 font-medium">
-                  <input
-                    type="checkbox"
-                    aria-describedby={trackHint}
-                    checked={p.trackUsage}
-                    disabled={disabled}
-                    onChange={(e) => set({ trackUsage: e.target.checked })}
-                  />
-                  {t("integrations:policies.trackUsage")}
-                </label>
-                <p id={trackHint} className="text-muted">
-                  {type === "spools"
-                    ? t("integrations:policies.trackUsageSpools")
-                    : t("integrations:policies.trackUsageOf", { type: name })}
-                </p>
-                {p.trackUsage && otherTracks && (
-                  <p role="status" className="mt-1 text-warn">
-                    {type === "spools" && otherTracks === "spools"
-                      ? t("integrations:policies.doubleTrackingSpools")
-                      : t("integrations:policies.doubleTracking")}
-                  </p>
-                )}
-              </div>
-            )}
+            {(prints || type === "spools") && usage}
           </fieldset>
 
           {/* Spools the source brings in for the first time; one you have keeps its own. */}

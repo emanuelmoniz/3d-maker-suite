@@ -7,9 +7,11 @@ import {
   type MockState,
   mockAdapter,
   mockHostAdapter,
+  mockLiveAdapter,
 } from "@3d-maker-suite/adapter-mock";
-import type { IntegrationAdapter, PrinterSnapshot } from "@3d-maker-suite/core";
+import type { IntegrationAdapter, PrinterSnapshot, TrackedPrint } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { buildApp } from "./app.ts";
@@ -57,10 +59,99 @@ beforeEach(async () => {
   state = { ...fixture(), status: [] };
   seen = [];
   app = await buildApp(db, false, "", {
-    adapters: [mockHostAdapter(state), mockAdapter(state), bySerial()],
+    adapters: [mockHostAdapter(state), mockLiveAdapter(state), mockAdapter(state), bySerial()],
   });
 });
 afterEach(() => app.close());
+
+describe("Record prints (6.1.0 Step 19)", () => {
+  /** A live-only printer (as PrusaLink is), linked to a printer of its own. */
+  const liveOnly = async (name: string) => {
+    const printerId = await byHand(name);
+    const made = await send("POST", "/api/integrations", {
+      adapterId: "mock-live",
+      config: { host: `${name}.lan` },
+      secrets: { token: "t" },
+      printer: printerId,
+    });
+    expect(made.statusCode).toBe(201);
+    return { id: made.json().id as string, printerId };
+  };
+  const record = (id: string, type: string, recordPrints: boolean) =>
+    send("PATCH", `/api/integrations/${id}`, { policies: [{ type, recordPrints }] });
+  const ended = (externalId: string): TrackedPrint => ({
+    print: {
+      externalId,
+      printerExternalId: "mock-1",
+      title: "Cube",
+      startedAt: new Date().toISOString(),
+      outcome: "success",
+      filaments: [],
+    },
+    partial: false,
+    endSeen: true,
+    job: {},
+  });
+  const prints = () => db.select().from(schema.prints).all();
+
+  it("off stops one printer's prints and alerts; its live status and other printers go on", async () => {
+    const off = await liveOnly("Off");
+    const on = await liveOnly("On");
+    expect((await record(off.id, "printerStatus", false)).statusCode).toBe(200);
+
+    // Answered as handled: a connector would otherwise keep sending it.
+    expect(app.printerStatus.recordTracked(off.id, ended("j1"))).toBe(true);
+    expect(prints()).toEqual([]);
+    expect(db.select().from(schema.alerts).all()).toEqual([]);
+
+    expect(app.printerStatus.recordTracked(on.id, ended("j2"))).toBe(true);
+    expect(prints()).toMatchObject([{ printerId: on.printerId }]);
+
+    state.status = [
+      {
+        printerExternalId: "mock-1",
+        at: new Date().toISOString(),
+        state: "idle",
+        slots: [],
+      },
+    ];
+    app.printerStatus.refresh();
+    await app.printerStatus.pollAll();
+    expect(app.printerStatus.all().map((s) => s.printerId)).toContain(off.printerId);
+  });
+
+  it("a source with a history stops reading it too, and skips the off period when back on", async () => {
+    const id = (await klipper(await byHand("Voron"))).json().id as string;
+    const off = await record(id, "prints", false);
+    expect(off.json().capabilities).not.toContain("prints");
+    expect(
+      (await send("POST", `/api/integrations/${id}/sync`, { type: "prints" })).statusCode,
+    ).toBe(409);
+    expect(app.printerStatus.recordTracked(id, ended("j1"))).toBe(true);
+    expect(prints()).toEqual([]);
+
+    const before = new Date().toISOString();
+    const on = await record(id, "prints", true);
+    expect(on.json().capabilities).toContain("prints");
+    const line = db
+      .select()
+      .from(schema.syncPolicies)
+      .where(and(eq(schema.syncPolicies.integrationId, id), eq(schema.syncPolicies.type, "prints")))
+      .get();
+    expect(line?.cursor && line.cursor >= before).toBe(true);
+  });
+
+  it("is only a network printer's, on the line that keeps its prints' settings", async () => {
+    const cloud = await send("POST", "/api/integrations", {
+      adapterId: "mock",
+      secrets: { token: "t" },
+    });
+    const refused = await record(cloud.json().id, "prints", false);
+    expect(refused.json().error.code).toBe("invalid_policy");
+    const id = (await klipper(await byHand("Voron"))).json().id as string;
+    expect((await record(id, "printerStatus", false)).json().error.code).toBe("invalid_policy");
+  });
+});
 
 /** A printer added by hand, with no serial unless given. */
 async function byHand(name: string, serial?: string) {

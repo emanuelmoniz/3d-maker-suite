@@ -212,6 +212,8 @@ Share to the hub
   Bambu Cloud · workshop@example.com                           → Account
     Printers    [ ]  Off                                                    [Edit]
 ```
+*Amended in 6.1.0 Step 19:* Prints also lists every printer on the network. Its **On** switch is **Record prints** (ADR-0015), not the line's mode. A live-only printer (Bambu LAN, PrusaLink, OctoPrint) has its `printerStatus` line as its row, says "Recorded live as each print ends" under **When**, and has no schedule or `⋯`. Moonraker keeps its schedule. The printer's block on its Integrations card links to its row.
+
 *Amended in 6.1.0 Step 18:* Printers, Prints and Filament have one table with a row per source, sorted by source, and no card per account:
 ```
 Source                        On   When                       What        How
@@ -220,7 +222,7 @@ Ana                                Synced 5 min. ago
 Bambu Cloud  [Paused]         [ ]  Off                                                    [Edit] [⋯]
 Workshop                           Not synced yet
 ```
-The source type links to its integration (admins). Badges say signed out, error, paused (the row's switch is off) and how many rows wait for review. The second line is the account's name (its email when it has none), or the printer of a network source, and the machine it is reached through.
+The source type links to its integration (admins). Badges say signed out, error, paused (the row's switch is off) and how many rows wait for review. The second line is the account's name (its email when it has none), or the printer of a network source. The machine it is reached through shows only when there is no name to show (6.1.0 Step 19).
 
 `[⋯]` holds Sync now, Review and import (with its count) and the sync log. With no account allowing printers: the `EmptyState` "No sources. Printers here are added by hand. To sync them from an account, allow printers on it in Integrations." [Go to Integrations].
 

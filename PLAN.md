@@ -4015,7 +4015,7 @@ Do Step 17 of the 6.1.0 plan in PLAN.md.
 Do Step 18 of the 6.1.0 plan in PLAN.md. Use frontend-design for the source cell.
 ```
 
-### [ ] Step 19 - A network printer is a prints source  **[plan mode]**
+### [x] Step 19 - A network printer is a prints source  **[plan mode]**
 **Model:** Opus · **Effort:** Medium
 **Why:** a printer added in Integrations (Bambu LAN, Moonraker, PrusaLink, OctoPrint) records every print its job tracker sees end, and nothing lets you stop that for one printer. Its review level and usage tracking already sit on its `printerStatus` policy (`printsPolicy` in `sync.ts`), but no Sources page shows it.
 **Scope:**

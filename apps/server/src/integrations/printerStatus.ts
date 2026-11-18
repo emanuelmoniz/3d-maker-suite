@@ -25,7 +25,8 @@ import type { Syncer } from "./sync.ts";
 
 // Live status of every printer whose source has `printerStatus` (ADR-0015). Snapshots are kept in
 // memory only; the job tracker's state per printer is stored, so a restart during a print still
-// records it. A print the tracker sees end is written at once (`Syncer.recordPrint`).
+// records it. A print the tracker sees end is written at once (`Syncer.recordPrint`), unless the
+// source's Record prints is off: the tracker and live status go on, and nothing is written.
 //
 // A source reached through a connector (`integrations.deviceId`, LAN reach) isn't read here: its
 // connector reads it, tracks its jobs and posts the status (`relay`) and each ended print

@@ -30,7 +30,6 @@
     "lines": "What {{source}} syncs",
     "table": "Sources of {{type}}",
     "toIntegration": "Open {{source}} in Integrations",
-    "nameThrough": "{{name}}, reached through {{machine}}",
     "columns": {
       "source": "Source",
       "item": "Item",
@@ -43,6 +42,10 @@
       "projectFolder": "Project folder"
     },
     "lineOn": "Sync {{type}} from {{source}}",
+    "recordOn": "Record prints from {{source}}",
+    "recordedLive": "Recorded live as each print ends",
+    "notRecorded": "Not recorded. Live status goes on.",
+    "liveOff": "Live status is off, so no print is recorded.",
     "edit": "Edit",
     "editOf": "Edit {{type}} from {{source}}",
     "editTitle": "{{type}} from {{source}}",

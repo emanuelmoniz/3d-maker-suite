@@ -146,6 +146,8 @@ export const syncPolicies = sqliteTable(
     alertSeverities: text({ mode: "json" }).$type<AlertSeverity[]>(),
     /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
     trackUsage: integer({ mode: "boolean" }).notNull().default(true),
+    /** A network printer's prints line: off, it records no print; live status goes on (ADR-0015). */
+    recordPrints: integer({ mode: "boolean" }).notNull().default(true),
     /** Prints: this source's review level (ADR-0015); null = the global `printReview`. */
     reviewPolicy: text({ enum: REVIEW_POLICIES }),
     /** Which rows a run takes (core's `SYNC_SCOPES`). */

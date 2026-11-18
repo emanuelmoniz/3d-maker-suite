@@ -26,6 +26,7 @@ import {
   matchPrint,
   mergeOf,
   NO_PROJECT,
+  printsLineOf,
   REVIEWED_TYPES,
   type ReviewedType,
   SLICER_PRESET_TYPES,
@@ -298,8 +299,7 @@ export function createSyncer(
   const printsPolicy = (id: string) => {
     const row = db.select().from(integrations).where(eq(integrations.id, id)).get();
     const caps = adapters.find((a) => a.id === row?.adapterId)?.capabilities ?? [];
-    const statusOnly = !caps.includes("prints") && caps.includes("printerStatus");
-    return policyOf(db, id, statusOnly ? "printerStatus" : "prints");
+    return policyOf(db, id, printsLineOf(caps) ?? "prints");
   };
   const levelsOf = (id: string) => reviewLevels(db, printsPolicy(id).reviewPolicy);
 
@@ -1301,7 +1301,8 @@ export function createSyncer(
   /**
    * A print the job tracker saw end (ADR-0015): written at once, never held back for a person. Its
    * project is the one its title names, else none; a slot without a sure spool waits in Filament to
-   * review. False when nothing was written: it is there already, or its printer isn't imported.
+   * review. False when nothing was written: it is there already, its printer isn't imported, or
+   * the source's Record prints is off (a connector's print is dropped here too).
    */
   function recordPrint(
     id: string,
@@ -1309,6 +1310,10 @@ export function createSyncer(
     /** The job file's slicer totals (`readJobTotals`), when the caller could read the file. */
     file?: GramTotal[],
   ) {
+    if (!printsPolicy(id).recordPrints) {
+      log.debug({ integrationId: id }, "tracked print not written: Record prints is off");
+      return false;
+    }
     const parsed = externalPrintSchema.safeParse(tracked.print);
     if (!parsed.success) {
       log.warn(

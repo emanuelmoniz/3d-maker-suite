@@ -197,6 +197,41 @@ describe("printers through a connector, on the hub", () => {
     );
   });
 
+  it("drops a print a connector sends while Record prints is off, and takes the next once on", async () => {
+    const a = await pair("A");
+    const id = (await printer(a.deviceId)).json().id as string;
+    const item = (key: string) => ({
+      key,
+      integrationId: id,
+      print: {
+        print: {
+          externalId: key,
+          printerExternalId: "mock-1",
+          title: "Cube",
+          startedAt: new Date().toISOString(),
+          outcome: "success",
+          filaments: [],
+        },
+        partial: false,
+        endSeen: true,
+        job: {},
+      },
+    });
+    const policies = (recordPrints: boolean) => ({
+      policies: [{ type: "prints", recordPrints }],
+    });
+    await send("PATCH", `/api/integrations/${id}`, policies(false));
+    // Done, so the connector doesn't send it again, and nothing written.
+    const off = await device(a.token, "POST", "/sources/prints", { items: [item("k1")] });
+    expect(off.json()).toEqual({ done: ["k1"] });
+    expect(db.select().from(schema.prints).all()).toEqual([]);
+
+    await send("PATCH", `/api/integrations/${id}`, policies(true));
+    const on = await device(a.token, "POST", "/sources/prints", { items: [item("k2")] });
+    expect(on.json()).toEqual({ done: ["k2"] });
+    expect(db.select().from(schema.prints).all()).toMatchObject([{ externalId: "k2" }]);
+  });
+
   it("assigns only a printer on the network, with the hub on; a revoked machine gives it back", async () => {
     const a = await pair("A");
     const cloud = await send("POST", "/api/integrations", {

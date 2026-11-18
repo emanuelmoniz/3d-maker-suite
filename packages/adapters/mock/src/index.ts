@@ -289,3 +289,18 @@ export function mockHostAdapter(state: MockState = fixture()): IntegrationAdapte
     },
   };
 }
+
+/** The fake printer with live status and no print history, as PrusaLink and OctoPrint are. */
+export function mockLiveAdapter(state: MockState = fixture()): IntegrationAdapter {
+  const base = mockHostAdapter(state);
+  return {
+    ...base,
+    id: "mock-live",
+    capabilities: ["printers", "printerStatus"],
+    create: (ctx) => {
+      // biome-ignore lint/style/noNonNullAssertion: the mock always has one
+      const { test, printers, status } = base.create!(ctx);
+      return { test, printers, status };
+    },
+  };
+}

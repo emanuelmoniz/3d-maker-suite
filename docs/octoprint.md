@@ -26,6 +26,7 @@ One integration is one printer, linked when you add it: there is no **Printers**
 - **Live status:** state, progress, time left, nozzle, bed and chamber temperatures and the file being printed. OctoPrint reports no layers. A cancel in progress still shows as printing until OctoPrint says the print is over.
 - **Each print's end:** OctoPrint tells the app when a print is done, cancelled or failed, over the same connection the status uses. A cancel raises two messages in OctoPrint; the app records one cancelled print.
 - **No print history.** OctoPrint's REST job looks the same after a cancel as before a print, so the app relies on what it hears while it runs: a print that ends while the app isn't running is missed. Keep the app running (a server, a NAS) to catch every print.
+- **To stop recording** one printer's prints while its live status goes on, switch off **Record prints** on its row in **Prints → Settings → Sources** ([prints.md](prints.md#record-prints)). The **Prints sources** button on its card opens the row.
 
 ## Grams and spools
 

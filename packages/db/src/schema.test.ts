@@ -2621,3 +2621,19 @@ describe("migration 0138", () => {
     });
   });
 });
+
+describe("migration 0139", () => {
+  it("keeps every existing source recording its prints", () => {
+    const now = migrateAcross(138, (sqlite) => {
+      sqlite.exec(`
+        insert into integrations (id, adapter_id, config, created_at, updated_at) values
+          ('p', 'prusalink', '{"host":"a.lan"}', 'x', 'x');
+        insert into sync_policies (integration_id, type, mode, frequency) values
+          ('p', 'printerStatus', 'manual', '1d');
+      `);
+    });
+    expect(now.select().from(s.syncPolicies).all()).toMatchObject([
+      { integrationId: "p", type: "printerStatus", recordPrints: true },
+    ]);
+  });
+});

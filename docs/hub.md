@@ -155,6 +155,8 @@ A hub on a VPS can't reach printers on your office or home network. A machine on
 
 The spools a printer reads in its slots are loaded on the hub as for a printer it reaches itself ([printers.md](printers.md#grams-and-spools)). The connector only passes the slots on in the live status, and keeps no spools of its own. A printer that pushes changes (Bambu LAN) is read by its connector as soon as it changes, at most once a second, so a swapped spool reaches the hub within about 2 seconds; the others are read every 3 or 15 seconds.
 
+**Record prints** off for a printer ([prints.md](prints.md#record-prints)) is decided on the hub: the connector keeps reading the printer and sending what it sees end, and the hub drops those prints. Nothing changes on the machine.
+
 The hub sends the machine the printer's address and key over its paired connection. The connector keeps them encrypted in its data folder, so it keeps watching through its own restart while the hub is away. Unpairing or revoking the machine deletes them there.
 
 **When something is away:**

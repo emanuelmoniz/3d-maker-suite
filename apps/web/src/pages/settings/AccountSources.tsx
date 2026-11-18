@@ -4,6 +4,7 @@ import {
   type Integration,
   isCatalogType,
   isSlicerKind,
+  printsLineOf,
   type SyncPolicy,
   type SyncRun,
 } from "@3d-maker-suite/core";
@@ -22,6 +23,7 @@ import { cx } from "../../lib/cx.ts";
 import {
   type AccountType,
   feeds,
+  isNetworkRow,
   useAdapterName,
   useAdapters,
   useIntegrations,
@@ -72,16 +74,20 @@ export function otherTracking(
   integrationId: string,
   type: string,
 ): "prints" | "spools" | undefined {
-  const tracking = all.flatMap((j) =>
-    j.policies.flatMap((p) =>
-      p.mode !== "off" && p.trackUsage && !(j.id === integrationId && p.type === type)
-        ? [p.type]
-        : [],
-    ),
-  );
+  const tracking = all.flatMap((j) => {
+    const line = isNetworkRow(j) ? printsLineOf(j.policies.map((p) => p.type)) : undefined;
+    return j.policies.flatMap((p) => {
+      // A network printer's prints line records live, with its history switched off too.
+      const live = p.type === line && p.type === "prints";
+      const on = (p.mode !== "off" || live) && p.recordPrints;
+      return on && p.trackUsage && !(j.id === integrationId && p.type === type)
+        ? [p.type === line ? "prints" : p.type]
+        : [];
+    });
+  });
   const has = (t: "prints" | "spools") => (tracking.includes(t) ? t : undefined);
   if (type === "spools") return has("spools") ?? has("prints");
-  return type === "prints" ? has("spools") : undefined;
+  return type === "prints" || type === "printerStatus" ? has("spools") : undefined;
 }
 
 /** What a source calls the account: its name, else its email. */
@@ -102,6 +108,10 @@ export function useAccountTitle() {
 /** One source of a Sources table: its line of the page's type and what the row calls it. */
 type SourceRow = {
   integration: Integration;
+  /** The tab it is listed on; a live-only printer's `policy` is its `printerStatus` line. */
+  page: AccountType;
+  /** A network printer on Prints: its switch is Record prints. */
+  records: boolean;
   policy: SyncPolicy;
   /** The source in full, for the row's labels. */
   title: string;
@@ -140,12 +150,16 @@ export function AccountSources({ type }: { type: AccountType }) {
   const { compare } = new Intl.Collator(i18n.resolvedLanguage);
   const rows = listed
     .flatMap((integration): SourceRow[] => {
-      const policy = integration.policies.find((p) => p.type === type);
+      const records = type === "prints" && isNetworkRow(integration);
+      const line = records ? printsLineOf(integration.policies.map((p) => p.type)) : type;
+      const policy = integration.policies.find((p) => p.type === line);
       if (!policy) return [];
       const printer = printers?.find((p) => p.id === integration.printerId)?.name;
       return [
         {
           integration,
+          page: type,
+          records,
           policy,
           title: titleOf(integration),
           name: accountName(integration) ?? printer ?? null,
@@ -224,13 +238,18 @@ const BADGE = "inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-mediu
  * Who the source is, on two lines: its type, then its account or printer. What needs attention
  * follows the type as badges, so a healthy row stays quiet.
  */
-function SourceCell({ row: { integration: i, policy: p, title, name } }: { row: SourceRow }) {
+function SourceCell({
+  row: { integration: i, page, records, policy: p, title, name },
+}: {
+  row: SourceRow;
+}) {
   const { t } = useTranslation();
   const admin = useCan("integrations.manage");
   const adapterName = useAdapterName();
   const signedOut = useSignedOut()(i);
   const { failed } = useSourceActivity(i.id);
-  const anchor = `source-${i.id}-${p.type}`;
+  const anchor = `source-${i.id}-${page}`;
+  const paused = records ? !p.recordPrints : p.mode === "off";
   const root = useRef<HTMLDivElement>(null);
   // An alert's link: the row only exists once the list is in.
   useEffect(() => {
@@ -266,10 +285,10 @@ function SourceCell({ row: { integration: i, policy: p, title, name } }: { row: 
             {reason && <span className="sr-only"> {reason}</span>}
           </span>
         )}
-        {p.mode === "off" && (
+        {paused && (
           <span className={cx(BADGE, "bg-warn/15 text-warn")}>{t("integrations:fold.paused")}</span>
         )}
-        {p.pending > 0 && p.mode !== "off" && (
+        {p.pending > 0 && p.mode !== "off" && !paused && (
           <span className={cx(BADGE, "bg-warn/15 text-warn")}>
             {t("integrations:policies.pending", { count: p.pending })}
           </span>
@@ -277,9 +296,7 @@ function SourceCell({ row: { integration: i, policy: p, title, name } }: { row: 
       </span>
       {(name || through) && (
         <span className="wrap-anywhere text-sm text-muted">
-          {name && through
-            ? t("settings:sources.nameThrough", { name, machine: through })
-            : (name ?? t("integrations:account.through", { machine: through }))}
+          {name ?? t("integrations:account.through", { machine: through })}
         </span>
       )}
       {failed && (
@@ -291,11 +308,26 @@ function SourceCell({ row: { integration: i, policy: p, title, name } }: { row: 
   );
 }
 
-/** A row's switch: off is the policy `off`; on again, the type's default mode. */
-function SourceSwitch({ row: { integration: i, policy: p, title } }: { row: SourceRow }) {
+/**
+ * A row's switch: off is the policy `off`; on again, the type's default mode. A network printer's
+ * is Record prints: its live status goes on either way.
+ */
+function SourceSwitch({ row: { integration: i, records, policy: p, title } }: { row: SourceRow }) {
   const { t } = useTranslation();
   const admin = useManagesLine(p.type);
   const patch = usePatchIntegration(i.id);
+  if (records)
+    return (
+      <Switch
+        label={t("settings:sources.recordOn", { source: title })}
+        labelClassName="sr-only"
+        checked={p.recordPrints}
+        disabled={!admin || patch.isPending}
+        onChange={(e) =>
+          patch.mutate({ policies: [{ type: p.type, recordPrints: e.target.checked }] })
+        }
+      />
+    );
   return (
     <Switch
       label={t("settings:sources.lineOn", { type: t(CAPS[p.type]), source: title })}
@@ -311,19 +343,34 @@ function SourceSwitch({ row: { integration: i, policy: p, title } }: { row: Sour
   );
 }
 
-function SourceWhen({ row: { integration: i, policy: p } }: { row: SourceRow }) {
+/**
+ * A row's schedule. A network printer that isn't reading its history says how its prints arrive
+ * instead: live, not at all, or not while its live status is off.
+ */
+function SourceWhen({ row: { integration: i, records, policy: p } }: { row: SourceRow }) {
+  const { t } = useTranslation();
   const { syncing } = useSourceActivity(i.id);
+  const liveOn = i.policies.some((l) => l.type === "printerStatus" && l.mode !== "off");
+  const noHistory = p.type === "printerStatus" || p.mode === "off";
+  if (records && !p.recordPrints)
+    return <span className={cx(COL.when, "grid py-1.5")}>{t("settings:sources.notRecorded")}</span>;
+  if (records && noHistory)
+    return (
+      <span className={cx(COL.when, "grid py-1.5", !liveOn && "text-warn")}>
+        {t(liveOn ? "settings:sources.recordedLive" : "settings:sources.liveOff")}
+      </span>
+    );
   return <When policy={p} files={false} syncing={syncing(p.type)} />;
 }
 
-/** A row's Edit and `⋯`, each only for who may use it. */
-function SourceActions({ row: { integration: i, policy: p, title } }: { row: SourceRow }) {
+/** A row's Edit and `⋯`, each only for who may use it. A live-only printer has nothing to run. */
+function SourceActions({ row: { integration: i, page, policy: p, title } }: { row: SourceRow }) {
   const { t } = useTranslation();
   const admin = useManagesLine(p.type);
   const sync = useSyncIntegration(i.id);
   const [editing, setEditing] = useState(false);
   const { data: all } = useIntegrations();
-  const name = t(CAPS[p.type]);
+  const name = t(CAPS[page]);
   return (
     <span className="flex items-center justify-end gap-1">
       {admin && (
@@ -334,7 +381,12 @@ function SourceActions({ row: { integration: i, policy: p, title } }: { row: Sou
           {t("settings:sources.edit")}
         </Button>
       )}
-      <LineMenu integration={i} policy={p} name={name} title={title} sync={sync} admin={admin} />
+      {p.type !== "printerStatus" ? (
+        <LineMenu integration={i} policy={p} name={name} title={title} sync={sync} admin={admin} />
+      ) : (
+        // The width of the `⋯`, so Edit lines up with the rows that have one.
+        <span aria-hidden className="size-9 shrink-0" />
+      )}
       {editing && (
         <PolicyEditDialog
           integration={i}

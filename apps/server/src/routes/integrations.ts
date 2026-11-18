@@ -30,6 +30,7 @@ import {
   PRINTER_SERIAL_FIELD,
   type PrinterChoice,
   pageOf,
+  printsLineOf,
   type SyncRun,
   type SyncType,
   slicerCheckSchema,
@@ -245,7 +246,7 @@ export const integrationsRoutes =
           const p = policyOf(db, row.id, type);
           const { mode, frequency, lastRunAt, pending, alertSeverities, trackUsage } = p;
           const { scope, merge, newWeight, newOpenedAt, atMinute, atHour, atWeekday, atDay } = p;
-          const { editorSync, editorReview, reviewPolicy } = p;
+          const { editorSync, editorReview, reviewPolicy, recordPrints } = p;
           return {
             type,
             mode,
@@ -254,6 +255,7 @@ export const integrationsRoutes =
             pending,
             alertSeverities,
             trackUsage,
+            recordPrints,
             reviewPolicy,
             scope,
             merge,
@@ -623,7 +625,10 @@ export const integrationsRoutes =
         for (const p of policies ?? [])
           if (
             !(adapter && syncTypes(adapter).includes(p.type)) ||
-            (isAction(p.type) && p.mode === "auto")
+            (isAction(p.type) && p.mode === "auto") ||
+            // Record prints is a network printer's, on the line that keeps its prints' settings.
+            (p.recordPrints !== undefined &&
+              !(isNetworkPrinter(adapter) && printsLineOf(adapter.capabilities) === p.type))
           )
             throw new HttpError(400, "invalid_policy", `No such policy for "${p.type}"`);
         // A printer on the network (ADR-0015): another printer moves the link; one with no link
@@ -655,7 +660,13 @@ export const integrationsRoutes =
             )
           : undefined;
         db.transaction(() => {
-          for (const { type, ...set } of policies ?? [])
+          for (const { type, ...change } of policies ?? []) {
+            // Recording again: what ended while it was off stays out of the next history run.
+            const resumed =
+              type === "prints" &&
+              change.recordPrints === true &&
+              !policyOf(db, cur.id, type).recordPrints;
+            const set = { ...change, ...(resumed && { cursor: new Date().toISOString() }) };
             if (Object.keys(set).length)
               db.insert(syncPolicies)
                 .values({ integrationId: cur.id, type, ...defaultPolicy(type), ...set })
@@ -664,6 +675,7 @@ export const integrationsRoutes =
                   set,
                 })
                 .run();
+          }
           db.update(integrations)
             .set({
               // Always something to set, also when only policies or secrets change.

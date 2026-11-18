@@ -37,6 +37,7 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
       goneInUse: [] as string[],
       alertSeverities: null,
       trackUsage: true,
+      recordPrints: true,
       reviewPolicy: null,
       newWeight: "import" as const,
       newOpenedAt: "unset" as const,
@@ -49,6 +50,12 @@ export function policyOf(db: Db, integrationId: string, type: Capability) {
     }
   );
 }
+
+/** A line that may run: not off, and a network printer's history not stopped by Record prints. */
+const lineOn = (db: Db, integrationId: string, type: Capability) => {
+  const p = policyOf(db, integrationId, type);
+  return p.mode !== "off" && (type !== "prints" || p.recordPrints);
+};
 
 /** Does the policy raise this severity? Empty (null) = all of them. */
 export const raisesSeverity = (p: { alertSeverities: AlertSeverity[] | null }, s: AlertSeverity) =>
@@ -134,7 +141,7 @@ function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[]
     (adapter.kind === "worker" ? !!workerDevice(db, row)?.sliceWorker : existsSync(program));
   return syncTypes(adapter).filter(
     (c) =>
-      policyOf(db, row.id, c).mode !== "off" &&
+      lineOn(db, row.id, c) &&
       // Only slicing needs the program; a printer's status is a switch on its source.
       (c === "slice" ? slicerApp && source : source || readsLibrary(db, adapter)),
   );
@@ -236,4 +243,4 @@ export function capableRow(db: Db, adapters: IntegrationAdapter[], id: string, c
  * on the network never syncs printers: it is linked at save (ADR-0015).
  */
 export const switchedOn = (db: Db, row: Row, adapter: IntegrationAdapter, cap: Capability) =>
-  syncTypes(adapter).includes(cap) && policyOf(db, row.id, cap).mode !== "off";
+  syncTypes(adapter).includes(cap) && lineOn(db, row.id, cap);

@@ -93,9 +93,19 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number];
 export const onSources = (i: Pick<Integration, "kind">, type: string) =>
   !isSlicerKind(i.kind) && (ACCOUNT_TYPES as readonly string[]).includes(type);
 
-/** An enabled account that has `type` has its line on that type's Sources tab. */
+/** A printer on the network: the API names the printer it is linked to, or null. */
+export const isNetworkRow = (i: Pick<Integration, "printerId">) => i.printerId !== undefined;
+
+/**
+ * An enabled account that has `type` has its line on that type's Sources tab. A network printer
+ * records prints with or without a history, so every one has a line on Prints.
+ */
 export const feeds = (i: Integration, type: AccountType) =>
-  !isSlicerKind(i.kind) && i.enabled && i.policies.some((p) => p.type === type);
+  !isSlicerKind(i.kind) &&
+  i.enabled &&
+  i.policies.some(
+    (p) => p.type === type || (type === "prints" && isNetworkRow(i) && p.type === "printerStatus"),
+  );
 
 /** Integrations that can do `cap` right now. The server decides; the UI never checks vendors. */
 export const useCapable = (cap: Capability) =>

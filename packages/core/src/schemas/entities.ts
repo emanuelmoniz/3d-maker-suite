@@ -57,6 +57,11 @@ export const syncPolicySchema = z.object({
   alertSeverities: z.array(z.enum(ALERT_SEVERITIES)).nullable(),
   /** Prints in `auto` mode: take the filament from the spools (off: link them only). */
   trackUsage: z.boolean(),
+  /**
+   * A network printer's prints line (`printsLineOf`): off, its job tracker writes no print and its
+   * history isn't read, while live status goes on (ADR-0015).
+   */
+  recordPrints: z.boolean(),
   /** Prints: this source's review level (ADR-0015); null = the global `printReview`. */
   reviewPolicy: z.enum(REVIEW_POLICIES).nullable(),
   /** Reviewed types except prints: which rows a run takes, and what it does with a change. */

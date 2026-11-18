@@ -29,6 +29,8 @@ The serial number belongs to the printer: its page shows it, read-only while Bam
 - **With a Bambu Cloud account** that has the same printer, the two are **one printer** in the app, matched by serial: Bambu LAN gives the live status, Bambu Cloud the history. Each print is recorded once, whichever source sees it first: a print sent through the cloud carries the cloud's task id, and any other print is matched by its start time.
 - **Alone**, with no Bambu Cloud account or a printer that isn't on the cloud, Bambu LAN brings in the printer, its AMS, live status and prints by itself. There is no history then: a print that ends while the app isn't running is missed. Keep the app running (a server, a NAS) to catch every print.
 
+To stop recording this printer's prints while its live status goes on, switch off **Record prints** on its row in **Prints → Settings → Sources** ([prints.md](prints.md#record-prints)). The **Prints sources** button on its card opens the row. A Bambu Cloud account with the same printer still brings its prints in, until you switch off that account's row too.
+
 ## What it reads
 
 **How fast it shows:** the printer pushes each change over its local connection, and the app reads it within about a second: a swapped tray, a print that starts or ends, a connection that drops. The app also reads on a timer (every 3 s during a print, 15 s otherwise) in case a report is missed. Through a connector it is the same, plus the time to reach the hub.

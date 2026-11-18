@@ -6,11 +6,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Menu } from "../../components/Menu.tsx";
+import { useSettingsAccess } from "../../components/SettingsLink.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useCan } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
 import { formatDateTime, formatRelative } from "../../lib/format.ts";
 import {
+  isNetworkRow,
   sourceNoun,
   sourceTaken,
   useAdapterName,
@@ -75,8 +77,11 @@ export function AccountsCard({
           <AccountBlock key={i.id} integration={i} />
         ))}
       </ul>
-      {/* For the whole card: every account's types are on the same Sources tabs (ADR-0021). */}
-      <SyncSources types={rows.flatMap((i) => i.policies.map((p) => p.type))} />
+      {/* For the whole card: every account's types are on the same Sources tabs (ADR-0021). A
+          network printer links to its own row instead. */}
+      <SyncSources
+        types={rows.filter((i) => !isNetworkRow(i)).flatMap((i) => i.policies.map((p) => p.type))}
+      />
     </FoldCard>
   );
 }
@@ -117,6 +122,7 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
   const navigate = useNavigate();
   const adapter = useAdapters().data?.find((a) => a.id === i.adapterId);
   const admin = useCan("integrations.manage");
+  const printsSources = useSettingsAccess("prints").sources;
   const patch = usePatchIntegration(i.id);
   const test = useTestIntegration(i.id);
   const remove = useDeleteIntegration(i.id);
@@ -275,6 +281,16 @@ function AccountBlock({ integration: i }: { integration: Integration }) {
           <div className="mt-3 grid gap-3">
             <ActionSwitches integration={i} />
           </div>
+        )}
+        {i.enabled && isNetworkRow(i) && printsSources && (
+          <Link
+            to="/prints/settings/sources"
+            hash={`source-${i.id}-prints`}
+            aria-label={t("integrations:card.printsSourcesOf", { name: title })}
+            className="mt-2 inline-flex h-9 w-fit items-center whitespace-nowrap rounded-md border border-border px-3 font-medium hover:bg-surface-2"
+          >
+            {t("integrations:card.printsSources")}
+          </Link>
         )}
       </div>
 

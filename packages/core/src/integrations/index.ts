@@ -80,6 +80,17 @@ export const readsPrinterSerial = (adapter?: Pick<IntegrationAdapter, "kind" | "
 export const syncTypes = (adapter: AdapterKindCaps): Capability[] =>
   adapter.capabilities.filter((c) => c !== "printers" || !isNetworkPrinter(adapter));
 
+/**
+ * The line that keeps the settings of the prints a source records: `prints`, or, for a source with
+ * live status and no print history (PrusaLink, OctoPrint, Bambu LAN), `printerStatus`.
+ */
+export const printsLineOf = (types: readonly Capability[]) =>
+  types.includes("prints")
+    ? ("prints" as const)
+    : types.includes("printerStatus")
+      ? ("printerStatus" as const)
+      : undefined;
+
 export type LoginInput = { email: string; password: string } | { code: string; state: string };
 export type LoginStep =
   | { secrets: Record<string, string> }
