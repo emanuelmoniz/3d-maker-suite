@@ -45,6 +45,9 @@
 
 - [Quotes](Quotes.md)
 - [Quotes settings](Quotes-Settings.md)
+- [Orders](Orders.md)
+- [Orders settings](Orders-Settings.md)
+- [Clients](Clients.md)
 
 ### Insights
 

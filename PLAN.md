@@ -4451,7 +4451,7 @@ Do Step 17 of the Wiki plan in PLAN.md.
 Do Step 18 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 19 - Orders and clients
+### [x] Step 19 - Orders and clients
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Orders:** the list, form, details, statuses, price, cost and margin.
