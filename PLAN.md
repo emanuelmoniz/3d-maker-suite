@@ -4412,7 +4412,7 @@ Do Step 14 of the Wiki plan in PLAN.md.
 Do Step 15 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 16 - Project settings and folders
+### [x] Step 16 - Project settings and folders
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Projects-Settings:** General, Sources and Consumers tabs, scanning and limits, hub devices, deleted project files.

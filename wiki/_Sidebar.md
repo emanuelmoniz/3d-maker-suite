@@ -35,6 +35,8 @@
 ### Work
 
 - [Projects](Projects.md)
+- [Projects settings](Projects-Settings.md)
+- [Project folders](Project-Folders.md)
 
 ### Accounting
 
