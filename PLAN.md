@@ -4349,7 +4349,7 @@ Do Step 10 of the Wiki plan in PLAN.md.
 
 ## Phase 59 - Equipment
 
-### [ ] Step 11 - Dashboard and Printers
+### [x] Step 11 - Dashboard and Printers
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Dashboard:** the Home page, Customize, and each widget.

@@ -21,6 +21,10 @@
 
 ### Equipment
 
+- [Dashboard](Dashboard.md)
+- [Printers](Printers.md)
+- [Printers settings](Printers-Settings.md)
+
 ### Work
 
 ### Accounting
