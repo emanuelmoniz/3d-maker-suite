@@ -17,7 +17,7 @@ test("renders the README: tables, images, code, links; relative paths through re
   expect(html).toContain('src="/f/docs/images/dashboard.png"');
   expect(html).toContain('src="/f/docs/images/printers.png"'); // inside a table cell
   expect(html).toMatch(/<pre[^>]*><code/);
-  expect(html).toContain('href="/f/docs/install.md"');
+  expect(html).toContain('href="/f/docs/architecture.md"');
   expect(html).not.toContain("<!--");
 });
 
