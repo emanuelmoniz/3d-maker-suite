@@ -9,7 +9,7 @@ What needs your attention: spools running low, maintenance due, a sync that fail
 Everyone who signs in can open **Alerts**. There is no right for the page itself. What you see depends on your role and your own choices:
 
 - Each kind of alert needs a right. You never get a kind whose right you lack, and never an alert about a project you can't see.
-- Each role sets, per kind, **Off**, **In app** or **Notify**. Notify also sends it by email or ntfy. A user can change this on their own **My account** page, or follow the role with **Same as role**.
+- Each role sets, per kind, **Off**, **In app** or **Notify**. Notify also sends it by email or ntfy. A user can change this on their own [My account](My-Account.md#my-alerts) page, or follow the role with **Same as role**.
 - Read, snooze and dismiss are yours alone. Other people keep their own.
 
 The gear button at the top right opens [Alerts settings](Alerts-Settings.md). You need **Alert settings** to see it. Works the same with or without a hub, but hub alerts (a connector out of date, a file conflict, a mass delete, a printer unreachable) only appear with the hub on.
@@ -145,14 +145,14 @@ Click a heading to sort and use its filter to narrow the rows. Open a title to s
 ### Get alerts on your phone
 
 1. Set up a server for email or ntfy in [Alerts settings](Alerts-Settings.md) (an admin does this once).
-2. Open **My account**, then **My delivery**, and add your address or ntfy topic.
+2. Open [My account](My-Account.md#my-delivery), and in **My delivery** add your address or ntfy topic.
 3. Set the kinds you want to **Notify**.
 
 ## Related settings
 
 - [Alerts settings](Alerts-Settings.md): when low spools and maintenance alerts start, and the email and ntfy servers.
 - **Roles** in **Settings**: which kinds each role gets.
-- **My account**: your own choices and where your alerts are sent.
+- [My account](My-Account.md): your own choices and where your alerts are sent.
 
 ## Limits and tips
 
@@ -166,7 +166,7 @@ Click a heading to sort and use its filter to narrow the rows. Open a title to s
 |---|---|
 | **All clear** | Nothing needs attention |
 | **This alert no longer exists.** | It was resolved and removed. Go back to the list |
-| An alert I expected isn't there | Your role has it **Off**, or lacks the right for it. Check **Roles** and **My account** |
+| An alert I expected isn't there | Your role has it **Off**, or lacks the right for it. Check **Roles** and [My account](My-Account.md#my-alerts) |
 | A button is missing | You lack the right for that fix |
 | **Sign in again** | The account of a source was signed out. Press it to sign in again |
 

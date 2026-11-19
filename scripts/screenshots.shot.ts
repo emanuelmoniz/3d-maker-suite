@@ -480,6 +480,7 @@ test("wiki screenshots", async ({ page, app }) => {
     ["hub-off", "/settings/hub"],
     ["hub-settings-off", "/hub/settings"],
   ]);
+  await shoot([["settings", "/settings"]], true);
   await tabs("printers-settings", "/printers/settings", ["sources"]);
   await tabs("filament-settings", "/filament/settings", ["sources"]);
   await tabs("catalog-settings", "/catalog/settings", ["sources", "consumers"]);
@@ -503,11 +504,19 @@ test("wiki screenshots", async ({ page, app }) => {
     .get("/api/roles")
     .then((r) => r.json() as Promise<{ id: string }[] | { items: { id: string }[] }>);
   const role = (Array.isArray(roles) ? roles : roles.items)[0];
+  await shoot([["my-account", "/account"]], true);
   await shoot([
     ["user", `/users/${eva.id}`],
     ["role-new", "/users/roles/new"],
     ["role", `/users/roles/${role?.id}`],
   ]);
+
+  // The sign-in page needs no session; sign in again for the hub screens that follow.
+  await page.context().clearCookies();
+  await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/wiki-login.png` });
+  await page.request.post("/api/auth/login", { data: { email: "ana@example.com", password } });
 
   // The hub: on, with one paired workstation, and its machine page.
   await page.request.patch("/api/preferences", { data: { hubEnabled: true } });

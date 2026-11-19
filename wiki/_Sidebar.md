@@ -57,6 +57,10 @@
 
 ### Administration
 
+- [Settings](Settings-General.md)
+- [My account](My-Account.md)
+- [Sign in](Sign-In.md)
+
 ### Integrations
 
 ### Help

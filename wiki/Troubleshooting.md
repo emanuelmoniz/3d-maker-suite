@@ -45,7 +45,7 @@ The log is stored with your data, so a backup includes it. Passwords, tokens and
 
 - **The page asks for a setup token.** It is printed in the console of the app, or in `docker compose logs app`, while no account exists. See [First run](First-Run.md#find-the-setup-token).
 - **I can't find the token.** Restart the app and read the console again. It only prints while no account exists.
-- **I forgot the admin password.** Reset it from the server's shell with `pnpm user:reset-password you@example.com`, in Docker `docker compose exec app pnpm user:reset-password you@example.com`. The new password is printed once. Sign in with it and change it under **My account**.
+- **I forgot the admin password.** Reset it from the server's shell with `pnpm user:reset-password you@example.com`, in Docker `docker compose exec app pnpm user:reset-password you@example.com`. The new password is printed once. Sign in with it and change it under [My account](My-Account.md#name-and-password).
 
 ## Updates and backups
 

@@ -37,7 +37,7 @@ The low spool field is the same as the one in [Filament settings](Filament-Setti
 
 ### Who gets which alert
 
-These settings don't decide who gets an alert. Each role sets **Off**, **In app** or **Notify** per kind in **Roles**, and each user can follow the role or choose their own in **My account**. See [Alerts](Alerts.md#who-can-use-it).
+These settings don't decide who gets an alert. Each role sets **Off**, **In app** or **Notify** per kind in **Roles**, and each user can follow the role or choose their own in [My account](My-Account.md#my-alerts). See [Alerts](Alerts.md#who-can-use-it).
 
 ## Email (SMTP)
 
@@ -86,13 +86,13 @@ The server that sends alerts by email.
 1. Fill **SMTP server**, **Port**, **From address** and, if needed, **Username** and **Password**.
 2. Tick **Send alerts here** and press **Save**.
 3. Press **Send test** and check your inbox.
-4. Ask each user to set their email in **My account**, **My delivery**, and set the alert kinds they want to **Notify**.
+4. Ask each user to set their email in [My account](My-Account.md#my-delivery), and set the alert kinds they want to **Notify**.
 
 ### Send alerts to a phone with ntfy
 
 1. Fill **Server**, tick **Send alerts here** and press **Save**.
 2. Install the ntfy app on the phone and subscribe to a topic.
-3. Each user puts their topic in **My account**, **My delivery**, then **Send test**.
+3. Each user puts their topic in [My account](My-Account.md#my-delivery), then presses **Send a test**.
 
 ## Limits and tips
 
@@ -108,7 +108,7 @@ The server that sends alerts by email.
 | **Fill in all required fields to turn this on.** | Fill the server, port and from address (email), or the server (ntfy), then save |
 | **Test failed. Check the settings.** | Check the address, port, login and that the server is reachable from this one |
 | **No enabled user gets the {kind} alert.** | Turn the kind on for a role, or use **Edit roles** |
-| I don't get emails | Check **My delivery** in **My account**, and that the kind is set to **Notify** |
+| I don't get emails | Check **My delivery** in [My account](My-Account.md#my-delivery), and that the kind is set to **Notify** |
 | No gear on **Alerts** | Your role has no **Alert settings** |
 
 ## Related pages

@@ -4479,7 +4479,7 @@ Do Step 20 of the Wiki plan in PLAN.md.
 
 ## Phase 62 - Settings and administration
 
-### [ ] Step 21 - Settings, account and sign-in
+### [x] Step 21 - Settings, account and sign-in
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Settings-General:** General, Appearance, Branding, Network, This server, Backup & export, About & updates.
