@@ -19,7 +19,8 @@ Anyone who installs the app. You don't need an account to start. Accounts are on
 ## Which one should I choose?
 
 - **I print at home and use one computer.** Use the PC install: [Windows](Install-on-Windows.md), [macOS](Install-on-macOS.md) or [Linux](Install-on-Linux.md).
-- **I want the app to be reachable all day from my phone or other computers.** Use Docker on a NAS or home server.
+- **I want the app to be reachable all day from my phone or other computers.** Use [Docker](Docker.md) on a NAS or home server. Your NAS's page: [NAS](NAS.md).
+- **I want to reach it from outside my home.** Run it on a server behind HTTPS: [Server and remote access](Server-and-Remote-Access.md).
 - **I know Git and Node and want to change the code.** [Install from source](Install-from-Source.md).
 - **My project files are spread over several computers.** Run a hub, and put a connector on each computer.
 
@@ -39,3 +40,6 @@ All options run the same app and keep your data on your own machine. Bambu Cloud
 - [Install on macOS](Install-on-macOS.md)
 - [Install on Linux](Install-on-Linux.md)
 - [Install from source](Install-from-Source.md)
+- [Docker](Docker.md)
+- [NAS](NAS.md)
+- [Server and remote access](Server-and-Remote-Access.md)

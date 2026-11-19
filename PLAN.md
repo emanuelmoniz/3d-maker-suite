@@ -4281,7 +4281,7 @@ Do Step 4 of the Wiki plan in PLAN.md.
 Do Step 5 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Docker, NAS and servers
+### [x] Step 6 - Docker, NAS and servers
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - **Docker:** compose file, volumes, ports, environment, slicer image, updates.
@@ -4574,6 +4574,11 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 ```
 
 ## Out of scope for the Wiki plan (later plans)
+- **Found while writing Step 6, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
+  - **First admin from another device in Docker.** The shipped `docker-compose.yml` (`HOST: 0.0.0.0`, no `APP_PASSWORD`) answers `403 forbidden_host` to every address except `localhost` until the first admin exists, yet the log offers a setup token "from another device". A phone on the LAN can't reach the setup page unless `APP_ALLOWED_HOSTS` names the server's address.
+  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. Slicing stays x64 only.
+  - **Connector on a NAS.** The connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build or Docker image. A headless or ARM NAS can't be paired. `docs/hub.md` still says a NAS "joins by running a small connector".
+  - **File owner in Docker.** The image runs as `root`, so files and folders the app creates in a mounted project folder belong to `root` on the NAS. Add a way to pick the user (`PUID`/`PGID` or `user:`).
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.

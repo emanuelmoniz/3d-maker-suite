@@ -7,6 +7,9 @@
 - [Install on macOS](Install-on-macOS.md)
 - [Install on Linux](Install-on-Linux.md)
 - [Install from source](Install-from-Source.md)
+- [Docker](Docker.md)
+- [NAS](NAS.md)
+- [Server and remote access](Server-and-Remote-Access.md)
 
 ### Equipment
 
