@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0, 6.1.0, Wiki and 6.2.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0, 6.1.0, Wiki, 6.2.0 and 6.3.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -4576,9 +4576,9 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 ## Out of scope for the Wiki plan (later plans)
 - **Found while writing Step 6, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
   - **First admin from another device in Docker.** The shipped `docker-compose.yml` (`HOST: 0.0.0.0`, no `APP_PASSWORD`) answers `403 forbidden_host` to every address except `localhost` until the first admin exists, yet the log offers a setup token "from another device". A phone on the LAN can't reach the setup page unless `APP_ALLOWED_HOSTS` names the server's address.
-  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. Slicing stays x64 only.
-  - **Connector on a NAS.** The connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build or Docker image. A headless or ARM NAS can't be paired. `docs/hub.md` still says a NAS "joins by running a small connector".
-  - **File owner in Docker.** The image runs as `root`, so files and folders the app creates in a mounted project folder belong to `root` on the NAS. Add a way to pick the user (`PUID`/`PGID` or `user:`).
+  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. Slicing stays x64 only. **Planned: Plan 6.3.0, Step 4** (with the connector image).
+  - **Connector on a NAS.** **Planned: Plan 6.3.0.** The connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build or Docker image. A headless or ARM NAS can't be paired. `docs/hub.md` still says a NAS "joins by running a small connector".
+  - **File owner in Docker.** **Planned for the connector image: Plan 6.3.0, Steps 2 and 5;** the app image still needs it. The image runs as `root`, so files and folders the app creates in a mounted project folder belong to `root` on the NAS. Add a way to pick the user (`PUID`/`PGID` or `user:`).
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.
@@ -4656,6 +4656,159 @@ Do Step 4 of the 6.2.0 plan in PLAN.md. Guide me through each scenario, then fix
 ```
 Do Step 5 of the 6.2.0 plan in PLAN.md. Only document what changed since the last 6.2.0 pre-release.
 Then fast-forward main to dev, push, push the v6.2.0 tag and confirm the release.
+```
+
+---
+
+# Plan 6.3.0 - The connector on ARM, Docker and a NAS
+
+A connector can run on an ARM computer, in Docker and on a NAS, so a NAS or small server can store project files for the hub and reach the printers on its own network. Needs the Wiki plan and Plan 6.2.0 finished, because the wiki pages state what the connector can't do today and are updated by this plan.
+
+Today (found in Wiki Step 6): the connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build and no Docker image. A headless or ARM NAS can't be paired.
+
+How this plan works:
+- **Targets:** Linux ARM64 (Raspberry Pi, ARM NAS), a container image for x64 and ARM64, and NAS devices with Docker or with a Linux shell. Windows ARM and macOS don't change. A connector on ARM can't slice: the slicers have no Linux ARM build, so it can't be a slice worker.
+- **Same protocol, same rules.** Pairing, the closed list of operations, the device token, "one hub per machine" and "follows the hub's version" stay as in ADR-0014. This plan changes packaging, the way to pair without a screen, and how the version is kept.
+- **A connector in Docker is not a hub.** It joins a hub that runs elsewhere (or in another container). The first-admin problem of the app image is a separate item in "Out of scope for the Wiki plan".
+- **Docs and wiki follow in the same commit as each step** (`CLAUDE.md`): `docs/hub.md`, ADR-0014 (amend, saying which step), README's support matrix, and the wiki pages `NAS`, `Docker`, `Choose-How-to-Run` and, once written, `Connector-Setup` and `Hub-Setup`.
+- No ARM or NAS hardware is assumed on this PC: CI covers what it can (ARM runner, QEMU), and the real test in Step 8 uses the user's own NAS or server. Agree which in Step 8.
+
+## Phase 66 - Design and packaging
+
+### [ ] Step 1 - Design, spikes and ADR  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- ADR-0024. Decide, after a spike on each:
+  - **Pairing with no local browser.** Options: a hub URL and one-time code from environment variables or flags (`CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE`), and/or the status page reachable from the LAN with its own protection (host allow list like `APP_ALLOWED_HOSTS`, a local token). A paired container keeps its device token in its data volume across restarts and image updates.
+  - **Updates.** A bundle install keeps updating itself. A container can't replace its own image (same rule as the app, ADR-0009): the connector sees the hub's version, reports **Outdated** with the command to run (`docker compose pull`), and doesn't download a bundle.
+  - **Ownership.** Files the connector creates in a mounted folder get a chosen user and group (`PUID`/`PGID` or `user:`), not `root`.
+  - **Printers.** What reaches a printer from a container: bridge networking with a typed address, or host networking for discovery (the Bambu LAN adapter discovers by SSDP). Which printer and spool-library adapters work in each.
+  - **Folders on shares.** Which mounted folders send change events, and the rescan that covers the rest (the hub already drives a scheduled rescan, `roots.rescan`).
+  - **No-Docker NAS.** A Linux archive with a headless install (`install.sh` writing a systemd service instead of an app-menu entry), or only the container.
+  - **ARM builds.** The ARM64 Linux archive from a native ARM runner, and whether the app's own arm64 archive is published with it (the build job makes both). The image is multi-arch.
+- Spikes: the connector's Node bundle running on ARM64 (native runner, and QEMU for the image), a container paired against a hub in CI, and a Bambu LAN printer seen from a container in bridge and host mode.
+- Settle names: the image (`ghcr.io/emanuelmoniz/3d-maker-suite-connector`), its tags (`X.Y.Z`, `latest`, `dev`), the compose example.
+- Adjust Steps 2 to 7 to what the spikes show.
+
+**Done when:** the ADR is accepted; each decision above has a measured result; the steps below match it.
+**Prompt:**
+```
+Do Step 1 of the 6.3.0 plan in PLAN.md. Show me each spike result before you write the ADR.
+```
+
+### [ ] Step 2 - Headless connector
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- The connector starts and pairs with no browser and no desktop session, as decided in Step 1: environment variables or flags, and the optional LAN status page with its protection.
+- `APP_INSTALL=docker` for the connector (set by its image): no start at login, no self-update, **Outdated** shows the command. The connector's own locale file carries the texts.
+- The device token and data stay in the data folder, so a restart or an image update keeps the pairing. A wrong or used code gives a clear log line and exit, not a loop.
+- Ownership of created files (`PUID`/`PGID`), as decided.
+- Unit tests for the new start paths, and for pairing from environment variables against a test hub.
+
+**Done when:** a connector started with only environment variables pairs and shows online in Hub management; a restart stays paired; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 2 of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Linux ARM64 archive and headless install
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- `packaging/build.mjs --arch arm64` on Linux (Node arm64 tarball; `better-sqlite3` prebuild for the app's archive, the connector needs none).
+- `release.yml`: a build matrix entry on a native ARM runner (`ubuntu-24.04-arm`), installed and started once like the others, for the connector; the app's arm64 archive only if Step 1 says so. `connector.yml`: the pairing test on the ARM runner.
+- `packaging/install.sh`: the headless install decided in Step 1 (a systemd service for the user, started at boot), next to the app-menu entry.
+- `SHA256SUMS` and the attestations cover the new files; the connector's self-update picks the `linux-arm64` file of the hub's release (`apps/connector/src/update.ts`).
+
+**Done when:** a test build (`workflow_dispatch`) produces the ARM archive; the install and a pairing test pass on the ARM runner; the connector on an ARM machine updates to the hub's version in a test; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not a tag.
+```
+
+### [ ] Step 4 - Container images for x64 and ARM64
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- A `Dockerfile` target (or a second file) for the connector: small, runs as the chosen user, `HEALTHCHECK` on its `/api/health`, data in a volume, shared folders as mounts.
+- `release.yml` `docker` job: QEMU and buildx, `linux/amd64,linux/arm64`, for the connector image. Tags `X.Y.Z` and `latest` for stable, `X.Y.Z-alpha.N` and `dev` for pre-releases, same as the app.
+- The app image gets `linux/arm64` in the same job (closes the "ARM image" item); the `-slicer` image stays x64 only and says so.
+- A compose example for the connector (`docker-compose.connector.yml`, or a section in `docker-compose.yml`) with the pairing variables, the data volume and a shared folder.
+- A CI job that starts the connector image against a hub and pairs it (`scripts/pair-test.mjs`).
+
+**Done when:** a test build pushes both images for both architectures; the image pairs in CI; `docker run` on an ARM64 machine (or QEMU) starts and pairs; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag and delete them after.
+```
+
+## Phase 67 - Files, printers and the page
+
+### [ ] Step 5 - Files on a NAS
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- A device root on a mounted folder: browse, index, upload, create folder and move to its trash, with the chosen file owner; read-only mounts say so instead of failing quietly.
+- Change events on mounts that send none (SMB, NFS, some Docker mounts): the rescan from Step 1 covers it, and the machine page shows when a root is only rescanned. Large folders don't stall the connector.
+- A root that isn't there (an unmounted share) is reported and skipped, as on the hub.
+- Tests against temp folders (read-only, missing, no events), and the e2e spec for a device root.
+
+**Done when:** a connector in a container indexes a mounted folder, keeps it current without change events, uploads and trashes files with the right owner; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 5 of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 6 - Printers through a container or NAS connector
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- Check every adapter the connector can run (Bambu LAN, Moonraker, OctoPrint, PrusaLink, Spoolman) from a container with bridge networking, and with host networking where the adapter needs it (discovery).
+- Fix what fails. Where a mode can't work, the setup screen says so in plain words (i18n keys), not a workaround in the docs.
+- Bambu LAN on the real printer from a container: the user's A1 on the LAN, tested together.
+
+**Done when:** each adapter is marked works or doesn't in the ADR, with the reason; the A1 reports status and a print through a container connector; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for the real printer test.
+```
+
+### [ ] Step 7 - Hub management: pair a headless or container device
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container. The second shows the code and the exact command or compose lines with the hub's address filled in (copy buttons, no secret beyond the one-time code).
+- The machine page shows how the connector is installed (archive, Docker), its architecture, and for Docker the update command when it is **Outdated**.
+- The slice worker switch is greyed out, with the reason, on ARM.
+- i18n keys, e2e spec, `pnpm screenshots` and the wiki screenshots for Hub management.
+
+**Done when:** an admin can pair a container from the page without reading the docs; every new string goes through i18n; tests, lint, `pnpm typecheck`, `pnpm i18n:check` and the e2e specs for Hub management pass.
+**Prompt:**
+```
+Do Step 7 of the 6.3.0 plan in PLAN.md.
+```
+
+## Phase 68 - Release
+
+### [ ] Step 8 - Real test, docs, push & v6.3.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Real test, with the user's hardware: an ARM64 machine with the archive, a NAS or server with the container, a hub, a printer on the container's network, a project folder on the NAS shown in the hub, and one update of the hub with the connector following.
+- Fix anything found. Docs and wiki: `docs/hub.md` (its "a NAS joins by running a connector" is now true, with the install steps), ADR-0014 amendment, README feature list and support matrix, the wiki pages named at the top of this plan (and their screenshots), CHANGELOG, version `6.3.0-alpha.1` in root, `apps/*` and `packages/*`, `pnpm version:check`, `pnpm wiki:check`.
+- Commit on `dev`, push, tag `v6.3.0-alpha.1` on `dev`.
+
+**Done when:** every scenario worked; the tag is pushed and the workflow is green; the pre-release did not publish the wiki.
+**Prompt:**
+```
+Do Step 8 of the 6.3.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 9 - Docs, push & v6.3.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Only document what changed since the last 6.3.0 pre-release. `pnpm screenshots` if a page changed, README, CHANGELOG, version `6.3.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.3.0` on `main`. Check the run, the release, the images (both architectures on `ghcr.io`) and the wiki.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the images exist for x64 and ARM64; the wiki was published by the release.
+**Prompt:**
+```
+Do Step 9 of the 6.3.0 plan in PLAN.md. Only document what changed since the last 6.3.0 pre-release.
+Then fast-forward main to dev, push, push the v6.3.0 tag and confirm the release.
 ```
 
 ---
