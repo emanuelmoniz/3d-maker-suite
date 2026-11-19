@@ -4183,7 +4183,7 @@ A complete GitHub wiki in plain language: how to install and deploy the app, and
 
 How this plan works:
 - **Starts after v6.1.0 is released**, and documents the app as shipped in 6.1.0.
-- **No app release and no version bump.** This plan ships no app feature, so it is the one exception to "one plan = one release". The wiki goes live with the manual publish in Step 27, then with every stable release.
+- **No app release and no version bump.** This plan ships no app feature, so it is the one exception to "one plan = one release". Step 3 puts the empty skeleton on the wiki to test the publish. The complete wiki goes live with the manual publish in Step 27, then with every stable release.
 - **`wiki/` in this repo is the source.** A workflow publishes it to the GitHub wiki. Nobody edits the wiki on GitHub.
 - **One wiki page per feature.** A feature's list, detail and form screens share a page, and its settings get their own. The Help links of Plan 6.2.0 jump to the exact section.
 - Each step runs the checks for what it changed, as listed in `CLAUDE.md`. Steps that only write pages finish on `pnpm wiki:check`.

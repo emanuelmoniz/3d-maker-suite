@@ -24,6 +24,19 @@ Write links and images so they also work when browsing the repo. The publish ste
 | An image | `![The printers list](../docs/images/printers.png)` |
 | Anything outside the wiki | A full `https://` address |
 
+## Publishing
+
+The **Wiki** workflow (`.github/workflows/wiki.yml`) publishes `wiki/` to the GitHub wiki. It runs after every stable release, and never for `-alpha`, `-rc` or `-build` versions. To run it by hand, open **Actions**, choose **Wiki**, then **Run workflow**, or run `gh workflow run wiki.yml --ref dev`.
+
+Each publish:
+
+- Runs `pnpm wiki:check` first, and stops if it fails.
+- Converts page links and images, and copies only the images the pages use.
+- Makes the wiki an exact copy of `wiki/`, so a page removed here also leaves the wiki.
+- Commits nothing when the wiki is already up to date.
+
+A link to anything else in the repo, such as `../README.md`, stops the publish because it wouldn't work on the wiki. Use a full `https://` address instead.
+
 ## Standard page layout
 
 Every feature page uses these sections, in this order. Leave out any that don't apply.

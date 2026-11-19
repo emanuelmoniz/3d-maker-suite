@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      publish_wiki: ${{ steps.tag.outputs.publish_wiki }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -41,6 +42,7 @@ jobs:
             TAG="v$(node -p 'require("./package.json").version')-build.$GITHUB_RUN_NUMBER"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "publish_wiki=$(node scripts/wiki-publish.mjs --release-check "$GITHUB_EVENT_NAME" "$TAG")" >> "$GITHUB_OUTPUT"
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
@@ -262,3 +264,10 @@ jobs:
           target: slicer
           push: true
           tags: ${{ steps.tags.outputs.slicer }}
+  wiki:
+    # A job here because a release created with GITHUB_TOKEN doesn't trigger other workflows.
+    needs: [check, docker]
+    if: needs.check.outputs.publish_wiki == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/wiki.yml

@@ -1,0 +1,39 @@
+name: Wiki
+# Publishes `wiki/` to the GitHub wiki: by hand, and from release.yml after a stable release.
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions: {}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: wiki-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/wiki-check.mjs
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: .wiki-repo
+      - run: node scripts/wiki-publish.mjs .wiki-repo
+      - name: Commit and push
+        working-directory: .wiki-repo
+        run: |
+          git add --all
+          if git diff --cached --quiet; then
+            echo "The wiki is up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Publish wiki from $GITHUB_SHA"
+          git push
