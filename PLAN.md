@@ -4484,6 +4484,7 @@ Do Step 20 of the Wiki plan in PLAN.md.
 **Scope:**
 - **Settings-General:** General, Appearance, Branding, Network, This server, Backup & export, About & updates.
 - **My-Account:** name and password, delivery, and alerts.
+- Once the My-Account page exists, turn the plain bold **My account** and **My delivery** mentions in `wiki/Alerts.md` (found in Step 20) into links to it, and check `wiki/Alerts-Settings.md` for the same.
 - **Sign-In:** signing in, and creating the admin account.
 
 **Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
@@ -4538,6 +4539,7 @@ Do Step 24 of the Wiki plan in PLAN.md.
 **Scope:**
 - Each user guide in `docs/` becomes a short pointer to its wiki page. Keep the files: installed versions open `docs/projects.md`, `docs/logs.md` and `docs/hub.md` from their Help links.
 - `docs/architecture.md`, `docs/adr/`, `docs/brand/` and `docs/images/` stay.
+- Fix "Settings → Alerts" in `docs/alerts.md` and `docs/configuration.md` (found in Step 20): the alerts settings open from the gear on **Alerts**, not from Settings. Search `docs/` and `wiki/` for other copies (`wiki/Filament-Settings.md`, `wiki/Maintenance.md`).
 - README: the Documentation section and feature links go to the wiki.
 - `CONTRIBUTING.md`: add the wiki rule.
 - `CLAUDE.md`: "Docs follow the code" names `wiki/` as the place for user docs.
