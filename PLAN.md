@@ -4439,7 +4439,7 @@ Do Step 17 of the Wiki plan in PLAN.md.
 
 ## Phase 61 - Accounting and insights
 
-### [ ] Step 18 - Quotes
+### [x] Step 18 - Quotes
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Quotes:** the list and the quote form, with print setup, pricing, production cost, price, and creating an order.

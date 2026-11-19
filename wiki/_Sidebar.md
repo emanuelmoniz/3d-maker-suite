@@ -43,6 +43,9 @@
 
 ### Accounting
 
+- [Quotes](Quotes.md)
+- [Quotes settings](Quotes-Settings.md)
+
 ### Insights
 
 ### Administration
