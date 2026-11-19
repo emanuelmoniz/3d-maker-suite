@@ -4308,7 +4308,7 @@ Do Step 6 of the Wiki plan in PLAN.md.
 Do Step 7 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 8 - Updates, backups and moving
+### [x] Step 8 - Updates, backups and moving
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Updates:** in-app updates, Docker, source installs, pre-releases, going back to an earlier version.

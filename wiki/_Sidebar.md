@@ -13,6 +13,9 @@
 - [First run](First-Run.md)
 - [Use from another device](Use-From-Another-Device.md)
 - [Configuration](Configuration.md)
+- [Updates](Updates.md)
+- [Backups and restore](Backups-and-Restore.md)
+- [Move or uninstall](Move-or-Uninstall.md)
 
 ### Equipment
 
