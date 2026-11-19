@@ -45,7 +45,7 @@ wiki/              source of the GitHub wiki (guide: docs/wiki-guide.md)
 - `pnpm start` - production build, one command for end users
 - `pnpm test` / `pnpm test:e2e`
 - `pnpm speed:check` - quick machine check (CPU load, memory, power, benchmark), useful when tests time out
-- `pnpm screenshots` - regenerates `docs/images/*.png` for the README (not part of e2e or CI)
+- `pnpm screenshots` - regenerates `docs/images/*.png` for the README and the wiki (`wiki-<screen>.png`, one per screen of the route map; not part of e2e or CI)
 - `pnpm lint` / `pnpm format`
 - `pnpm db:generate` / `pnpm db:migrate`
 - `pnpm i18n:check` - missing/unused translation keys

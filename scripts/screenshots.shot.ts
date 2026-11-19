@@ -2,7 +2,16 @@ import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "../e2e/fixtures.ts";
-import { addRoots, filamentOf, png, seedPreset, seedPrinter } from "../e2e/helpers.ts";
+import {
+  addRoots,
+  filamentOf,
+  insertPreset,
+  openSources,
+  png,
+  seedModel,
+  seedPreset,
+  seedPrinter,
+} from "../e2e/helpers.ts";
 
 const IMAGES = "docs/images";
 
@@ -339,4 +348,214 @@ test("hub screenshots", async ({ page, app }) => {
   await page.waitForLoadState("networkidle");
   await expect(page.getByText("Farm PLA")).toBeVisible();
   await page.screenshot({ path: `${IMAGES}/presets.png` });
+});
+
+// Every screen of the wiki's route map (packages/core/src/wikiRoutes.ts) that the README shots above
+// do not cover: forms, settings tabs, catalog, presets, import and export, logs, the machine page.
+// Files are named `wiki-<screen>.png`. Demo data only.
+test("wiki screenshots", async ({ page, app }) => {
+  test.setTimeout(300_000);
+  const api = app.api;
+  const preset = await seedPreset(app);
+  const spool = await api<{ id: string }>("POST", "/api/filament/spools", {
+    ...filamentOf(preset),
+    colorHex: "#e53935",
+    colorName: "Red",
+    initialGrams: 1000,
+    pricePaid: 2000,
+  });
+  const printer = await seedPrinter(api, "Workshop X1");
+  const model = await seedModel(api);
+  const brands = await api<{ items: { id: string }[] }>("GET", "/api/brands");
+  const filamentBrands = await api<{ items: { id: string }[] }>("GET", "/api/filament-brands");
+  const materials = await api<{ items: { id: string }[] }>("GET", "/api/filament-materials");
+  const machinePreset = insertPreset(app, "machine_presets", {
+    name: "Workshop X1 0.4 nozzle",
+    printerModelId: model.id,
+  });
+  const processPreset = insertPreset(app, "process_presets", {
+    name: "0.20mm Standard",
+    printerModelId: model.id,
+  });
+  const accessory = await api<{ id: string }>("POST", "/api/accessories", {
+    name: "AMS",
+    type: "AMS",
+  });
+  const task = await api<{ id: string }>("POST", "/api/maintenance/types", {
+    name: "Clean nozzle",
+    intervalDays: 10,
+    warnLeadDays: 10,
+  });
+  const project = await api<{ id: string }>("POST", "/api/projects", { name: "Dragon" });
+  const print = await api<{ id: string }>("POST", "/api/prints", {
+    printerId: printer.id,
+    projectId: project.id,
+    title: "Dragon body #1",
+    startedAt: new Date(Date.now() - 86_400_000).toISOString(),
+    durationSec: 7200,
+    outcome: "success",
+    usages: [{ spoolId: spool.id, grams: 42 }],
+  });
+  const client = await api<{ id: string }>("POST", "/api/clients", {
+    name: "Ana Pereira",
+    mobile: "911222333",
+  });
+  const order = await api<{ id: string }>("POST", "/api/orders", {
+    projectIds: [project.id],
+    clientId: client.id,
+    price: 1500,
+  });
+  const mock = await api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    config: { label: "Workshop", liveCycleSec: 60 },
+    secrets: { token: "workshop" },
+  });
+  await api("POST", `/api/integrations/${mock.id}/test`);
+
+  type Shot = [name: string, path: string];
+  const shoot = async (shots: Shot[], fullPage = false) => {
+    for (const [name, path] of shots) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("main")).toBeVisible();
+      await page.screenshot({ path: `${IMAGES}/wiki-${name}.png`, fullPage });
+    }
+  };
+  // Sources and Consumers tabs: their cards start closed.
+  const tabs = async (name: string, base: string, which: string[]) => {
+    for (const tab of which) {
+      await page.goto(`${base}/${tab}`);
+      await page.waitForLoadState("networkidle");
+      if (await page.locator("li[aria-labelledby]").count()) await openSources(page);
+      await page.screenshot({ path: `${IMAGES}/wiki-${name}-${tab}.png` });
+    }
+  };
+
+  await shoot([
+    ["printer-new", "/printers/new"],
+    ["printer-edit", `/printers/${printer.id}/edit`],
+    ["printers-settings", "/printers/settings"],
+    ["accessories", "/printers/accessories"],
+    ["accessory-new", "/printers/accessories/new"],
+    ["accessory-edit", `/printers/accessories/${accessory.id}/edit`],
+    ["maintenance-new", "/maintenance/new"],
+    ["maintenance-type-edit", `/maintenance/types/${task.id}/edit`],
+    ["spool-new", "/filament/spools/new"],
+    ["spool-edit", `/filament/spools/${spool.id}/edit`],
+    ["filament-settings", "/filament/settings"],
+    ["catalog-printers", "/catalog/printers"],
+    ["catalog-filament", "/catalog/filament"],
+    ["printer-brand-new", "/printers/brands/new"],
+    ["printer-brand-edit", `/printers/brands/${brands.items[0]?.id}/edit`],
+    ["printer-model-new", "/printers/models/new"],
+    ["printer-model-edit", `/printers/models/${model.id}/edit`],
+    ["filament-brand-new", "/filament/brands/new"],
+    ["filament-brand-edit", `/filament/brands/${filamentBrands.items[0]?.id}/edit`],
+    ["filament-material-new", "/filament/materials/new"],
+    ["filament-material-edit", `/filament/materials/${materials.items[0]?.id}/edit`],
+    ["printer-preset", `/catalog/printer-presets/${machinePreset.id}`],
+    ["process-preset", `/catalog/process-presets/${processPreset.id}`],
+    ["catalog-settings", "/catalog/settings"],
+    ["project-new", "/projects/new"],
+    ["project-edit", `/projects/${project.id}/edit`],
+    ["projects-settings", "/projects/settings"],
+    ["folder-new", "/projects/settings/folders/new"],
+    ["print-new", "/prints/new"],
+    ["print-edit", `/prints/${print.id}/edit`],
+    ["print-review", "/prints/review"],
+    ["prints-settings", "/prints/settings"],
+    ["quotes-settings", "/quotes/settings"],
+    ["order-new", "/orders/new"],
+    ["order-edit", `/orders/${order.id}/edit`],
+    ["orders-settings", "/orders/settings"],
+    ["client-new", "/clients/new"],
+    ["client-edit", `/clients/${client.id}/edit`],
+    ["alerts-settings", "/alerts/settings"],
+    ["integration-new", "/integrations/new"],
+    ["integration-edit", `/integrations/${mock.id}/edit`],
+    ["export", "/settings/data/export"],
+    ["slicer-zip", "/import/slicer-zip"],
+    ["logs", "/settings/logs"],
+    ["logs-settings", "/logs/settings"],
+    ["hub-off", "/settings/hub"],
+    ["hub-settings-off", "/hub/settings"],
+  ]);
+  await tabs("printers-settings", "/printers/settings", ["sources"]);
+  await tabs("filament-settings", "/filament/settings", ["sources"]);
+  await tabs("catalog-settings", "/catalog/settings", ["sources", "consumers"]);
+  await tabs("projects-settings", "/projects/settings", ["sources"]);
+  await tabs("prints-settings", "/prints/settings", ["sources"]);
+
+  // Accounts: the setup screen shows before the admin exists, the rest signed in.
+  await page.goto("/setup");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: `${IMAGES}/wiki-setup.png` });
+  const password = "correct horse";
+  await page.request.post("/api/auth/setup", {
+    data: { email: "ana@example.com", displayName: "Ana Pereira", password },
+  });
+  const eva = await page.request
+    .post("/api/users", {
+      data: { email: "eva@example.com", displayName: "Eva Editor", password, role: "editor" },
+    })
+    .then((r) => r.json() as Promise<{ id: string }>);
+  const roles = await page.request
+    .get("/api/roles")
+    .then((r) => r.json() as Promise<{ id: string }[] | { items: { id: string }[] }>);
+  const role = (Array.isArray(roles) ? roles : roles.items)[0];
+  await shoot([
+    ["user", `/users/${eva.id}`],
+    ["role-new", "/users/roles/new"],
+    ["role", `/users/roles/${role?.id}`],
+  ]);
+
+  // The hub: on, with one paired workstation, and its machine page.
+  await page.request.patch("/api/preferences", { data: { hubEnabled: true } });
+  const { user } = await page.request
+    .get("/api/auth/me")
+    .then((r) => r.json() as Promise<{ user: { id: string } }>);
+  const { code } = await page.request
+    .post("/api/hub/pairing-codes", { data: { userId: user.id } })
+    .then((r) => r.json() as Promise<{ code: string }>);
+  const version: string = JSON.parse(readFileSync("package.json", "utf8")).version;
+  const { deviceId, token } = await fetch(`${app.url}/api/hub/pair`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion: version }),
+  }).then((r) => r.json() as Promise<{ deviceId: string; token: string }>);
+  // Slicer presets in the library, shared the way the connector sends them: the machine has a slicer
+  // with User presets Share on.
+  await fetch(`${app.url}/api/hub/device/slicers`, {
+    method: "PUT",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify([
+      { id: "bambu-studio", version: "1", path: "C:/Studio/bambu-studio.exe", default: true },
+    ]),
+  });
+  await page.request.patch(`/api/hub/devices/${deviceId}/slicers/bambu-studio`, {
+    data: { user: { share: true } },
+  });
+  for (const [name, cost] of [
+    ["Farm PLA", "20"],
+    ["Eco PETG", "24"],
+    ["Silk PLA", "28"],
+  ]) {
+    await fetch(`${app.url}/api/hub/device/presets`, {
+      method: "PUT",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        library: "bambu-studio",
+        kind: "filament",
+        name,
+        base: 1,
+        text: JSON.stringify({ name, filament_cost: [cost] }),
+      }),
+    });
+  }
+  await shoot([
+    ["hub-settings", "/hub/settings"],
+    ["catalog-library", "/catalog/settings/library"],
+  ]);
+  await shoot([["hub-machine", `/hub/devices/${deviceId}`]], true);
+  await tabs("projects-settings", "/projects/settings", ["consumers"]);
 });

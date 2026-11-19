@@ -4253,7 +4253,7 @@ Do Step 2 of the Wiki plan in PLAN.md.
 Do Step 3 of the Wiki plan in PLAN.md. Tell me first what I have to do by hand on GitHub.
 ```
 
-### [ ] Step 4 - Screenshots for every screen
+### [x] Step 4 - Screenshots for every screen
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Extend `scripts/screenshots.shot.ts` to the screens in the route map, and their key dialogs, that have no image yet (forms, settings pages, tabs, the machine page, the import flows).
