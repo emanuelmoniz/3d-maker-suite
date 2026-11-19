@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0 and 6.1.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0, 6.1.0, Wiki and 6.2.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -4177,6 +4177,484 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 
 ---
 
+# Plan Wiki - The complete guide
+
+A complete GitHub wiki in plain language: how to install and deploy the app, and every page of it.
+
+How this plan works:
+- **Starts after v6.1.0 is released**, and documents the app as shipped in 6.1.0.
+- **No app release and no version bump.** This plan ships no app feature, so it is the one exception to "one plan = one release". The wiki goes live with the manual publish in Step 27, then with every stable release.
+- **`wiki/` in this repo is the source.** A workflow publishes it to the GitHub wiki. Nobody edits the wiki on GitHub.
+- **One wiki page per feature.** A feature's list, detail and form screens share a page, and its settings get their own. The Help links of Plan 6.2.0 jump to the exact section.
+- Steps that change code (2, 3 and 4) follow the standing test rule in `CLAUDE.md`. Steps that only write pages finish on `pnpm wiki:check`.
+
+**Standard page layout.** Every feature page uses these sections, leaving out any that don't apply:
+1. What this page is for, in one or two sentences
+2. Screenshot
+3. Who can use it (rights, and hub or account mode)
+4. Before you start
+5. One section per screen, covering every card, tab, table column, button and dialog
+6. Fields table: what each field means, whether it is required, and an example
+7. Common tasks as numbered steps
+8. Related settings
+9. Limits and tips
+10. Problems and fixes
+11. Related pages
+
+**Every page step:**
+- Reads the screen's code and its labels in `apps/web/src/locales/en`, and opens the screen in the running app. The old guides in `docs/` are a starting point, not the truth.
+- Writes short sentences and everyday words, with app labels in bold exactly as they appear on screen.
+- Adds the page to `wiki/_Sidebar.md` and fills in its screens in the route map.
+- **Limitations found while writing get a fix or a new plan step, not a documented workaround.** App bugs and stale labels go in the step's summary.
+
+## Phase 57 - Foundation
+
+### [ ] Step 1 - Wiki skeleton and route map  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `wiki/` with flat, uniquely named pages: `Home.md`, `_Sidebar.md` (groups: Get started, Equipment, Work, Accounting, Insights, Administration, Integrations, Help) and `_Footer.md`.
+- The page template and writing guide from this plan, kept outside the published pages (`CONTRIBUTING.md` or `docs/`).
+- Links between pages are written as `Printers.md#printer-details` and images as `../docs/images/printers.png`, so they also work when browsing the repo.
+- One shared route-to-section map in `packages/core`, listing all 67 screens and the wiki page each belongs to. Plan 6.2.0 reads the same map.
+- `CLAUDE.md`: add `wiki/` to Layout.
+
+**Done when:** the skeleton renders correctly when browsed in the repo; every screen is in the map; the map's format is agreed.
+**Prompt:**
+```
+Do Step 1 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 2 - `pnpm wiki:check`
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A script that fails on broken page links, missing heading anchors, missing images, pages not in the sidebar, sidebar entries with no page, and map entries pointing at a heading that doesn't exist.
+- A map entry whose page isn't written yet is listed as pending, not an error. `--strict` makes pending an error (turned on in Step 26).
+- Runs in `.github/workflows/ci.yml`.
+- `CLAUDE.md`: add `pnpm wiki:check` to Commands and to the "Finish a step" checklist.
+
+**Done when:** each kind of broken link is caught by a test; CI runs the check; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 2 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 3 - Publish workflow  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- **Manual, by the user:** enable the wiki, create the first page on GitHub (its repository doesn't exist until then), and confirm "Restrict editing to collaborators only" is ticked.
+- `scripts/wiki-publish.mjs`: turns `Page.md#a` links into `Page#a`, turns `../docs/images/x.png` into `images/x.png`, copies the images used, and mirrors the result so a page removed from `wiki/` also leaves the wiki.
+- `.github/workflows/wiki.yml` with `workflow_dispatch` and `workflow_call`, and `contents: write` on that job only.
+- A final job in `.github/workflows/release.yml` calls it after a successful stable release, and never for `-alpha` or `-build` tags. It has to be a job there: a release created with `GITHUB_TOKEN` doesn't trigger other workflows.
+- Test that the workflow's token can push to the wiki. If it can't, stop and agree the alternative.
+
+**Done when:** a manual run publishes the skeleton, and a second run with no changes publishes nothing; a pre-release tag doesn't publish; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 3 of the Wiki plan in PLAN.md. Tell me first what I have to do by hand on GitHub.
+```
+
+### [ ] Step 4 - Screenshots for every screen
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Extend `scripts/screenshots.shot.ts` to the screens and key dialogs in the route map that have no image yet (forms, settings pages, tabs, the machine page, the import flows).
+- Demo data only: no real names, addresses, tokens or serial numbers.
+
+**Done when:** `pnpm screenshots` produces every image the page steps need, and the README's images still look right.
+**Prompt:**
+```
+Do Step 4 of the Wiki plan in PLAN.md.
+```
+
+## Phase 58 - Install and deploy
+
+### [ ] Step 5 - Choose how to run, and desktop installs
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Choose-How-to-Run:** a simple comparison of PC, Docker, NAS, server and hub, with a recommendation for each kind of user.
+- **Install-on-Windows**, **Install-on-macOS**, **Install-on-Linux:** download, install, first start, autostart, where data is kept, common warnings from the operating system.
+- **Install-from-Source:** requirements, `pnpm start`, updating.
+- Checked against `packaging/` and `scripts/start.mjs`.
+
+**Done when:** a new user can follow each page from download to the first screen; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 5 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 6 - Docker, NAS and servers
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- **Docker:** compose file, volumes, ports, environment, slicer image, updates.
+- **NAS:** with Docker and without it, folder permissions, which processors are supported.
+- **Server-and-Remote-Access:** running on a server, public address, reverse proxy, HTTPS, what not to expose to the internet.
+- Confirm with the real build files: whether the published image runs on ARM, whether a connector can run on a NAS, and what reverse proxy setup works. Anything missing becomes a new plan step.
+
+**Done when:** every command and setting on these pages is confirmed against `Dockerfile`, `docker-compose.yml` and `.github/workflows/release.yml`; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 6 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 7 - First run and configuration
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **First-Run:** creating the first admin, the setup token, and the first things to set up.
+- **Use-From-Another-Device:** opening the app on the network, firewall, phones and tablets.
+- **Configuration:** every environment variable, flag and setting, with its default.
+
+**Done when:** every variable read by the server is listed; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 7 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 8 - Updates, backups and moving
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Updates:** in-app updates, Docker, source installs, pre-releases, going back to an earlier version.
+- **Backups-and-Restore:** scheduled, manual and pre-update backups, and how to restore one.
+- **Move-or-Uninstall:** moving to a new computer, and removing the app with or without its data.
+
+**Done when:** a backup restored by following the page works; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 8 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 9 - Hub and connector setup
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- **Hub-Setup:** what the hub is, when to use it, turning it on, the public address, company IT notes.
+- **Connector-Setup:** installing on each system, pairing, what it syncs, updating, removing.
+
+**Done when:** a connector can be paired by following the pages; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 9 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 10 - Help and shared concepts
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Troubleshooting:** symptoms and fixes, and where to find the logs.
+- **FAQ** and **Glossary**.
+- **Sources-and-Sync:** what a source is, data types, Auto and Manual sync.
+- **Archive-and-Delete:** archive, restore, delete and bulk actions.
+
+**Done when:** the feature pages can link here instead of repeating these topics; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 10 of the Wiki plan in PLAN.md.
+```
+
+## Phase 59 - Equipment
+
+### [ ] Step 11 - Dashboard and Printers
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Dashboard:** the Home page, Customize, and each widget.
+- **Printers:** the list, add and edit form, and printer details with every card and dialog.
+- **Printers-Settings:** General and Sources tabs.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 11 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 12 - Accessories and Maintenance
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Accessories:** the tab, add and edit form, details, install history, and putting one on a printer.
+- **Maintenance:** the tab, what is due, logging work as done, and the task details and form.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 12 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 13 - Filament
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Filament:** the spools list, add and edit form, spool details, adjusting weight, and unlinking from a source.
+- **Filament-Settings:** General and Sources tabs.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 13 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 14 - Catalog and presets
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Catalog:** the Printers and Filament views, and the brand, model and material forms.
+- **Presets:** the three preset kinds, how presets arrive, and the preset details page.
+- **Catalog-Settings:** Sources, Consumers and Preset library tabs.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 14 of the Wiki plan in PLAN.md.
+```
+
+## Phase 60 - Work
+
+### [ ] Step 15 - Projects
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- **Projects:** the grid and list, filters, scanning folders, the project form, and project details with the gallery, 3D preview, plates, costs, prints, quotes, orders, files and every file dialog.
+
+**Done when:** every screen of this feature in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 15 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 16 - Project settings and folders
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Projects-Settings:** General, Sources and Consumers tabs, scanning and limits, hub devices, deleted project files.
+- **Project-Folders:** adding and editing a folder, layout, example, slicing, rescan, and who can edit.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 16 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 17 - Prints
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Prints:** the list, add and edit form, and print details.
+- **Filament-Review:** the review table, assigning spools, Don't track, and accepting suggestions.
+- **Prints-Settings:** General and Sources tabs.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 17 of the Wiki plan in PLAN.md.
+```
+
+## Phase 61 - Accounting and insights
+
+### [ ] Step 18 - Quotes
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Quotes:** the list and the quote form, with print setup, pricing, production cost, price, and creating an order.
+- **Quotes-Settings:** costs, printers and accessories, with how each value affects a price.
+
+**Done when:** every screen of these features in the route map points to a real section; a worked price example matches the app; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 18 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 19 - Orders and clients
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Orders:** the list, form, details, statuses, price, cost and margin.
+- **Orders-Settings:** order statuses.
+- **Clients:** the list, form and details.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 19 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 20 - Stats and alerts
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Stats:** filters, each stat card, the chart, the breakdown tables, and Export CSV.
+- **Alerts:** Needs attention, history, alert details, snooze and dismiss.
+- **Alerts-Settings:** thresholds, email and ntfy.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 20 of the Wiki plan in PLAN.md.
+```
+
+## Phase 62 - Settings and administration
+
+### [ ] Step 21 - Settings, account and sign-in
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Settings-General:** General, Appearance, Branding, Network, This server, Backup & export, About & updates.
+- **My-Account:** name and password, delivery, and alerts.
+- **Sign-In:** signing in, and creating the admin account.
+
+**Done when:** every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 21 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 22 - Integrations
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- **Integrations:** the page, adding and editing an integration, the sync log.
+- **Bambu-Cloud**, **Bambu-LAN**, **Moonraker**, **OctoPrint**, **PrusaLink**, **Spoolman:** setup, what each one reads, and its limits.
+- **Slicers:** managed and installed slicers, server slicing, and the slicer program path.
+- Add the supported printers matrix, kept in line with README.
+
+**Done when:** every screen of this feature in the route map points to a real section; each guide matches its adapter in `packages/adapters`; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 22 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 23 - Users, roles, data and logs
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Users:** the list, adding a user, resetting a password, the user page, and the first admin.
+- **Roles:** the list, the role form, and what every right allows.
+- **Import-and-Export:** spreadsheet import, export, slicer zip import, and source review.
+- **Logs:** the Logs tab, its levels, and Logs settings.
+
+**Done when:** every right in the role form is explained; every screen of these features in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 23 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 24 - Hub management
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- **Hub-Management:** the devices table, pairing, the machine page with every card, hub settings, and the preset library.
+
+**Done when:** every screen of this feature in the route map points to a real section; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 24 of the Wiki plan in PLAN.md.
+```
+
+## Phase 63 - Finish
+
+### [ ] Step 25 - One source for user docs
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Each user guide in `docs/` becomes a short pointer to its wiki page. Keep the files: installed versions open `docs/projects.md`, `docs/logs.md` and `docs/hub.md` from their Help links.
+- `docs/architecture.md`, `docs/adr/`, `docs/brand/` and `docs/images/` stay.
+- README: the Documentation section and feature links go to the wiki.
+- `CONTRIBUTING.md`: add the wiki rule.
+- `CLAUDE.md`: "Docs follow the code" names `wiki/` as the place for user docs.
+
+**Done when:** no user guide exists in two places; no link in README or `docs/` is broken; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 25 of the Wiki plan in PLAN.md.
+```
+
+### [ ] Step 26 - Full review against the app
+**Model:** Opus · **Effort:** High
+**Scope:**
+- Walk all 67 screens at desktop and phone width with the wiki open beside them, as admin, editor and viewer.
+- Fix wrong labels, missing fields, missing dialogs and unclear wording.
+- Turn on `pnpm wiki:check --strict` in CI.
+
+**Done when:** every screen is reviewed; `--strict` passes with nothing pending.
+**Prompt:**
+```
+Do Step 26 of the Wiki plan in PLAN.md. Report each screen as you finish it.
+```
+
+### [ ] Step 27 - First publish
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- Run the publish workflow by hand from `dev`.
+- On the live wiki, check Home, the sidebar, the footer, images, links between pages, and section anchors.
+
+**Done when:** the wiki is live and every check passed.
+**Prompt:**
+```
+Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
+```
+
+## Out of scope for the Wiki plan (later plans)
+- Translated wiki pages (only EN ships for now).
+- A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
+- Reading the guide inside the app without internet.
+
+---
+
+# Plan 6.2.0 - Help on every page
+
+Every app page gets a Help icon that opens the matching section of the wiki. Needs the Wiki plan finished.
+
+## Phase 64 - Help links
+
+### [ ] Step 1 - Help icon in the page header  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Scope:**
+- `packages/core/src/links.ts`: add `WIKI_URL` and `wikiUrl(page, section)`.
+- A `HelpLink` component: the `CircleHelp` icon with a 36 px target, the existing `common:help` text as `title` and `aria-label` (the `SettingsLink` pattern), opening in a new tab with `rel="noreferrer"`.
+- `apps/web/src/components/PageHeader.tsx`: show it after the title and badge, outside the heading. It finds the current route in the shared route map, so pages need no new prop.
+- Nested headers inside Settings show no second icon: the Settings header already links to the open tab.
+- Keep the existing header rules: `e2e/v13.e2e.ts`, `e2e/projects-scan-header.e2e.ts` and `e2e/settings-tabs.e2e.ts`.
+
+**Done when:** Help opens the right wiki section on every page that has a header, at desktop and phone width; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 1 of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 2 - Card help and the sign-in screens
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- `apps/web/src/components/Section.tsx`: the `help` prop takes a wiki page and section instead of a path in `docs/`.
+- `apps/web/src/pages/settings/ConfigPages.tsx`: point the Project folders, Logs and Hub cards at the wiki.
+- `apps/web/src/pages/auth/AuthPages.tsx`: a Help link on the sign-in and first-admin screens, which have no page header.
+
+**Done when:** no link in the app points to `docs/` on `main`; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 2 of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3 - Guards
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- A unit test that walks the app's routes and fails if a page has no entry in the route map, so a new page can't ship without help.
+- An e2e spec: the icon stays on screen from 320 to 1440 px, works by keyboard, has the name "Help", and its address matches the map.
+
+**Done when:** adding a route without a map entry fails the test; tests, lint, `pnpm typecheck` and `pnpm wiki:check --strict` pass.
+**Prompt:**
+```
+Do Step 3 of the 6.2.0 plan in PLAN.md.
+```
+
+## Phase 65 - Release
+
+### [ ] Step 4 - Real test, docs, push & v6.2.0-alpha.1
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Open Help from every sidebar section, a detail page, a form, a settings tab, and the sign-in screen, as admin and viewer, at desktop and phone width.
+- Fix anything found. Docs, CHANGELOG, version `6.2.0-alpha.1`, `pnpm version:check`; commit on `dev`, push, tag `v6.2.0-alpha.1` on `dev`.
+
+**Done when:** every scenario worked; the tag is pushed and the workflow is green; the pre-release did not publish the wiki.
+**Prompt:**
+```
+Do Step 4 of the 6.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+```
+
+### [ ] Step 5 - Docs, push & v6.2.0 release
+**Model:** Haiku · **Effort:** Low
+**Scope:**
+- `pnpm screenshots` (the icon appears on nearly every page), README, CHANGELOG, version `6.2.0`.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.2.0` on `main`. Check the run, the release, the images and the wiki.
+
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the wiki was published by the release; the old `docs/` Help links in 6.1.0 land on a pointer to the wiki.
+**Prompt:**
+```
+Do Step 5 of the 6.2.0 plan in PLAN.md. Only document what changed since the last 6.2.0 pre-release.
+Then fast-forward main to dev, push, push the v6.2.0 tag and confirm the release.
+```
+
+---
+
 ## Backlog mapping
 | Backlog item | Plan · Step |
 |---|---|
@@ -4277,3 +4755,5 @@ Then fast-forward main to dev, push, push the v6.1.0 tag and confirm the release
 | catalog: out of Settings, into the sidebar under Filament (one page, not split) | 6.1 · 23 |
 | printers: Accessories tab | 6.1 · 24 |
 | printers: Maintenance as a tab | 6.1 · 25 |
+| wiki: full guide for install, deploy and every page | Wiki · 1-27 |
+| help link on every page, opening the wiki | 6.2 · 1-3 |
