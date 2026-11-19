@@ -36,7 +36,7 @@ The **Sources** tab lists the accounts that can bring printers in, such as Bambu
 
 How a line works is explained once, on [Sources and sync](Sources-and-Sync.md): **Auto** and **Manual**, **Sync now**, **What to sync**, **Review and import** and the sync log.
 
-Printers that are read on your network (Bambu LAN, Moonraker, PrusaLink, OctoPrint) are not synced. Their card in **Settings → Integrations** gives live status instead. See [Printers](Printers.md#connection-and-monitoring).
+Printers that are read on your network ([Bambu LAN](Bambu-LAN.md), [Moonraker](Moonraker.md), [PrusaLink](PrusaLink.md), [OctoPrint](OctoPrint.md)) are not synced. Their card in **Settings → Integrations** gives live status instead. See [Printers](Printers.md#connection-and-monitoring).
 
 ## Common tasks
 

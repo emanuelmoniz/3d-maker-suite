@@ -4493,7 +4493,7 @@ Do Step 20 of the Wiki plan in PLAN.md.
 Do Step 21 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 22 - Integrations
+### [x] Step 22 - Integrations
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - **Integrations:** the page, adding and editing an integration, the sync log.
@@ -4598,6 +4598,9 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 - **Found while writing Step 15, needs its own plan step** (the wiki page states today's behaviour and must be updated when this is fixed):
   - **Collections can't be made or edited in the app.** The **Filter by collection** list on **Projects** only shows when a collection exists, but only the API (`/api/collections`) creates one. Add a place in the app to create, rename, fill and delete collections, or take the filter out. Then update `wiki/Projects.md` (the **Filter by collection** row).
   - **Scan folders shows to people who can't use it.** The button has no **Write** check, but `POST /api/projects/scan` needs **Write** on **Projects**, so a reader presses it and gets **Couldn't start the scan.** Hide it without **Write** (as **New project** is), or let a reader scan. Then fix the rights table in `wiki/Projects.md`.
+- **Found while writing Step 22, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
+  - **A slicer on this computer slices only once its program path is typed in, and nothing says so.** A new Bambu Studio or OrcaSlicer install on this server never fills in **Slicer program**. **Use as slicer** looks on, but `available()` in `apps/server/src/integrations/capabilities.ts` drops slicing until that path exists. The only hint, `integrations:slicer.pathHint`, still says it is "used by Open in slicer", a button removed in 5.6.0. Detect the program like the config folder (the `desktop` descriptor already knows the install paths), or say on the card that slicing needs it, and reword the hint. Then update the **A slicer installed on this server** section of `wiki/Slicers.md`.
+  - **`docs/open-in-slicer.md` shows a broken Windows path** (`C:\Program Files\Bambu Studioambu-studio.exe`), and `docs/bambu-cloud.md` says **Track usage** on spools is on by default, but a new account saves it off. Step 25 turns both guides into pointers, so only check that the wiki is right.
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.

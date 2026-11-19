@@ -193,7 +193,7 @@ A printer with several sources shows the best one. A source that sees the printe
 
 The **Connection** card on the printer's page has one block per source: the source and its **Address**, **Credentials** (only that one is set, such as **Access code: set**, never its value), **Reached from** (**This server**, or the machine with **(online)** or **(offline)**), whether it is **Paused**, the **Last sync** and the **Monitoring** state with what to do about it. **Edit in Integrations** opens the source. Without the **Integrations** right, the address and the credentials line are left out.
 
-Which printers can report status depends on the source. Klipper printers report through Moonraker, Bambu Lab printers through Bambu LAN, and Prusa printers through PrusaLink. Any printer behind OctoPrint does too.
+Which printers can report status depends on the source. Klipper printers report through [Moonraker](Moonraker.md), Bambu Lab printers through [Bambu LAN](Bambu-LAN.md), and Prusa printers through [PrusaLink](PrusaLink.md). Any printer behind [OctoPrint](OctoPrint.md) does too. See [Supported printers](Integrations.md#supported-printers).
 
 ## Common tasks
 

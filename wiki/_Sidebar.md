@@ -63,6 +63,15 @@
 
 ### Integrations
 
+- [Integrations](Integrations.md)
+- [Bambu Cloud](Bambu-Cloud.md)
+- [Bambu LAN](Bambu-LAN.md)
+- [Moonraker](Moonraker.md)
+- [OctoPrint](OctoPrint.md)
+- [PrusaLink](PrusaLink.md)
+- [Spoolman](Spoolman.md)
+- [Slicers](Slicers.md)
+
 ### Help
 
 - [Troubleshooting](Troubleshooting.md)

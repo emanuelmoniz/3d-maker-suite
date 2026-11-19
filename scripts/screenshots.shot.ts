@@ -481,6 +481,13 @@ test("wiki screenshots", async ({ page, app }) => {
     ["hub-settings-off", "/hub/settings"],
   ]);
   await shoot([["settings", "/settings"]], true);
+  // Integrations with its cards open: an account's, and a slicer's install.
+  await api("POST", "/api/integrations", { adapterId: "bambu-studio-server" });
+  await page.goto("/settings/integrations");
+  await page.evaluate(() =>
+    localStorage.setItem("integrations.fold", JSON.stringify({ mock: true, "bambu-studio": true })),
+  );
+  await shoot([["integrations", "/settings/integrations"]], true);
   await tabs("printers-settings", "/printers/settings", ["sources"]);
   await tabs("filament-settings", "/filament/settings", ["sources"]);
   await tabs("catalog-settings", "/catalog/settings", ["sources", "consumers"]);

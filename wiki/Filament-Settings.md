@@ -29,7 +29,7 @@ The same field is in **Settings → Alerts**, which also says who gets the alert
 
 ![The Filament sources tab](../docs/images/wiki-filament-settings-sources.png)
 
-The **Sources** tab lists the accounts that can bring spools in, such as Bambu Cloud or Spoolman. Each line is **Spools** from one source, with when it syncs and what it syncs. You switch a source on in **Settings → Integrations**. If none is on, the tab says **No sources** and that spools here are added by hand.
+The **Sources** tab lists the accounts that can bring spools in, such as [Bambu Cloud](Bambu-Cloud.md) or [Spoolman](Spoolman.md). Each line is **Spools** from one source, with when it syncs and what it syncs. You switch a source on in **Settings → Integrations**. If none is on, the tab says **No sources** and that spools here are added by hand.
 
 How a line works is explained once, on [Sources and sync](Sources-and-Sync.md): **Auto** and **Manual**, **Sync now**, **What to sync**, **Review and import** and the sync log.
 

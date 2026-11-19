@@ -143,7 +143,7 @@ The default image has no slicer libraries, so it stays small. To slice projects 
 ```
 
 2. Run `docker compose up -d`.
-3. In **Settings → Integrations**, add **Bambu Studio** or **OrcaSlicer** with **This server** under **Where**, then press **Install** on its card.
+3. In **Settings → Integrations**, add **Bambu Studio** or **OrcaSlicer** with **This server** under **Where**, then press **Install slicer** on its row.
 
 The slicer is downloaded into the `app-data` volume once, so it survives image updates. No display is needed. Only x64 is supported, because Bambu Lab has no Linux ARM build.
 

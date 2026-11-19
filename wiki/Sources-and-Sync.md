@@ -14,9 +14,9 @@ A source is anything that can feed the app with data. You never have to use one.
 
 | Kind of source | Examples |
 |---|---|
-| An online account | Bambu Cloud, Spoolman |
-| A printer on your network | Bambu LAN, Moonraker, PrusaLink, OctoPrint |
-| A slicer | Bambu Studio, OrcaSlicer, on the server or on a computer paired with a hub |
+| An online account | [Bambu Cloud](Bambu-Cloud.md), [Spoolman](Spoolman.md) |
+| A printer on your network | [Bambu LAN](Bambu-LAN.md), [Moonraker](Moonraker.md), [PrusaLink](PrusaLink.md), [OctoPrint](OctoPrint.md) |
+| A slicer | Bambu Studio, OrcaSlicer, on the server or on a computer paired with a hub. See [Slicers](Slicers.md) |
 | A computer paired with the hub | Its shared project folders and its slicers' presets |
 | A file you upload | A slicer zip, a spreadsheet on the **Import** page |
 
