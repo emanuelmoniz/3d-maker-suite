@@ -4386,7 +4386,7 @@ Do Step 12 of the Wiki plan in PLAN.md.
 Do Step 13 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 14 - Catalog and presets
+### [x] Step 14 - Catalog and presets
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Catalog:** the Printers and Filament views, and the brand, model and material forms.

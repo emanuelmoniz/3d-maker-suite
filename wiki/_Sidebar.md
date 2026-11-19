@@ -28,6 +28,9 @@
 - [Maintenance](Maintenance.md)
 - [Filament](Filament.md)
 - [Filament settings](Filament-Settings.md)
+- [Catalog](Catalog.md)
+- [Presets](Presets.md)
+- [Catalog settings](Catalog-Settings.md)
 
 ### Work
 
