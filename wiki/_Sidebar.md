@@ -10,6 +10,9 @@
 - [Docker](Docker.md)
 - [NAS](NAS.md)
 - [Server and remote access](Server-and-Remote-Access.md)
+- [First run](First-Run.md)
+- [Use from another device](Use-From-Another-Device.md)
+- [Configuration](Configuration.md)
 
 ### Equipment
 

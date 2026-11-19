@@ -4295,7 +4295,7 @@ Do Step 5 of the Wiki plan in PLAN.md.
 Do Step 6 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 7 - First run and configuration
+### [x] Step 7 - First run and configuration
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **First-Run:** creating the first admin, the setup token, and the first things to set up.
