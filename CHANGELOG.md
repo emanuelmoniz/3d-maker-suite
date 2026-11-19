@@ -2,6 +2,13 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.1.0] - 2026-11-18
+
+Stable release. Everything in 6.1.0-alpha.1 to alpha.3 is included; the only change after alpha.3 is the logo below. No migration. Back up before updating. Updating keeps all data. Connectors update to the hub's version.
+
+### Changed
+- The sidebar, the sign-in card and the connector page use the simple horizontal logo, without the small tags that were hard to read in the app. README and GitHub keep the full logo, and the icon is unchanged ([docs/configuration.md](docs/configuration.md))
+
 ## [6.1.0-alpha.3] - 2026-11-18
 
 Pre-release, third of 6.1.0. Lists what changed since 6.1.0-alpha.2. Back up before updating. No migration. Updating keeps all data. Connectors update to the hub's version.

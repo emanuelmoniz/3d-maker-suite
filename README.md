@@ -124,7 +124,7 @@ PrusaLink and OctoPrint follow printer messages others published, and Bambu LAN 
 
 ## Status
 
-Version 6.1.0-alpha.3. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 6.1.0. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

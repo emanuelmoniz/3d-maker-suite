@@ -4154,7 +4154,7 @@ Do Step 25 of the 6.1.0 plan in PLAN.md.
 Do Step 26 of the 6.1.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 27 - Docs, push & v6.1.0 release
+### [x] Step 27 - Docs, push & v6.1.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (Settings tabs, Integrations with folded cards, the machine page with System, the Printers list, a Sources table, the Catalog page, the Printers tabs, the Maintenance tab), README, CHANGELOG, version `6.1.0`.
