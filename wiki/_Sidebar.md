@@ -51,6 +51,10 @@
 
 ### Insights
 
+- [Stats](Stats.md)
+- [Alerts](Alerts.md)
+- [Alerts settings](Alerts-Settings.md)
+
 ### Administration
 
 ### Integrations

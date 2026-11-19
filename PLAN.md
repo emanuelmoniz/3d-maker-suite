@@ -4464,7 +4464,7 @@ Do Step 18 of the Wiki plan in PLAN.md.
 Do Step 19 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 20 - Stats and alerts
+### [x] Step 20 - Stats and alerts
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Stats:** filters, each stat card, the chart, the breakdown tables, and Export CSV.
