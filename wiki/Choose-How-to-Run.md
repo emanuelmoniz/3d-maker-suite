@@ -22,7 +22,7 @@ Anyone who installs the app. You don't need an account to start. Accounts are on
 - **I want the app to be reachable all day from my phone or other computers.** Use [Docker](Docker.md) on a NAS or home server. Your NAS's page: [NAS](NAS.md).
 - **I want to reach it from outside my home.** Run it on a server behind HTTPS: [Server and remote access](Server-and-Remote-Access.md).
 - **I know Git and Node and want to change the code.** [Install from source](Install-from-Source.md).
-- **My project files are spread over several computers.** Run a hub, and put a connector on each computer.
+- **My project files are spread over several computers.** Run a hub, and put a connector on each computer: [Hub setup](Hub-Setup.md) and [Connector setup](Connector-Setup.md).
 
 ## What stays the same
 

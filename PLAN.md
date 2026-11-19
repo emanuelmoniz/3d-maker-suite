@@ -4321,7 +4321,7 @@ Do Step 7 of the Wiki plan in PLAN.md.
 Do Step 8 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 9 - Hub and connector setup
+### [x] Step 9 - Hub and connector setup
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - **Hub-Setup:** what the hub is, when to use it, turning it on, the public address, company IT notes.
@@ -4586,6 +4586,10 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
   - **Restore needs a manual restart.** The app says "Restart the app" and the user must find **Restart server** (or `docker compose restart app`). Offer a restart button right in the restore message, and check that it applies the restore in Docker.
   - **Restore on a new install needs a temporary admin.** Upload and restore sit behind sign-in, so a fresh install must create a throwaway first admin before restoring (files over 2 GB can only be copied into `backups/` by hand). Offer restore from the first-run screen, and a way past the 2 GB upload limit.
   - **Move or uninstall leaves things by hand.** Uninstall keeps the data folder and, on macOS and Linux, the user must delete the program folders and autostart entries themselves. Consider an uninstall command or a **Remove all data** option, and a `pre-restore` folder that cleans itself up.
+- **Found while writing Step 9, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
+  - **Removing a connector is by hand on macOS and Linux, and leaves the hub entry.** No uninstall command: the user deletes the program folder, the launcher entry and the autostart file, and the device stays in Hub management as offline until an admin revokes it. Unpair on the connector doesn't tell the hub. Add an uninstall (or **Remove this computer**) that unpairs, removes the autostart entry and, if asked, the data and sync folders; unpair should also remove the device on the hub when it is online.
+  - **Stale label in the connector.** `connector.json` (`pair.errors.hubOff`, `user.errors.hubOff`) says an admin turns the hub on in "Settings → Server", but the **Hub** switch is in **Settings → General**. Fix the string.
+  - **The connector asks for a desktop.** Linux needs an application menu to open the pair page, so a headless Linux machine can't be paired. **Planned: Plan 6.3.0** (connector on ARM, Docker and a NAS).
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.

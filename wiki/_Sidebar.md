@@ -16,6 +16,8 @@
 - [Updates](Updates.md)
 - [Backups and restore](Backups-and-Restore.md)
 - [Move or uninstall](Move-or-Uninstall.md)
+- [Hub setup](Hub-Setup.md)
+- [Connector setup](Connector-Setup.md)
 
 ### Equipment
 

@@ -62,7 +62,7 @@ Use your NAS's own address in `APP_ALLOWED_HOSTS`. It is needed until the first 
 
 ## Connectors and a NAS
 
-A connector is the small program a computer runs to join a hub. It is built for desktop computers: Windows, macOS, and Linux x64 with an application menu. Its pairing page opens in a browser on the same computer.
+A connector is the small program a computer runs to join a hub ([Connector setup](Connector-Setup.md)). It is built for desktop computers: Windows, macOS, and Linux x64 with an application menu. Its pairing page opens in a browser on the same computer.
 
 That means a connector can't be set up on a NAS today. Run the hub on the NAS in Docker and mount the NAS folders into it as hub folders instead. The hub then reads those folders directly.
 
