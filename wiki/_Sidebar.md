@@ -24,6 +24,8 @@
 - [Dashboard](Dashboard.md)
 - [Printers](Printers.md)
 - [Printers settings](Printers-Settings.md)
+- [Accessories](Accessories.md)
+- [Maintenance](Maintenance.md)
 
 ### Work
 

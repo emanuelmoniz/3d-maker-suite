@@ -4,7 +4,7 @@ Your printers: the list, adding and editing one, and a printer's own page with i
 
 ![The printers list](../docs/images/printers.png)
 
-The **Printers** page has three tabs: **Printers**, **Accessories** and **Maintenance**. This page covers the **Printers** tab and a printer's page. The other two tabs, the gear button and the model catalog have their own pages: [Printers settings](Printers-Settings.md).
+The **Printers** page has three tabs: **Printers**, **Accessories** and **Maintenance**. This page covers the **Printers** tab and a printer's page. The other two tabs have their own pages: [Accessories](Accessories.md) and [Maintenance](Maintenance.md). The gear button has [Printers settings](Printers-Settings.md).
 
 ## Who can use it
 

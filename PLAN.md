@@ -4362,7 +4362,7 @@ Do Step 10 of the Wiki plan in PLAN.md.
 Do Step 11 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 12 - Accessories and Maintenance
+### [x] Step 12 - Accessories and Maintenance
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Accessories:** the tab, add and edit form, details, install history, and putting one on a printer.
