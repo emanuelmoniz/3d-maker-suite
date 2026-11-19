@@ -173,7 +173,7 @@ The accessory stays in its history with that date. Prints the printer makes afte
 
 - An accessory with install history or maintenance records can't be deleted. Archive it instead.
 - Archiving is blocked while the accessory is on a printer. Take it off first.
-- An archived accessory shows no **Put on a printer** button. Restore it first.
+- An archived accessory can't be put on a printer, and its page shows no **Put on a printer** button. Restore it first.
 - The number is shown before the name with two digits, for example `01-AMS lite`. Keep the same type words so the type filter and maintenance tasks find them all, for example always `AMS`.
 
 ## Problems and fixes

@@ -56,6 +56,18 @@ describe("accessories", () => {
     expect((await req("GET", "/api/accessories")).json().total).toBe(2);
   });
 
+  it("an archived accessory can't be put on a printer until it is restored", async () => {
+    const a = await create();
+    const p = await printer("P1");
+    await req("PATCH", `/api/accessories/${a.id}`, { archived: true });
+    const body = { printerId: p.id, installedAt: day(1), removedAt: null };
+    const refused = await req("POST", `/api/accessories/${a.id}/installs`, body);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.code).toBe("accessory_archived");
+    await req("PATCH", `/api/accessories/${a.id}`, { archived: false });
+    expect((await req("POST", `/api/accessories/${a.id}/installs`, body)).statusCode).toBe(201);
+  });
+
   it("install, remove, install again; overlaps and bad dates are refused", async () => {
     const a = await create();
     const [p1, p2] = [await printer("A"), await printer("B")];

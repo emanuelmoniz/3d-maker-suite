@@ -254,7 +254,8 @@ export const accessoriesRoutes =
         },
       },
       async (req, reply) => {
-        get(req.params.id);
+        if (get(req.params.id).archivedAt)
+          throw new HttpError(409, "accessory_archived", "Restore the accessory first");
         const { printerId, installedAt, removedAt = null } = req.body;
         if (!canReference(db, printers, printerId))
           throw new HttpError(400, "invalid_printer", "Unknown printer");
