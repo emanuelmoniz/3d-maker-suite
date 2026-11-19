@@ -44,7 +44,7 @@ wiki/              source of the GitHub wiki (guide: docs/wiki-guide.md)
 - `pnpm dev` - server + web in watch mode
 - `pnpm start` - production build, one command for end users
 - `pnpm test` / `pnpm test:e2e`
-- `pnpm speed:check` - quick machine check (CPU load, memory, power, benchmark) before choosing test scope and timeouts
+- `pnpm speed:check` - quick machine check (CPU load, memory, power, benchmark), useful when tests time out
 - `pnpm screenshots` - regenerates `docs/images/*.png` for the README (not part of e2e or CI)
 - `pnpm lint` / `pnpm format`
 - `pnpm db:generate` / `pnpm db:migrate`
@@ -53,12 +53,19 @@ wiki/              source of the GitHub wiki (guide: docs/wiki-guide.md)
 ## Workflow
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.
 - **Never read `BACKLOG.md`** unless the user asks; it's the user's private notes (gitignored).
-- **Running unit tests (standing rule): never run them automatically, on any machine.** After finishing a step's code:
-  1. Run `pnpm speed:check` (~1.5 s: CPU load, memory use, power source, single-core benchmark).
-  2. Show its output and **ask the user**: full suite or only the tests affected by the change (`vitest related <changed files> --run`), and timeouts as they are, edited (which values) or removed.
-  3. Run exactly that (`pnpm test:e2e` too: the env var reaches Playwright). Edited timeouts: env `TEST_TIMEOUT=<ms>`; removed: `TEST_TIMEOUT=0` (PowerShell: `$env:TEST_TIMEOUT=0; pnpm test`). It also stretches polling helpers and skips speed checks. Don't re-run failures on your own to check whether they were timeouts; report them and ask.
-  - New tests follow the same timeout rules as the existing ones. Say in the summary which scope and timeouts were used; a run with edited or removed timeouts doesn't replace a plain `pnpm test` before a release.
-- Finish a step = tests pass, lint passes, `pnpm typecheck` passes (vitest does not typecheck; the release workflow fails on it), `pnpm i18n:check` passes, docs updated, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
+- **What to check depends on what the step changed (standing rule).** Don't ask the user which tests to run.
+  - Only `wiki/` or Markdown docs: `pnpm wiki:check`.
+  - The route map (`packages/core/src/wikiRoutes.ts`): `pnpm wiki:check`, `pnpm lint` and `pnpm typecheck`.
+  - Wiki tooling (its scripts and workflows): the tooling's own tests, `pnpm lint` and `pnpm typecheck`; `pnpm screenshots` too if the screenshots script changed.
+  - Anything else the app runs (`apps/*`, `packages/*`): the affected tests below, `pnpm lint`, `pnpm typecheck` (vitest does not typecheck; the release workflow fails on it) and `pnpm i18n:check`.
+- **Running tests (standing rule).**
+  - Steps between releases: only the affected tests (`vitest related <changed files> --run`), plus the e2e specs that cover the changed screens.
+  - A release, pre-release on `dev` or stable on `main`: the full suite (`pnpm test` and `pnpm test:e2e`).
+  - Always start with the default limits (Vitest 5 s per test, Playwright 30 s per test and 5 s per check, and the limit a slow test sets for itself), and watch the run while it goes.
+  - As soon as a test fails on a timeout, stop the whole run. Start the tests that haven't passed yet again with `TEST_TIMEOUT` at double the limit that test failed at, and at least 30000 (PowerShell: `$env:TEST_TIMEOUT=30000; pnpm test`). Double it on each new timeout, up to 240000. A test that still times out at 240000 counts as a failed test. The env var reaches Playwright too, stretches polling helpers and skips speed checks.
+  - Any other failure: fix the bug or the test, then re-run it until it passes. Never skip or weaken a test to get it to pass.
+  - New tests follow the same timeout rules as the existing ones. Say in the summary which scope and timeouts were used.
+- Finish a step = the checks for what it changed pass, docs updated, tick the step checkbox in `PLAN.md`, one conventional commit (`feat(printers): ...`).
 - **Docs follow the code, in the same commit.** A step that adds or changes something a user sees or does (a page, a field, a setup flow, a rule such as "one printer per source") or an API or design decision updates every doc that describes it: the user page in `docs/` (setup steps, what it reads, limits), `docs/hub.md` when the hub or a connector is involved, `docs/architecture.md` for APIs and data flow, the ADR it changes (amend it, saying which step), and README's feature list and support matrix. Search `docs/` and README for the feature's names and the UI labels it renames or removes; stale text found on the way, also from earlier steps, gets fixed too. Say in the summary which docs changed.
 - **The wiki follows the code (standing rule).** `wiki/` is the source of the GitHub wiki. Once a page exists there, any step that changes what it describes (a page, section, field, button, label, right, setup flow or limit) updates that page and its screenshots in the same commit, **before the step is ticked**. A new app page gets its wiki section and Help link in the same step. Never edit the wiki on GitHub, because the next publish overwrites it. Don't rename a wiki page or a heading the app links to without updating the route map and leaving a pointer page. If a step needs no wiki change, say so in the summary.
 - Release checklist (CONTRIBUTING.md#releases): CHANGELOG entry (it becomes the GitHub release notes via `scripts/release-notes.mjs`, so every release, pre-releases included, must list all changes since the last release), the same version in root, `apps/*` and `packages/*` `package.json`, `Version X.Y.Z.` on README's Status line, docs that name features or versions. `pnpm version:check` must pass before tagging. Never tag while README or docs still show the old version.

@@ -4186,7 +4186,7 @@ How this plan works:
 - **No app release and no version bump.** This plan ships no app feature, so it is the one exception to "one plan = one release". The wiki goes live with the manual publish in Step 27, then with every stable release.
 - **`wiki/` in this repo is the source.** A workflow publishes it to the GitHub wiki. Nobody edits the wiki on GitHub.
 - **One wiki page per feature.** A feature's list, detail and form screens share a page, and its settings get their own. The Help links of Plan 6.2.0 jump to the exact section.
-- Steps that change code (2, 3 and 4) follow the standing test rule in `CLAUDE.md`. Steps that only write pages finish on `pnpm wiki:check`.
+- Each step runs the checks for what it changed, as listed in `CLAUDE.md`. Steps that only write pages finish on `pnpm wiki:check`.
 
 **Standard page layout.** Every feature page uses these sections, leaving out any that don't apply:
 1. What this page is for, in one or two sentences
