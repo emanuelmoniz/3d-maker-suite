@@ -11,7 +11,7 @@
 
 ## Checking the wiki
 
-Run `pnpm wiki:check` after any change in `wiki/`. It fails on a broken page link, a missing heading anchor, a missing image, a page that isn't in the sidebar, a sidebar entry with no page, and a route map entry that points at a heading that doesn't exist. A map entry whose page isn't written yet is listed as pending, not an error. `pnpm wiki:check --strict` makes pending an error. CI runs the check.
+Run `pnpm wiki:check` after any change in `wiki/`. It fails on a broken page link, a missing heading anchor, a missing image, a page that isn't in the sidebar, a sidebar entry with no page, and a route map entry that points at a heading that doesn't exist. A map entry whose page isn't written yet is listed as pending, not an error. `pnpm wiki:check --strict` makes pending an error. CI and the publish run it with `--strict`, so every screen in the map needs its section before it can merge.
 
 ## Links and images
 
@@ -30,7 +30,7 @@ The **Wiki** workflow (`.github/workflows/wiki.yml`) publishes `wiki/` to the Gi
 
 Each publish:
 
-- Runs `pnpm wiki:check` first, and stops if it fails.
+- Runs `pnpm wiki:check --strict` first, and stops if it fails.
 - Converts page links and images, and copies only the images the pages use.
 - Makes the wiki an exact copy of `wiki/`, so a page removed here also leaves the wiki.
 - Commits nothing when the wiki is already up to date.

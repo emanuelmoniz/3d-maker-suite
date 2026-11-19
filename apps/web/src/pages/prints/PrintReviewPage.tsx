@@ -12,7 +12,7 @@ import type { BulkRow } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { DataTable } from "../../components/DataTable.tsx";
+import { type Column, DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
@@ -233,6 +233,71 @@ export function PrintReviewPage() {
       : list;
   };
 
+  const spoolColumns: Column<FilamentReviewItem>[] = [
+    {
+      id: "spool",
+      header: t("prints:review.columns.spool"),
+      cell: (i) => (
+        <Combobox
+          // Sized by its longest spool (the size attribute): w-full let the column shrink
+          // until the picked spool was cut off.
+          className={`${inputClass} w-auto!`}
+          aria-label={t("prints:review.pick", {
+            title: printName(t, { number: i.printNumber, title: i.printTitle }),
+          })}
+          value={spoolOf(i)}
+          onChange={(v) => setPicked((p) => ({ ...p, [i.usageId]: v }))}
+          options={[
+            { value: "", label: "" },
+            ...optionsWithSuggestion(i).map(({ spool }) => ({
+              value: spool.id,
+              label: t("prints:form.spoolOption", {
+                name: spoolName(t, spool),
+                weight: formatWeight(spool.remainingGrams),
+              }),
+            })),
+          ]}
+        />
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: (i) => (
+        <span className="flex items-center justify-end gap-2">
+          <Button
+            variant="primary"
+            disabled={!spoolOf(i) || assign.isPending}
+            onClick={() =>
+              assign.mutate({
+                usageId: i.usageId,
+                spoolId: spoolOf(i),
+                grams: gramsOf(i),
+              })
+            }
+          >
+            {t(
+              i.suggestedSpoolId && spoolOf(i) === i.suggestedSpoolId
+                ? "prints:review.accept"
+                : "prints:review.assign",
+            )}
+          </Button>
+          <Button onClick={() => setAdding(i)}>
+            <Plus className="size-4" aria-hidden />
+            {t("prints:review.addSpool")}
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={dismiss.isPending}
+            onClick={() => dismiss.mutate([i.usageId])}
+          >
+            {t("prints:review.skip")}
+          </Button>
+        </span>
+      ),
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -329,8 +394,13 @@ export function PrintReviewPage() {
                 id: "grams",
                 header: t("prints:review.columns.grams"),
                 numeric: true,
+                // Without write the grams stay text: they only matter to an assign.
                 cell: (i) =>
-                  i.gramsEstimated ? (
+                  i.gramsEstimated && !mayAssign ? (
+                    <span title={t("prints:review.estimatedTip")}>
+                      {t("prints:review.estimatedMark")} {formatWeight(i.grams)}
+                    </span>
+                  ) : i.gramsEstimated ? (
                     <span
                       className="inline-flex items-center justify-end gap-1"
                       title={t("prints:review.estimatedTip")}
@@ -354,68 +424,8 @@ export function PrintReviewPage() {
                 sort: "grams",
                 filter: "grams",
               },
-              {
-                id: "spool",
-                header: t("prints:review.columns.spool"),
-                cell: (i) => (
-                  <Combobox
-                    // Sized by its longest spool (the size attribute): w-full let the column shrink
-                    // until the picked spool was cut off.
-                    className={`${inputClass} w-auto!`}
-                    aria-label={t("prints:review.pick", {
-                      title: printName(t, { number: i.printNumber, title: i.printTitle }),
-                    })}
-                    value={spoolOf(i)}
-                    onChange={(v) => setPicked((p) => ({ ...p, [i.usageId]: v }))}
-                    options={[
-                      { value: "", label: "" },
-                      ...optionsWithSuggestion(i).map(({ spool }) => ({
-                        value: spool.id,
-                        label: t("prints:form.spoolOption", {
-                          name: spoolName(t, spool),
-                          weight: formatWeight(spool.remainingGrams),
-                        }),
-                      })),
-                    ]}
-                  />
-                ),
-              },
-              {
-                id: "actions",
-                header: "",
-                cell: (i) => (
-                  <span className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="primary"
-                      disabled={!spoolOf(i) || assign.isPending}
-                      onClick={() =>
-                        assign.mutate({
-                          usageId: i.usageId,
-                          spoolId: spoolOf(i),
-                          grams: gramsOf(i),
-                        })
-                      }
-                    >
-                      {t(
-                        i.suggestedSpoolId && spoolOf(i) === i.suggestedSpoolId
-                          ? "prints:review.accept"
-                          : "prints:review.assign",
-                      )}
-                    </Button>
-                    <Button onClick={() => setAdding(i)}>
-                      <Plus className="size-4" aria-hidden />
-                      {t("prints:review.addSpool")}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      disabled={dismiss.isPending}
-                      onClick={() => dismiss.mutate([i.usageId])}
-                    >
-                      {t("prints:review.skip")}
-                    </Button>
-                  </span>
-                ),
-              },
+              // The spool picker and the row buttons need prints write, as the tick boxes do.
+              ...(mayAssign ? spoolColumns : []),
             ]}
           />
         )

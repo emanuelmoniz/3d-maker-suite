@@ -56,8 +56,8 @@ Press a column header to sort. The list is sorted by **Remaining** at first. **F
 | Field | What it means | Required | Example |
 |---|---|---|---|
 | **Number** | The spool's number, shown before its name. Leave it empty for the next free number. Each number is used once, archived spools too | No | `12` |
-| **Brand** | The filament brand. You can add one from the list | No | `Bambu Lab` |
-| **Material** | The material. You can add one from the list | Yes | `PLA` |
+| **Brand** | The filament brand. **Add brand** next to it adds one | No | `Bambu Lab` |
+| **Material** | The material. **Add material** next to it adds one | Yes | `PLA` |
 | **Name** | The filament line. Leave it empty for the material alone | No | `PLA Basic` |
 | **Color** | The colour, picked on a colour chooser. It starts grey | Yes | Red |
 | **Color name** | What you call the colour | No | `Jade White` |
@@ -107,7 +107,7 @@ Empty values show **Not set**.
 
 ### Projects and prints
 
-Two tables list the **Projects** and the **Prints** that took filament from this spool. They work like the main lists on **Projects** and **Prints**. With none, the page says **No project has used this spool yet.** and **No print has used this spool yet.**
+Two tables list the **Projects** and the **Prints** that took filament from this spool. They have the same columns and filters as the main lists on [Projects](Projects.md#projects-list) and [Prints](Prints.md#prints-list), with **Show archived**. With none, the page says **No project has used this spool yet.** and **No print has used this spool yet.**
 
 ## Adjust the weight
 
@@ -159,7 +159,7 @@ The spool stays, with its weight and history, and stays linked to its other libr
 - The default low weight warning is in [Filament settings](Filament-Settings.md#general).
 - The gear on **Alerts** has the low spool alert and who gets it.
 - Brands, materials and presets are in the **Catalog**.
-- **Settings → Costs** has the cost figures that use a spool's price.
+- [Quotes settings](Quotes-Settings.md) has the cost figures that use a spool's price.
 
 ## Limits and tips
 

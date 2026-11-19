@@ -7,7 +7,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 const { roots } = schema;
 
 /**
- * Settings → Server's This server (Step 12 of 6.1.0): its CPU, memory, the drives of the data
+ * The This server card on Settings (Step 12 of 6.1.0): its CPU, memory, the drives of the data
  * directory and of the server's project folders, and its addresses. Read live, never stored.
  */
 export const serverSystemRoutes =

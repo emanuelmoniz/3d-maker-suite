@@ -54,7 +54,7 @@ Press **Save**, and the card says **Saved.** With a token stored, the box says *
 
 Pick what you get for each kind of alert. The card says **Pick what you get. Same as role follows {role}, also when it changes later. Notify also sends it to your email or ntfy below.**
 
-Each kind has a list:
+Each kind is listed by the name it has on the Alerts page, see [Which alerts exist](Alerts.md#which-alerts-exist). Each has a list:
 
 | Choice | What it does |
 |---|---|

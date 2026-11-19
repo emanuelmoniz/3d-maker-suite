@@ -41,6 +41,48 @@ test("print review: sort and filter the queue, an empty result keeps the table",
   await expect(rows).toHaveCount(4);
 });
 
+test("print review: a viewer sees the queue without the spool picker or buttons", async ({
+  page,
+  app,
+}) => {
+  const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
+    adapterId: "mock",
+    secrets: { token: "t" },
+  });
+  await app.api("PATCH", `/api/integrations/${id}`, {
+    policies: [{ type: "prints", mode: "auto", frequency: "1h" }],
+  });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "printers" });
+  await app.api("POST", `/api/integrations/${id}/sync`, { type: "prints" });
+  const password = "correct horse";
+  await app.api("POST", "/api/auth/setup", {
+    displayName: "Ana Admin",
+    email: "ana@example.com",
+    password,
+  });
+  await page.request.post("/api/auth/login", { data: { email: "ana@example.com", password } });
+  await page.request.post("/api/users", {
+    data: {
+      displayName: "Vic Viewer",
+      email: "vic@example.com",
+      password,
+      roleId: "00000000-0000-4000-8000-000000000003",
+    },
+  });
+  await page.context().clearCookies();
+  await page.request.post("/api/auth/login", { data: { email: "vic@example.com", password } });
+
+  await page.goto("/prints/review");
+  const rows = page.getByRole("region", { name: /./ }).getByRole("row");
+  await expect(rows).toHaveCount(4);
+  await expect(page.getByRole("columnheader", { name: "Used" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Spool" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Assign" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add new spool" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Don't track" })).toHaveCount(0);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+});
+
 test("print review: prints can be imported with no project (calibration prints)", async ({
   page,
   app,

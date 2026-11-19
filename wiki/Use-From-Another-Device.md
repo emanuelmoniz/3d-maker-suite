@@ -9,7 +9,7 @@ Anyone who can change the app's host setting and the firewall of the machine tha
 ## Before you start
 
 - The machine that runs the app is on and connected to the same network (Wi-Fi or cable) as your device.
-- You know the machine's address, for example `192.168.1.20`. **Settings → Network** shows the machine's network addresses in **This server**. In Docker, use the address of the server or NAS instead.
+- You know the machine's address, for example `192.168.1.20`. The **This server** card in **Settings** shows the machine's network addresses. In Docker, use the address of the server or NAS instead.
 - You have an admin account, or you can set `APP_PASSWORD`. See [First run](First-Run.md).
 
 ## Let the app listen on the network
@@ -18,7 +18,7 @@ By default the app answers only on the machine itself (`127.0.0.1`). Change that
 
 1. Open **Settings → Network**.
 2. Set **Host** to `0.0.0.0`. Leave **Port** at `4300`, or pick another.
-3. Save, then click **Restart server**. If the app doesn't restart by itself, stop it and start it again.
+3. Click outside the box to save it, then click **Restart server** at the top right of the page. If the app doesn't restart by itself, stop it and start it again.
 
 You can also set `HOST=0.0.0.0` as an environment variable, see [Configuration](Configuration.md). Docker already does this.
 
@@ -68,7 +68,7 @@ An address like `192.168.1.20` can change. Give the machine a fixed address in y
 - **The page doesn't open.** Check that both devices are on the same network, that the host is `0.0.0.0` and the app was restarted, and that the firewall allows port 4300.
 - **`403 forbidden_host`.** The app doesn't know that address. Add it to `APP_ALLOWED_HOSTS` and restart, or set `APP_PASSWORD`.
 - **A password prompt from the browser.** `APP_PASSWORD` is set and no account exists yet. Type any user name and the password.
-- **It worked yesterday and not today.** The machine's address changed. Check **This server** in **Settings → Network**, and give the machine a fixed address.
+- **It worked yesterday and not today.** The machine's address changed. Check the **This server** card in **Settings**, and give the machine a fixed address.
 
 ## Related pages
 

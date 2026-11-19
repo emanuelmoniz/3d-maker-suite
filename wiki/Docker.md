@@ -103,7 +103,7 @@ To keep the data in a normal folder of the server instead, replace the volume li
 
 ## Project folders
 
-The container only sees what you mount. Mount each folder of 3D files, then add the path **inside the container** in **Settings → Projects**:
+The container only sees what you mount. Mount each folder of 3D files, then add the path **inside the container** in **Projects settings** (the gear on **Projects**):
 
 ```yaml
     volumes:

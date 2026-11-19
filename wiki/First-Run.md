@@ -45,11 +45,11 @@ A request addressed to `localhost` from the server itself never needs the token.
 
 A short order that works for most people:
 
-1. **Settings → Network.** Check the host and port. Turn on **Start at login** if the app should be there after a restart. To reach the app from other devices, see [Use from another device](Use-From-Another-Device.md).
+1. **Settings.** In **Network**, check the host and port. In **General**, turn on **Start at login** if the app should be there after a restart. To reach the app from other devices, see [Use from another device](Use-From-Another-Device.md).
 2. **Printers.** Add your printers, by hand or through an integration.
-3. **Settings → Projects.** Add the folders that hold your 3D files. In Docker, use the path inside the container, for example `/projects/files`.
+3. **Projects settings.** Open **Projects**, then the gear. Add the folders that hold your 3D files. In Docker, use the path inside the container, for example `/projects/files`.
 4. **Filament.** Add your spools.
-5. **Settings → Costs.** Set your currency, electricity price and labour rate, so costs and quotes are right from the start.
+5. **Quotes settings.** Open **Quotes**, then the gear. Set your currency, electricity price and labour rate, so costs and quotes are right from the start.
 6. **Settings → Users.** Add the people who need an account and choose their roles.
 
 ## Limits and tips

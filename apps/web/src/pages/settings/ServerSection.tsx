@@ -359,7 +359,7 @@ export function ServerSection() {
 }
 
 /**
- * Settings → Server's This server: its CPU, memory, the disks of the data directory and project
+ * the This server card on Settings: its CPU, memory, the disks of the data directory and project
  * folders, and its addresses, refreshed every 30 s while the page is open (Step 12 of 6.1.0).
  */
 export function ThisServer() {

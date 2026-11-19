@@ -53,7 +53,7 @@ Printers that are read on your network ([Bambu LAN](Bambu-LAN.md), [Moonraker](M
 
 ## Related settings
 
-- **Settings → Costs** has the energy price and the printer and accessory lifetime.
+- [Quotes settings](Quotes-Settings.md) has the energy price and the printer and accessory lifetime.
 - The review level of prints is in **Prints → Settings**.
 
 ## Limits and tips

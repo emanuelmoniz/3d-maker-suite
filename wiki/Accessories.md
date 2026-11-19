@@ -62,12 +62,12 @@ Press a column header to sort. Most columns have a filter too. **State** is filt
 | **State** | Its state. The first one in your list is used for a new accessory | Yes | **Working** |
 | **Typical power (W)** | Used to estimate energy for the prints it is on | No | `30` |
 | **Purchase date** | When you bought it | No | `2026-03-14` |
-| **Purchase price** | What you paid, in your currency | No | `120.00` |
+| **Purchase price (EUR)** | What you paid, in your currency, which the label shows | No | `120.00` |
 | **Warranty ends** | The date the warranty ends. Unlike a printer's, an accessory's ending warranty raises no alert | No | `2028-03-14` |
 | **Warranty notes** | Where the receipt is, who to call | No | `Shop receipt in the drawer` |
 | **Tags** | Your own labels | No | `spare` |
 
-The **Costs** group has three fields. Each one starts as **Default (…)**, which uses the value in **Settings → Costs**. Pick another value to change it for this accessory only.
+The **Costs** group has three fields. Each one starts as **Default (…)**, which uses the value in [Quotes settings](Quotes-Settings.md). Pick another value to change it for this accessory only.
 
 | Field | What it means |
 |---|---|
@@ -81,7 +81,7 @@ If the number is taken, the form says **Another accessory already has this numbe
 
 ![An accessory's page](../docs/images/accessory.png)
 
-Press an accessory's name to open its page. The title has its type and an **Archived** label if it is archived. The buttons at the top right are **Correct usage**, **Edit** and **Archive**, and need **Manage**.
+Press an accessory's name to open its page. The title has its type and an **Archived** label if it is archived. The buttons at the top right are **Correct usage**, **Edit**, **Archive** (or **Restore**) and **Delete**, and need **Manage**. See [Archive and delete](Archive-and-Delete.md).
 
 ### Details
 
@@ -165,7 +165,7 @@ The accessory stays in its history with that date. Prints the printer makes afte
 
 ## Related settings
 
-- **Settings → Costs** has the default lifetime, **Count in costs** and **Include maintenance in costs** for accessories.
+- [Quotes settings](Quotes-Settings.md) has the default lifetime, **Count in costs** and **Include maintenance in costs** for accessories.
 - The states are in [Printers settings](Printers-Settings.md#printers).
 - Maintenance tasks for accessories are on [Maintenance](Maintenance.md).
 
@@ -183,7 +183,7 @@ The accessory stays in its history with that date. Prints the printer makes afte
 | The **Accessories** tab doesn't show | Your role has no **Printers** right. With only **Maintenance** you see that tab |
 | No **Add accessory** button | Adding needs **Printers** with **Manage** |
 | **Put on a printer** has no printers to choose | Add a printer first. Archived printers are not listed |
-| **Remove the accessory from its printer first** on Archive | Take it off its printer, then archive it |
+| **Remove it from its printer first.** on Archive | Take it off its printer, then archive it |
 | **Another accessory already has this number. It may be archived.** | Use another number, or leave the field empty |
 | **Couldn't save the accessory.** | Check the required fields and try again. If it keeps failing, see [Troubleshooting](Troubleshooting.md) |
 

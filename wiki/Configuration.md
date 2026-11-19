@@ -79,8 +79,8 @@ The folder holds the database, thumbnails, backups, the saved host, port and pub
 
 Everything else is a setting in the app, stored in the database. It is not an environment variable, and it moves with a backup.
 
-- **Settings → Network:** host, port, public address, **Start at login**, **Restart server** and **Stop server**.
-- **Settings → General:** date and time format, tags, **User accounts**.
+- **Settings → Network:** host, port and public address. **Restart server** and **Stop server** are at the top right of **Settings**.
+- **Settings → General:** date and time format, tags, **User accounts**, **Hub** and **Start at login**.
 - **Settings → Branding:** the app name, logo and favicon.
 - **Settings → About & updates:** the update channel, **Stable** or **Dev**. Stable is the default.
 - Each module's own settings: costs, printers, projects, prints, alerts, integrations and more.

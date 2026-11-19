@@ -68,7 +68,7 @@ function Row({
 
 /**
  * A machine's live CPU, memory, disks and addresses (Step 12 of 6.1.0): the machine page's System
- * section and Settings → Server's This server. `addressNote`: what to say under the addresses
+ * section and the This server card on Settings. `addressNote`: what to say under the addresses
  * (where the hub sees a connector from, or why none show in Docker).
  */
 export function SystemInfo({ system: s, addressNote }: { system: Info; addressNote?: string }) {

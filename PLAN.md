@@ -4550,7 +4550,7 @@ Do Step 24 of the Wiki plan in PLAN.md.
 Do Step 25 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 26 - Full review against the app
+### [x] Step 26 - Full review against the app
 **Model:** Opus · **Effort:** High
 **Scope:**
 - Walk all 93 screens at desktop and phone width with the wiki open beside them, as admin, editor and viewer.
@@ -4601,6 +4601,8 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 - **Found while writing Step 22, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
   - **A slicer on this computer slices only once its program path is typed in, and nothing says so.** A new Bambu Studio or OrcaSlicer install on this server never fills in **Slicer program**. **Use as slicer** looks on, but `available()` in `apps/server/src/integrations/capabilities.ts` drops slicing until that path exists. The only hint, `integrations:slicer.pathHint`, still says it is "used by Open in slicer", a button removed in 5.6.0. Detect the program like the config folder (the `desktop` descriptor already knows the install paths), or say on the card that slicing needs it, and reword the hint. Then update the **A slicer installed on this server** section of `wiki/Slicers.md`.
   - **`docs/open-in-slicer.md` shows a broken Windows path** (`C:\Program Files\Bambu Studioambu-studio.exe`), and `docs/bambu-cloud.md` says **Track usage** on spools is on by default, but a new account saves it off. Step 25 turns both guides into pointers, so only check that the wiki is right.
+- **Found while reviewing in Step 26, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
+  - **Pages open by their address without the right.** The module settings pages send someone without the right back, but other pages don't. A Viewer who types or bookmarks an address gets a form with **Save**, and saving shows only the banner **Your role doesn't allow that.** This happens on every add and edit form (printers, accessories, maintenance tasks, spools, catalog brands, models and materials, projects, prints, quotes, orders, clients), `/integrations/new` and `/integrations/$id/edit`, `/projects/settings/folders/*` and `/users/roles/*`. An alert or a computer the person may not see shows an empty **Alert** page, or **This device doesn't exist anymore.** Guard these routes as `ConfigPage` does (send back to the list, or show the form read-only), and say "You can't open this" instead of "doesn't exist" when the item exists. Then update the **Signing in** items of `wiki/Troubleshooting.md`.
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.

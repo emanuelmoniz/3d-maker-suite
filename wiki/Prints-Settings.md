@@ -90,7 +90,7 @@ A printer on your network has its own line, **Record prints from** the printer's
 
 ## Related settings
 
-- **Settings → Costs** has the energy price and the cost figures of a print.
+- [Quotes settings](Quotes-Settings.md) has the energy price and the cost figures of a print.
 - The gear on **Alerts** has the alert for filament that waits for review.
 - A printer's own review level and its **Record prints** switch are on [Printers](Printers.md).
 

@@ -41,7 +41,7 @@ Choices in the settings:
 
 The numbers come from the same data as the **Stats** page, with the same rules. **Low spools** uses the low-spool level set in the app's settings. **Maintenance due** lists only what is not on time yet; it says **Nothing due. All caught up.** when all is fine.
 
-When a widget has nothing to show, it says so in plain words, for example **No printers yet.** or **No prints logged yet.** The **Live status** card also says **No printer reports what it is doing yet.** and, if you may set up integrations, links to **Integrations**.
+When a widget has nothing to show, it says so in plain words, for example **No printers yet.** or **No prints logged yet.** The **Live status** card also says **No printer reports what it is doing yet.** and, if you may set up integrations, has the link **Connect one in Integrations**.
 
 ### Customize
 

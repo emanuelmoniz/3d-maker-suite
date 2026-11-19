@@ -113,7 +113,7 @@ The row shows the progress: **Downloading {version}…**, **Checking the downloa
 | **Update to {version}** | Installs a newer version. The old one stays until the new one starts |
 | **Install another version** | Opens the version list again |
 | **Try again** | After a failed install |
-| **Remove slicer** | Deletes the download from this server. Imported presets stay. Slicing stops until you install again |
+| **Remove slicer** | Asks **Remove {name}'s slicer?**, then deletes the program from this server, or from the computer. Imported presets stay. Slicing stops until you install again |
 
 A daily check raises a **Slicer update** alert when a newer release exists. It counts pre-releases only when one is installed. Installing or removing resolves it. A slice remembers the slicer version it was made with: a new version marks it outdated, and an install slices it again for projects with automatic slicing on.
 

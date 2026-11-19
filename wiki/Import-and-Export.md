@@ -82,7 +82,6 @@ Chips above the table filter by status, with their counts.
 - **Action.** Per row choose **Create**, **Update** or **Skip**, or **Use suggestion**. For matched rows, each column can overwrite the existing value with the file's, or keep your edits and fill the rest from the file.
 - **Edit a cell.** Click it. The input fits the kind of value: text, number, date, date and time, a list, a name (one you have, or a new one) or a colour. **Enter** or leaving the cell keeps the edit. **Escape** drops it. An edited cell has a bar on its left and an undo button. A value that can't be read shows its error as you type. **Id**, and the **Number** of an updating row, can't be edited.
 - **Bulk edit.** Tick rows. A bar shows how many are selected, with **Clear** and **Bulk edit…**. The form has an **Action** and one field per column, each on **Don't change**, so only what you change is applied. **Apply** writes to the selected rows. Nothing is saved until **Import**. A row that still has a problem stays selected and says why. A new filter or status chip ends the selection.
-- **Reset to suggestions** brings back the app's choices.
 - **Import.** The button counts the rows, for example **Import 12 rows**. The dialog says **A backup is taken first. If any row fails, nothing is imported.** After it, the page says **Import finished: 10 created, 2 updated.** with a **View** link to the data. If it fails, it says **Couldn't import, so nothing was changed.** with the reason.
 
 The edits are checked again when you import, and any error stops the whole import.
@@ -105,7 +104,7 @@ A row without a folder, or whose folder isn't there, is highlighted. For each ro
 - **Create folder.** The app makes it when you import. Leave the name empty to name it by number and name, like `012_Vase`.
 - **No folder.** The project is saved without one.
 
-To fix many at once, tick the rows, open **Bulk edit…** and set **Folder** to **Move to root**. Each row gets that root plus its own last folder. After the import, each folder is scanned. The **Prints** column shows the prints each project gets, and opens a list to add or remove some.
+To fix many at once, tick the rows, open **Bulk edit…** and set **Folder** to **Move to root**. Each row gets that root plus its own last folder. After the import, each folder is scanned. The **Prints** column shows the prints each project gets. Click it to open **Prints of row N**, which lists the prints it has and the ones linked by name, and **Add a print** adds another.
 
 ## Export
 
@@ -151,7 +150,7 @@ For a server with no slicer on it, such as a NAS, you can import the presets fro
 
 ![The slicer zip page](../docs/images/wiki-slicer-zip.png)
 
-The page says **Zip your slicer's config folder on the PC that has it, upload it here and review what it offers. Nothing is saved until you confirm.** Pick the **Slicer**, then:
+The page says **Zip your slicer's config folder on the PC that has it, upload it here and review what it offers. Nothing is saved until you confirm.** Pick the **Slicer**, then follow **How to get the zip** and **Upload the zip**:
 
 1. On the PC with the slicer, open its config folder: in the slicer, **Help → Show Configuration Folder**. Or find it yourself:
    - Windows: `%APPDATA%\BambuStudio` or `%APPDATA%\OrcaSlicer` (paste it into the File Explorer address bar)

@@ -45,7 +45,7 @@ Then enter the code on the connector's own page. The steps are in [Connector set
 
 ## Machine page
 
-Open a computer from the table. The title is its name, with an **Online** or **Offline** pill. Top right are **Restart connector**, **Stop connector** and **Revoke**, for those allowed to use each. While the computer is offline, a note says changes apply when it reconnects. If your browser runs on that computer, a link opens its local page.
+Open a computer from the table. The title is its name, with an **Online** or **Offline** pill. Top right are **Restart connector**, **Stop connector** and **Revoke**, for those allowed to use each. **Stop connector** asks **Stop the connector on {name}?**: it goes offline and starts again only when someone logs in on that computer or starts it by hand. While the computer is offline, a note says changes apply when it reconnects. If your browser runs on that computer, a link opens its local page.
 
 ![A machine page](../docs/images/wiki-hub-machine.png)
 
@@ -53,7 +53,7 @@ A section you can't edit shows its values as text, for example **Get projects fr
 
 ### Identity
 
-The **Name** field, saved with **Save**, and the **User** it acts as. **Change user** asks you to pick another user and makes a code. Enter it on that connector's local page. Nothing changes until you do. The computer then acts with the new user's role.
+The **Name** field, saved with **Save**, and the **User** it acts as. **Change user** opens **Change this connector's user**: pick another user, and the next dialog, **Code for {name}**, shows a one-time code. Enter it on that connector's local page. Nothing changes until you do. The computer then acts with the new user's role.
 
 ### Software
 
@@ -74,8 +74,8 @@ These need the connector online. Offline, the card says so. A connector too old 
 
 Lists the slicers found on the computer, each with its version and **installed**. The one the hub uses carries **Server's slicer**.
 
-- **Use slicer as server worker:** lets the hub send slicing to this computer. Turning it off removes its slicer installs in **Integrations**, after asking. What they imported stays.
-- With **Integrations** rights, links open **Set up** a slicer on this machine, or the slicer's card in **Integrations**. See [Slicers](Slicers.md).
+- **Use slicer as server worker:** lets the hub send slicing to this computer. Turning it off asks **Stop using {name} as a server worker?**, then removes its slicer installs in **Integrations** and uninstalls a slicer the hub installed there. What they imported stays.
+- With **Set up integrations**, links open **Set up** a slicer on this machine, or the slicer's card in **Integrations**. See [Slicers](Slicers.md).
 
 ### Slicers catalog
 
@@ -95,7 +95,7 @@ The links **Projects consumers** and **Projects sources** open the same tabs in 
 
 Two cards, **Reach printers** and **Reach spool libraries**, for devices on that computer's network that the hub can't reach itself. Its connector reads them for the hub. It never controls a printer, and it writes to a spool library only the filament your prints used and the spools they used that the library doesn't have yet.
 
-Each card lists what goes through the computer, or says **No printer goes through this machine.** Turning a switch off pauses them after asking, and keeps them on this computer until you turn it on and enable them in **Integrations** again. **Set up in Integrations** or **Open in Integrations** goes to [Integrations](Integrations.md).
+Each card lists what goes through the computer, or says **No printer goes through this machine.** Turning a switch off asks **Stop reaching printers through {name}?** (or spool libraries). **Pause and turn off** pauses them and keeps them on this computer until you turn it on and enable them in **Integrations** again. **Set up in Integrations** or **Open in Integrations** goes to [Integrations](Integrations.md).
 
 ## Hub settings
 

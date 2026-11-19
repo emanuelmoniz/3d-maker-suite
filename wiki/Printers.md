@@ -68,15 +68,15 @@ Rows never jump by themselves. While the list is sorted or filtered by **Monitor
 |---|---|---|---|
 | **Number** | The printer's number. Leave it empty on a new printer for the next free one. Another printer, even an archived one, can't have the same number | No | `3` |
 | **Name** | What you call it | Yes | `Workshop X1` |
-| **Model** | A model of the catalog. You can add a brand and a model from here. A model fills **Typical power (W)** when that is empty | Yes | `Bambu Lab A1` |
+| **Model** | A model of the catalog. **Add model** next to it adds a brand and a model from here. A model fills **Typical power (W)** when that is empty | Yes | `Bambu Lab A1` |
 | **Printer preset** | The slicer's settings for this printer, used when a plate is sliced for it. **Automatic (by model and nozzle)** lets the app choose. Picking one sets the printer's nozzle to the preset's nozzle, and the form says so | No | `Automatic` |
 | **Default process preset** | The slicer's print settings used for project plates that don't pick their own, when this is the default printer. Presets for the model are listed first | No | `0.20mm Standard` |
 | **Serial number** | The printer's serial. When a source gives it, such as Bambu LAN or Bambu Cloud, the field is read-only and says **From** that source | No | `01P00A123456789` |
 | **State** | Where the printer is in its life. The list is in [Printers settings](Printers-Settings.md#general) | Yes | **Working** |
-| **Review level** | How much of the printer's prints wait in **Filament to review**. **Use the default** follows the source, then the global level | No | **Use the default** |
+| **Review of automatic prints** | How much of the printer's prints wait in **Filament to review**. **Use the default** follows the source, then the global level | No | **Use the default** |
 | **Typical power (W)** | Used to estimate the energy of prints with no measurement | No | `120` |
 | **Purchase date** | When you got it | No | `2026-03-04` |
-| **Purchase price** | In your currency. Spread over its lifetime as wear in costs | No | `349.00` |
+| **Purchase price (EUR)** | In your currency, which the label shows. Spread over its lifetime as wear in costs | No | `349.00` |
 | **Warranty ends** | The end of the warranty | No | `2028-03-04` |
 | **Warranty notes** | Free text | No | `Shop receipt in the drawer` |
 | **Tags** | Labels you pick, when tags are on | No | |
@@ -124,7 +124,7 @@ Status is read-only. The app never controls a printer. It refreshes by itself: e
 
 ### Details
 
-The photo, with **Upload photo** and **Remove photo** for people with **Manage**. A printer with no photo of its own shows its model's picture, and **No photo** when there is none. Next to it, in a list: **Serial number**, **Prints** and **Print time** (the lifetime totals, with corrections), **Typical power**, **Purchased**, **Price**, **Warranty ends**, **Warranty notes** and the three **Costs** values. A value that isn't set says **Not set**.
+The photo, with **Upload photo** and **Remove photo** for people with **Manage**. A printer with no photo of its own shows its model's picture, and **No photo** when there is none. The card's title carries the printer's state, such as **Working**. Next to the photo, in a list: **Serial number**, **Total prints** and **Total print time** (the lifetime totals, with corrections), **Typical power**, **Purchased**, **Price**, **Warranty ends**, **Warranty notes** and the three **Costs** values. A value that isn't set says **Not set**.
 
 ### Connection
 
@@ -219,7 +219,7 @@ Which printers can report status depends on the source. Klipper printers report 
 ## Related settings
 
 - **Printers → Settings**: the default printer and the printer states. See [Printers settings](Printers-Settings.md).
-- **Settings → Costs**: the lifetime and the default for **Count in costs** and **Include maintenance in costs**.
+- [Quotes settings](Quotes-Settings.md): the lifetime and the default for **Count in costs** and **Include maintenance in costs**.
 - **Prints → Settings**: the review level for everyone.
 
 ## Limits and tips

@@ -46,7 +46,7 @@ export const useDeviceSystem = (id: string, online: boolean) =>
     retry: false,
   });
 
-/** This server's system info (Settings → Server), read live on each refresh. */
+/** This server's system info (the This server card on Settings), read live on each refresh. */
 export const useServerSystem = (enabled: boolean) =>
   useQuery({
     queryKey: ["server", "system"],

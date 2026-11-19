@@ -109,7 +109,9 @@ test("users: a custom role and an override change what a user sees", async ({ pa
   // A new role from Viewer that manages printers, picked by keyboard on the ladder.
   await page.goto("/users/roles");
   await page.getByRole("link", { name: "New role" }).click();
-  await page.getByLabel("Name").fill("Printer tech");
+  // The form, not the list's "Filter by Name" button, which matches the label while the page loads.
+  await expect(page).toHaveURL(/\/users\/roles\/new$/);
+  await page.getByRole("textbox", { name: "Name" }).fill("Printer tech");
   const printers = page.getByRole("group", { name: /^Printers and accessories/ });
   await expect(printers.getByRole("radio", { name: "Read" })).toBeChecked();
   await printers.getByRole("radio", { name: "Read" }).focus();

@@ -59,7 +59,7 @@
     "spool_low": "Spool running low",
     "spool_no_price": "Spool without price",
     "spool_no_open_date": "Spool without open date",
-    "maintenance_due": "Maintenance",
+    "maintenance_due": "Maintenance due",
     "warranty_ending": "Warranty ending",
     "sync_pending": "Sync needs review",
     "sync_success": "Sync finished",

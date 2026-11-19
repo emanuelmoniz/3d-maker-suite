@@ -46,6 +46,8 @@ The log is stored with your data, so a backup includes it. Passwords, tokens and
 - **The page asks for a setup token.** It is printed in the console of the app, or in `docker compose logs app`, while no account exists. See [First run](First-Run.md#find-the-setup-token).
 - **I can't find the token.** Restart the app and read the console again. It only prints while no account exists.
 - **I forgot the admin password.** Reset it from the server's shell with `pnpm user:reset-password you@example.com`, in Docker `docker compose exec app pnpm user:reset-password you@example.com`. The new password is printed once. Sign in with it and change it under [My account](My-Account.md#name-and-password).
+- **"Your role doesn't allow that. Ask an admin if you need it."** You opened a form or a page by its address, or from a bookmark, that your role may see but not change. Nothing was saved. Ask an admin for the right, see [Roles](Roles.md).
+- **A page is empty, or says it doesn't exist.** Your role may not see that item, for example another person's alert or computer. Go back and open it from its list.
 
 ## Updates and backups
 

@@ -36,7 +36,7 @@ Nothing. Changes save as you make them: a list saves when you pick, a text box w
 | **Tags** | Turns tags on or off everywhere. Off hides them but keeps them. Turning it back on restores them | On |
 | **User accounts** | Turns sign-in on or off, see [User accounts](#user-accounts) | On |
 | **Hub** | Lets other computers join this server, see [Hub](#hub) | Off |
-| **Start at login** | Starts the app when you sign in to this computer. Shown only when your install can do it. It is hidden in Docker and when running from source | On |
+| **Start at login** | Starts the app when you sign in to this computer. Shown only when your install can do it: the installed app and `pnpm start`. It is hidden in Docker and in `pnpm dev` | On |
 | **Data directory** | The folder that holds your database, photos and backups. Read only | `C:\Users\you\AppData\Roaming\3d-maker-suite` |
 
 ### User accounts
@@ -212,7 +212,7 @@ When your install can't update itself (Docker, a source copy), the card shows th
 |---|---|
 | **Couldn't save your last change.** | Check the connection to the server, then try again |
 | A card is missing | Your role lacks the right for it, see [Who can use it](#who-can-use-it) |
-| **Start at login** is missing | Your install can't do it, for example Docker or a source copy |
+| **Start at login** is missing | Your install can't do it, for example Docker or `pnpm dev` |
 | **Restart required** | Press **Restart server** |
 | The **Network** change has no effect | A flag or an environment variable overrides it. **In use** shows which |
 | **Turn the hub off first: it needs user accounts.** | Turn off **Hub**, then **User accounts** |

@@ -55,7 +55,7 @@ A restore replaces **all current data** with the backup. Your current data is ke
 2. Click **Restore** on the backup you want, and confirm.
 3. The app says **Backup ready. Restart the app to finish restoring.** Nothing has changed yet.
 4. Restart the app:
-   - Installed app or source install: **Settings → Network → Restart server**.
+   - Installed app or source install: **Restart server** at the top right of **Settings**.
    - Docker or NAS: `docker compose restart app`, or restart the container from the NAS.
 5. The app swaps in the backup before it opens the database. Sign in with the accounts from the backup.
 

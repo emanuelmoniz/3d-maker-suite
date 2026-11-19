@@ -118,7 +118,7 @@ The bar at the bottom has the save button, which turns on once something changed
 1. Open **Projects**, the gear, then **Add folder**.
 2. Type the path or press **Browse…**.
 3. Pick the **Project layout** that matches how you keep your files. Check the **Example**.
-4. Press the save button.
+4. Press **Save**.
 5. Go back to **Projects** and press **Scan folders**.
 
 ### Add a folder from a workstation
@@ -126,7 +126,7 @@ The bar at the bottom has the save button, which turns on once something changed
 1. Share the folder first. See [Share a workstation's folder](Projects-Settings.md#share-a-workstations-folder-with-the-server).
 2. Press **Add folder**, then choose the computer as **Source**.
 3. Press **Browse…**. It lists the folders the computer shares. Pick one.
-4. Press the save button.
+4. Press **Save**.
 
 ### Change how deep the app looks
 
@@ -140,14 +140,14 @@ The bar at the bottom has the save button, which turns on once something changed
 1. Open the folder and go to **Who can edit**.
 2. Choose **Picked users**.
 3. Tick the people under **Users who can edit**.
-4. Press the save button.
+4. Press **Save**.
 
 ### Rescan a folder on a network share
 
 1. Open the folder.
 2. Switch on **Rescan this folder periodically** if it is off.
 3. Choose a **Frequency**, and a time if you want one.
-4. Press the save button.
+4. Press **Save**.
 
 ## Related settings
 

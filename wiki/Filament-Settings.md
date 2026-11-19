@@ -52,7 +52,7 @@ A spool that came from a source shows it on its page, and can be unlinked there.
 ## Related settings
 
 - The gear on **Alerts** has the low spool alert and who gets it.
-- **Settings → Costs** has the cost figures that use a spool's price.
+- [Quotes settings](Quotes-Settings.md) has the cost figures that use a spool's price.
 - Filament brands, materials and presets are in the **Catalog**.
 
 ## Limits and tips

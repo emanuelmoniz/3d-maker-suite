@@ -133,7 +133,7 @@ A slot with no spool says **Waiting for review** or, if you chose not to track i
 
 ### Cost card
 
-The breakdown of what the print cost: filament, energy, printer wear and maintenance, and so on. The same breakdown opens from the **Cost** column of the list. The figures come from **Settings → Costs**.
+The breakdown of what the print cost: **Material**, **Energy**, **Printer wear** and **Maintenance** (the last two when they count in costs), then **Total cost**. When some filament has no price, a line says how much, because the material cost is then too low. The same breakdown opens from the **Cost** column of the list. The figures come from [Quotes settings](Quotes-Settings.md).
 
 ## Common tasks
 
@@ -165,7 +165,7 @@ The breakdown of what the print cost: filament, energy, printer wear and mainten
 ## Related settings
 
 - [Prints settings](Prints-Settings.md) has the failure reasons, the printing pace, the review level and the sources of prints.
-- **Settings → Costs** has the cost figures.
+- [Quotes settings](Quotes-Settings.md) has the cost figures.
 - The gear on **Alerts** has the alert when filament waits for review.
 
 ## Limits and tips

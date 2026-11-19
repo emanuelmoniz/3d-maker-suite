@@ -69,7 +69,7 @@ Press **Add user**. The person can sign in right away.
 
 ## User page
 
-Click a name to open the page. The title is the person's name. It has the fields below, then the rights, then **My alerts**, and a **Save** button with the state beside it: **Unsaved changes**, **No changes** or **Saved**.
+Click a name to open the page. The title is the person's name, with their email under it. It has the fields below, then the rights, then **My alerts**, and a **Save** button with the state beside it: **Unsaved changes**, **No changes** or **Saved**.
 
 | Field | What it means |
 |---|---|

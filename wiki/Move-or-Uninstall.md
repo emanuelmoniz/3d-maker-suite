@@ -10,13 +10,13 @@ Make sure you have a current backup and know where your data is. See [Backups an
 
 A backup holds your database, photos and saved logins, but not your project files. They move separately.
 
-1. **Back up on the old computer.** Go to **Settings → Backup & export**, click **Back up now**, then **Download**. Stop the app afterwards, with **Settings → Network → Stop server**, so nothing changes after the backup.
+1. **Back up on the old computer.** Go to **Settings → Backup & export**, click **Back up now**, then **Download**. Stop the app afterwards, with **Stop server** at the top right of **Settings**, so nothing changes after the backup.
 2. **Copy your project files.** Copy each project folder to the new computer. Keep the layout under each folder, because projects remember their place inside it. In Docker, mount the new folders, see [Docker](Docker.md#project-folders).
 3. **Install on the new computer.** Install the same version as the old one, or a newer one. See [Choose how to run](Choose-How-to-Run.md).
 4. **Restore.** Follow [Restore on a new or empty install](Backups-and-Restore.md#restore-on-a-new-or-empty-install). Sign in with your old accounts.
-5. **Point to the new project folders.** The old folders are still listed and a scan reports them as missing. Their projects stay. Add the new folders in **Settings → Projects**, then use **Change project folder…** with **Move files** off.
+5. **Point to the new project folders.** The old folders are still listed and a scan reports them as missing. Their projects stay. Add the new folders in **Projects settings** (the gear on **Projects**), then use **Change project folder…** with **Move files from the previous folder to the new one** off.
 6. **Set again what a backup doesn't hold:**
-   - **Settings → Network:** host, port, public address and **Start at login**.
+   - **Settings:** host, port and public address in **Network**, and **Start at login** in **General**.
    - Slicers you installed from the app: install them again in **Settings → Integrations**.
    - Environment variables or compose settings: copy them from the old computer. See [Configuration](Configuration.md).
 
@@ -24,7 +24,7 @@ Check the printers, prints and costs before you remove the old install.
 
 ## Uninstall
 
-First stop the app and turn off **Start at login**, so no entry is left behind. Both are in **Settings → Network**.
+First stop the app and turn off **Start at login**, so no entry is left behind. Both are in **Settings**: **Start at login** in the **General** card, **Stop server** at the top right.
 
 | System | Remove the program |
 |---|---|

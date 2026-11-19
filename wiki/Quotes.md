@@ -65,7 +65,7 @@ Under **Files and plates** the hint says **Pick a project, or add .3mf files fro
 - **Add .3mf files** uploads files from your computer for this quote only. They show in a list, each with a remove button. A file that isn't a `.3mf` gives **Couldn't read that file. Only .3mf files can be added.**
 - Each file has its plates. Tick the plates one print takes, and set the slicer, printer, printer preset, process preset and filaments for each. The lines work as in [Print setup of a project](Projects.md#print-setup), including **Defaults for all plates**. A project starts with its own setup. Changing it here changes only this quote.
 - A plate you untick and tick again gets its setup, and its slice, back.
-- **Slice** slices the plates that have no time and weight yet. The line next to it says **Slicing… 2 plates left.**, **Every plate is sliced and up to date.**, or what is wrong, for example **Set up a slicer in Settings > Integrations to slice.** The slicing is the one of the project: see [Slice](Projects.md#slice). A plate marked **Needs slicing** adds nothing to the cost until it is sliced.
+- **Slice** slices the plates that have no time and weight yet. The line next to it says **Slicing… 2 plates left.**, **Every plate is sliced and up to date.**, or what is wrong, for example **Set up a slicer in Settings → Integrations to slice.** The slicing is the one of the project: see [Slice](Projects.md#slice). A plate marked **Needs slicing** adds nothing to the cost until it is sliced.
 
 One print is every ticked plate once. A plate's cost uses its own printer. A plate with no printer uses your default printer, or else the first one.
 
@@ -82,7 +82,7 @@ With no project plates and no files, the card shows **Print typed in by hand**: 
 | **Grams** | The weight of one print | Yes | `50` |
 | **Price per kg** | In your currency. Empty means unknown and the cost warns about it | No | `20.00` |
 
-**Add filament** adds a line and the bin button removes one. The last line can't be removed.
+**Add filament** adds a line and the bin button, **Remove filament**, removes one. The last line can't be removed.
 
 ### Pricing
 
@@ -214,7 +214,7 @@ A 2 hour print that uses 50 g of PLA, `0.5` hours of labor, for 3 prints:
 |---|---|
 | **Couldn't load cost data. Is the server running?** | Check that the app is running, then reload |
 | **That quote no longer exists.** | It was deleted. Go back to **Quotes** |
-| **Set up a slicer in Settings > Integrations to slice.** | Connect a slicer, or type the print in by hand |
+| **Set up a slicer in Settings → Integrations to slice.** | Connect a slicer, or type the print in by hand |
 | **Could not start slicing.** | Try again. The server log has the reason |
 | The material cost is too low | Set a price on the spool, or on the material or filament preset |
 | Wear and maintenance are `0` | The printer has no purchase price or no lifetime, or **Count in costs** is off. See [Quotes settings](Quotes-Settings.md#printers) |

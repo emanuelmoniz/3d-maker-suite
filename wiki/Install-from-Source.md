@@ -33,7 +33,7 @@ Keep the terminal open while you use the app. Updates and restarts from **Settin
 
 ## Start when you sign in
 
-Turn on **Start at login** in **Settings → Network**. It runs `pnpm start` in the app's folder. On Windows a console window opens at login, and closing it stops the app. On macOS and Linux it runs without a window.
+Turn on **Start at login** in the **General** card of **Settings**. It runs `pnpm start` in the app's folder. On Windows a console window opens at login, and closing it stops the app. On macOS and Linux it runs without a window.
 
 ## Where your data is kept
 

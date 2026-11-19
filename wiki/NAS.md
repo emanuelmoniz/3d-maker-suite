@@ -27,7 +27,7 @@ Slicing needs an x64 machine, because Bambu Lab has no Linux ARM slicer. On an A
 3. Save the compose file from the [Docker](Docker.md) page there, and start it.
 4. Use a normal NAS folder for the app's data instead of a Docker volume. Replace `app-data:/data` with `/volume1/docker/3d-maker-suite/data:/data`, and delete the `volumes:` block at the bottom of the file. A normal folder is easy to include in the NAS's own backups and snapshots.
 5. Mount your 3D files folder, for example `/volume1/3d-files:/projects/files`.
-6. Start it, create the first admin and add `/projects/files` in **Settings → Projects**. The [Docker](Docker.md) page shows every step.
+6. Start it, create the first admin and add `/projects/files` in **Projects settings** (the gear on **Projects**). The [Docker](Docker.md) page shows every step.
 
 ## Run it without Docker
 

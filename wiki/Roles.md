@@ -122,7 +122,7 @@ Admin has all three. Editor and Viewer have none.
 
 ### My alerts
 
-The last card sets what the role gets for each kind of alert: **Off**, **In app** or **Notify**. It says **What users of this role get unless they change it themselves. A kind only reaches users who have its permission.** A person's own choice, in [My account](My-Account.md#my-alerts) or on their user page, wins over it.
+The last card sets what the role gets for each kind of alert: **Off**, **In app** or **Notify**. It says **What users of this role get unless they change it themselves. A kind only reaches users who have its permission.** The kinds have the same names as in [Which alerts exist](Alerts.md#which-alerts-exist). A person's own choice, in [My account](My-Account.md#my-alerts) or on their user page, wins over it.
 
 ## Common tasks
 

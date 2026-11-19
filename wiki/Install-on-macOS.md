@@ -48,11 +48,11 @@ Ctrl-click and **Open** no longer works on macOS 15. Updates downloaded inside t
 
 ## Stop the app
 
-Go to **Settings → Network** and click **Stop server**.
+Open **Settings** and click **Stop server** at the top right.
 
 ## Start when you sign in
 
-Turn on **Start at login** in **Settings → Network**. It adds a LaunchAgent for your user. An app started this way runs in the background and doesn't open the browser.
+Turn on **Start at login** in the **General** card of **Settings**. It adds a LaunchAgent for your user. An app started this way runs in the background and doesn't open the browser.
 
 ## Where things are kept
 

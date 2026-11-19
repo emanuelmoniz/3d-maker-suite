@@ -38,7 +38,7 @@ export function readCostFields(f: FormData): Values {
   };
 }
 
-/** Count in costs, lifetime and maintenance, each defaulting to Settings > Costs. */
+/** Count in costs, lifetime and maintenance, each defaulting to Quotes settings. */
 export function CostFields({ values, kind }: { values?: Values; kind: Kind }) {
   const { t } = useTranslation();
   const defaults = useCostDefaults(kind);

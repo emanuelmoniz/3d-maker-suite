@@ -13,7 +13,7 @@ When a printer or an account sends a print, the app tries to find the spool each
 | Open the page and see the table | **Prints** with **Read** |
 | Assign a spool, accept a suggestion, add a spool, or choose **Don't track** | **Prints** with **Write** |
 
-Without **Write**, the tick boxes and buttons don't show.
+Without **Write**, the table shows only **Print**, **Started**, **Filament** and **Used**: no tick boxes, no spool picker and no buttons.
 
 ## Before you start
 

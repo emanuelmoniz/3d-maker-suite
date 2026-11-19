@@ -12,6 +12,7 @@ import {
   seedPreset,
   seedPrinter,
 } from "../e2e/helpers.ts";
+import { BUILT_IN_ROLE_IDS } from "../packages/core/src/schemas/roles.ts";
 
 const IMAGES = "docs/images";
 
@@ -212,7 +213,12 @@ test("README screenshots", async ({ page, app }) => {
     data: { email: "ana@example.com", displayName: "Ana Pereira", password },
   });
   await page.request.post("/api/users", {
-    data: { email: "eva@example.com", displayName: "Eva Editor", password, role: "editor" },
+    data: {
+      email: "eva@example.com",
+      displayName: "Eva Editor",
+      password,
+      roleId: BUILT_IN_ROLE_IDS.editor,
+    },
   });
   await page.goto("/settings/users");
   await page.waitForLoadState("networkidle");
@@ -504,7 +510,12 @@ test("wiki screenshots", async ({ page, app }) => {
   });
   const eva = await page.request
     .post("/api/users", {
-      data: { email: "eva@example.com", displayName: "Eva Editor", password, role: "editor" },
+      data: {
+        email: "eva@example.com",
+        displayName: "Eva Editor",
+        password,
+        roleId: BUILT_IN_ROLE_IDS.editor,
+      },
     })
     .then((r) => r.json() as Promise<{ id: string }>);
   const roles = await page.request

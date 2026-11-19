@@ -39,11 +39,11 @@ Linux shows no warning.
 
 ## Stop the app
 
-Go to **Settings → Network** and click **Stop server**.
+Open **Settings** and click **Stop server** at the top right.
 
 ## Start when you sign in
 
-Turn on **Start at login** in **Settings → Network**. It adds an autostart `.desktop` file for your user. An app started this way runs in the background and doesn't open the browser.
+Turn on **Start at login** in the **General** card of **Settings**. It adds an autostart `.desktop` file for your user. An app started this way runs in the background and doesn't open the browser.
 
 ## Where things are kept
 

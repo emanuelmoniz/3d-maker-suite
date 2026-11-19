@@ -112,7 +112,7 @@ The card can show a message instead:
 |---|---|
 | **Reading the preset's file…** | Wait a moment |
 | **This preset was made by hand in an older version, so it has no file to read.** | Nothing to show. It was made before presets came only from a slicer |
-| The slicer's files aren't available here | Connect the slicer in **Settings → Integrations**, or upload a zip of its config folder |
+| **{slicer}'s files aren't available here, so this preset's settings can't be read.** | Press **Connect {slicer} in Integrations**, or upload a zip of its config folder |
 | The slicer no longer has this preset | It was renamed or removed in the slicer |
 | The parent preset is not in the slicer's files | The values it would give are missing |
 | A number of rows wait for your review | The slicer's files changed. What shows is the file's current settings, so it may differ from what the app uses above |

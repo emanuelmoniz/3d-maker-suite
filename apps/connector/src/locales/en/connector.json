@@ -15,7 +15,7 @@
       "unreachable": "Could not reach a hub at this address. Check the address and that the hub is running.",
       "invalidCode": "The pairing code is wrong, used or expired. Ask an admin for a new one.",
       "tooManyAttempts": "Too many wrong codes. Wait 15 minutes, then try again.",
-      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → Server."
+      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → General."
     }
   },
   "status": {
@@ -67,7 +67,7 @@
       "unreachable": "Could not reach the hub. Changing the user needs the hub online.",
       "invalidCode": "The code is wrong, used or expired. Ask an admin for a new one.",
       "tooManyAttempts": "Too many wrong codes. Wait 15 minutes, then try again.",
-      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → Server."
+      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → General."
     }
   },
   "stop": {

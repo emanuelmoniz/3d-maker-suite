@@ -34,7 +34,7 @@ Open **Projects**. The page header has three buttons:
 - **New project** opens [the add form](#add-or-edit-a-project).
 - The gear opens Projects settings.
 
-With no projects yet, the page says **No projects yet** and **Add the folders that hold your models in Settings and scan them, or create a project by hand.** Its **Project folders** button opens Projects settings.
+With no projects yet, the page says **No projects yet** and **Add the folders that hold your models in Projects settings and scan them, or create a project by hand.** Its **Project folders** button opens Projects settings.
 
 A project is named by its number and name, for example `001-Dragon`.
 
@@ -96,7 +96,7 @@ When you edit, only the fields you changed count as edited. Those are kept when 
 | **Number** | The project's number. On the add form, leave it empty to use the folder's number, or the next free one. Another project can't have the same number, even an archived one. The form then says **Another project already has this number. It may be archived.** | No | `12` |
 | **Name** | The name shown everywhere | Yes | `Dragon` |
 | **Design page** | A MakerWorld, Printables or Thingiverse link, or any web address. It shows as a button on the project's page | No | `https://makerworld.com/...` |
-| **Owner** | Who owns the project. Only an administrator sees it, and not for a folder on someone's workstation, which belongs to that workstation's user. **Nobody** is allowed | No | |
+| **Owner** | Who owns the project. Only when you edit, and only an administrator sees it. Not shown for a folder on someone's workstation, which belongs to that workstation's user. **Nobody** is allowed | No | |
 | **Folder** | Only on the add form. The full path of a folder with the model files. The folder is scanned right away. The browse button picks it | No | `D:\3d\designs\Dragon` |
 | **Create the project folder in** | Only on the add form, when **Folder** is empty and you can change files in a project folder. A folder named after the project is made there. Pick **No folder** to make a project with none. You upload its files on the next page | No | |
 | **Tags** | Toggle your tags, or type a name and press **Add tag** to make one. Shown when tags are on | No | `gift` |
@@ -197,7 +197,7 @@ Only `.3mf` and `.stl` files open in 3D. In other cases the page shows the plate
 |---|---|
 | **Loading 3D preview…** | The viewer is loading |
 | **This file type has no 3D preview.** | The file is, for example, a `.step` |
-| **This model is 41.0 MB, over the 25 MB 3D preview limit (change it in Settings). Showing the thumbnail.** | The file is bigger than **3D preview size limit (MB)** in Projects settings |
+| **This model is 41.0 MB, over the 25 MB 3D preview limit (change it in Projects settings). Showing the thumbnail.** | The file is bigger than **3D preview size limit (MB)** in Projects settings |
 | **The 3D preview could not be loaded. Showing the thumbnail.** | The viewer failed to load the file |
 
 ### Plates
@@ -220,7 +220,7 @@ Next to the plates, two cards show the cost.
 
 With nothing sliced, the card says **No estimate yet. Set up and slice the print to see it.** with a **Print setup** button that opens the print setup on the edit page. A project in a folder it doesn't have now shows no estimate.
 
-**Cost of printed copies** appears once the project has prints. It adds the cost of all of them: **Material**, **Energy**, and **Printer wear** and **Maintenance** when those are on, then **Total cost**. The lines are set in **Settings → Costs**.
+**Cost of printed copies** appears once the project has prints. It adds the cost of all of them: **Material**, **Energy**, and **Printer wear** and **Maintenance** when those are on, then **Total cost**. The lines are set in [Quotes settings](Quotes-Settings.md).
 
 Below them, the project's tags.
 
@@ -278,7 +278,7 @@ Messages you may see:
 | Message | What it means |
 |---|---|
 | **A file or folder with this name already exists.** | Pick another name |
-| **The file is over the upload limit (Settings > Projects).** | Raise **Upload size limit (MB)** in Projects settings, or upload a smaller file |
+| **The file is over the upload limit (Projects settings).** | Raise **Upload size limit (MB)** in Projects settings, or upload a smaller file |
 | **That didn't work. Check the name and try again.** | The name has a character that isn't allowed, or the folder can't be written to |
 | **Couldn't read this folder.** | The folder can't be listed. Try again |
 
@@ -341,7 +341,7 @@ Shown when a plate is ticked. Set the **Slicer**, **Printer**, **Printer preset*
 
 | Message | What to do |
 |---|---|
-| **Set up a slicer in Settings > Integrations to slice.** | Connect a slicer |
+| **Set up a slicer in Settings → Integrations to slice.** | Connect a slicer |
 | **“Name” isn't one of this slicer's presets: it's hand-made, or another slicer's.** | Import it from this slicer, pick another preset, or pick another slicer |
 | **No printer preset for “Name”.** | Import the printer model's printer presets from the slicer |
 | **No default process preset for “Name”.** | Pick a process preset for the plate, or set one on the printer |
@@ -404,7 +404,7 @@ If you leave the page without pressing **Save**, a changed setup is not saved. *
 
 - Projects settings has the project folders, how deep the app looks, the file and upload limits, the 3D preview size limit, the folders a workstation shares, and the trash of deleted files. The gear on **Projects** opens it.
 - [Printers settings](Printers-Settings.md#printers) has the default printer the cost estimate uses.
-- **Settings → Costs** has the energy, wear and maintenance figures, and the price of the material.
+- [Quotes settings](Quotes-Settings.md) has the energy, wear and maintenance figures, and the price of the material.
 - **Settings → General** has the switch for tags.
 - **Settings → Integrations** has the slicers.
 

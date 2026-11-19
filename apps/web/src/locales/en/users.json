@@ -218,31 +218,6 @@
       "off": "Off",
       "app": "In app",
       "notify": "Notify"
-    },
-    "kinds": {
-      "maintenance_due": "Maintenance due",
-      "spool_low": "Spool running low",
-      "spool_no_price": "Spool without a price",
-      "spool_no_open_date": "Spool in use without an open date",
-      "warranty_ending": "Warranty ending",
-      "sync_pending": "Sync waiting for review",
-      "sync_success": "Sync finished",
-      "sync_error": "Sync failed",
-      "slice_setup_changed": "Print setup changed",
-      "slice_failed": "Slicing failed",
-      "update_available": "App update available",
-      "slicer_update": "Slicer update available",
-      "connector_outdated": "Connector out of date",
-      "hub_conflict": "Hub file conflict",
-      "hub_mass_delete": "Mass delete on a device",
-      "preset_conflict": "Slicer preset conflict",
-      "preset_skipped": "Slicer preset skipped",
-      "preset_held": "Slicer preset deletes held",
-      "print_finished": "Print finished",
-      "print_failed": "Print failed",
-      "printer_offline": "Printer offline during a print",
-      "printer_unreachable": "Printer unreachable during a print (its connector is offline)",
-      "filament_review": "Filament waiting for a spool"
     }
   },
   "delivery": {

@@ -10,14 +10,14 @@ Open it with the gear button at the top right of the **Catalog**. The back arrow
 
 | You can | You need |
 |---|---|
-| Open **General** | **Catalog** with **Manage** |
-| Open **Sources** and **Consumers** | **Catalog** with **Manage**, or the **Run syncs** or **Review imports** right on a source that feeds the catalog |
+| Open the page and look at every tab | **Catalog** with **Read** |
+| Change the lines on **Sources**, and run or review them | **Catalog** with **Manage**, or the **Run syncs** or **Review imports** right on that source |
 | See the **Preset library** | The hub turned on, with **Catalog** access |
 | Delete, restore or resolve held deletes in the library | **Catalog** with **Write**, with a hub |
 | Switch a computer's catalog lines | **Catalog** with **Write** and the right to edit that computer |
 | Change which slicer is the hub's slicer, or the server's own slicer lines | **Set up integrations** |
 
-Someone who has only the sync or review right sees the gear open **Sources**, and no **General** tab. **Preset library** shows only with a [hub](Hub-Setup.md).
+Each control checks its own right, so with **Read** alone you can look but not change anything. Without **Catalog** at **Read** there is no gear. **Preset library** shows only with a [hub](Hub-Setup.md).
 
 ## General
 

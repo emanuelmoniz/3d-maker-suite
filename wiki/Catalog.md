@@ -179,7 +179,7 @@ The form says **Optional defaults, applied when you pick this material on a new 
 ## Related settings
 
 - [Catalog settings](Catalog-Settings.md) has the sources, the consumers and the preset library.
-- **Settings → Costs** has the figures that use a material's price and a model's power.
+- [Quotes settings](Quotes-Settings.md) has the figures that use a material's price and a model's power.
 
 ## Limits and tips
 

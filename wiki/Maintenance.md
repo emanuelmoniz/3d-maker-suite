@@ -23,7 +23,7 @@ Someone who can read only **Maintenance** (and not **Printers**) sees only this 
 
 ## Maintenance tab
 
-Open **Printers**, then **Maintenance**. It has two sections: **Due** and **Maintenance tasks**.
+Open **Printers**, then **Maintenance**. It has two sections: **Due** and **Maintenance tasks**. The gear at the top right is the same as on the other tabs: it opens [Printers settings](Printers-Settings.md). Tasks have no settings page of their own.
 
 ### Due
 
@@ -173,7 +173,7 @@ An archived task leaves **Due** and its logs stay. **Restore** brings it back. A
 ## Related settings
 
 - The gear on **Alerts** has the default warning time for tasks: days, print hours and prints before the due date.
-- **Settings → Costs** has the defaults for **Include maintenance in costs**.
+- [Quotes settings](Quotes-Settings.md) has the defaults for **Include maintenance in costs**.
 - Alerts for due and overdue tasks are shown in **Alerts**. Which people get them is set per role and per user.
 
 ## Limits and tips

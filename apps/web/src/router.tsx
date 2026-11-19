@@ -672,7 +672,8 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
-      loader: () => loadNamespace("users"),
+      // alerts: the alert kinds' names in My alerts.
+      loader: () => Promise.all(["users", "alerts"].map(loadNamespace)),
       component,
     }),
   ),
@@ -698,7 +699,8 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
-      loader: () => loadNamespace("users"),
+      // alerts: the alert kinds' names in the alerts card.
+      loader: () => Promise.all(["users", "alerts"].map(loadNamespace)),
       component,
     }),
   ),

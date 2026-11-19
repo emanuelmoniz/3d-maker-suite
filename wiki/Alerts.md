@@ -25,7 +25,7 @@ Nothing. Alerts are raised by the app itself. The menu item shows a count of the
 | **Spool running low** | A spool is at or below its low-spool level | **Filament** read |
 | **Spool without price** | A spool has no price | **Filament** read |
 | **Spool without open date** | A spool is in use but has no open date | **Filament** read |
-| **Maintenance** | A task is due soon or overdue | **Maintenance** read |
+| **Maintenance due** | A task is due soon or overdue | **Maintenance** read |
 | **Warranty ending** | A printer's warranty ends soon | **Printers** read |
 | **Printer offline** | A printer stops answering during a print for over 2 minutes | **Printers** read |
 | **Printer unreachable** | The connector of a printer went offline during a print | **Printers** read |
@@ -36,8 +36,8 @@ Nothing. Alerts are raised by the app itself. The menu item shows a count of the
 | **Print setup changed**, **Auto slice failed** | A project file changed its plates or filament, or slicing again failed | **Projects** read, and the project visible |
 | **Sync conflict** | A hub file changed in two places | **Projects** read |
 | **Preset conflict**, **Preset skipped**, **Preset deletes held** | A slicer preset changed in two places, wasn't stored, or too many were removed at once | **Catalog** write |
-| **Update available** | A new version of the app | **Server settings** |
-| **Slicer update** | A new version of a slicer | **Manage integrations** |
+| **Update available** | A new version of the app | **Server and updates** |
+| **Slicer update** | A new version of a slicer | **Set up integrations** |
 | **Connector outdated**, **Sync paused: many deletes** | A workstation needs updating, or deleted many files at once | **Manage the hub** |
 
 Most are **In app** by default. **Spool without price** and **Spool without open date** are **Off** by default. **Admin** gets every kind as **Notify**.

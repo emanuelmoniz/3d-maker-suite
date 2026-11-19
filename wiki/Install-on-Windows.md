@@ -37,11 +37,11 @@ Starting it again just opens the browser again.
 
 ## Stop the app
 
-Go to **Settings → Network** and click **Stop server**.
+Open **Settings** and click **Stop server** at the top right.
 
 ## Start when you sign in
 
-Turn on **Start at login** in **Settings → Network**, or tick the box in the installer. It adds an entry for your user. An app started this way runs in the background and doesn't open the browser.
+Turn on **Start at login** in the **General** card of **Settings**, or tick the box in the installer. It adds an entry for your user. An app started this way runs in the background and doesn't open the browser.
 
 ## Where things are kept
 

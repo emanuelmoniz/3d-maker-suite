@@ -65,7 +65,7 @@ Turning a line's switch off and on again brings back its usual setting.
 
 - **Sync now** is in the **⋯** menu of a line. It runs that line right now, whatever its schedule.
 - **Sync** sits next to **Add** on the Printers, Filament, Prints and Catalog pages. One click runs that page's data type now, in every source where it is on **Auto** and where your role may sync. Sources set to **Manual** or **Off** are left out. A page with no such source has no button.
-- A source that is already syncing is skipped. Try again in a moment.
+- When all went well, a short line next to the button says **Synced: 12 rows written.** When exactly one source left rows to review, the review page opens. Otherwise a **Sync result** dialog lists each source and data type with what it did: rows written, rows that wait for review with a **Review** link, or why it failed. A source that is already syncing says so: try again in a moment.
 
 ### What to sync
 
