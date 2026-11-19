@@ -34,6 +34,8 @@
 
 ### Work
 
+- [Projects](Projects.md)
+
 ### Accounting
 
 ### Insights

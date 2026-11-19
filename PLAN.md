@@ -4401,7 +4401,7 @@ Do Step 14 of the Wiki plan in PLAN.md.
 
 ## Phase 60 - Work
 
-### [ ] Step 15 - Projects
+### [x] Step 15 - Projects
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - **Projects:** the grid and list, filters, scanning folders, the project form, and project details with the gallery, 3D preview, plates, costs, prints, quotes, orders, files and every file dialog.
@@ -4593,6 +4593,9 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 - **Found while writing Step 12, needs its own plan step** (the wiki pages state today's behaviour and must be updated when this is fixed):
   - **Accessories raise no warranty alert.** An accessory has **Warranty ends** and **Warranty notes**, but `warranty_ending` in `apps/server/src/alerts/evaluate.ts` only checks printers (30 days ahead). Add accessories to the check (not archived, same lead time, one alert per accessory, resolved on archive like printers), show the accessory's name in the alert, and cover it with tests. Then update `wiki/Accessories.md` (the **Warranty ends** row), the alerts docs and the Alerts wiki page.
   - **Maintenance logs can't be seen, edited or deleted.** **Log done** saves a record (date, cost, notes, usage at that time), but no screen lists the records: only **Last done** shows. A wrong date, cost or note can't be fixed. Add a **History** list of logged work to the task page and to each printer's and accessory's page (date, who, cost, notes), and let a user with **Maintenance** **Manage** edit the date, cost and notes of a record or delete it (the due date recounts from the previous record). Then update `wiki/Maintenance.md` (**Log maintenance done**, **Task details**, Limits), `wiki/Printers.md`, `wiki/Accessories.md`, `wiki/Archive-and-Delete.md` (it says maintenance records can't be deleted) and `docs/printers.md`.
+- **Found while writing Step 15, needs its own plan step** (the wiki page states today's behaviour and must be updated when this is fixed):
+  - **Collections can't be made or edited in the app.** The **Filter by collection** list on **Projects** only shows when a collection exists, but only the API (`/api/collections`) creates one. Add a place in the app to create, rename, fill and delete collections, or take the filter out. Then update `wiki/Projects.md` (the **Filter by collection** row).
+  - **Scan folders shows to people who can't use it.** The button has no **Write** check, but `POST /api/projects/scan` needs **Write** on **Projects**, so a reader presses it and gets **Couldn't start the scan.** Hide it without **Write** (as **New project** is), or let a reader scan. Then fix the rights table in `wiki/Projects.md`.
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.
