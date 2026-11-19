@@ -4267,7 +4267,7 @@ Do Step 4 of the Wiki plan in PLAN.md.
 
 ## Phase 58 - Install and deploy
 
-### [ ] Step 5 - Choose how to run, and desktop installs
+### [x] Step 5 - Choose how to run, and desktop installs
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Choose-How-to-Run:** a simple comparison of PC, Docker, NAS, server and hub, with a recommendation for each kind of user.
