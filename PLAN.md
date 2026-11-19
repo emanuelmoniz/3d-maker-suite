@@ -4374,7 +4374,7 @@ Do Step 11 of the Wiki plan in PLAN.md.
 Do Step 12 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 13 - Filament
+### [x] Step 13 - Filament
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Filament:** the spools list, add and edit form, spool details, adjusting weight, and unlinking from a source.
@@ -4592,6 +4592,7 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
   - **The connector asks for a desktop.** Linux needs an application menu to open the pair page, so a headless Linux machine can't be paired. **Planned: Plan 6.3.0** (connector on ARM, Docker and a NAS).
 - **Found while writing Step 12, needs its own plan step** (the wiki pages state today's behaviour and must be updated when this is fixed):
   - **Accessories raise no warranty alert.** An accessory has **Warranty ends** and **Warranty notes**, but `warranty_ending` in `apps/server/src/alerts/evaluate.ts` only checks printers (30 days ahead). Add accessories to the check (not archived, same lead time, one alert per accessory, resolved on archive like printers), show the accessory's name in the alert, and cover it with tests. Then update `wiki/Accessories.md` (the **Warranty ends** row), the alerts docs and the Alerts wiki page.
+  - **Maintenance logs can't be seen, edited or deleted.** **Log done** saves a record (date, cost, notes, usage at that time), but no screen lists the records: only **Last done** shows. A wrong date, cost or note can't be fixed. Add a **History** list of logged work to the task page and to each printer's and accessory's page (date, who, cost, notes), and let a user with **Maintenance** **Manage** edit the date, cost and notes of a record or delete it (the due date recounts from the previous record). Then update `wiki/Maintenance.md` (**Log maintenance done**, **Task details**, Limits), `wiki/Printers.md`, `wiki/Accessories.md`, `wiki/Archive-and-Delete.md` (it says maintenance records can't be deleted) and `docs/printers.md`.
 - Translated wiki pages (only EN ships for now).
 - A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
 - Reading the guide inside the app without internet.

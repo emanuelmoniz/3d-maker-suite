@@ -26,6 +26,8 @@
 - [Printers settings](Printers-Settings.md)
 - [Accessories](Accessories.md)
 - [Maintenance](Maintenance.md)
+- [Filament](Filament.md)
+- [Filament settings](Filament-Settings.md)
 
 ### Work
 
