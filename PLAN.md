@@ -4238,7 +4238,7 @@ Do Step 1 of the Wiki plan in PLAN.md.
 Do Step 2 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Publish workflow  **[plan mode]**
+### [x] Step 3 - Publish workflow  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - **Manual, by the user:** enable the wiki, create the first page on GitHub (its repository doesn't exist until then), and confirm "Restrict editing to collaborators only" is ticked.
