@@ -4563,7 +4563,7 @@ Do Step 25 of the Wiki plan in PLAN.md.
 Do Step 26 of the Wiki plan in PLAN.md. Report each screen as you finish it.
 ```
 
-### [ ] Step 27 - First publish
+### [x] Step 27 - First publish
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Run the publish workflow by hand from `dev`.
