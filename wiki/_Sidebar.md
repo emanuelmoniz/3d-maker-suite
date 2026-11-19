@@ -64,6 +64,7 @@
 - [Roles](Roles.md)
 - [Import and export](Import-and-Export.md)
 - [Logs](Logs.md)
+- [Hub management](Hub-Management.md)
 
 ### Integrations
 

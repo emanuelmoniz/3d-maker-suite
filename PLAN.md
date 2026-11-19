@@ -4521,7 +4521,7 @@ Do Step 22 of the Wiki plan in PLAN.md.
 Do Step 23 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 24 - Hub management
+### [x] Step 24 - Hub management
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Hub-Management:** the devices table, pairing, the machine page with every card, hub settings, and the preset library.

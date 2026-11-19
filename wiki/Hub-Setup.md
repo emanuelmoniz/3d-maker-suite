@@ -102,6 +102,7 @@ Turn **Hub** off in **Settings → General**. Nothing is deleted. The connectors
 ## Related pages
 
 - [Connector setup](Connector-Setup.md)
+- [Hub management](Hub-Management.md)
 - [Choose how to run](Choose-How-to-Run.md)
 - [Server and remote access](Server-and-Remote-Access.md)
 - [First run](First-Run.md)
