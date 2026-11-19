@@ -1,4 +1,4 @@
-# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0, 6.1.0, Wiki, 6.2.0 and 6.3.0
+# 3D Maker Suite - Development Plans 4.1.0, 4.1.1, 4.2.0, 5.0.0, 5.1.0, 5.2.0, 5.3.0, 5.4.0, 5.5.0, 5.6.0, 6.0.0, 6.1.0, Wiki, Wiki Install, 6.2.0 and 6.3.0
 Repo: `3d-maker-suite`
 
 How to use:
@@ -4577,54 +4577,146 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 
 ## Out of scope for the Wiki plan (later plans)
 - **Found while writing Step 6, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
-  - **First admin from another device in Docker.** The shipped `docker-compose.yml` (`HOST: 0.0.0.0`, no `APP_PASSWORD`) answers `403 forbidden_host` to every address except `localhost` until the first admin exists, yet the log offers a setup token "from another device". A phone on the LAN can't reach the setup page unless `APP_ALLOWED_HOSTS` names the server's address.
-  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. Slicing stays x64 only. **Planned: Plan 6.3.0, Step 4** (with the connector image).
-  - **Connector on a NAS.** **Planned: Plan 6.3.0.** The connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build or Docker image. A headless or ARM NAS can't be paired. `docs/hub.md` still says a NAS "joins by running a small connector".
-  - **File owner in Docker.** **Planned for the connector image: Plan 6.3.0, Steps 2 and 5;** the app image still needs it. The image runs as `root`, so files and folders the app creates in a mounted project folder belong to `root` on the NAS. Add a way to pick the user (`PUID`/`PGID` or `user:`).
+  - **First admin from another device in Docker.** **Planned: Plan 6.3.0, Step 1b.** The shipped `docker-compose.yml` (`HOST: 0.0.0.0`, no `APP_PASSWORD`) answers `403 forbidden_host` to every address except `localhost` until the first admin exists, yet the log offers a setup token "from another device". A phone on the LAN can't reach the setup page unless `APP_ALLOWED_HOSTS` names the server's address.
+  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. Slicing stays x64 only. **Planned: Plan 6.3.0, Step 4** (with the connector image, native ARM runners, slicer greyed out on ARM) **and Step 3** (the app's `linux-arm64` archive).
+  - **Connector on a NAS.** **Planned: Plan 6.3.0** (pairing by environment variables, Docker for NAS and servers, a systemd archive for a Pi or a server without Docker, no LAN status page, sync folder answers and change user from the hub: agreed with the user, written in Steps 1, 2 and 7). The connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build or Docker image. A headless or ARM NAS can't be paired. `docs/hub.md` still says a NAS "joins by running a small connector".
+  - **File owner in Docker.** **Planned: Plan 6.3.0, Step 4** (`PUID`/`PGID`, one start script for the app and connector images, agreed with the user). The image runs as `root`, so files and folders the app creates in a mounted project folder belong to `root` on the NAS. Add a way to pick the user (`PUID`/`PGID` or `user:`).
 - **Found while writing Step 8, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
-  - **Rollback is limited.** Only the last 5 in-app updates can be rolled back, and only while their `update-…` backup exists (an installed app also needs that version's folder). Docker and NAS installs have no in-app update or rollback, so going back means setting the older image tag and restoring a backup by hand. Decide whether Docker gets a rollback path, and whether more history is kept.
-  - **A backup leaves out settings that live outside the database.** `config.json` (saved host, port, public address) and the slicers installed from the app (`slicers/`) aren't in a backup, so a move or restore means setting them again. Add them to the backup, or move the settings into the database.
-  - **A newer backup is refused by format, not by app version.** `stageRestore` only compares the backup's `FORMAT`, so a backup made by a newer app version with the same format loads into an older app, whose database migrations may not match. Store the app version in the manifest and refuse a newer one.
-  - **Restore needs a manual restart.** The app says "Restart the app" and the user must find **Restart server** (or `docker compose restart app`). Offer a restart button right in the restore message, and check that it applies the restore in Docker.
-  - **Restore on a new install needs a temporary admin.** Upload and restore sit behind sign-in, so a fresh install must create a throwaway first admin before restoring (files over 2 GB can only be copied into `backups/` by hand). Offer restore from the first-run screen, and a way past the 2 GB upload limit.
-  - **Move or uninstall leaves things by hand.** Uninstall keeps the data folder and, on macOS and Linux, the user must delete the program folders and autostart entries themselves. Consider an uninstall command or a **Remove all data** option, and a `pre-restore` folder that cleans itself up.
+  - **Rollback is limited.** **Planned: Plan 6.3.0, Step 8** (a backup before every migration on every install, rollback guided by the app in Docker, history stays at 5; agreed with the user). Only the last 5 in-app updates can be rolled back, and only while their `update-…` backup exists (an installed app also needs that version's folder). Docker and NAS installs have no in-app update or rollback, so going back means setting the older image tag and restoring a backup by hand. Decide whether Docker gets a rollback path, and whether more history is kept.
+  - **A backup leaves out settings that live outside the database.** **Planned: Plan 6.3.0, Step 8b** (public address into the database, host and port stay per machine, slicers reinstalled after a restore, `models/` added, a guard test; agreed with the user). `config.json` (saved host, port, public address) and the slicers installed from the app (`slicers/`) aren't in a backup, so a move or restore means setting them again. Add them to the backup, or move the settings into the database.
+  - **A newer backup is refused by format, not by app version.** **Planned: Plan 6.3.0, Step 8c** (compare migrations at restore and at start; agreed with the user). `stageRestore` only compares the backup's `FORMAT`, so a backup made by a newer app version with the same format loads into an older app, whose database migrations may not match. Store the app version in the manifest and refuse a newer one.
+  - **Restore needs a manual restart.** **Planned: Plan 6.3.0, Step 8d** (restore and restart in one go, a banner while one waits, Docker exits non-zero; agreed with the user). The app says "Restart the app" and the user must find **Restart server** (or `docker compose restart app`). Offer a restart button right in the restore message, and check that it applies the restore in Docker.
+  - **Restore on a new install needs a temporary admin.** **Planned: Plan 6.3.0, Step 8e** (restore from the first-run screen, pick a zip from `backups/`, uploads streamed to disk; agreed with the user). Upload and restore sit behind sign-in, so a fresh install must create a throwaway first admin before restoring (files over 2 GB can only be copied into `backups/` by hand). Offer restore from the first-run screen, and a way past the 2 GB upload limit.
+  - **Move or uninstall leaves things by hand.** **Planned: Plan 6.3.0, Step 8f** (Uninstall… in the app on every install, the Windows uninstaller asks about data and removes autostart, undo restore and a self-cleaning `pre-restore`) **and Step 7b** (connectors follow the hub's new address); agreed with the user. Uninstall keeps the data folder and, on macOS and Linux, the user must delete the program folders and autostart entries themselves. Consider an uninstall command or a **Remove all data** option, and a `pre-restore` folder that cleans itself up.
 - **Found while writing Step 9, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
-  - **Removing a connector is by hand on macOS and Linux, and leaves the hub entry.** No uninstall command: the user deletes the program folder, the launcher entry and the autostart file, and the device stays in Hub management as offline until an admin revokes it. Unpair on the connector doesn't tell the hub. Add an uninstall (or **Remove this computer**) that unpairs, removes the autostart entry and, if asked, the data and sync folders; unpair should also remove the device on the hub when it is online.
-  - **Stale label in the connector.** `connector.json` (`pair.errors.hubOff`, `user.errors.hubOff`) says an admin turns the hub on in "Settings → Server", but the **Hub** switch is in **Settings → General**. Fix the string.
-  - **The connector asks for a desktop.** Linux needs an application menu to open the pair page, so a headless Linux machine can't be paired. **Planned: Plan 6.3.0** (connector on ARM, Docker and a NAS).
+  - **Removing a connector is by hand on macOS and Linux, and leaves the hub entry.** **Planned: Plan 6.3.0, Step 7c** (unpair tells the hub, Remove this computer, uninstallers; with the stale label below) **and Step 7d** (replace a machine with a new computer); agreed with the user. No uninstall command: the user deletes the program folder, the launcher entry and the autostart file, and the device stays in Hub management as offline until an admin revokes it. Unpair on the connector doesn't tell the hub. Add an uninstall (or **Remove this computer**) that unpairs, removes the autostart entry and, if asked, the data and sync folders; unpair should also remove the device on the hub when it is online.
+  - **Stale label in the connector.** **Planned: Plan 6.3.0, Step 7c.** `connector.json` (`pair.errors.hubOff`, `user.errors.hubOff`) says an admin turns the hub on in "Settings → Server", but the **Hub** switch is in **Settings → General**. Fix the string.
+  - **The connector asks for a desktop.** Linux needs an application menu to open the pair page, so a headless Linux machine can't be paired. **Planned: Plan 6.3.0** (connector on ARM, Docker and a NAS); same item as "Connector on a NAS" above.
 - **Found while writing Step 12, needs its own plan step** (the wiki pages state today's behaviour and must be updated when this is fixed):
-  - **Accessories raise no warranty alert.** An accessory has **Warranty ends** and **Warranty notes**, but `warranty_ending` in `apps/server/src/alerts/evaluate.ts` only checks printers (30 days ahead). Add accessories to the check (not archived, same lead time, one alert per accessory, resolved on archive like printers), show the accessory's name in the alert, and cover it with tests. Then update `wiki/Accessories.md` (the **Warranty ends** row), the alerts docs and the Alerts wiki page.
-  - **Maintenance logs can't be seen, edited or deleted.** **Log done** saves a record (date, cost, notes, usage at that time), but no screen lists the records: only **Last done** shows. A wrong date, cost or note can't be fixed. Add a **History** list of logged work to the task page and to each printer's and accessory's page (date, who, cost, notes), and let a user with **Maintenance** **Manage** edit the date, cost and notes of a record or delete it (the due date recounts from the previous record). Then update `wiki/Maintenance.md` (**Log maintenance done**, **Task details**, Limits), `wiki/Printers.md`, `wiki/Accessories.md`, `wiki/Archive-and-Delete.md` (it says maintenance records can't be deleted) and `docs/printers.md`.
+  - **Accessories raise no warranty alert.** **Planned: Plan 6.2.0, Step 3b** (agreed with the user). An accessory has **Warranty ends** and **Warranty notes**, but `warranty_ending` in `apps/server/src/alerts/evaluate.ts` only checks printers (30 days ahead). Add accessories to the check (not archived, same lead time, one alert per accessory, resolved on archive like printers), show the accessory's name in the alert, and cover it with tests. Then update `wiki/Accessories.md` (the **Warranty ends** row), the alerts docs and the Alerts wiki page.
+  - **Maintenance logs can't be seen, edited or deleted.** **Planned: Plan 6.2.0, Step 3c** (History list, edit and delete, Write for own records and Manage for any, `doneBy`; agreed with the user). **Log done** saves a record (date, cost, notes, usage at that time), but no screen lists the records: only **Last done** shows. A wrong date, cost or note can't be fixed. Add a **History** list of logged work to the task page and to each printer's and accessory's page (date, who, cost, notes), and let a user with **Maintenance** **Manage** edit the date, cost and notes of a record or delete it (the due date recounts from the previous record). Then update `wiki/Maintenance.md` (**Log maintenance done**, **Task details**, Limits), `wiki/Printers.md`, `wiki/Accessories.md`, `wiki/Archive-and-Delete.md` (it says maintenance records can't be deleted) and `docs/printers.md`.
 - **Found while writing Step 15, needs its own plan step** (the wiki page states today's behaviour and must be updated when this is fixed):
-  - **Collections can't be made or edited in the app.** The **Filter by collection** list on **Projects** only shows when a collection exists, but only the API (`/api/collections`) creates one. Add a place in the app to create, rename, fill and delete collections, or take the filter out. Then update `wiki/Projects.md` (the **Filter by collection** row).
-  - **Scan folders shows to people who can't use it.** The button has no **Write** check, but `POST /api/projects/scan` needs **Write** on **Projects**, so a reader presses it and gets **Couldn't start the scan.** Hide it without **Write** (as **New project** is), or let a reader scan. Then fix the rights table in `wiki/Projects.md`.
+  - **Collections can't be made or edited in the app.** **Planned: Plan 6.2.0, Step 3d** (collections become tags and are removed; agreed with the user). The **Filter by collection** list on **Projects** only shows when a collection exists, but only the API (`/api/collections`) creates one. Add a place in the app to create, rename, fill and delete collections, or take the filter out. Then update `wiki/Projects.md` (the **Filter by collection** row).
+  - **Scan folders shows to people who can't use it.** **Planned: Plan 6.2.0, Step 3e** (hidden without Write; agreed with the user). The button has no **Write** check, but `POST /api/projects/scan` needs **Write** on **Projects**, so a reader presses it and gets **Couldn't start the scan.** Hide it without **Write** (as **New project** is), or let a reader scan. Then fix the rights table in `wiki/Projects.md`.
 - **Found while writing Step 22, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
-  - **A slicer on this computer slices only once its program path is typed in, and nothing says so.** A new Bambu Studio or OrcaSlicer install on this server never fills in **Slicer program**. **Use as slicer** looks on, but `available()` in `apps/server/src/integrations/capabilities.ts` drops slicing until that path exists. The only hint, `integrations:slicer.pathHint`, still says it is "used by Open in slicer", a button removed in 5.6.0. Detect the program like the config folder (the `desktop` descriptor already knows the install paths), or say on the card that slicing needs it, and reword the hint. Then update the **A slicer installed on this server** section of `wiki/Slicers.md`.
-  - **`docs/open-in-slicer.md` shows a broken Windows path** (`C:\Program Files\Bambu Studioambu-studio.exe`), and `docs/bambu-cloud.md` says **Track usage** on spools is on by default, but a new account saves it off. Step 25 turns both guides into pointers, so only check that the wiki is right.
+  - **A slicer on this computer slices only once its program path is typed in, and nothing says so.** **Planned: Plan 6.2.0, Step 3g** (found automatically, greyed out with the reason when not; agreed with the user). A new Bambu Studio or OrcaSlicer install on this server never fills in **Slicer program**. **Use as slicer** looks on, but `available()` in `apps/server/src/integrations/capabilities.ts` drops slicing until that path exists. The only hint, `integrations:slicer.pathHint`, still says it is "used by Open in slicer", a button removed in 5.6.0. Detect the program like the config folder (the `desktop` descriptor already knows the install paths), or say on the card that slicing needs it, and reword the hint. Then update the **A slicer installed on this server** section of `wiki/Slicers.md`.
+  - **`docs/open-in-slicer.md` shows a broken Windows path** (`C:\Program Files\Bambu Studioambu-studio.exe`), and `docs/bambu-cloud.md` says **Track usage** on spools is on by default, but a new account saves it off. Step 25 turns both guides into pointers, so only check that the wiki is right. **Done:** checked with the user's review of this list; `wiki/Slicers.md` has the right path and `wiki/Bambu-Cloud.md` says **Track usage** is off for a new account. No step needed.
 - **Found while reviewing in Step 26, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
-  - **Pages open by their address without the right.** The module settings pages send someone without the right back, but other pages don't. A Viewer who types or bookmarks an address gets a form with **Save**, and saving shows only the banner **Your role doesn't allow that.** This happens on every add and edit form (printers, accessories, maintenance tasks, spools, catalog brands, models and materials, projects, prints, quotes, orders, clients), `/integrations/new` and `/integrations/$id/edit`, `/projects/settings/folders/*` and `/users/roles/*`. An alert or a computer the person may not see shows an empty **Alert** page, or **This device doesn't exist anymore.** Guard these routes as `ConfigPage` does (send back to the list, or show the form read-only), and say "You can't open this" instead of "doesn't exist" when the item exists. Then update the **Signing in** items of `wiki/Troubleshooting.md`.
-- Translated wiki pages (only EN ships for now).
-- A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars.
-- Reading the guide inside the app without internet.
+  - **Pages open by their address without the right.** **Planned: Plan 6.2.0, Step 3f** (one guard per route, a neutral message for hidden items, a route test and a viewer e2e; agreed with the user). The module settings pages send someone without the right back, but other pages don't. A Viewer who types or bookmarks an address gets a form with **Save**, and saving shows only the banner **Your role doesn't allow that.** This happens on every add and edit form (printers, accessories, maintenance tasks, spools, catalog brands, models and materials, projects, prints, quotes, orders, clients), `/integrations/new` and `/integrations/$id/edit`, `/projects/settings/folders/*` and `/users/roles/*`. An alert or a computer the person may not see shows an empty **Alert** page, or **This device doesn't exist anymore.** Guard these routes as `ConfigPage` does (send back to the list, or show the form read-only), and say "You can't open this" instead of "doesn't exist" when the item exists. Then update the **Signing in** items of `wiki/Troubleshooting.md`.
+- Translated wiki pages (only EN ships for now). **Decided with the user: not in 6.2 or 6.3.** They come with the app's first second language, in that language's own plan: the app's locale files, the wiki pages in a folder per language, Help links that pick the user's language with English as fallback, and `pnpm wiki:check` checking that each translation exists and isn't older than its English page.
+- A separate documentation website that search engines can find. GitHub only lets them index wikis with 500 or more stars. **Planned: Plan 6.2.0, Step 0** (a site built from `wiki/` on GitHub Pages, the wiki stays as a mirror, Help links open the site; agreed with the user).
+- Reading the guide inside the app without internet. **Planned: Plan 6.2.0, Step 0b** (the built site ships with the app at `/guide/`, Help opens it; agreed with the user).
 
 ---
 
-# Plan 6.2.0 - Help on every page
+# Plan Wiki Install - One page per install
 
-Every app page gets a Help icon that opens the matching section of the wiki. Needs the Wiki plan finished.
+The wiki's install pages follow the five ways to install the app: **Windows**, **macOS**, **Linux**, **Docker** and **from source**. A NAS or a server is a machine, not a way to install, so it gets no page of its own: a NAS with Docker follows the Docker page, a Windows NAS the Windows page, a NAS without Docker the source page. What the NAS page says moves to the page it belongs to. **Server and remote access** becomes **Public access**, because it is about reaching any install from the internet, not about a kind of machine.
+
+How this plan works:
+- **Starts after the Wiki plan, before Plan 6.2.0**, so the Help links of 6.2.0 and the wiki changes of 6.3.0 build on the new pages.
+- **No app release and no version bump**, as in the Wiki plan. The pages go live with a manual publish in Step 3, then with every stable release.
+- **Nothing is lost, nothing is left behind.** Every fact on `NAS` and `Server-and-Remote-Access` lands on another page, then both files are deleted, with no pointer pages (the user's decision). The app's route map points at neither page, so no Help link changes, and the publish (`scripts/wiki-publish.mjs`) empties the wiki before copying, so the old pages disappear from the live wiki too. `docs/wiki-guide.md` says a pointer page is only needed for a page the route map points at, as `CLAUDE.md` does.
+- Each step runs the checks for what it changed, as listed in `CLAUDE.md`.
+
+## Phase 63b - Install pages by system
+
+### [ ] Step 1 - The NAS page moves into the install pages
+**Model:** Sonnet · **Effort:** High
+**Scope:**
+- **Docker:** a section **On a NAS** (Synology Container Manager, QNAP Container Station, a normal NAS folder for `/data` instead of a volume, mounting the 3D files folder), the **Folder permissions** of the container (runs as `root`, created files belong to `root`, `:ro`), and the `no matching manifest` fix for ARM.
+- **Install-from-Source:** a section for a NAS or a machine with no desktop (Node 22, `HOST=0.0.0.0` with `APP_ALLOWED_HOSTS`, start at boot with the NAS task scheduler or a service, runs as the user who starts it, ARM is untested, no slicing on ARM).
+- **Project-Folders:** network shares and live updates (no change events over SMB or NFS, **Scan folders**), because it is true for every install, a Windows PC with a mapped drive too. Docker and source pages link there.
+- **Configuration:** the data folder stays on the machine's own disk, never on a network share.
+- **Connector-Setup:** what a NAS can do today (no connector, mount its folders into the hub instead), without the link to `NAS`.
+- **Use-From-Another-Device:** the firewall table's NAS row becomes "Docker host" or is covered by Linux.
+- **Choose-How-to-Run:** the table lists the five installs. A short "On a NAS or home server" line says which page to follow (Docker if it has Docker, otherwise the page for its system). The hub, use from another device and public access move under "After you install", because they add to any install.
+- Delete `NAS.md`, and take it out of `WIKI_PAGES` and `_Sidebar.md`. Every link to `NAS.md` in `wiki/`, `docs/` (`docs/install.md`, `docs/wiki-guide.md`) and README ("Docker (NAS)") goes to the right page.
+- Since the route map changes: `pnpm wiki:check`, lint and `pnpm typecheck`.
+
+**Done when:** every fact of the old NAS page is on another page; `NAS.md` is gone and nothing links to it; `pnpm wiki:check --strict`, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 1 of the Wiki Install plan in PLAN.md. Show me where each section of the NAS page goes before you move it.
+```
+
+### [ ] Step 2 - Public access
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Rename `Server-and-Remote-Access` to `Public-Access`, title **Public access**. The intro says it is for any install that must be reached from the internet (reverse proxy, HTTPS, the public name, what not to expose, VPN), not "run it on a server". Its "Before you start" names Docker and source installs without `NAS.md`.
+- The page's headings stay as they are, so the anchors other pages use (`#first-admin-through-the-public-name`, `#what-not-to-expose`, `#problems-and-fixes`) only change page name.
+- No pointer page: the old file is renamed, not copied. Update `WIKI_PAGES`, `_Sidebar.md` (after **Use from another device**), the Glossary, every link in `wiki/` and `docs/`, and `docs/wiki-guide.md` (its page list, and the pointer-page rule as said at the top of this plan).
+
+**Done when:** `Server-and-Remote-Access.md` is gone and nothing links to the old name; `pnpm wiki:check --strict`, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 2 of the Wiki Install plan in PLAN.md.
+```
+
+### [ ] Step 3 - Review and publish
+**Model:** Sonnet · **Effort:** Medium
+**Scope:**
+- Read the **Get started** pages in sidebar order as a new user, once for each of the five installs, plus a NAS with Docker and a NAS without it. Each path reaches the first admin without a dead end or a missing step.
+- Run the publish workflow by hand from `dev`, after asking. On the live wiki check the sidebar, the anchors that moved, and that `NAS` and `Server-and-Remote-Access` are gone.
+
+**Done when:** every path was followed; the wiki is live; the old pages are gone from it.
+**Prompt:**
+```
+Do Step 3 of the Wiki Install plan in PLAN.md. Ask me before running the publish.
+```
+
+---
+
+# Plan 6.2.0 - Help on every page, and fixes
+
+Every app page gets a Help icon that opens the matching section of the guide. The guide is also published as a documentation website that search engines index (Step 0), and Help links go there. The app limits found while writing the wiki get fixed (Phase 64b, agreed with the user one by one). Needs the Wiki plan and the Wiki Install plan finished.
 
 ## Phase 64 - Help links
+
+### [ ] Step 0 - Documentation site  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why:** GitHub lets search engines index a wiki only from 500 stars, and the wiki's own search is weak. Agreed with the user: build a site from the same `wiki/` folder, and point the Help links at the site.
+**Scope:**
+- **One source, two outputs.** `wiki/` stays the only source. A static site (VitePress: fits the JS stack, built-in local search, light and dark themes; one dev-only dependency, reason in the commit) is built from it and published to GitHub Pages (`emanuelmoniz.github.io/3d-maker-suite`, or the URL Pages gives). The GitHub wiki keeps being published as a mirror, so links to it keep working.
+- **The build converts, the source doesn't change:** wiki links (`Page.md`, `Page.md#anchor`) become site links, `_Sidebar.md` becomes the site's sidebar, `_Footer.md` its footer, images from `wiki/images` are copied. Headings get the same anchors as on GitHub (GitHub's slug rules), so `pnpm wiki:check`'s anchor checks hold for both, and the route map's sections work on the site.
+- **Publishing:** `.github/workflows/wiki.yml` builds and deploys the site in the same run as the wiki (by hand, and from `release.yml` after a stable release; pre-releases publish neither). `wiki:check --strict` runs first, as today.
+- `packages/core/src/links.ts`: `DOCS_URL` (the site) next to the wiki's URL, for Step 1.
+- README (Documentation section and feature links), `CONTRIBUTING.md`, `CLAUDE.md` and `docs/wiki-guide.md`: the site is where users read the guide; `wiki/` is still where it is written.
+- Spike first: VitePress on a copy of `wiki/` (links, sidebar, anchors, search, build time); if it doesn't fit, say why and propose another generator before going on.
+- Tests for the link and sidebar conversion (`scripts/`), lint, `pnpm typecheck`.
+
+**Done when:** a manual run publishes the site and the wiki from `dev`; every page, image and anchor on the site works; search finds a word from a page body; the site's pages can be indexed (no `noindex`, a sitemap); tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 0 of the 6.2.0 plan in PLAN.md. Show me the spike before you set up the workflow, and ask me before the first publish.
+```
+
+### [ ] Step 0b - The guide inside the app
+**Model:** Sonnet · **Effort:** Medium
+**Why:** the online site needs internet, can be blocked on a company network, and always shows the newest version, so someone on an older install reads about buttons they don't have. The site from Step 0 is static and small (text about 0.5 MB, screenshots about 8 MB). Agreed with the user: ship it with the app, and Help opens that copy.
+**Scope:**
+- The release build (`packaging/build.mjs`, the `Dockerfile`) builds the site from the tagged `wiki/` and puts it in the app; the server serves it at `/guide/`, readable without sign-in (the sign-in and first-admin screens link to it; Step 1b of 6.3.0 keeps it reachable before the first admin). Screenshots converted to WebP in the site build to keep the size down; say the added size in the commit. The connector doesn't get it.
+- Each page shows the app's version and a **Newest version online** link to the public site (`DOCS_URL`).
+- `pnpm dev` serves it too (built on demand, or a link to the public site when not built, said in the console).
+- Tests: `/guide/` serves a page, an image and a section anchor; it works with no network; no sign-in needed. The e2e check for one Help target opening locally.
+- Wiki: `Home` and `FAQ` (the guide is inside the app, matching its version), `Configuration` if a setting or path is added.
+
+**Done when:** an installed app and the Docker image open the guide at `/guide/` with no internet, matching their version, with a link to the newest online; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 0b of the 6.2.0 plan in PLAN.md. Tell me the size the guide adds to the installers and the image.
+```
 
 ### [ ] Step 1 - Help icon in the page header  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
-- `packages/core/src/links.ts`: add `WIKI_URL` and `wikiUrl(page, section)`.
+- `packages/core/src/links.ts`: add `docsUrl(page, section)`: Help links open the documentation site served by the app at `/guide/` (Step 0b), matching the installed version and working offline; the public site (`DOCS_URL`, Step 0) is a link from there (agreed with the user).
 - A `HelpLink` component: the `CircleHelp` icon with a 36 px target, the existing `common:help` text as `title` and `aria-label` (the `SettingsLink` pattern), opening in a new tab with `rel="noreferrer"`.
 - `apps/web/src/components/PageHeader.tsx`: show it after the title and badge, outside the heading. It finds the current route in the shared route map, so pages need no new prop.
 - Nested headers inside Settings show no second icon: the Settings header already links to the open tab.
 - Keep the existing header rules: `e2e/v13.e2e.ts`, `e2e/projects-scan-header.e2e.ts` and `e2e/settings-tabs.e2e.ts`.
 
-**Done when:** Help opens the right wiki section on every page that has a header, at desktop and phone width; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Done when:** Help opens the right section of the documentation site on every page that has a header, at desktop and phone width; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 1 of the 6.2.0 plan in PLAN.md.
@@ -4633,8 +4725,8 @@ Do Step 1 of the 6.2.0 plan in PLAN.md.
 ### [ ] Step 2 - Card help and the sign-in screens
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- `apps/web/src/components/Section.tsx`: the `help` prop takes a wiki page and section instead of a path in `docs/`.
-- `apps/web/src/pages/settings/ConfigPages.tsx`: point the Project folders, Logs and Hub cards at the wiki.
+- `apps/web/src/components/Section.tsx`: the `help` prop takes a guide page and section (opened on the documentation site) instead of a path in `docs/`.
+- `apps/web/src/pages/settings/ConfigPages.tsx`: point the Project folders, Logs and Hub cards at the documentation site (`docsUrl`).
 - `apps/web/src/pages/auth/AuthPages.tsx`: a Help link on the sign-in and first-admin screens, which have no page header.
 
 **Done when:** no link in the app points to `docs/` on `main`; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
@@ -4655,15 +4747,122 @@ Do Step 2 of the 6.2.0 plan in PLAN.md.
 Do Step 3 of the 6.2.0 plan in PLAN.md.
 ```
 
+## Phase 64b - Fixes from the wiki review
+
+Found while writing the Wiki plan ("Out of scope for the Wiki plan"). Each step updates the wiki page that states today's behaviour, in the same commit.
+
+### [ ] Step 3b - Warranty alert for accessories
+**Model:** Sonnet · **Effort:** Medium
+**Why:** an accessory has **Warranty ends**, but `warranty_ending` in `apps/server/src/alerts/evaluate.ts` only checks printers, so an accessory's warranty runs out silently.
+**Scope (agreed with the user):**
+- Same rule as printers: not archived, `WARRANTY_LEAD_DAYS` (30) ahead, one alert per accessory; resolved when the date passes or changes, or the accessory is archived.
+- The alert names the accessory and, when it is attached to one, its printer ("AMS 2 Pro on A1: 12 days left"); its action opens the accessory's page.
+- Same kind (`warranty_ending`) and module (Printers), so who gets it and email and ntfy delivery work unchanged. Texts through i18n.
+- Tests: due, not due, archived, past date, one per accessory, with and without a printer.
+- Wiki: `Accessories` (the **Warranty ends** row), `Alerts`, `Alerts-Settings`.
+
+**Done when:** an accessory whose warranty ends within 30 days raises one alert that opens it; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3b of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3c - Maintenance history: see, edit and delete records  **[plan mode]**
+**Model:** Sonnet · **Effort:** High
+**Why:** **Log done** saves a record (`maintenance_tasks`: date, cost, notes, usage at that date), but no screen lists them, only **Last done** shows. A wrong date, cost or note can't be fixed, and a wrong date shifts when the task is next due. Records don't keep who logged them.
+**Scope (agreed with the user):**
+- **History** list on the maintenance task's page and in the Maintenance section of each printer's and accessory's page: date, done by, cost, notes, usage at that time (hours, prints), newest first.
+- **Edit** date, cost and notes. A new date recomputes the usage at that time (`usageOf` / `accessoryUsageOf`, as **Log done** with a past date does). The next due date follows, because it counts from the latest record.
+- **Delete** with a confirmation that says the due date then counts from the previous record. A record on the wrong printer is deleted and logged again (the dialog says so); no move.
+- **Rights:** **Write** on Maintenance edits and deletes the records its user logged; **Manage** any record. Server-side checks, and the buttons follow them.
+- **Who logged it:** a new `doneBy` column (user id, `set null` when the user is deleted), filled by **Log done** from now on; older and imported records show "—". Back up the DB before editing `packages/db/src/schema.ts`; a Drizzle migration.
+- Texts through i18n; dates and costs locale-aware.
+- Tests: list order; edit recomputes usage and the due date; delete falls back to the previous record; Write can change only its own, Manage any, Read none; `doneBy` filled. The e2e spec for the history on a task and a printer page.
+- Wiki: `Maintenance` (**Log maintenance done**, **Task details**, Limits), `Printers`, `Accessories`, `Archive-and-Delete` (maintenance records can now be deleted).
+
+**Done when:** every logged record is listed where its task, printer and accessory are shown, and can be corrected or deleted by its author or a manager, with the due date following; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3c of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3d - Collections become tags
+**Model:** Sonnet · **Effort:** Medium
+**Why:** **Filter by collection** on **Projects** shows only when a collection exists, but only the API (`/api/collections`, in `apps/server/src/routes/tags.ts`) creates or fills one. Tags already group projects (name, color, set from the project form, **Filter by tag**, managed in Settings), so a second way to group is not worth a screen.
+**Scope (agreed with the user):**
+- **Migration** (back up the DB before editing `packages/db/src/schema.ts`): each collection becomes a tag with the same name (an existing tag of that name, case-insensitive, is reused; new ones get the default color), tagged on the same projects. Descriptions are dropped (no screen showed them). If any collection existed and tags are off, tags are turned on, so nothing disappears.
+- Remove `collections` and `collection_projects`, the `/api/collections` endpoints, the filter on **Projects**, and the collection code in `apps/server/src/lib/auth.ts`, `apps/server/src/lib/dependents.ts`, `apps/web/src/lib/projects.ts`, `apps/web/src/lib/tags.ts` and their tests and locale keys.
+- CHANGELOG: `/api/collections` is removed; tags replace it (API change for scripts only; no screen used it, so a minor version, agreed).
+- Tests: the migration with a new tag, a reused tag, tags off with collections (turned on), and none (left off); the projects list no longer offers the filter.
+- Wiki: `Projects` (the **Filter by collection** row goes; grouping is done with tags). `docs/architecture.md` (API list).
+
+**Done when:** no collection code or table is left; existing collections show up as tags on the same projects; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3d of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3e - Scan folders only for Write
+**Model:** Sonnet · **Effort:** Low
+**Why:** **Scan folders** on **Projects** has no **Write** check, but `POST /api/projects/scan` needs **Write** on **Projects** (a scan creates and updates projects and asks connected machines to re-index), so a reader presses it and gets **Couldn't start the scan.**
+**Scope (agreed with the user):**
+- Hide **Scan folders** without **Write** on **Projects**, as **New project** is. Readers lose nothing: folders are watched and rescanned on their schedule.
+- Check the other header and card buttons on **Projects** and the project page for the same mistake (shown without the right, refused by the server) and fix them the same way. The app-wide sweep is in Step 3f.
+- Tests: the button for Read, Write and Manage; the e2e spec for the Projects header as a viewer.
+- Wiki: the rights table in `Projects`.
+
+**Done when:** a reader sees no action on Projects that the server refuses; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3e of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3f - Every page checks the right it needs  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why:** only the module settings pages (`ConfigPage`) and a few others (Catalog, Printers tabs) send someone without the right back. A Viewer who types or bookmarks an add or edit form gets **Save**, and saving shows only **Your role doesn't allow that.** It happens on every add and edit form (printers, accessories, maintenance tasks, spools, catalog brands, models and materials, projects, prints, quotes, orders, clients), `/integrations/new`, `/integrations/$id/edit`, `/projects/settings/folders/*` and `/users/roles/*`. An alert or computer the person may not see shows an empty **Alert** page, or **This device doesn't exist anymore.** The server already refuses; this is about what the person sees.
+**Scope (agreed with the user):**
+- **One guard, declared per route:** each route states the module and level it needs; one wrapper in the route tree enforces it. `ConfigPage`, `CatalogPage` and `PrintersPage` move to it.
+- **Without the right:** an edit form the person can read goes to the item's page, an add form to its list, both with "Your role can't change this."; a module or admin area with no right at all shows "You can't open this" with a link home.
+- **An item the person may not see:** one neutral message, "This doesn't exist, or you can't open it.", for missing and hidden items alike, so private projects and other people's alerts don't reveal that they exist (the API's 404 there stays).
+- **Buttons follow the same rights:** while declaring each route, check its page's actions (the app-wide sweep Step 3e leaves here) and hide any the server would refuse.
+- **Guards:** a unit test walks the route tree and fails when a form or admin route declares no right (next to Step 3's Help map test); an e2e spec signs in as Viewer and opens every form address, expecting the redirect or the "can't open" page.
+- Texts through i18n.
+- Wiki: the **Signing in** items of `Troubleshooting`, `Roles` (what a Viewer gets from a form link).
+
+**Done when:** no form opens with **Save** for someone who can't save it; hidden and missing items look the same; a new route without a declared right fails the test; tests, lint, `pnpm typecheck`, `pnpm i18n:check` and the e2e specs pass.
+**Prompt:**
+```
+Do Step 3f of the 6.2.0 plan in PLAN.md.
+```
+
+### [ ] Step 3g - Find the slicer program on this computer
+**Model:** Sonnet · **Effort:** Medium
+**Why:** a Bambu Studio or OrcaSlicer install on this server never fills in **Slicer program**, and `available()` in `apps/server/src/integrations/capabilities.ts` drops slicing until that path exists, while **Use as slicer** looks on and nothing says why. The hint `integrations:slicer.pathHint` still says the path is "used by Open in slicer", removed in 5.6.0. The finder that knows the install paths (`packages/host/src/findSlicers.ts`: registry, Applications, Flatpak) already fills the program on connectors; the server uses it only for the config folder (`apps/server/src/integrations/deviceCatalog.ts`).
+**Scope (agreed with the user):**
+- **Fill it automatically.** When a slicer is added on this server, and at each start when the path is empty or no longer exists (a slicer update moved it), set **Slicer program** from `findSlicers`. A path the user typed wins while it exists. Managed slicers already know theirs and don't change.
+- **Say it when it can't be found.** **Use as slicer** is greyed out with the reason ("Slicing needs the slicer program. It wasn't found on this computer. Type its path below."), instead of looking on.
+- **New hint:** found automatically; type it only when the slicer is somewhere else (an AppImage, a portable copy).
+- Texts through i18n.
+- Tests: found on add; refound after the old path vanished; a typed path kept; not found greys out **Use as slicer** with the reason (mocked finder).
+- Wiki: `Slicers` (**A slicer installed on this server**, the **Slicer program** row).
+
+**Done when:** a slicer installed in the usual place on this computer slices with no path typed; when it can't be found the card says why; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3g of the 6.2.0 plan in PLAN.md.
+```
+
 ## Phase 65 - Release
 
 ### [ ] Step 4 - Real test, docs, push & v6.2.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- Open Help from every sidebar section, a detail page, a form, a settings tab, and the sign-in screen, as admin and viewer, at desktop and phone width.
+- Open Help from every sidebar section, a detail page, a form, a settings tab, and the sign-in screen, as admin and viewer, at desktop and phone width. Each lands on the right section of the documentation site.
+- The documentation site: search, sidebar, images and dark theme, on a phone too.
+- The fixes of Phase 64b: an accessory warranty alert; maintenance history edited and deleted by its author and by a manager; former collections shown as tags; **Scan folders** and form links as a viewer; a slicer on this computer slicing with no path typed.
 - Fix anything found. Docs, CHANGELOG, version `6.2.0-alpha.1`, `pnpm version:check`; commit on `dev`, push, tag `v6.2.0-alpha.1` on `dev`.
 
-**Done when:** every scenario worked; the tag is pushed and the workflow is green; the pre-release did not publish the wiki.
+**Done when:** every scenario worked; the tag is pushed and the workflow is green; the pre-release published neither the wiki nor the site.
 **Prompt:**
 ```
 Do Step 4 of the 6.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
@@ -4673,9 +4872,9 @@ Do Step 4 of the 6.2.0 plan in PLAN.md. Guide me through each scenario, then fix
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (the icon appears on nearly every page), README, CHANGELOG, version `6.2.0`.
-- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.2.0` on `main`. Check the run, the release, the images and the wiki.
+- Commit on `dev`, fast-forward `main` to `dev`, push both, tag `v6.2.0` on `main`. Check the run, the release, the images, the wiki and the documentation site.
 
-**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the wiki was published by the release; the old `docs/` Help links in 6.1.0 land on a pointer to the wiki.
+**Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the wiki and the documentation site were published by the release; the old `docs/` Help links in 6.1.0 land on a pointer to the guide.
 **Prompt:**
 ```
 Do Step 5 of the 6.2.0 plan in PLAN.md. Only document what changed since the last 6.2.0 pre-release.
@@ -4684,18 +4883,18 @@ Then fast-forward main to dev, push, push the v6.2.0 tag and confirm the release
 
 ---
 
-# Plan 6.3.0 - The connector on ARM, Docker and a NAS
+# Plan 6.3.0 - The connector on ARM, Docker and a NAS, and safer updates
 
-A connector can run on an ARM computer, in Docker and on a NAS, so a NAS or small server can store project files for the hub and reach the printers on its own network. Needs the Wiki plan and Plan 6.2.0 finished, because the wiki pages state what the connector can't do today and are updated by this plan.
+A connector can run on an ARM computer, in Docker and on a NAS, so a NAS or small server can store project files for the hub and reach the printers on its own network. Updates, backups and restores work the same on every install, Docker included (Phase 67b). Needs the Wiki plan and Plan 6.2.0 finished, because the wiki pages state what the connector can't do today and are updated by this plan.
 
 Today (found in Wiki Step 6): the connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build and no Docker image. A headless or ARM NAS can't be paired.
 
 How this plan works:
 - **Targets:** Linux ARM64 (Raspberry Pi, ARM NAS), a container image for x64 and ARM64, and NAS devices with Docker or with a Linux shell. Windows ARM and macOS don't change. A connector on ARM can't slice: the slicers have no Linux ARM build, so it can't be a slice worker.
 - **Same protocol, same rules.** Pairing, the closed list of operations, the device token, "one hub per machine" and "follows the hub's version" stay as in ADR-0014. This plan changes packaging, the way to pair without a screen, and how the version is kept.
-- **A connector in Docker is not a hub.** It joins a hub that runs elsewhere (or in another container). The first-admin problem of the app image is a separate item in "Out of scope for the Wiki plan".
-- **Docs and wiki follow in the same commit as each step** (`CLAUDE.md`): `docs/hub.md`, ADR-0014 (amend, saying which step), README's support matrix, and the wiki pages `NAS`, `Docker`, `Choose-How-to-Run` and, once written, `Connector-Setup` and `Hub-Setup`.
-- No ARM or NAS hardware is assumed on this PC: CI covers what it can (ARM runner, QEMU), and the real test in Step 8 uses the user's own NAS or server. Agree which in Step 8.
+- **A connector in Docker is not a hub.** It joins a hub that runs elsewhere (or in another container). The first-admin problem of the app image is fixed in Step 1b.
+- **Docs and wiki follow in the same commit as each step** (`CLAUDE.md`): `docs/hub.md`, ADR-0014 (amend, saying which step), README's support matrix, and the wiki pages `Docker`, `Install-from-Source`, `Install-on-Linux`, `Choose-How-to-Run`, `Connector-Setup` and `Hub-Setup` (the NAS page is gone after the Wiki Install plan; its facts live on these pages).
+- No ARM or NAS hardware is assumed on this PC: CI covers what it can (ARM runner, QEMU), and the real test in the Release phase uses the user's own NAS or server. Agree which in that step.
 
 ## Phase 66 - Design and packaging
 
@@ -4703,13 +4902,13 @@ How this plan works:
 **Model:** Opus · **Effort:** High
 **Scope:**
 - ADR-0024. Decide, after a spike on each:
-  - **Pairing with no local browser.** Options: a hub URL and one-time code from environment variables or flags (`CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE`), and/or the status page reachable from the LAN with its own protection (host allow list like `APP_ALLOWED_HOSTS`, a local token). A paired container keeps its device token in its data volume across restarts and image updates.
+  - **Pairing with no local browser (decided with the user).** The hub URL and one-time code come from environment variables, or flags for the archive (`CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE`, optional `CONNECTOR_NAME`). The first start pairs; the device token stays in the data volume, and the code is ignored from then on, across restarts and image updates. The spike confirms it works; no other pairing path.
   - **Updates.** A bundle install keeps updating itself. A container can't replace its own image (same rule as the app, ADR-0009): the connector sees the hub's version, reports **Outdated** with the command to run (`docker compose pull`), and doesn't download a bundle.
-  - **Ownership.** Files the connector creates in a mounted folder get a chosen user and group (`PUID`/`PGID` or `user:`), not `root`.
+  - **Ownership (decided with the user): `PUID` and `PGID`,** for the app image and the connector image alike. Built in Step 4.
   - **Printers.** What reaches a printer from a container: bridge networking with a typed address, or host networking for discovery (the Bambu LAN adapter discovers by SSDP). Which printer and spool-library adapters work in each.
   - **Folders on shares.** Which mounted folders send change events, and the rescan that covers the rest (the hub already drives a scheduled rescan, `roots.rescan`).
-  - **No-Docker NAS.** A Linux archive with a headless install (`install.sh` writing a systemd service instead of an app-menu entry), or only the container.
-  - **ARM builds.** The ARM64 Linux archive from a native ARM runner, and whether the app's own arm64 archive is published with it (the build job makes both). The image is multi-arch.
+  - **Where each install fits (decided with the user).** Docker is the main route for a NAS (Synology, QNAP, Asustor) and any server with Docker, private servers included: isolated, runs as a chosen user, sees only its mounts, listens on nothing outside the container. The Linux archive with `install.sh --headless` (a systemd service started at boot, instead of an app-menu entry) is for a Raspberry Pi or a Linux server without Docker. NAS systems don't support adding services, so they use the container.
+  - **ARM builds (decided with the user).** The ARM64 Linux archives of the connector **and the app** come from a native ARM runner (`ubuntu-24.04-arm`). The images are multi-arch, each architecture built on its own native runner and merged into one tag; QEMU only where a test needs it. The `-slicer` image stays x64 only.
 - Spikes: the connector's Node bundle running on ARM64 (native runner, and QEMU for the image), a container paired against a hub in CI, and a Bambu LAN printer seen from a container in bridge and host mode.
 - Settle names: the image (`ghcr.io/emanuelmoniz/3d-maker-suite-connector`), its tags (`X.Y.Z`, `latest`, `dev`), the compose example.
 - Adjust Steps 2 to 7 to what the spikes show.
@@ -4720,13 +4919,33 @@ How this plan works:
 Do Step 1 of the 6.3.0 plan in PLAN.md. Show me each spike result before you write the ADR.
 ```
 
+### [ ] Step 1b - First admin from another device  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why:** until the first admin exists, `accessGuard` (`apps/server/src/lib/access.ts`) answers `403 forbidden_host` (raw JSON) to every address but `localhost` and the bind address. A NAS or headless server has no browser of its own, so the first admin can't be created from the PC or phone the log's setup token is meant for, unless `APP_ALLOWED_HOSTS` is set and the app restarted. Same for a source install on a headless machine.
+**Scope:**
+- While no user exists, any address may load the first-admin screen, the web files it needs, the guide at `/guide/` (6.2.0 Step 0b), and `POST /api/auth/setup`, which still requires the setup token (unless the request is local or `APP_PASSWORD` is set, as today). The token is what protects it: a DNS-rebinding page can't know it. Every other API call stays blocked until the first admin exists. `APP_ALLOWED_HOSTS` is then only needed for a reverse proxy's public name.
+- Any other blocked request gets a short HTML page saying what to do (open the address shown in the log, enter the setup token), not raw JSON. API callers keep the JSON body. Texts through i18n.
+- **Check the "no token on the server itself" claim in Docker.** The token is skipped only for a loopback socket (`isLoopbackIp(req.ip)`), but with Docker's port mapping a request from the host reaches the container from the Docker network (`172.17.0.1`), so `http://localhost:4300` on the host likely needs the token too. Measure it in a container in CI, then fix the code or the docs to match.
+- Tests: setup from another address with the token, without it, with a wrong one; other API calls and other pages still blocked before setup; everything normal after setup. The e2e spec for the first-admin screen from a non-loopback address.
+- Amend ADR-0012 (saying this step). Wiki: `Docker`, `Install-from-Source`, `First-Run`, `Use-From-Another-Device`, `Sign-In`, `Troubleshooting`, `Public-Access` (the `APP_ALLOWED_HOSTS` advice for first setup goes; it stays for the public name). `docker-compose.yml` comments.
+
+**Done when:** on a fresh container, the first admin is created from another device with only the token from the log, no `APP_ALLOWED_HOSTS`; no other endpoint answers before setup; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 1b of the 6.3.0 plan in PLAN.md.
+```
+
 ### [ ] Step 2 - Headless connector
 **Model:** Sonnet · **Effort:** High
 **Scope:**
-- The connector starts and pairs with no browser and no desktop session, as decided in Step 1: environment variables or flags, and the optional LAN status page with its protection.
+- The connector starts and pairs with no browser and no desktop session, as decided in Step 1: environment variables or flags only.
+- **No LAN status page (decided with the user).** The local page keeps running for `/api/health` (the container's health check) but stays on the container's own loopback: the compose example publishes no port, so nothing is reachable from the network. Desktops keep the page as it is (pairing, "this machine" through `/api/whoami`, unpair, stop).
+- **The two actions only the local page has get a hub path, for every connector** (server side here, the buttons in Step 7):
+  - A missing sync folder's **Delete on the hub too** and **Restore them** (`/sync/confirm`, `/sync/restore` in `apps/connector/src/status.ts`) can also be answered from the hub: the hub sends the choice to the connector over its event stream, within the closed list of operations (ADR-0014, amend).
+  - **Change user** on a headless connector is done by an admin on the hub, with no code: the code proves someone is at the machine, which a machine with no screen can't do. Desktops keep the code. The connector reports whether it is headless (archive `--headless` or Docker).
 - `APP_INSTALL=docker` for the connector (set by its image): no start at login, no self-update, **Outdated** shows the command. The connector's own locale file carries the texts.
 - The device token and data stay in the data folder, so a restart or an image update keeps the pairing. A wrong or used code gives a clear log line and exit, not a loop.
-- Ownership of created files (`PUID`/`PGID`), as decided.
+- Ownership of created files: the connector writes as the user it runs as (the image's `PUID`/`PGID` start script is in Step 4; the systemd service runs as the installing user).
 - Unit tests for the new start paths, and for pairing from environment variables against a test hub.
 
 **Done when:** a connector started with only environment variables pairs and shows online in Hub management; a restart stays paired; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
@@ -4739,7 +4958,8 @@ Do Step 2 of the 6.3.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - `packaging/build.mjs --arch arm64` on Linux (Node arm64 tarball; `better-sqlite3` prebuild for the app's archive, the connector needs none).
-- `release.yml`: a build matrix entry on a native ARM runner (`ubuntu-24.04-arm`), installed and started once like the others, for the connector; the app's arm64 archive only if Step 1 says so. `connector.yml`: the pairing test on the ARM runner.
+- `release.yml`: a build matrix entry on a native ARM runner (`ubuntu-24.04-arm`) for the connector **and the app** (agreed with the user), each installed and started once like the others. `connector.yml`: the pairing test on the ARM runner.
+- The app's in-app update picks the `linux-arm64` archive (`apps/server/src/updates/updates.ts` already names the asset by `process.arch`; test it). The wiki page `Install-on-Linux` covers ARM64 (Raspberry Pi with a desktop), so `Install-from-Source` is no longer the ARM route.
 - `packaging/install.sh`: the headless install decided in Step 1 (a systemd service for the user, started at boot), next to the app-menu entry.
 - `SHA256SUMS` and the attestations cover the new files; the connector's self-update picks the `linux-arm64` file of the hub's release (`apps/connector/src/update.ts`).
 
@@ -4753,8 +4973,10 @@ Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not 
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - A `Dockerfile` target (or a second file) for the connector: small, runs as the chosen user, `HEALTHCHECK` on its `/api/health`, data in a volume, shared folders as mounts.
-- `release.yml` `docker` job: QEMU and buildx, `linux/amd64,linux/arm64`, for the connector image. Tags `X.Y.Z` and `latest` for stable, `X.Y.Z-alpha.N` and `dev` for pre-releases, same as the app.
-- The app image gets `linux/arm64` in the same job (closes the "ARM image" item); the `-slicer` image stays x64 only and says so.
+- `release.yml` `docker` job: `linux/amd64` and `linux/arm64`, each built on its own native runner (`ubuntu-latest`, `ubuntu-24.04-arm`) and merged into one multi-arch tag with `docker buildx imagetools create`, so `docker pull` picks the right one. No QEMU for the build: `pnpm install` and the web build under emulation are several times slower and flaky. Tags `X.Y.Z` and `latest` for stable, `X.Y.Z-alpha.N` and `dev` for pre-releases, same as the app.
+- The app image gets `linux/arm64` the same way (closes the "ARM image" item); the `-slicer` image stays x64 only and says so in its description.
+- **File owner: `PUID` and `PGID` (decided with the user),** one start script shared by the app image and the connector image. It runs as root once, changes the owner of `/data` only (never the mounted project folders), then drops to that user with `setpriv` (util-linux, already in the base image; no new dependency) and starts the program. Without the variables it stays `root`, so existing installs keep working after the update. `docker-compose.yml` and the connector example carry `PUID`/`PGID` lines with a comment on how to find them (`id` over SSH, or the NAS user page). Slicers installed into `/data/slicers` still run. A CI test starts the image with `PUID`/`PGID`, uploads into a mounted folder and checks the owner. Wiki `Docker`: the folder permissions section.
+- **The app says it can't slice on ARM.** Nothing checks the architecture before a slicer install today (`packages/host/src/slicerInstall.ts`), so on ARM it would download an x64 AppImage and fail. On an ARM server, **This server** under **Where** for Bambu Studio and OrcaSlicer is greyed out with the reason (i18n), the server refuses the install with a clear error, and slicing goes to a connector or slice worker on x64 or a Mac. Tests for both.
 - A compose example for the connector (`docker-compose.connector.yml`, or a section in `docker-compose.yml`) with the pairing variables, the data volume and a shared folder.
 - A CI job that starts the connector image against a hub and pairs it (`scripts/pair-test.mjs`).
 
@@ -4799,6 +5021,7 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 - **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container. The second shows the code and the exact command or compose lines with the hub's address filled in (copy buttons, no secret beyond the one-time code).
 - The machine page shows how the connector is installed (archive, Docker), its architecture, and for Docker the update command when it is **Outdated**.
 - The slice worker switch is greyed out, with the reason, on ARM.
+- The machine page shows a connector's missing sync folders with **Delete on the hub too** and **Restore them** (every connector, desktops too), and **Change user** on a headless connector applies at once, without a code (Step 2).
 - i18n keys, e2e spec, `pnpm screenshots` and the wiki screenshots for Hub management.
 
 **Done when:** an admin can pair a container from the page without reading the docs; every new string goes through i18n; tests, lint, `pnpm typecheck`, `pnpm i18n:check` and the e2e specs for Hub management pass.
@@ -4807,22 +5030,185 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 Do Step 7 of the 6.3.0 plan in PLAN.md.
 ```
 
+### [ ] Step 7b - Connectors follow the hub's new address  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why:** a connector keeps the hub address it was paired with (`hubUrl` in `apps/connector/src/state.ts`). When the hub moves (a new machine, a new IP, a domain added later), every connector loses it and is paired again, although its device token is still valid (it is in the hub's database, which a backup carries). Found in the Wiki plan's Step 8 (`wiki/Move-or-Uninstall.md`); agreed with the user.
+**Scope:**
+- **The hub tells its connectors.** When an admin changes **Public address** (or the hub's address for connectors), the hub sends the new address to every connected connector over its event stream (a new operation in ADR-0014's closed list, amend). Each connector keeps a short list of hub addresses, tries the newest first and drops an old one only once the new one has answered. Connectors that were offline get it when they next reach any known address.
+- **When the old address is already gone** (the hub moved first): change the hub address without pairing again. On a desktop, the connector's local page offers **Change hub address**; headless, a new `CONNECTOR_HUB_URL` replaces it at the next start. The device token is kept; the hub accepts it if the device exists in its database (restored from a backup), otherwise it says to pair again.
+- The machine page shows which address each connector uses.
+- Tests: the address push and the fallback order; a connector with a stale address reaches the hub after a change on its page and with a new env var; an unknown device is told to pair. The e2e spec for **Change hub address**.
+- Wiki: `Move-or-Uninstall` (moving a hub), `Hub-Setup`, `Connector-Setup`, `Hub-Management`. `docs/architecture.md` and ADR-0014.
+
+**Done when:** a hub moved to a new address keeps every connector without pairing again, whether the address was changed before or after the move; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 7b of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 7c - Remove a connector, and unpair tells the hub  **[plan mode]**
+**Model:** Sonnet · **Effort:** High
+**Why:** on macOS and Linux a connector is removed by hand (program folder, launcher entry, autostart file), and **Unpair** only forgets the pairing locally: the hub never hears it, so the machine stays in Hub management as offline until an admin revokes it. Found in the Wiki plan's Step 9; agreed with the user.
+**Scope:**
+- **Unpair tells the hub.** Online, unpair asks the hub to remove this device, and it leaves Hub management at once. Offline, it unpairs locally; the machine page offers **Remove** next to **Revoke** for a device that never comes back.
+- **Remove this computer** on the connector's local page (desktop), the same dialog as the app's **Uninstall…** (Step 8f, shared script): unpair, then remove the program, the menu entry and the autostart entry. Two boxes: **Also delete the connector's data** and **Also delete the sync folders**. The second is greyed out, with "N files haven't reached the hub yet", while anything waits to sync.
+- **The Windows connector uninstaller** stops the connector, unpairs it with the hub, removes the autostart entry, and asks about data, as the app's uninstaller does (Step 8f).
+- **Headless and Docker:** `install.sh --uninstall` does the same as **Remove this computer** (unpair, the systemd service, the files). Docker: **Remove** on the machine page plus the `docker compose down` commands, in the wiki and in the pairing instructions of Step 7.
+- Stale label: `connector.json` (`pair.errors.hubOff`, `user.errors.hubOff`) says the **Hub** switch is in "Settings → Server"; it is in **Settings → General**.
+- Tests: unpair online removes the device on the hub; offline leaves it, and **Remove** clears it; the sync-folder box is blocked while files wait; the uninstall script on temp folders. The e2e spec for **Remove** on the machine page.
+- Wiki: `Connector-Setup` (Remove a connector), `Hub-Management`.
+
+**Done when:** removing a connector on any system leaves nothing behind and no entry on the hub; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 7c of the 6.3.0 plan in PLAN.md. If Step 8f isn't done yet, build the shared uninstall script here.
+```
+
+### [ ] Step 7d - Replace a machine with a new computer  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why:** a connector keeps almost nothing of its own: its name, user, shared folders, switches, projects, bridged printers and slicer or catalog source are on the hub, tied to the device; the device token is bound to that machine's key. A new computer paired today becomes a second device, and everything tied to the old one has to be set up again by hand. Agreed with the user: no connector backup, a replace flow instead.
+**Scope:**
+- **Replace with a new computer** on the old machine's page (admin): a pairing code that takes over that device entry instead of creating one. The new connector (desktop pairing, or `CONNECTOR_PAIRING_CODE` headless) comes back with the same name, user and switches; projects, printers, Spoolman, the slicer, the catalog source and the slice worker role stay attached. The old token is revoked at once.
+- **Folders on the new computer.** The machine page checks each shared folder: a path that exists is indexed again and its projects match by their place in the folder; a missing one shows **Change path** (the new machine uses `D:\3D` instead of `C:\3D`). Sync folders download again.
+- A slicer the hub manages on that machine is installed again as set; an installed one is found again or reported missing.
+- The machine page links to the wiki's steps for the user's part.
+- Tests: the takeover keeps every link on the hub and revokes the old token; a found path re-indexes with the same projects; **Change path** maps a missing one; a replace code can't pair a second device. The e2e spec for **Replace with a new computer**.
+- Wiki: `Connector-Setup` gets **Move to a new computer** (let the old one finish syncing, copy the shared folders keeping the layout inside each, replace, then remove the old one with Step 7c without deleting the sync folders while copying), `Hub-Management`, `Move-or-Uninstall` (links to it). ADR-0014 (amend) and `docs/architecture.md`.
+
+**Done when:** a connector moved to a new computer keeps its projects, printers and settings on the hub without setting anything up again; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 7d of the 6.3.0 plan in PLAN.md.
+```
+
+## Phase 67b - Updates, backups and restore
+
+Found while writing the Wiki plan's Step 8 ("Out of scope for the Wiki plan"), decided with the user one by one. Wiki pages: `Updates`, `Backups-and-Restore`, `Move-or-Uninstall`, `Docker`, `First-Run`.
+
+### [ ] Step 8 - A backup before every migration, rollback in Docker  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why:** only the in-app **Update** backs up first. `docker compose pull` + `up -d`, or a manual `git checkout`, starts the new version and its migrations run at once, forward only, with no backup. And Docker has no rollback in the app: going back means a tag change and a hand restore in the right order.
+**Scope:**
+- **Backup before migrations, every install.** At start, before the database opens (next to `applyPendingRestore` in `apps/server/src/main.ts`), compare the version that last ran (kept in the data folder) with this one. If it changed and migrations are pending, save an `update-<old>-<new>` backup first and add the update to the history in `updates.json`. The in-app updater's own backup counts, so no second one is made.
+- **Rollback in Docker.** **Update history** lists Docker updates too, with **Roll back to X** while the backup exists. It stages the restore of that backup for version X and shows the two steps with the tag filled in (`image: …:X`, `docker compose up -d`), with copy buttons. The staged restore is applied by version X at its start, before the database opens. A newer version that starts while it is staged does not apply it and shows a banner: the rollback waits for the image `:X`, with a **Cancel rollback** action.
+- **History stays at 5** (`KEEP` in `apps/server/src/updates/updates.ts`): each update backup is a full database copy, and the daily scheduled backups cover older ones (agreed with the user).
+- Tests: a start with a newer version on an older database makes one backup and one history entry; no backup when nothing changed; the in-app path makes no second backup; a staged Docker rollback is applied by the target version and skipped, with the banner, by a newer one; cancel clears it. The e2e spec for **Update history** in Docker mode.
+- Wiki: `Updates` (Docker gets a rollback; "Docker and manual updates don't" make a backup goes), `Docker` (Updating), `Backups-and-Restore`.
+
+**Done when:** a Docker-style update (new version started on the old data) leaves an `update-…` backup and a history entry; a staged rollback in Docker mode is applied by the older version only; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8 of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 8b - What a backup holds  **[plan mode]**
+**Model:** Sonnet · **Effort:** High
+**Why:** a backup (`apps/server/src/backup/backup.ts`: the database, `secret.key`, `photos`, `thumbnails`, `quote-files`, `versions`) leaves out the public address in `config.json`, the slicers installed from the app (`slicers/`), and the catalog model images (`models/`), whose path the database keeps, so a restore points at missing images that are never downloaded again.
+**Scope (agreed with the user):**
+- **Public address moves into the database** (a migration that reads `publicUrl` from `config.json` once). Environment variables still override it. Backup, restore and a move carry it.
+- **Host and port stay out of the backup on purpose:** they belong to the machine, and a PC's `127.0.0.1` restored into Docker, or a port taken on the new machine, would lock the user out. They stay in `config.json`. The restore message says network settings stay as they are on this machine.
+- **Slicers are reinstalled, not backed up** (hundreds of MB, built for one system). After a restore, each slicer installed from the app that is missing here is reinstalled in the background, same app and version, with an alert if it fails. On ARM the card shows the reason from Step 4 instead.
+- **`models/` joins the backup** (`DIRS`). No `FORMAT` bump: older backups just don't have it.
+- **A guard:** a test lists every folder and file the server writes in the data folder and fails unless each is marked "in the backup", "rebuilt at start or on sync" (`presets`, `cloud-presets`, `avatars`, `slicer-zips`, `cache`: confirm each) or "this machine only" (`slicers`, `config.json`, `updates.json`, `update-seen.json`, `backups`, `catalog-backups`, `preset-backups`).
+- Tests: a restore brings back the public address and the model images; host and port are untouched; a missing slicer is reinstalled after a restore (mocked download).
+- Wiki: `Backups-and-Restore` (what a backup holds, what it doesn't and why), `Move-or-Uninstall`, `Configuration`, `Settings-General` (Public address).
+
+**Done when:** a backup restored on a clean data folder shows the public address, the model images and, after the reinstall, the slicers; the guard test fails for an unmarked folder; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8b of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 8c - Refuse a database from a newer version
+**Model:** Sonnet · **Effort:** High
+**Why:** `stageRestore` only compares the backup's `FORMAT` (still 1), so a backup made by a newer version loads into an older app. The older app skips the migrations it doesn't know and runs on a database that doesn't match its code. In Docker the same happens with no restore at all: an older image tag started on the newer data.
+**Scope (agreed with the user):**
+- **Compare migrations, not version strings.** A database whose migrations table holds a migration this app doesn't know is from a newer version. Exact for pre-releases, dev builds and source copies, and it works for backups that already exist.
+- **At restore:** `stageRestore` checks the backup's database and refuses it before anything is staged. The manifest also gets the app version, used only for the message ("Made by 6.3.0. This app is 6.2.0. Update the app first."); older backups without it get the message without the version.
+- **At start:** before migrating, the app checks the live database the same way and stops with a plain message instead of opening it. In Docker the message names the image tag to go back to, or a staged rollback from Step 8 to wait for. The launcher and `pnpm start` show it and don't loop.
+- Only versions from 6.3.0 on have the check; released ones don't. Say so in the wiki.
+- Tests: a backup with an unknown migration is refused with and without a version in its manifest; an equal or older one is accepted; the start check stops on an unknown migration and passes otherwise.
+- Wiki: `Backups-and-Restore`, `Updates` (going back), `Troubleshooting` (the new message).
+
+**Done when:** a newer backup is refused at upload, and an older app refuses to start on a newer database, each with the plain message; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8c of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 8d - Restore and restart in one go
+**Model:** Sonnet · **Effort:** Medium
+**Why:** after a restore is staged, the app only says "Backup ready. Restart the app to finish restoring" (`settings:backups.restaged`). The user has to find **Restart server**; until then the restore waits silently and replaces the data at whatever restart comes next (an update, a reboot), losing everything changed meanwhile. In Docker, **Restart server** spawns a child and exits 0, so it relies on the container's restart policy.
+**Scope (agreed with the user):**
+- **Restore and restart.** The restore dialog's button restarts at once, with the full-screen overlay used for restart and update. The restore is applied before the database opens, then the page reloads. The overlay says beforehand that the restored data has its own accounts, so the sign-in page may come next.
+- **Say it worked.** After the restart, a message "Restored from backup X (made on date)" (`applyPendingRestore` reports what it applied).
+- **No silent waiting.** While a restore is staged and not applied, a banner in Settings: "A restore is waiting" with **Restart now** and **Cancel restore** (`discardStaged` exists, with no button today). A rollback staged for an older Docker image (Step 8) keeps its own banner.
+- **Docker restarts reliably.** With `APP_INSTALL=docker`, restart exits with a non-zero code instead of spawning a child, so `unless-stopped`, `always` and `on-failure` all bring it back. If the app isn't back after a minute, the overlay shows `docker compose up -d`.
+- Tests: restore + restart applies the backup and reports it; cancel clears the staged restore; the banner shows only while one waits. A CI job in a container stages a restore, restarts through the API and checks the restored data.
+- Wiki: `Backups-and-Restore` (Restore a backup), `Docker`.
+
+**Done when:** a restore needs one confirmation and no other step, in an installed app and in Docker; a waiting restore always shows its banner; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8d of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 8e - Restore on a new install, uploads to disk  **[plan mode]**
+**Model:** Sonnet · **Effort:** High
+**Why:** upload and restore sit behind sign-in, so a fresh install must create a throwaway first admin before restoring. And `POST /api/backups/upload` reads the whole zip into memory (`parseAs: "buffer"`, `MAX_UPLOAD` 2 GB in `apps/server/src/routes/backups.ts`): the cause of the 2 GB limit, and a crash risk on a NAS with 1–2 GB of RAM.
+**Scope (agreed with the user):**
+- **Restore from the first-run screen.** Next to creating the first admin: **Restore from a backup**, only while no user exists, protected like the setup (a local request, `APP_PASSWORD`, or the setup token, which works from another device after Step 1b). Upload, check (Step 8c), restore and restart (Step 8d), then sign in with the backup's accounts.
+- **Pick a backup already in the folder.** The same screen lists the zips in `backups/`, so a Docker user can drop the file into the volume and pick it without uploading.
+- **Uploads go straight to disk.** The backup upload is streamed to a temp file as it arrives (the raw-stream pattern of `apps/server/src/routes/projectFiles.ts`), limited only by free disk space, checked up front from `Content-Length`; a progress bar in the web app. The same for the other zip uploads that buffer the same way: `apps/server/src/routes/import.ts` and `apps/server/src/routes/slicerZip.ts`.
+- **Reverse proxy:** the nginx example on `Public-Access` (`client_max_body_size 2g`) changes to match, saying the proxy's limit is now the only one.
+- Tests: first-run restore with and without the token, refused once a user exists; a backup from `backups/` restored from the first-run screen; a streamed upload over the old limit (sparse temp file) with low memory use; not enough disk space refused up front. The e2e spec for the first-run restore.
+- Wiki: `First-Run`, `Backups-and-Restore`, `Move-or-Uninstall`, `Public-Access`, `Docker`.
+
+**Done when:** a fresh install restores a backup without creating any account first, from an upload or from `backups/`; uploads have no 2 GB limit and don't buffer in memory; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8e of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 8f - Uninstall from the app, and the pre-restore folder  **[plan mode]**
+**Model:** Sonnet · **Effort:** High
+**Why:** on macOS and Linux the user deletes the program folder, the menu entry and the autostart entry by hand. On Windows the uninstaller doesn't stop the running app and leaves the **Start at login** entry when Settings set it. No system removes the data on request. And `pre-restore` (the data from right before a restore) stays forever, with no screen mentioning it.
+**Scope (agreed with the user):**
+- **Uninstall… in Settings → About & updates, on every install.** The dialog offers **Download a backup** first, and **Also delete my data (can't be undone)**, off by default. Project files are never touched.
+  - **macOS and Linux (installed app):** the app stops and a small detached script removes the program folder, the menu entry, the autostart entry (LaunchAgent plist, autostart `.desktop`) and, if ticked, the data folder.
+  - **Windows:** the app stops and runs its own uninstaller (`unins000.exe`) silently, passing the data choice.
+  - **Docker:** the commands with copy buttons: `docker compose down` (keeps the data), `docker compose down -v` (also the volume; a mounted folder is deleted by hand). The container can't remove itself without the Docker socket, which it never gets.
+  - **Source install:** the steps: stop the app, delete the folder, and the data folder's path on this machine.
+- **The Windows uninstaller (`packaging/setup.iss`)**, also when started from **Settings → Apps**: stops the running app first, always removes the **Start at login** value whoever set it, and asks "Also delete your data?" (default No; a parameter answers it when the app starts it).
+- **`pre-restore` gets a purpose and an end.** After a restore, the Backups card says the data from before the restore is kept until a date, with **Undo restore** (same restart flow as Step 8d). Deleted automatically after 7 days.
+- Stale text: `wiki/Move-or-Uninstall.md` links `docs/hub.md` (a pointer now): link `Hub-Setup` and `Connector-Setup`. Its "Set again what a backup doesn't hold" list follows Step 8b.
+- Tests: the uninstall script on a temp install folder for macOS and Linux paths (with and without data); the Docker and source dialogs show the commands; undo restore; `pre-restore` removed after 7 days. The Windows uninstaller in the release workflow's install test (silent, with and without data).
+- Wiki: `Move-or-Uninstall`, `Backups-and-Restore`, `Install-on-Windows`, `Install-on-macOS`, `Install-on-Linux`, `Docker`, `Install-from-Source`.
+
+**Done when:** an installed app is removed from **Uninstall…** on each system with nothing left but, if asked, the data; Docker and source show the right commands; `pre-restore` can be undone and cleans itself up; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 8f of the 6.3.0 plan in PLAN.md. Tell me what to check by hand on macOS and Linux.
+```
+
 ## Phase 68 - Release
 
-### [ ] Step 8 - Real test, docs, push & v6.3.0-alpha.1
+### [ ] Step 9 - Real test, docs, push & v6.3.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Real test, with the user's hardware: an ARM64 machine with the archive, a NAS or server with the container, a hub, a printer on the container's network, a project folder on the NAS shown in the hub, and one update of the hub with the connector following.
+- Updates and backups (Phase 67b): a Docker update leaves a backup, and a Docker rollback with the app's steps works; a newer backup is refused; a fresh install restores from the first-run screen and restarts by itself, with the public address and slicers back; **Uninstall…** on the user's PC.
+- Hub (Steps 1b, 7b to 7d): the first admin of a fresh container from another device; the hub moved to a new address with its connectors following; a connector replaced by another computer, and one removed.
 - Fix anything found. Docs and wiki: `docs/hub.md` (its "a NAS joins by running a connector" is now true, with the install steps), ADR-0014 amendment, README feature list and support matrix, the wiki pages named at the top of this plan (and their screenshots), CHANGELOG, version `6.3.0-alpha.1` in root, `apps/*` and `packages/*`, `pnpm version:check`, `pnpm wiki:check`.
 - Commit on `dev`, push, tag `v6.3.0-alpha.1` on `dev`.
 
 **Done when:** every scenario worked; the tag is pushed and the workflow is green; the pre-release did not publish the wiki.
 **Prompt:**
 ```
-Do Step 8 of the 6.3.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
+Do Step 9 of the 6.3.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 9 - Docs, push & v6.3.0 release
+### [ ] Step 10 - Docs, push & v6.3.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - Only document what changed since the last 6.3.0 pre-release. `pnpm screenshots` if a page changed, README, CHANGELOG, version `6.3.0`.
@@ -4831,7 +5217,7 @@ Do Step 8 of the 6.3.0 plan in PLAN.md. Guide me through each scenario, then fix
 **Done when:** `main`, `dev` and the tag are pushed; the workflow is green; the release is the latest; the images exist for x64 and ARM64; the wiki was published by the release.
 **Prompt:**
 ```
-Do Step 9 of the 6.3.0 plan in PLAN.md. Only document what changed since the last 6.3.0 pre-release.
+Do Step 10 of the 6.3.0 plan in PLAN.md. Only document what changed since the last 6.3.0 pre-release.
 Then fast-forward main to dev, push, push the v6.3.0 tag and confirm the release.
 ```
 
