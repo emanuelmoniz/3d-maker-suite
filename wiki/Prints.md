@@ -166,7 +166,7 @@ The breakdown of what the print cost: filament, energy, printer wear and mainten
 
 - [Prints settings](Prints-Settings.md) has the failure reasons, the printing pace, the review level and the sources of prints.
 - **Settings → Costs** has the cost figures.
-- **Settings → Alerts** has the alert when filament waits for review.
+- The gear on **Alerts** has the alert when filament waits for review.
 
 ## Limits and tips
 

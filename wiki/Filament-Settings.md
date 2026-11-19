@@ -23,7 +23,7 @@ The **Filament** card has one field.
 |---|---|---|---|
 | **Low spool warning (grams left)** | A spool with this many grams left or fewer gets a **Low** label in the list and raises the low spool alert. A spool can set its own value in its form | Yes | `100` |
 
-The same field is in **Settings → Alerts**, which also says who gets the alert and how. Changing it in one place changes it in the other.
+The same field is in the alerts settings (the gear on **Alerts**), which also says who gets the alert and how. Changing it in one place changes it in the other.
 
 ## Sources
 
@@ -51,7 +51,7 @@ A spool that came from a source shows it on its page, and can be unlinked there.
 
 ## Related settings
 
-- **Settings → Alerts** has the low spool alert and who gets it.
+- The gear on **Alerts** has the low spool alert and who gets it.
 - **Settings → Costs** has the cost figures that use a spool's price.
 - Filament brands, materials and presets are in the **Catalog**.
 

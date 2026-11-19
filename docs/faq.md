@@ -1,28 +1,5 @@
 # FAQ
 
-**Does my data leave my PC?**
-No. The app stores everything locally. It contacts Bambu only if you connect the Bambu Cloud integration, and only to sync.
+This guide moved to the wiki: **[FAQ](https://github.com/emanuelmoniz/3d-maker-suite/wiki/FAQ)**.
 
-**Do I need a Bambu account?**
-No. Manual entry works for everything. The account only adds automatic sync.
-
-**Why does Bambu Cloud ask for a code?**
-Bambu asks for an email code or 2FA code on new sign-ins. Enter the code in the app.
-
-**Can I use it with printers that are not Bambu?**
-Yes, add them manually. Other vendors can be added as adapters (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
-
-**Is there a Docker image?**
-Yes: `ghcr.io/emanuelmoniz/3d-maker-suite`. See [Docker in install.md](install.md#docker) for the compose file and what does not work on a NAS.
-
-**Will my old costs change when I change a filament price?**
-No. Each print stores its cost when it is recorded.
-
-**Why does the Filament table on Stats show less than the total cost?**
-It shows **Material cost**: only what the filament cost. Energy, labour and wear aren't part of it. The other tables show the total cost.
-
-**Where do I report a bug?**
-Open an issue on GitHub and use the bug report template.
-
-**Do I need a slicer to estimate a project's cost?**
-No. Type the print time and grams per plate, or slice the plates with Bambu Studio or OrcaSlicer installed on the server's PC (set its **Slicer program** in Integrations), or install a server slicer from the app ([slicing.md](slicing.md)). Sliced numbers match the slicer's own for the same presets. See [ADR-0007](adr/0007-slicing.md).
+The wiki is the one place for user guides. This file stays so that Help links in installed versions keep working.

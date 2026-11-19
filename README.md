@@ -11,11 +11,11 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 - **Maintenance**: reusable tasks for printers and accessories, due by hours, prints or days (a tab of Printers)
 - **Filament**: spools with numbers and colour names, remaining grams, low-spool alerts
 - **Catalog and presets**: printer and filament brands, models and materials, and the slicer's printer, process and filament presets, by hand or from a slicer
-- **Hub and connector**: workstations, a NAS or a file server join your server with a small connector app; each machine page shows its CPU, memory, disks and addresses ([docs/hub.md](docs/hub.md))
-- **Users and roles**: accounts for a LAN, NAS or Docker install, with viewer, editor and admin roles and a log of who changed what ([docs/users.md](docs/users.md))
+- **Hub and connector**: workstations, a NAS or a file server join your server with a small connector app; each machine page shows its CPU, memory, disks and addresses ([the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Hub-Setup))
+- **Users and roles**: accounts for a LAN, NAS or Docker install, with viewer, editor and admin roles and a log of who changed what ([the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Users))
 - **Alerts**: one list of what needs attention (low spools, maintenance, warranties, sync results), with severity, read, snooze and dismiss, a history table, and optional ntfy or email channels; each task chooses what it raises
 - **Projects**: 3MF models with plates, thumbnails, tags, collections, filament colours, files you can upload, move and remove in folders, a chosen 3D preview file, an image gallery with a cover, a markdown description (linked `.md` or `.txt` file, with an editor), and slicing per plate (Bambu Studio or OrcaSlicer, locally or on the server, automatically when a sliced file changes) for an estimated cost of one complete print
-- **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known; each network printer can stop recording on its own while its live status goes on ([docs/prints.md](docs/prints.md))
+- **Prints**: history with outcome, filament usage per AMS slot (up to 16 for multicolor), energy, and an estimated duration when only the grams are known; each network printer can stop recording on its own while its live status goes on ([the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Prints))
 - **Clients**: people and companies you print for, with unique VAT, mobile and email
 - **Quotes**: numbered quotes from a project or typed in, with notes, client and markup on cost
 - **Orders**: work agreed with a client, from a quote or on its own, with a status, a price and the cost of its linked prints
@@ -56,7 +56,7 @@ A local-first manager for your 3D printing: printers, accessories, maintenance, 
 
 ## Install
 
-**Installers (Windows, macOS, Linux)**: download the file for your system from the [latest release](https://github.com/emanuelmoniz/3d-maker-suite/releases/latest) and double-click it. No Git, Node or pnpm needed. The installers are not code-signed, so Windows and macOS show a one-time warning: see [the install guide](docs/install.md#warnings-you-will-see).
+**Installers (Windows, macOS, Linux)**: download the file for your system from the [latest release](https://github.com/emanuelmoniz/3d-maker-suite/releases/latest) and double-click it. No Git, Node or pnpm needed. The installers are not code-signed, so Windows and macOS show a one-time warning: see [the install guide](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Install-on-Windows).
 
 **From source** (developers): **Node.js 22 LTS** and **pnpm**.
 
@@ -67,19 +67,19 @@ pnpm install
 pnpm start
 ```
 
-Then open <http://127.0.0.1:4300>. Steps for Windows, macOS, Linux and Docker (NAS): [docs/install.md](docs/install.md).
+Then open <http://127.0.0.1:4300>. Steps for Windows, macOS, Linux and Docker (NAS): [the install pages](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Choose-How-to-Run).
 
-To update, use **Settings → About & updates → Update**: the app backs up, installs the new release, restarts, and lets you roll back ([details](docs/install.md#updating)).
+To update, use **Settings → About & updates → Update**: the app backs up, installs the new release, restarts, and lets you roll back ([details](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Updates)).
 
 ## Connect Bambu Cloud (optional)
 
 Sign in with your Bambu account on the Integrations page. The app syncs print history every hour and printers every day by default (mode and frequency are set per type), and you can sync each type or a date range by hand. Every new print is recorded at once; a filament slot the app isn't sure about waits in **Prints → Filament to review**. Manual entry works without an account.
 
-Details, region choice and troubleshooting: [docs/bambu-cloud.md](docs/bambu-cloud.md).
+Details, region choice and troubleshooting: [Bambu Cloud on the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Bambu-Cloud).
 
 ## Using it from another device
 
-By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `HOST` (or the host in Settings → Network) and create accounts for the people who use it ([docs/users.md](docs/users.md)). Running it on a NAS? See [docs/install.md](docs/install.md#docker). See [docs/configuration.md](docs/configuration.md).
+By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `HOST` (or the host in Settings → Network) and create accounts for the people who use it ([the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Users)). Running it on a NAS? See [the Docker page](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Docker). See [Configuration on the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Configuration).
 
 ## Supported printers
 
@@ -87,37 +87,41 @@ A printer on your network is added by its address (and key) in Integrations, lin
 
 | Printer | Source | Live status | Prints recorded | Grams | Spool |
 |---|---|---|---|---|---|
-| Klipper | [Moonraker](docs/moonraker.md) | yes | live, and its history | file totals per tool; the length really extruded for a cancelled print | the Spoolman spool a job names |
-| Bambu Lab | [Bambu LAN](docs/bambu-lan.md) | yes | live | the job's 3MF, per AMS slot | AMS RFID tag; trays loaded by themselves |
-| Bambu Lab | [Bambu Cloud](docs/bambu-cloud.md) | no | history | from the cloud | the cloud's filament manager |
-| Prusa (MK4, XL, MINI, MK3) | [PrusaLink](docs/prusalink.md) | yes | live | the job file's totals | loaded spool |
-| Any printer behind OctoPrint | [OctoPrint](docs/octoprint.md) | yes | live | the job file's totals | loaded spool |
+| Klipper | [Moonraker](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Moonraker) | yes | live, and its history | file totals per tool; the length really extruded for a cancelled print | the Spoolman spool a job names |
+| Bambu Lab | [Bambu LAN](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Bambu-LAN) | yes | live | the job's 3MF, per AMS slot | AMS RFID tag; trays loaded by themselves |
+| Bambu Lab | [Bambu Cloud](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Bambu-Cloud) | no | history | from the cloud | the cloud's filament manager |
+| Prusa (MK4, XL, MINI, MK3) | [PrusaLink](https://github.com/emanuelmoniz/3d-maker-suite/wiki/PrusaLink) | yes | live | the job file's totals | loaded spool |
+| Any printer behind OctoPrint | [OctoPrint](https://github.com/emanuelmoniz/3d-maker-suite/wiki/OctoPrint) | yes | live | the job file's totals | loaded spool |
 
-Bambu Cloud and Bambu LAN can both be set up for one printer: it stays one printer and each print is recorded once. [Spoolman](docs/spoolman.md) is a spool library, not a printer source: it imports your spools and gets each print's usage written back.
+Bambu Cloud and Bambu LAN can both be set up for one printer: it stays one printer and each print is recorded once. [Spoolman](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Spoolman) is a spool library, not a printer source: it imports your spools and gets each print's usage written back.
 
 PrusaLink and OctoPrint follow printer messages others published, and Bambu LAN with LAN Only mode on is untried: none of them is checked on a real printer yet.
 
 ## Documentation
 
+The user guide is the [wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki). Its pages:
+
 | Topic | Where |
 |---|---|
-| Install and first run | [docs/install.md](docs/install.md) |
-| Settings and environment variables | [docs/configuration.md](docs/configuration.md) |
-| Bambu Cloud setup | [docs/bambu-cloud.md](docs/bambu-cloud.md) |
-| Klipper printers (Moonraker) setup | [docs/moonraker.md](docs/moonraker.md) |
-| Bambu Lab printers on your network (Bambu LAN) setup | [docs/bambu-lan.md](docs/bambu-lan.md) |
-| Prusa printers (PrusaLink) setup | [docs/prusalink.md](docs/prusalink.md) |
-| OctoPrint setup | [docs/octoprint.md](docs/octoprint.md) |
-| Spoolman: import spools, write usage back | [docs/spoolman.md](docs/spoolman.md) |
-| Project folders: structure, depths, Docker | [docs/projects.md](docs/projects.md) |
-| Import spreadsheets and slicer catalogs | [docs/import.md](docs/import.md) |
-| Printers, usage and maintenance | [docs/printers.md](docs/printers.md) |
-| Archive, delete and bulk actions | [docs/archive-delete.md](docs/archive-delete.md) |
-| Slicing: server slicers, presets, Docker | [docs/slicing.md](docs/slicing.md) |
-| Slicer program | [docs/open-in-slicer.md](docs/open-in-slicer.md) |
-| Backups | [docs/backups.md](docs/backups.md) |
-| Logs | [docs/logs.md](docs/logs.md) |
-| FAQ | [docs/faq.md](docs/faq.md) |
+| Install and first run | [Choose How to Run](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Choose-How-to-Run) |
+| Settings and environment variables | [Configuration](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Configuration) |
+| Bambu Cloud setup | [Bambu Cloud](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Bambu-Cloud) |
+| Klipper printers (Moonraker) setup | [Moonraker](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Moonraker) |
+| Bambu Lab printers on your network (Bambu LAN) setup | [Bambu LAN](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Bambu-LAN) |
+| Prusa printers (PrusaLink) setup | [PrusaLink](https://github.com/emanuelmoniz/3d-maker-suite/wiki/PrusaLink) |
+| OctoPrint setup | [OctoPrint](https://github.com/emanuelmoniz/3d-maker-suite/wiki/OctoPrint) |
+| Spoolman: import spools, write usage back | [Spoolman](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Spoolman) |
+| Project folders: structure, depths, Docker | [Projects](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Projects) |
+| Import spreadsheets and slicer catalogs | [Import and Export](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Import-and-Export) |
+| Printers, usage and maintenance | [Printers](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Printers) |
+| Archive, delete and bulk actions | [Archive and Delete](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Archive-and-Delete) |
+| Slicing: server slicers, presets, Docker | [Slicers](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Slicers) |
+| Slicer program | [Slicers](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Slicers) |
+| Hub and connector | [Hub Setup](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Hub-Setup) |
+| Users and roles | [Users](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Users) |
+| Backups | [Backups and Restore](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Backups-and-Restore) |
+| Logs | [Logs](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Logs) |
+| FAQ | [FAQ](https://github.com/emanuelmoniz/3d-maker-suite/wiki/FAQ) |
 | Architecture and decisions | [docs/architecture.md](docs/architecture.md), [docs/adr](docs/adr/) |
 | Contributing, adapters, languages | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Changes | [CHANGELOG.md](CHANGELOG.md) |

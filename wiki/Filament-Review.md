@@ -23,7 +23,7 @@ Without **Write**, the tick boxes and buttons don't show.
 ## Where it opens from
 
 - On **Prints**, the line **N filament slots from imported prints need a spool.** has a **Review** link.
-- Filament to review is also an alert, see **Settings → Alerts**.
+- Filament to review is also an alert, see the alerts settings, opened with the gear on **Alerts**.
 
 The page is called **Filament to review**. **Back to prints** returns to the list.
 
@@ -111,7 +111,7 @@ It is set for all prints in [Prints settings](Prints-Settings.md#review-of-autom
 ## Related settings
 
 - The review level is in [Prints settings](Prints-Settings.md#review-of-automatic-prints), on a source's **Edit** in the **Sources** tab, and on a printer's form.
-- **Settings → Alerts** decides who gets the alert for filament to review.
+- The gear on **Alerts** decides who gets the alert for filament to review.
 
 ## Limits and tips
 

@@ -35,7 +35,7 @@ Without `REAL_DB`, `release.test.ts` runs on made-up rows (as in CI) and `real-d
 - Zod schemas in `packages/core/src/schemas` are the only type source.
 - Secrets are encrypted at rest and never logged or returned by the API.
 - Commit messages follow Conventional Commits, for example `feat(printers): add comment pinning`.
-- Wiki pages live in `wiki/` and follow [the wiki guide](docs/wiki-guide.md).
+- **User docs live only in `wiki/`**, the source of the GitHub wiki, and follow [the wiki guide](docs/wiki-guide.md). Never edit the wiki on GitHub, and don't add a user guide to `docs/`: the files there are short pointers to the wiki, kept for the Help links of installed versions. A change users see updates its wiki page (and screenshots) in the same commit; run `pnpm wiki:check` after it.
 
 ## How to add an adapter
 
@@ -70,7 +70,7 @@ Maintainers tag a version after the release checklist below. Do the steps in thi
 1. Add the entry to [CHANGELOG.md](CHANGELOG.md) as the newest `## [X.Y.Z]` heading.
 2. Bump `version` in the root `package.json` and every `apps/*` and `packages/*` `package.json` (all the same version).
 3. Put `Version X.Y.Z.` on the status line of [README.md](README.md).
-4. Check the docs that name features or versions (README features, `docs/*.md`, the screenshots if the UI changed).
+4. Check the docs that name features or versions (README features, the wiki pages in `wiki/`, the screenshots if the UI changed).
 5. Write the CHANGELOG entry so it lists everything that differs from the last release: the workflow publishes it as the GitHub release notes (`node scripts/release-notes.mjs X.Y.Z` previews them). A stable release's notes merge in all its pre-releases' sections.
 6. Run `pnpm lint`, `pnpm typecheck`, `pnpm i18n:check`, `pnpm test` and `pnpm version:check`, and wait for CI on `dev` to pass before tagging. The release workflow runs it too and fails on a mismatch or on a tag that isn't `v` plus the version.
 7. If a new OrcaSlicer is out, open it once on a Windows PC and run `pnpm vitest run packages/slicer-presets/src/opc.test.ts`. Its real-install test reads that machine's `.opc` files, whose format is private ([ADR-0013](docs/adr/0013-managed-slicer.md)).

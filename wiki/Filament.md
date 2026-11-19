@@ -157,7 +157,7 @@ The spool stays, with its weight and history, and stays linked to its other libr
 ## Related settings
 
 - The default low weight warning is in [Filament settings](Filament-Settings.md#general).
-- **Settings → Alerts** has the low spool alert and who gets it.
+- The gear on **Alerts** has the low spool alert and who gets it.
 - Brands, materials and presets are in the **Catalog**.
 - **Settings → Costs** has the cost figures that use a spool's price.
 

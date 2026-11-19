@@ -99,7 +99,7 @@ Alerts are still raised once per condition, and their rows are shared.
 - **Condition kinds** resolve for everyone when the cause is fixed (resolved wins, ADR-0012). **Event kinds** are raised once and stay until each user dismisses them. Read, snooze and dismiss stay per user (`alert_states`).
 - Each kind needs a permission. A user never gets a kind whose permission they lack, nor an alert about a project they can't see, whatever their subscription says.
 - Per kind a role sets **off · in app · notify** (notify includes in app); a user can override any kind ("same as role" resets it).
-- Settings → Alerts warns when no enabled user gets a condition kind.
+- The alerts settings (the gear on Alerts) warn when no enabled user gets a condition kind.
 
 | Kind | Needs | Class |
 |---|---|---|

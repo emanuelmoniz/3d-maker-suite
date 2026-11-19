@@ -4534,7 +4534,7 @@ Do Step 24 of the Wiki plan in PLAN.md.
 
 ## Phase 63 - Finish
 
-### [ ] Step 25 - One source for user docs
+### [x] Step 25 - One source for user docs
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Each user guide in `docs/` becomes a short pointer to its wiki page. Keep the files: installed versions open `docs/projects.md`, `docs/logs.md` and `docs/hub.md` from their Help links.

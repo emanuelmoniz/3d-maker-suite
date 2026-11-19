@@ -55,7 +55,7 @@ Every feature page uses these sections, in this order. Leave out any that don't 
 
 ## Writing a page
 
-- Read the screen's code and its labels in `apps/web/src/locales/en`, and open the screen in the running app. The older guides in `docs/` are a starting point, not the truth.
+- Read the screen's code and its labels in `apps/web/src/locales/en`, and open the screen in the running app. The files in `docs/` are only pointers to the wiki; don't add a user guide there.
 - Write short sentences and everyday words.
 - Put app labels in bold, exactly as they appear on screen.
 - Add the page to `wiki/_Sidebar.md`, under the group listed below.

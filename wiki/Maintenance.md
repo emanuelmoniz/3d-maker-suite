@@ -93,7 +93,7 @@ A person with **Manage** can tick rows to archive, restore or delete many at onc
 
 Leave a limit empty to ignore it. Whichever limit is reached first makes the task due. A task with no limit at all is listed with **No interval set** and is never due.
 
-The next fields decide the alerts for this task. Each lead field is empty by default, which uses the defaults in **Settings → Alerts**. The form shows those defaults. `0` means no warning for that limit.
+The next fields decide the alerts for this task. Each lead field is empty by default, which uses the defaults in the alerts settings (the gear on **Alerts**). The form shows those defaults. `0` means no warning for that limit.
 
 | Field | What it means |
 |---|---|
@@ -172,7 +172,7 @@ An archived task leaves **Due** and its logs stay. **Restore** brings it back. A
 
 ## Related settings
 
-- **Settings → Alerts** has the default warning time for tasks: days, print hours and prints before the due date.
+- The gear on **Alerts** has the default warning time for tasks: days, print hours and prints before the due date.
 - **Settings → Costs** has the defaults for **Include maintenance in costs**.
 - Alerts for due and overdue tasks are shown in **Alerts**. Which people get them is set per role and per user.
 

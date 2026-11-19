@@ -79,6 +79,6 @@ There is no process supervisor. The app runs in a terminal from `pnpm start`, an
 - `pnpm start` is a launcher process plus a server process. Docker and `pnpm dev` don't change.
 - An update is away for as long as install and build take, usually under a minute.
 - Update and rollback need a clean git tree; edited files get a message, not a forced checkout.
-- After the first update the clone is on a detached HEAD at a tag, so plain `git pull` no longer applies. `docs/install.md` → Updating gives the button and `git fetch --tags && git checkout vX.Y.Z`.
+- After the first update the clone is on a detached HEAD at a tag, so plain `git pull` no longer applies. The wiki page Updates gives the button and `git fetch --tags && git checkout vX.Y.Z`.
 - Every update leaves a full backup, photos included: up to 5 of them.
 - Killing the launcher process alone (not Ctrl+C, not closing the terminal) leaves the server running on Windows, as with any parent process there.
