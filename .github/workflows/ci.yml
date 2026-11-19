@@ -17,6 +17,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm i18n:check
+      - run: pnpm wiki:check
       - run: pnpm test
   e2e:
     runs-on: ubuntu-latest

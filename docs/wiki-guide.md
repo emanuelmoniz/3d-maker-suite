@@ -9,6 +9,10 @@
 - Add a new page to `WIKI_PAGES` in `packages/core/src/wikiRoutes.ts` and to `wiki/_Sidebar.md`.
 - List a page in the sidebar only once its file exists.
 
+## Checking the wiki
+
+Run `pnpm wiki:check` after any change in `wiki/`. It fails on a broken page link, a missing heading anchor, a missing image, a page that isn't in the sidebar, a sidebar entry with no page, and a route map entry that points at a heading that doesn't exist. A map entry whose page isn't written yet is listed as pending, not an error. `pnpm wiki:check --strict` makes pending an error. CI runs the check.
+
 ## Links and images
 
 Write links and images so they also work when browsing the repo. The publish step converts them for the wiki.

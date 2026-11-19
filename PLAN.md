@@ -4224,7 +4224,7 @@ How this plan works:
 Do Step 1 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 2 - `pnpm wiki:check`
+### [x] Step 2 - `pnpm wiki:check`
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A script that fails on broken page links, missing heading anchors, missing images, pages not in the sidebar, sidebar entries with no page, and map entries pointing at a heading that doesn't exist.
