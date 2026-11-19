@@ -32,3 +32,9 @@
 ### Integrations
 
 ### Help
+
+- [Troubleshooting](Troubleshooting.md)
+- [FAQ](FAQ.md)
+- [Glossary](Glossary.md)
+- [Sources and sync](Sources-and-Sync.md)
+- [Archive and delete](Archive-and-Delete.md)

@@ -4333,7 +4333,7 @@ Do Step 8 of the Wiki plan in PLAN.md.
 Do Step 9 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 10 - Help and shared concepts
+### [x] Step 10 - Help and shared concepts
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Troubleshooting:** symptoms and fixes, and where to find the logs.
