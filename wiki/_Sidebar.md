@@ -37,6 +37,9 @@
 - [Projects](Projects.md)
 - [Projects settings](Projects-Settings.md)
 - [Project folders](Project-Folders.md)
+- [Prints](Prints.md)
+- [Filament review](Filament-Review.md)
+- [Prints settings](Prints-Settings.md)
 
 ### Accounting
 

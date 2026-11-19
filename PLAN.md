@@ -4424,7 +4424,7 @@ Do Step 15 of the Wiki plan in PLAN.md.
 Do Step 16 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 17 - Prints
+### [x] Step 17 - Prints
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Prints:** the list, add and edit form, and print details.
