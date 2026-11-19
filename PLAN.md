@@ -4507,7 +4507,7 @@ Do Step 21 of the Wiki plan in PLAN.md.
 Do Step 22 of the Wiki plan in PLAN.md.
 ```
 
-### [ ] Step 23 - Users, roles, data and logs
+### [x] Step 23 - Users, roles, data and logs
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Users:** the list, adding a user, resetting a password, the user page, and the first admin.

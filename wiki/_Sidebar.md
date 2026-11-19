@@ -60,6 +60,10 @@
 - [Settings](Settings-General.md)
 - [My account](My-Account.md)
 - [Sign in](Sign-In.md)
+- [Users](Users.md)
+- [Roles](Roles.md)
+- [Import and export](Import-and-Export.md)
+- [Logs](Logs.md)
 
 ### Integrations
 
