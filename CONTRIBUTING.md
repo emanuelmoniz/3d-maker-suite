@@ -34,6 +34,7 @@ Without `REAL_DB`, `release.test.ts` runs on made-up rows (as in CI) and `real-d
 - Zod schemas in `packages/core/src/schemas` are the only type source.
 - Secrets are encrypted at rest and never logged or returned by the API.
 - Commit messages follow Conventional Commits, for example `feat(printers): add comment pinning`.
+- Wiki pages live in `wiki/` and follow [the wiki guide](docs/wiki-guide.md).
 
 ## How to add an adapter
 

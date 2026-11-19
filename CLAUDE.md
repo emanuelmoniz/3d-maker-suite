@@ -37,6 +37,7 @@ packages/3mf       3MF parser (pure, tested)
 packages/host      node-only helpers for server + connector: autostart, zip, secrets, bundle download
 packages/adapters/bambu   Bambu Cloud + Bambu Studio adapter
 docs/              ADRs (docs/adr), user docs
+wiki/              source of the GitHub wiki (guide: docs/wiki-guide.md)
 ```
 
 ## Commands

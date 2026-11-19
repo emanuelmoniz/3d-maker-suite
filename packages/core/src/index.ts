@@ -52,3 +52,4 @@ export * from "./services/spoolImportMatch.ts";
 export * from "./services/spoolMatch.ts";
 export * from "./services/spoolPush.ts";
 export * from "./services/updates.ts";
+export * from "./wikiRoutes.ts";

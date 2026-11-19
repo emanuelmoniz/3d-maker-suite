@@ -4209,13 +4209,13 @@ How this plan works:
 
 ## Phase 57 - Foundation
 
-### [ ] Step 1 - Wiki skeleton and route map  **[plan mode]**
+### [x] Step 1 - Wiki skeleton and route map  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `wiki/` with flat, uniquely named pages: `Home.md`, `_Sidebar.md` (groups: Get started, Equipment, Work, Accounting, Insights, Administration, Integrations, Help) and `_Footer.md`.
 - The page template and writing guide from this plan, kept outside the published pages (`CONTRIBUTING.md` or `docs/`).
 - Links between pages are written as `Printers.md#printer-details` and images as `../docs/images/printers.png`, so they also work when browsing the repo.
-- One shared route-to-section map in `packages/core`, listing all 67 screens and the wiki page each belongs to. Plan 6.2.0 reads the same map.
+- One shared route-to-section map in `packages/core`, listing all 93 screens (98 addresses: five settings pages also answer on a `/sources` address that shows their General tab) and the wiki page each belongs to. Plan 6.2.0 reads the same map.
 - `CLAUDE.md`: add `wiki/` to Layout.
 
 **Done when:** the skeleton renders correctly when browsed in the repo; every screen is in the map; the map's format is agreed.
@@ -4256,7 +4256,7 @@ Do Step 3 of the Wiki plan in PLAN.md. Tell me first what I have to do by hand o
 ### [ ] Step 4 - Screenshots for every screen
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- Extend `scripts/screenshots.shot.ts` to the screens and key dialogs in the route map that have no image yet (forms, settings pages, tabs, the machine page, the import flows).
+- Extend `scripts/screenshots.shot.ts` to the screens in the route map, and their key dialogs, that have no image yet (forms, settings pages, tabs, the machine page, the import flows).
 - Demo data only: no real names, addresses, tokens or serial numbers.
 
 **Done when:** `pnpm screenshots` produces every image the page steps need, and the README's images still look right.
@@ -4551,7 +4551,7 @@ Do Step 25 of the Wiki plan in PLAN.md.
 ### [ ] Step 26 - Full review against the app
 **Model:** Opus · **Effort:** High
 **Scope:**
-- Walk all 67 screens at desktop and phone width with the wiki open beside them, as admin, editor and viewer.
+- Walk all 93 screens at desktop and phone width with the wiki open beside them, as admin, editor and viewer.
 - Fix wrong labels, missing fields, missing dialogs and unclear wording.
 - Turn on `pnpm wiki:check --strict` in CI.
 
