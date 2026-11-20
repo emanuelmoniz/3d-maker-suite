@@ -4802,7 +4802,7 @@ Do Step 3c of the 6.2.0 plan in PLAN.md.
 Do Step 3d of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3e - Scan folders only for Write
+### [x] Step 3e - Scan folders only for Write
 **Model:** Sonnet · **Effort:** Low
 **Why:** **Scan folders** on **Projects** has no **Write** check, but `POST /api/projects/scan` needs **Write** on **Projects** (a scan creates and updates projects and asks connected machines to re-index), so a reader presses it and gets **Couldn't start the scan.**
 **Scope (agreed with the user):**

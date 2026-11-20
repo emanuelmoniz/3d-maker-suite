@@ -296,10 +296,12 @@ export function ProjectsPage() {
         description={t("nav:items.projects.description")}
         actions={
           <>
-            <Button busy={scanning} onClick={() => scanStart.mutate()}>
-              <ScanSearch className="size-4" aria-hidden />
-              {t("projects:scan.start")}
-            </Button>
+            <Write can="projects">
+              <Button busy={scanning} onClick={() => scanStart.mutate()}>
+                <ScanSearch className="size-4" aria-hidden />
+                {t("projects:scan.start")}
+              </Button>
+            </Write>
             <Write can="projects">{add}</Write>
             <SettingsLink module="projects" />
           </>

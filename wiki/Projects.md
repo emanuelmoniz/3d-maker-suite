@@ -30,7 +30,7 @@ With accounts on, a project has an owner. The page says **Owner:** and a name. I
 
 Open **Projects**. The page header has three buttons:
 
-- **Scan folders** reads every project folder again, in full. It shows its progress, for example **Scanning 3 of 12**, and ends with **Scan finished: 2 new, 1 updated.** Use it after changing files on a network share, which often sends no change events. A folder that is missing, such as an unmounted share, shows **Folder not found:** and its path, and its projects stay. A folder that could not be read shows **1 folder could not be read.**
+- **Scan folders** reads every project folder again, in full. It shows only with **Write** on **Projects**; folders are also rescanned on their schedule. It shows its progress, for example **Scanning 3 of 12**, and ends with **Scan finished: 2 new, 1 updated.** Use it after changing files on a network share, which often sends no change events. A folder that is missing, such as an unmounted share, shows **Folder not found:** and its path, and its projects stay. A folder that could not be read shows **1 folder could not be read.**
 - **New project** opens [the add form](#add-or-edit-a-project).
 - The gear opens Projects settings.
 
