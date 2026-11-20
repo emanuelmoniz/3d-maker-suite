@@ -4735,7 +4735,7 @@ Do Step 1 of the 6.2.0 plan in PLAN.md.
 Do Step 2 of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Guards
+### [x] Step 3 - Guards
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - A unit test that walks the app's routes and fails if a page has no entry in the route map, so a new page can't ship without help.
