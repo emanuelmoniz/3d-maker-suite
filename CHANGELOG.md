@@ -2,7 +2,25 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [6.2.0-alpha.1] - 2026-11-20
+
+Pre-release, first of 6.2.0. Lists everything since 6.1.0. Back up before updating. Three migrations (0141 to 0143). Updating keeps all data. Connectors update to the hub's version. This pre-release does not publish the wiki or the documentation site.
+
+### Added
+- **Help on every page**: a Help icon in each page header opens the section of the guide for that screen, and the card help links and the sign-in and first-admin screens open it too. The guide is built from `wiki/` and ships inside the app at `/guide/` (no sign-in, no internet; about 4 MB more in the installers and the image). Without a build, `/guide/` redirects to the public site ([wiki/Home.md](wiki/Home.md))
+- **A documentation site** built from `wiki/` on GitHub Pages; the GitHub wiki stays as a mirror
+- **User guide in `wiki/`**: a page for every screen, with a screenshot per screen; `pnpm wiki:check` guards links, anchors, images and the sidebar. The guides in `docs/` are now pointers to it
+- **Accessory warranty alert**: an accessory whose warranty ends within 30 days raises one alert that names its printer and opens the accessory
+- **Maintenance history can be edited and deleted**: a task, printer or accessory lists its records; edit the date, cost and notes, or delete one (the due date falls back to the previous record). **Write** changes the person's own records, **Manage** any ([wiki/Maintenance.md](wiki/Maintenance.md))
+- **A slicer on this computer is found and used with no path typed**, including a Flatpak install on Linux (run as `flatpak run <id>`); a typed path still wins. Without a program, **Use as slicer** is greyed out with the reason ([wiki/Slicers.md](wiki/Slicers.md))
+
+### Changed
+- **Every page checks the right it needs**: a form a person may only read opens its item or list with "Your role can't change this."; an area with no right shows "You can't open this"; a missing or hidden item reads "This doesn't exist, or you can't open it." Buttons follow the same rights ([wiki/Roles.md](wiki/Roles.md))
+- The sidebar, the sign-in card and the guide show the same wide logo
+
+### Fixed
+- **Scan folders** on Projects only shows with **Write**, as the scan needs it
+- Installing an archived accessory is refused
 
 ### Removed
 - **Collections**: the `/api/collections` endpoints and the **Filter by collection** list on Projects are gone; no screen could create a collection. Tags replace them: the update turns each existing collection into a tag of the same name (an existing tag of that name is reused) on the same projects, and turns tags on if they were off, so nothing disappears. Descriptions are dropped. Scripts that call `/api/collections` use `/api/tags` instead ([wiki/Projects.md](wiki/Projects.md))

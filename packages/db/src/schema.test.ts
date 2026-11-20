@@ -343,7 +343,7 @@ describe("migration 0024", () => {
     );
     // Only the columns that exist at 0064 (slicer_version came with 0071, catalog_fingerprint with
     // 0096, catalog_receive and catalog_install with 0115, the preset_* ones with 0118, device_id with
-    // 0134).
+    // 0134, slicer_args with 0143).
     const {
       slicerVersion: _,
       catalogFingerprint: __,
@@ -353,6 +353,7 @@ describe("migration 0024", () => {
       presetInstall: ______,
       presetState: _______,
       deviceId: ________,
+      slicerArgs: _________,
       ...columns
     } = getTableColumns(s.integrations);
     const rows = now.select(columns).from(s.integrations).all();

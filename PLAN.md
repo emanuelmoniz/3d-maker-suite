@@ -4867,7 +4867,7 @@ Do Step 3h of the 6.2.0 plan in PLAN.md.
 
 ## Phase 65 - Release
 
-### [ ] Step 4 - Real test, docs, push & v6.2.0-alpha.1
+### [x] Step 4 - Real test, docs, push & v6.2.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Open Help from every sidebar section, a detail page, a form, a settings tab, and the sign-in screen, as admin and viewer, at desktop and phone width. Each lands on the right section of the documentation site.
