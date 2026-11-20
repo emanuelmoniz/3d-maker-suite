@@ -149,6 +149,14 @@ The bar at the bottom has the save button, which turns on once something changed
 3. Choose a **Frequency**, and a time if you want one.
 4. Press **Save**.
 
+## Network shares and live updates
+
+This is true for every install: a PC with a mapped drive, a Docker host, a NAS.
+
+- The app watches folders for changes. That works on the machine's own disks.
+- It doesn't work on a share the machine mounts from somewhere else (SMB, NFS), because no change events arrive. Use **Scan folders** on **Projects** after changing files there, or keep **Rescan this folder periodically** on, see [Rescan](#rescan).
+- Keep the app's own data folder on the machine's own disk, never on a network share, see [Where your data is kept](Configuration.md#where-your-data-is-kept).
+
 ## Related settings
 
 - [Projects settings](Projects-Settings.md) has the list of folders, the file limits and the trash.
@@ -159,7 +167,7 @@ The bar at the bottom has the save button, which turns on once something changed
 - A folder's path can't change. Add the new folder, then use **Change project folder…** in [Projects settings](Projects-Settings.md#change-project-folder) to move the projects over.
 - A folder that holds a model file is a project even if your layout says it is a group.
 - Pick the deepest layout you really use. A deeper layout reads more folders.
-- A network share often sends no change events. Keep **Rescan this folder periodically** on for it, or press **Scan folders**.
+- A network share often sends no change events. Keep **Rescan this folder periodically** on for it, or press **Scan folders**, see [Network shares and live updates](#network-shares-and-live-updates).
 - With **Auto slice** on, a changed sliced 3MF is sliced again on its own. Switch it off for a folder of finished files you never edit.
 
 ## Problems and fixes
@@ -171,6 +179,7 @@ The bar at the bottom has the save button, which turns on once something changed
 | A folder on a computer can't be picked | It is outside the folders the computer shares. Share it first |
 | No new projects after saving a new layout | For a folder on the server, press **Scan folders** on **Projects** |
 | Projects show as missing after a layout change on a computer | They are no longer at a project level. Change the layout back, or move them |
+| Changes in a folder on a network share aren't noticed | Press **Scan folders** on **Projects**, or switch on **Rescan this folder periodically** |
 | **Missing** next to the path | The folder is gone or not mounted. Mount it, or add the right one |
 
 ## Related pages

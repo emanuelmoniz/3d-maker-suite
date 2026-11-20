@@ -35,6 +35,27 @@ Keep the terminal open while you use the app. Updates and restarts from **Settin
 
 Turn on **Start at login** in the **General** card of **Settings**. It runs `pnpm start` in the app's folder. On Windows a console window opens at login, and closing it stops the app. On macOS and Linux it runs without a window.
 
+## On a NAS or a machine with no desktop
+
+Use this when a NAS has Node 22 but no Docker, has an ARM processor, or when a server has no desktop. If the NAS has Docker on an Intel or AMD processor, [Docker](Docker.md#on-a-nas) is easier.
+
+1. Install Node 22 on the machine, with its own package tool or from <https://nodejs.org>. `node -v` must print `v22.x`.
+2. Follow [Install and start](#install-and-start) over SSH. You need Git and a terminal.
+3. Start the app so other devices can reach it:
+
+```bash
+HOST=0.0.0.0 APP_ALLOWED_HOSTS=192.168.1.20 pnpm start
+```
+
+Use the machine's own address in `APP_ALLOWED_HOSTS`. It is needed until the first admin exists, and takes a bare name or IP only. See [Use from another device](Use-From-Another-Device.md).
+
+4. Make the app start by itself when the machine boots. A NAS's task scheduler, or a service on a Linux server, can run `pnpm start` in the app's folder at boot. **Start at login** needs a desktop sign-in, so it doesn't help here.
+
+- The app runs as the user who starts it, and has that user's access to files and folders.
+- `pnpm start` restarts itself after an update, so **Update** in **Settings → About & updates** works, for a copy with no local changes.
+- ARM is not tested by us. Slicing isn't available on ARM, because Bambu Lab has no Linux ARM slicer. Another computer can slice for it through a hub, see [Hub setup](Hub-Setup.md).
+- The app can't watch a share that the machine mounts from somewhere else (SMB, NFS), see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates). Keep the data folder on the machine's own disk too.
+
 ## Where your data is kept
 
 | System | Folder |
@@ -77,3 +98,4 @@ pnpm start
 - [Install on Windows](Install-on-Windows.md)
 - [Install on macOS](Install-on-macOS.md)
 - [Install on Linux](Install-on-Linux.md)
+- [Docker](Docker.md)

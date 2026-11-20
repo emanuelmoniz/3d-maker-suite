@@ -66,7 +66,7 @@ Every feature page uses these sections, in this order. Leave out any that don't 
 
 | Group | Pages |
 |---|---|
-| Get started | Choose-How-to-Run, Install-on-Windows, Install-on-macOS, Install-on-Linux, Install-from-Source, Docker, NAS, Server-and-Remote-Access, First-Run, Use-From-Another-Device, Configuration, Updates, Backups-and-Restore, Move-or-Uninstall, Hub-Setup, Connector-Setup |
+| Get started | Choose-How-to-Run, Install-on-Windows, Install-on-macOS, Install-on-Linux, Install-from-Source, Docker, Server-and-Remote-Access, First-Run, Use-From-Another-Device, Configuration, Updates, Backups-and-Restore, Move-or-Uninstall, Hub-Setup, Connector-Setup |
 | Equipment | Dashboard, Printers, Printers-Settings, Accessories, Maintenance, Filament, Filament-Settings, Catalog, Presets, Catalog-Settings |
 | Work | Projects, Projects-Settings, Project-Folders, Prints, Filament-Review, Prints-Settings |
 | Accounting | Quotes, Quotes-Settings, Orders, Orders-Settings, Clients |

@@ -13,7 +13,6 @@ export const WIKI_PAGES = [
   "Install-on-Linux",
   "Install-from-Source",
   "Docker",
-  "NAS",
   "Server-and-Remote-Access",
   "First-Run",
   "Use-From-Another-Device",

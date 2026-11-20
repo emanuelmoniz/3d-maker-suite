@@ -4621,7 +4621,7 @@ How this plan works:
 
 ## Phase 63b - Install pages by system
 
-### [ ] Step 1 - The NAS page moves into the install pages
+### [x] Step 1 - The NAS page moves into the install pages
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - **Docker:** a section **On a NAS** (Synology Container Manager, QNAP Container Station, a normal NAS folder for `/data` instead of a volume, mounting the 3D files folder), the **Folder permissions** of the container (runs as `root`, created files belong to `root`, `:ro`), and the `no matching manifest` fix for ARM.

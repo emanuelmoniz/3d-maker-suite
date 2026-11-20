@@ -48,7 +48,7 @@ If the page doesn't open, the machine's firewall may block port 4300.
 | Windows | When Windows asks, allow access on **Private networks**. Or open **Windows Defender Firewall → Advanced settings → Inbound Rules** and add a rule for TCP port 4300 |
 | macOS | **System Settings → Network → Firewall**. Allow incoming connections for the app |
 | Linux | Allow TCP 4300, for example `sudo ufw allow from 192.168.1.0/24 to any port 4300` |
-| NAS | Allow port 4300 for your home network only |
+| Docker host, such as a NAS | Allow port 4300 for your home network only. Use the host's own firewall or its NAS settings |
 
 Never open the port to the internet. See [Server and remote access](Server-and-Remote-Access.md#what-not-to-expose).
 
@@ -75,5 +75,4 @@ An address like `192.168.1.20` can change. Give the machine a fixed address in y
 - [First run](First-Run.md)
 - [Configuration](Configuration.md)
 - [Docker](Docker.md)
-- [NAS](NAS.md)
 - [Server and remote access](Server-and-Remote-Access.md)

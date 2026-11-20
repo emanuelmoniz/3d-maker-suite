@@ -75,6 +75,8 @@ If `APP_DATA_DIR` isn't set, the folder is:
 
 The folder holds the database, thumbnails, backups, the saved host, port and public address (`config.json`), and `secret.key`, which protects saved logins. Keep it private.
 
+Keep the data folder on the machine's own disk, never on a network share. The database doesn't work reliably over a network file system.
+
 ## Settings stored in the app
 
 Everything else is a setting in the app, stored in the database. It is not an environment variable, and it moves with a backup.

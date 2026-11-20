@@ -22,7 +22,7 @@ It also reports its name, system, version, disk use and slicers, so the hub can 
 
 - **The hub is on,** and you have its address, see [Hub setup](Hub-Setup.md).
 - **An admin** makes you a pairing code, or you are the admin.
-- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit (x64) Linux computer with a desktop. There is no connector for a NAS, a Raspberry Pi or any computer without a desktop yet. For a NAS, see [NAS](NAS.md).
+- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit (x64) Linux computer with a desktop. There is no connector for a NAS, a Raspberry Pi or any computer without a desktop yet. A connector's pairing page opens in a browser on the same computer. To use a NAS's folders, run the hub on the NAS with [Docker](Docker.md#on-a-nas) and mount the NAS folders into it as hub folders. The hub then reads them directly.
 - **The same version as the hub.** Download the connector from the same release as the hub. If it is older, it updates itself when it pairs.
 - **No hub on the same computer.** The connector doesn't start where a hub is running.
 
@@ -233,5 +233,5 @@ To remove everything, also delete the data folder (see the table below) and the 
 
 - [Hub setup](Hub-Setup.md)
 - [Choose how to run](Choose-How-to-Run.md)
-- [NAS](NAS.md)
+- [Docker](Docker.md)
 - [Server and remote access](Server-and-Remote-Access.md)

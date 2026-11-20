@@ -8,7 +8,7 @@ Anyone who can run Docker or Node on a machine that is always on, and who contro
 
 ## Before you start
 
-- **A machine that is always on.** A small Linux server, a VPS, a home server or a [NAS](NAS.md).
+- **A machine that is always on.** A small Linux server, a VPS, a home server or a NAS.
 - **Docker on an Intel or AMD (x64) processor,** or Node 22. The published Docker image doesn't run on ARM. An ARM server needs the [source install](Install-from-Source.md).
 - **A domain name** that points at the machine, such as `3d.example.com`.
 - **A reverse proxy** that serves HTTPS: Caddy, nginx or Traefik. The app doesn't do HTTPS by itself.
@@ -129,6 +129,6 @@ To reach the app from outside without a public address at all, put the server on
 ## Related pages
 
 - [Docker](Docker.md)
-- [NAS](NAS.md)
+- [Docker](Docker.md)
 - [Choose how to run](Choose-How-to-Run.md)
 - [Install from source](Install-from-Source.md)

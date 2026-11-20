@@ -115,8 +115,26 @@ In the app, add `/projects/files` as a project folder. The path on your server (
 
 - A plain mount lets the app browse, upload, delete, move and create folders.
 - Add `:ro` (`/volume1/3d-downloads:/projects/downloads:ro`) to make a folder read only. The app can show its projects, but uploading, deleting, moving and creating folders fails.
-- The app scans folders when it starts, and watches them while it runs. Network shares (SMB, NFS) often send no change events. After changing files there, use **Scan folders** on the Projects page.
+- The app scans folders when it starts, and watches them while it runs. A share that the server itself mounts from somewhere else (SMB, NFS) sends no change events, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates).
 - A folder that is missing, such as an unmounted share, is reported and skipped. Its projects stay in the app.
+
+### Folder permissions
+
+- The image runs the app as `root`. It can read every folder you mount, and write to it unless you add `:ro`.
+- Files and folders that the app creates in a mounted folder belong to `root` on the server. This happens when you upload a file, create a project folder or move a project.
+
+## On a NAS
+
+A NAS is on all day, so the app is always there for your phone and other computers. If your NAS has Docker and an Intel or AMD (x64) processor, this page is all you need. With an ARM processor or no Docker, see [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
+
+1. Open your NAS's Docker app. Synology Container Manager and QNAP Container Station can both run a Compose file as a project. Or use SSH and the command line.
+2. Create a folder for the app on a normal NAS volume, for example `/volume1/docker/3d-maker-suite`.
+3. Save the [compose file](#the-compose-file) there.
+4. Use a normal NAS folder for the app's data instead of a Docker volume. Replace `app-data:/data` with `/volume1/docker/3d-maker-suite/data:/data`, and delete the `volumes:` block at the bottom of the file. A normal folder is easy to include in the NAS's own backups and snapshots. See [Where your data is](#where-your-data-is).
+5. Mount your 3D files folder, for example `/volume1/3d-files:/projects/files`, see [Project folders](#project-folders).
+6. Start it as shown in [Start it](#start-it), create the first admin and add `/projects/files` in **Projects settings** (the gear on **Projects**).
+
+Keep the data folder on the NAS's own disk, never on a share the NAS mounts from somewhere else. A NAS firewall must allow port 4300 for your home network only, see [Use from another device](Use-From-Another-Device.md#allow-the-port-in-the-firewall). A NAS can't run a connector, so to use its folders with a hub, mount them into the hub as above, see [Connector setup](Connector-Setup.md).
 
 ## Updating
 
@@ -154,7 +172,7 @@ Your own slicer presets live on your PC, not in the container. Upload them as a 
 | Feature | Why | What to do |
 |---|---|---|
 | Slicing | The default image has no slicer | Use the `-slicer` image, or slice on your PC |
-| Live folder watching on network shares | Change events don't arrive over SMB or NFS | Use **Scan folders** |
+| Live folder watching on network shares | Change events don't arrive over SMB or NFS | Use **Scan folders**, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates) |
 | **Start at login** | The container starts with Docker | Use `restart: unless-stopped` |
 | The app's own **Update** button | The container can't replace its image | Pull the new image |
 | Network addresses in **This server** | The container sees its own addresses, not the server's | Use the address of the server |
@@ -162,7 +180,9 @@ Your own slicer presets live on your PC, not in the container. Upload them as a 
 
 ## Which processors work
 
-The published image is built for x64 only. A Raspberry Pi, an ARM NAS and other ARM machines can't pull it. Apple silicon runs it through emulation.
+The published image is built for x64 only. A Raspberry Pi, an ARM NAS and other ARM machines can't pull it. Apple silicon runs it through emulation. If you don't know your NAS's processor, look in its system information or look up its model.
+
+Slicing needs x64 too, because Bambu Lab has no Linux ARM slicer. On an ARM machine another computer does the slicing, through a hub, see [Hub setup](Hub-Setup.md).
 
 Building the image on an ARM machine with `build: .` is not tested. To run on ARM, use the [source install](Install-from-Source.md) with Node 22.
 
@@ -177,6 +197,7 @@ docker compose exec app pnpm user:reset-password you@example.com
 ## Problems and fixes
 
 - **`403 forbidden_host` from another device.** The app only answers to addresses it knows until the first admin exists. Add the address with `APP_ALLOWED_HOSTS`, as shown in [Start it](#start-it).
+- **The image can't be pulled, or says `no matching manifest`.** The machine has an ARM processor, and the image is x64 only. Use the [source install](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop) instead.
 - **The port is already in use.** Change the left number in `ports:`, for example `"4400:4300"`, and run `docker compose up -d`.
 - **The container keeps restarting.** Run `docker compose logs app` and read the last lines.
 - **The slicer says it can't start.** Check that the image is a `-slicer` one.
@@ -186,5 +207,6 @@ docker compose exec app pnpm user:reset-password you@example.com
 ## Related pages
 
 - [Choose how to run](Choose-How-to-Run.md)
-- [NAS](NAS.md)
+- [Install from source](Install-from-Source.md)
+- [Project folders](Project-Folders.md)
 - [Server and remote access](Server-and-Remote-Access.md)

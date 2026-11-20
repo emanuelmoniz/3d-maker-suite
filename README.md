@@ -67,7 +67,7 @@ pnpm install
 pnpm start
 ```
 
-Then open <http://127.0.0.1:4300>. Steps for Windows, macOS, Linux and Docker (NAS): [the install pages](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Choose-How-to-Run).
+Then open <http://127.0.0.1:4300>. Steps for Windows, macOS, Linux, Docker (also for a NAS) and from source: [the install pages](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Choose-How-to-Run).
 
 To update, use **Settings → About & updates → Update**: the app backs up, installs the new release, restarts, and lets you roll back ([details](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Updates)).
 
@@ -79,7 +79,7 @@ Details, region choice and troubleshooting: [Bambu Cloud on the wiki](https://gi
 
 ## Using it from another device
 
-By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `HOST` (or the host in Settings → Network) and create accounts for the people who use it ([the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Users)). Running it on a NAS? See [the Docker page](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Docker). See [Configuration on the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Configuration).
+By default the app only answers on this PC. To reach it from your phone or another computer on your network, set `HOST` (or the host in Settings → Network) and create accounts for the people who use it ([the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Users)). Running it on a NAS? See [Docker on a NAS](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Docker#on-a-nas). See [Configuration on the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Configuration).
 
 ## Supported printers
 

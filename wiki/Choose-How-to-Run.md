@@ -1,32 +1,46 @@
 # Choose how to run
 
-3D Maker Suite can run on your own computer, in Docker, on a NAS, on a server, or as a hub that other computers join. This page helps you pick one.
+3D Maker Suite installs in five ways: on Windows, on macOS, on Linux, in Docker, or from source. This page helps you pick one. Whether the machine is your PC, a NAS or a server doesn't change that: you follow the page for its system.
 
 ## Who can use it
 
 Anyone who installs the app. You don't need an account to start. Accounts are only needed when other people or other devices use the app.
 
-## The options at a glance
+## The five installs
 
-| Option | Best for | Always on? | Needs |
+| Install | Best for | Always on? | Needs |
 |---|---|---|---|
-| **PC** | One person, one computer | No. It runs while your PC is on | Nothing else. The installer brings what it needs |
-| **Docker** | A home server or NAS you already run | Yes | Docker with Compose |
-| **NAS** | A NAS that is on all day | Yes | Docker, or Node 22 |
-| **Server** | A small group, or access from outside your home | Yes | A Linux machine, and HTTPS if it is on the internet |
-| **Hub** | Several computers that each hold project files | The hub is always on | A server, user accounts, and a connector on each computer |
+| [**Windows**](Install-on-Windows.md) | One person on a Windows PC | No. It runs while your PC is on | Nothing else. The installer brings what it needs |
+| [**macOS**](Install-on-macOS.md) | One person on a Mac | No. It runs while your Mac is on | Nothing else. The installer brings what it needs |
+| [**Linux**](Install-on-Linux.md) | A Linux computer with a desktop | No, unless the computer stays on | A 64-bit (x64) computer. The archive brings what it needs |
+| [**Docker**](Docker.md) | A home server or NAS you already run | Yes | Docker with Compose, on an Intel or AMD (x64) processor |
+| [**From source**](Install-from-Source.md) | Changing the code, or a machine the other installs don't fit | As long as you keep it running | Node 22, Git and a terminal |
 
 ## Which one should I choose?
 
-- **I print at home and use one computer.** Use the PC install: [Windows](Install-on-Windows.md), [macOS](Install-on-macOS.md) or [Linux](Install-on-Linux.md).
-- **I want the app to be reachable all day from my phone or other computers.** Use [Docker](Docker.md) on a NAS or home server. Your NAS's page: [NAS](NAS.md).
-- **I want to reach it from outside my home.** Run it on a server behind HTTPS: [Server and remote access](Server-and-Remote-Access.md).
+- **I print at home and use one computer.** Use the install for your system: [Windows](Install-on-Windows.md), [macOS](Install-on-macOS.md) or [Linux](Install-on-Linux.md).
+- **I want the app to be reachable all day from my phone or other computers.** Use [Docker](Docker.md) on a home server or NAS.
 - **I know Git and Node and want to change the code.** [Install from source](Install-from-Source.md).
+
+### On a NAS or home server
+
+A NAS is a machine, not a way to install. Follow the page for what it runs:
+
+- **It has Docker and an Intel or AMD processor:** [Docker](Docker.md#on-a-nas). This is the easy way.
+- **It runs Windows:** [Install on Windows](Install-on-Windows.md).
+- **It has no Docker, or an ARM processor:** [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
+
+## After you install
+
+These add to any install:
+
+- **Reach it from your phone or another computer.** [Use from another device](Use-From-Another-Device.md).
+- **Reach it from outside my home.** Put it behind HTTPS: [Server and remote access](Server-and-Remote-Access.md).
 - **My project files are spread over several computers.** Run a hub, and put a connector on each computer: [Hub setup](Hub-Setup.md) and [Connector setup](Connector-Setup.md).
 
 ## What stays the same
 
-All options run the same app and keep your data on your own machine. Bambu Cloud, the printer connections and the pages work the same way. A few things differ in Docker or on a NAS, such as slicing and watching folders on network shares.
+All installs run the same app and keep your data on your own machine. Bambu Cloud, the printer connections and the pages work the same way. A few things differ in Docker, such as slicing and watching folders on network shares.
 
 ## Limits and tips
 
@@ -41,5 +55,5 @@ All options run the same app and keep your data on your own machine. Bambu Cloud
 - [Install on Linux](Install-on-Linux.md)
 - [Install from source](Install-from-Source.md)
 - [Docker](Docker.md)
-- [NAS](NAS.md)
+- [Use from another device](Use-From-Another-Device.md)
 - [Server and remote access](Server-and-Remote-Access.md)

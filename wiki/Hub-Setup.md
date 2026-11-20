@@ -26,7 +26,7 @@ With the hub switched off, the app works exactly as before.
 
 ## Before you start
 
-- **A server that is always on.** A computer, a home server, a VPS or a [NAS](NAS.md) that runs 3D Maker Suite. Computers can only join while it is running.
+- **A server that is always on.** A computer, a home server, a VPS or a NAS that runs 3D Maker Suite with [Docker](Docker.md#on-a-nas). Computers can only join while it is running.
 - **User accounts turned on, and at least one admin.** See [First run](First-Run.md).
 - **An address every computer can open.** On one network, `http://192.168.1.20:4300` is enough. Across the internet you need a public name with HTTPS, see [Server and remote access](Server-and-Remote-Access.md).
 - **Backups.** Make a backup before you turn the hub on, see [Backups and restore](Backups-and-Restore.md).
