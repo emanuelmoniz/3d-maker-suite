@@ -1,0 +1,226 @@
+# 6.3.0 Step 1 spikes (ADR-0024). Lives only on the spike/connector branch. Nothing is pushed to a
+# registry: per-arch images travel as artifacts and are merged in a local registry.
+name: spike-connector
+on:
+  push:
+    branches: [spike/connector]
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  # S1 + S7: the archives built natively on each arch, the app started, the connector run by systemd.
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, arch: x64 }
+          - { os: ubuntu-24.04-arm, arch: arm64 }
+    name: bundle (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @3d-maker-suite/web build
+      - name: Build the archives (timed)
+        run: |
+          s=$(date +%s); node packaging/build.mjs --arch ${{ matrix.arch }}
+          echo "RESULT ${{ matrix.arch }} app archive built in $(( $(date +%s) - s )) s"
+          s=$(date +%s); node packaging/build.mjs --product connector --arch ${{ matrix.arch }}
+          echo "RESULT ${{ matrix.arch }} connector archive built in $(( $(date +%s) - s )) s"
+          ls -l packaging/out/*.tar.gz packaging/out/*.zip | awk '{print "RESULT ${{ matrix.arch }} size", $5, $9}'
+      - name: Install and start the app archive (better-sqlite3, migrations)
+        run: |
+          export HOME="$RUNNER_TEMP/apphome"
+          mkdir -p "$HOME" "$RUNNER_TEMP/x"
+          tar -xzf packaging/out/3d-maker-suite-v*.tar.gz -C "$RUNNER_TEMP/x"
+          "$RUNNER_TEMP/x/3d-maker-suite/install.sh"
+          s=$(date +%s%N)
+          eval "$(grep '^Exec=' "$HOME/.local/share/applications/3d-maker-suite.desktop" | cut -d= -f2-)" &
+          for _ in $(seq 240); do
+            if h=$(curl -sf http://127.0.0.1:4300/api/health); then
+              echo "RESULT ${{ matrix.arch }} app healthy in $(( ($(date +%s%N) - s) / 1000000 )) ms: $h"
+              ls "$HOME/.local/share/3d-maker-suite/install/versions/"*/node_modules/better-sqlite3/prebuilds/ | sed "s/^/RESULT ${{ matrix.arch }} prebuild kept: /"
+              curl -sf -X POST http://127.0.0.1:4300/api/server-config/stop; sleep 3; exit 0
+            fi
+            sleep 0.5
+          done
+          cat "$HOME/.local/share/3d-maker-suite/install/logs/"*.log; exit 1
+      - name: Start a hub from source (4310)
+        run: |
+          mkdir -p "$RUNNER_TEMP/hub"
+          cd apps/server
+          HOST=0.0.0.0 PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4310/api/health && exit 0; sleep 1; done; cat "$RUNNER_TEMP/hub.log"; exit 1
+      - run: bash spike/connector/headless.sh
+      - if: always()
+        run: |
+          tail -n 40 "$HOME/.local/share/3d-maker-suite-connector/install/logs/"*.log || true
+          tail -n 20 "$RUNNER_TEMP/hub.log" || true
+
+  # S1: the images built natively on each arch; the connector one exported for the merge.
+  images:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, arch: amd64 }
+          - { os: ubuntu-24.04-arm, arch: arm64 }
+    name: images (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build natively (timed)
+        run: |
+          s=$(date +%s); docker build -q -t spike-app . > /dev/null
+          echo "RESULT ${{ matrix.arch }} app image built natively in $(( $(date +%s) - s )) s"
+          s=$(date +%s); docker build -q -t spike-connector -f spike/connector/Dockerfile.connector . > /dev/null
+          echo "RESULT ${{ matrix.arch }} connector image built natively in $(( $(date +%s) - s )) s"
+          docker image ls --format 'RESULT ${{ matrix.arch }} image {{.Repository}} {{.Size}}' | grep spike-
+      - name: The app image starts (better-sqlite3 in the image)
+        run: |
+          docker run -d --name app spike-app > /dev/null
+          for _ in $(seq 120); do [ "$(docker inspect -f '{{.State.Health.Status}}' app)" = healthy ] && break; sleep 1; done
+          echo "RESULT ${{ matrix.arch }} app image: $(docker inspect -f '{{.State.Health.Status}}' app), $(docker exec app uname -m)"
+      - run: docker save spike-connector -o connector-${{ matrix.arch }}.tar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: connector-${{ matrix.arch }}
+          path: connector-${{ matrix.arch }}.tar
+          retention-days: 1
+
+  # S1: one multi-arch tag from the two native images; the arm64 one run under QEMU and paired.
+  merge:
+    needs: images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      registry:
+        image: registry:2
+        ports: ["5000:5000"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: connector-*
+          merge-multiple: true
+      - name: Push both to the local registry and merge
+        run: |
+          for a in amd64 arm64; do
+            skopeo copy --dest-tls-verify=false docker-archive:connector-$a.tar docker://localhost:5000/spike-connector:$a
+          done
+          if docker buildx imagetools create -t localhost:5000/spike-connector:spike \
+               localhost:5000/spike-connector:amd64 localhost:5000/spike-connector:arm64; then
+            echo "RESULT merge: docker buildx imagetools create worked"
+          else
+            echo "RESULT merge: imagetools create failed against the local registry; docker manifest instead"
+            docker manifest create --insecure localhost:5000/spike-connector:spike \
+              localhost:5000/spike-connector:amd64 localhost:5000/spike-connector:arm64
+            docker manifest push --insecure localhost:5000/spike-connector:spike
+          fi
+          docker buildx imagetools inspect localhost:5000/spike-connector:spike | sed 's/^/  manifest| /'
+          docker pull -q localhost:5000/spike-connector:spike > /dev/null
+          echo "RESULT pull on amd64 picks: $(docker image inspect -f '{{.Architecture}}' localhost:5000/spike-connector:spike)"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile && pnpm --filter @3d-maker-suite/web build
+      - name: arm64 under QEMU, paired with a hub
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64 > /dev/null
+          mkdir -p "$RUNNER_TEMP/hub"
+          (cd apps/server && HOST=0.0.0.0 PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &)
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4310/api/health > /dev/null && break; sleep 1; done
+          ctl() { node spike/connector/hubctl.mjs http://127.0.0.1:4310 "$@"; }
+          ctl setup
+          gw=$(docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+          for a in amd64 arm64; do
+            code=$(ctl code)
+            s=$(date +%s%N)
+            docker run -d --name q-$a --platform linux/$a -e CONNECTOR_HUB_URL=http://$gw:4310 \
+              -e CONNECTOR_PAIRING_CODE=$code -e CONNECTOR_NAME=q-$a localhost:5000/spike-connector:spike > /dev/null
+            for _ in $(seq 180); do ctl devices | grep -q "\"name\":\"q-$a\",\"online\":true" && break; sleep 1; done
+            echo "RESULT $a ($(docker exec q-$a uname -m)) container online after $(( ($(date +%s%N) - s) / 1000000 )) ms"
+          done
+          docker logs q-arm64 2>&1 | head -5
+
+  # S1: the app image built for arm64 under QEMU on x64, for the time only.
+  qemu-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - run: docker run --privileged --rm tonistiigi/binfmt --install arm64 > /dev/null
+      - name: Build the app image for arm64 under QEMU (timed)
+        run: |
+          s=$(date +%s)
+          if docker buildx build --platform linux/arm64 -t spike-app-arm64 . > build.log 2>&1; then
+            echo "RESULT app image for arm64 under QEMU: built in $(( $(date +%s) - s )) s"
+          else
+            echo "RESULT app image for arm64 under QEMU: FAILED after $(( $(date +%s) - s )) s"; tail -30 build.log
+          fi
+
+  # S2 + S3
+  pairing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile && pnpm --filter @3d-maker-suite/web build
+      - run: docker build -q -t spike-connector -f spike/connector/Dockerfile.connector . > /dev/null
+      - run: command -v sqlite3 || sudo apt-get install -y -qq sqlite3
+      - run: bash spike/connector/pairing.sh
+
+  # S4
+  owner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the images
+        run: |
+          docker build -q -t spike-connector -f spike/connector/Dockerfile.connector . > /dev/null
+          docker build -q -t spike-app . > /dev/null
+          docker build -q -t spike-slicer --target slicer . > /dev/null
+      - run: bash spike/connector/owner.sh
+
+  # S5
+  printers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: docker build -q -t spike-connector -f spike/connector/Dockerfile.connector . > /dev/null
+      - run: bash spike/connector/printers.sh
+
+  # S6
+  folders:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: docker build -q -t spike-connector -f spike/connector/Dockerfile.connector . > /dev/null
+      - run: bash spike/connector/folders.sh

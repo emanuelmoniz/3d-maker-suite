@@ -86,6 +86,25 @@ const page = createStatusPage({
 page.listen(port, "127.0.0.1", () => log(`${VERSION}, status page on http://127.0.0.1:${port}/`));
 link.start();
 
+// SPIKE (6.3.0 Step 1, branch spike/connector only): pair from environment variables.
+// CONNECTOR_SPIKE_EXIT=1 exits on a refused code (to measure a restart loop); otherwise it stays up.
+const envHub = process.env.CONNECTOR_HUB_URL;
+const envCode = process.env.CONNECTOR_PAIRING_CODE;
+if (envHub && envCode && !store.token()) {
+  log(`spike: pairing with ${envHub} from the environment`);
+  const { PairError } = await import("./hub.ts");
+  try {
+    await link.pair(envHub, envCode, process.env.CONNECTOR_NAME || (await import("node:os")).hostname());
+    log("spike: paired from the environment");
+  } catch (e) {
+    const code = e instanceof PairError ? e.code : (e as Error).message;
+    log(`spike: pairing refused: ${code}`);
+    if (process.env.CONNECTOR_SPIKE_EXIT === "1") quit(2);
+  }
+} else if (envCode) {
+  log("spike: already paired, the pairing code is ignored");
+}
+
 autostart?.set(startAtLogin).catch((e) => log(`start at login: ${e.message}`));
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => quit(0));
