@@ -2703,3 +2703,27 @@ describe("migration 0142", () => {
     expect(now.select().from(s.tags).all()).toHaveLength(0);
   });
 });
+
+describe("migration 0144", () => {
+  it("keeps unused codes: the old id becomes the hash, each gets an id, desktop kind", () => {
+    const now = migrateAcross(143, (sqlite) => {
+      sqlite.exec(`
+        insert into users (id, email, display_name, password_hash, role_id, created_at, updated_at)
+          values ('u', 'a@x.io', 'A', 'x', '${BUILT_IN_ROLE_IDS.admin}', 'x', 'x');
+        insert into pairing_codes (id, user_id, expires_at) values ('hash-1', 'u', '2099-01-01T00:00:00.000Z');
+      `);
+    });
+    const [code] = now.select().from(s.pairingCodes).all();
+    expect(code).toMatchObject({
+      codeHash: "hash-1",
+      userId: "u",
+      kind: "desktop",
+      deviceId: null,
+    });
+    expect(code?.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(Date.parse(code?.createdAt ?? "")).not.toBeNaN();
+    expect(now.select({ install: s.devices.install }).from(s.devices).all()).toEqual([]);
+  });
+});

@@ -182,11 +182,11 @@ const RULES: [RegExp, string, Need][] = [
   ],
   [p("integrations|import|slicer-zip"), "*", on("integrations.manage")],
   // The machine page (ADR-0021): its own user too, narrowed by the route (`machineGuard`). Revoke,
-  // pairing, a user code and Update now stay hub.manage.
+  // pairing, a user code or user change, and Update now stay hub.manage.
   [/^\/api\/hub\/devices$/, "R", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/(settings|folders)$/, "*", SESSION],
   [/^\/api\/hub\/devices\/[^/]+\/system$/, "R", SESSION],
-  [/^\/api\/hub\/devices\/[^/]+\/(restart|stop)$/, "POST", SESSION],
+  [/^\/api\/hub\/devices\/[^/]+\/(restart|stop|sync\/held)$/, "POST", SESSION],
   [/^\/api\/hub\/devices\/[^/]+$/, "PATCH", SESSION],
   // Picks (ADR-0021): hub.manage or projects manage, checked by the route.
   [/^\/api\/hub\/devices\/[^/]+\/picks(\/[^/]+)?$/, "*", SESSION],

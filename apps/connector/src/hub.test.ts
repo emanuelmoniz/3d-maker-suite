@@ -259,7 +259,9 @@ describe("connector and hub", () => {
     const page = createStatusPage({
       link: c.link,
       store: c.store,
-      updater: { state: () => ({ failed: undefined, hubOlder: false, error: undefined }) },
+      updater: {
+        state: () => ({ failed: undefined, hubOlder: false, error: undefined, pull: undefined }),
+      },
       version: VERSION,
       syncDir: join(c.dir, "sync"),
       open: () => {},

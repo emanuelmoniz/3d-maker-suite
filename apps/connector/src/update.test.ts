@@ -123,3 +123,27 @@ it("keeps running when the download doesn't match its checksum", async () => {
   expect(u.failure()).toEqual({ version: "5.1.0", reason: "download", error: "bad_checksum" });
   expect(existsSync(join(install, "versions"))).toBe(false);
 });
+
+it("in a container: no download, says once what to run, and clears when the image matches", async () => {
+  const { download, asked } = await release();
+  const lines: string[] = [];
+  const u = createUpdater({
+    version: "5.0.0",
+    env: { APP_INSTALL: "docker", APP_DOWNLOAD_URL: "https://dl" },
+    download,
+    exit: () => {
+      throw new Error("must not exit");
+    },
+    log: (l) => lines.push(l),
+  });
+  await u.follow("5.1.0");
+  await u.follow("5.1.0", true); // Update now changes nothing: the image is what it runs
+  expect(asked).toEqual([]);
+  expect(u.state().pull).toBe("5.1.0");
+  expect(u.failure()).toBeUndefined();
+  expect(lines).toEqual([
+    "the hub is on 5.1.0: update this container with docker compose pull, then docker compose up -d",
+  ]);
+  await u.follow("5.0.0");
+  expect(u.state().pull).toBeUndefined();
+});

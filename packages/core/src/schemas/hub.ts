@@ -149,6 +149,17 @@ export type PickLevel = z.infer<typeof pickLevelSchema>;
 export type PickCreate = z.infer<typeof pickCreateSchema>;
 export type PickUpdate = z.infer<typeof pickUpdateSchema>;
 
+/**
+ * How a connector is installed (ADR-0024): the desktop installer (`bundle`, it updates itself), the
+ * Linux archive's `--headless` service (updates itself, no screen), or its image (`docker`: no
+ * self-update, `docker compose pull` instead). Sent on pairing and with every connect.
+ */
+export const CONNECTOR_INSTALLS = ["bundle", "headless", "docker"] as const;
+export const connectorInstallSchema = z.enum(CONNECTOR_INSTALLS);
+/** No screen at the machine: its user changes from the hub, without a code (ADR-0024). */
+export const isHeadless = (install: ConnectorInstall | null | undefined) =>
+  install === "headless" || install === "docker";
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -157,6 +168,8 @@ export const deviceSchema = z.object({
   userName: z.string(),
   os: z.string().nullable(),
   connectorVersion: z.string().nullable(),
+  /** How its connector is installed (ADR-0024); null = not reported (before 6.3.0, or from source). */
+  install: connectorInstallSchema.nullable(),
   lastSeenAt: isoDate.nullable(),
   /** Its event stream is open now. */
   online: z.boolean(),
@@ -233,11 +246,33 @@ export const deviceLibraryUpdateSchema = z.strictObject({
     .optional(),
 });
 export type DeviceLibraryUpdate = z.infer<typeof deviceLibraryUpdateSchema>;
-/** One of the user's online devices, for a project's Open and Open folder. */
+/**
+ * Who a pairing code is for (ADR-0024): a computer with a screen (10 minutes), or a NAS, server or
+ * container (24 hours: setting one up takes longer).
+ */
+export const PAIRING_CODE_KINDS = ["desktop", "headless"] as const;
+export const pairingCodeKindSchema = z.enum(PAIRING_CODE_KINDS);
 /** An admin makes a code for a user (`POST /api/hub/pairing-codes`). */
-export const pairingCodeCreateSchema = z.object({ userId: id });
-/** Shown once; only its sha256 is stored. */
-export const pairingCodeSchema = z.object({ code: z.string(), expiresAt: isoDate });
+export const pairingCodeCreateSchema = z.object({
+  userId: id,
+  kind: pairingCodeKindSchema.default("desktop"),
+});
+/** Shown once; only its sha256 is stored. `id` withdraws it while unused. */
+export const pairingCodeSchema = z.object({
+  id,
+  code: z.string(),
+  kind: pairingCodeKindSchema,
+  expiresAt: isoDate,
+});
+/** An unused pairing code, as Hub management lists it (`GET /api/hub/pairing-codes`): never the code. */
+export const pendingPairingCodeSchema = z.object({
+  id,
+  userId: id,
+  userName: z.string(),
+  kind: pairingCodeKindSchema,
+  createdAt: isoDate,
+  expiresAt: isoDate,
+});
 
 /** The connector exchanges a code for a device token (`POST /api/hub/pair`). */
 export const pairSchema = z.object({
@@ -245,6 +280,8 @@ export const pairSchema = z.object({
   name,
   os: z.string().trim().max(100).optional(),
   connectorVersion: z.string().trim().max(50).optional(),
+  // A kind this hub doesn't know (a newer connector) pairs all the same.
+  install: connectorInstallSchema.optional().catch(undefined),
 });
 /** `token` goes in `Authorization: Bearer`; it's returned only here. */
 export const pairResultSchema = z.object({ token: z.string(), deviceId: id });
@@ -262,6 +299,19 @@ export const deviceUserChangeSchema = deviceUserCheckSchema.extend({
   projects: z.enum(["move", "stay"]),
 });
 export const deviceUserResultSchema = z.object({ userName: z.string(), moved: z.number().int() });
+/**
+ * An admin changes a headless connector's user from the hub (`POST /api/hub/devices/:id/user`):
+ * no code, since nobody is at a machine with no screen to type it (ADR-0024).
+ */
+export const deviceUserSetSchema = z.object({ userId: id, projects: z.enum(["move", "stay"]) });
+/**
+ * A missing sync folder's held deletes, answered from the hub (`POST /api/hub/devices/:id/sync/held`):
+ * `confirm` deletes those files on the hub too, `restore` downloads them again.
+ */
+export const deviceHeldActionSchema = z.object({
+  rootId: id,
+  action: z.enum(["confirm", "restore"]),
+});
 
 export type Device = z.infer<typeof deviceSchema>;
 export type ConnectorUpdateFailure = z.infer<typeof connectorUpdateFailureSchema>;
@@ -272,8 +322,13 @@ export type DeviceSlicer = z.infer<typeof deviceSlicerSchema>;
 export type SlicerInstallTarget = z.infer<typeof slicerInstallTargetSchema>;
 export type DeviceSlicerCheck = z.infer<typeof deviceSlicerCheckSchema>;
 export type DeviceSlicerInstall = z.infer<typeof deviceSlicerInstallSchema>;
+export type ConnectorInstall = z.infer<typeof connectorInstallSchema>;
+export type PairingCodeKind = z.infer<typeof pairingCodeKindSchema>;
 export type PairingCodeCreate = z.input<typeof pairingCodeCreateSchema>;
 export type PairingCode = z.infer<typeof pairingCodeSchema>;
+export type PendingPairingCode = z.infer<typeof pendingPairingCodeSchema>;
+export type DeviceUserSet = z.infer<typeof deviceUserSetSchema>;
+export type DeviceHeldAction = z.infer<typeof deviceHeldActionSchema>;
 export type PairInput = z.input<typeof pairSchema>;
 export type PairResult = z.infer<typeof pairResultSchema>;
 export type DeviceUserPreview = z.infer<typeof deviceUserPreviewSchema>;
@@ -444,6 +499,17 @@ export const hubEventSchema = z.discriminatedUnion("type", [
     requestId: id,
     ...connectorSettingsPatch,
   }),
+  /**
+   * A missing sync folder's held deletes (6.3.0): `confirm` sends them to the hub, `restore` drops
+   * them and downloads those files again, as the buttons on the connector's own page do. Answered
+   * (null) at once; the sync state it reports next shows the result. ENOTSUP: it doesn't sync.
+   */
+  z.object({
+    type: z.literal("sync.held"),
+    requestId: id,
+    rootId: id,
+    action: z.enum(["confirm", "restore"]),
+  }),
   /** Restart connector: answered (null) first, then the connector exits for its launcher. */
   z.object({ type: z.literal("connector.restart"), requestId: id }),
   /** Stop connector: answered (null) first, then it exits; it starts again at login or by hand. */
@@ -527,10 +593,10 @@ export const hubEventSchema = z.discriminatedUnion("type", [
 export const deviceSliceSchema = z.object({ code: z.number().int().nullable() });
 /**
  * What the connector reports when it opens the stream (`X-Connector-Version`, `X-Connector-OS`,
- * `X-Connector-System` as JSON: which managed slicer build fits it).
+ * `X-Connector-Install`, `X-Connector-System` as JSON: which managed slicer build fits it).
  */
 export const connectorInfoSchema = pairSchema
-  .pick({ connectorVersion: true, os: true })
+  .pick({ connectorVersion: true, os: true, install: true })
   .extend({ system: slicerSystemSchema.optional() });
 
 /** A `: hb` comment this often keeps the device online and proxies from closing a quiet stream. */

@@ -274,7 +274,7 @@ export function HubPage() {
         onCancel={close}
         onSubmit={(f) =>
           pairingCode.mutate(String(f.get("userId") ?? ""), {
-            onSuccess: (c) => setDialog({ kind: "code", ...c }),
+            onSuccess: ({ code, expiresAt }) => setDialog({ kind: "code", code, expiresAt }),
           })
         }
       >

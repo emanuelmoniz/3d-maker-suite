@@ -41,6 +41,7 @@
     "updateFailed": "The update to version {{version}} did not start, so this connector stays on {{current}}.",
     "updateError": "Could not download the update: {{error}}",
     "hubOlder": "The hub runs an older version than this connector. Install the connector that matches the hub.",
+    "updateDocker": "The hub runs version {{version}}. A container doesn't update itself: run docker compose pull, then docker compose up -d.",
     "restart": "Restart server",
     "stop": "Stop server",
     "unpair": "Unpair"

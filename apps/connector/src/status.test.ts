@@ -24,7 +24,9 @@ const serve = async (fake: Partial<Link> = {}) => {
   const link = { ...createLink({ store, version: "1.0.0", os: "x" }), ...fake };
   const opened: string[] = [];
   const exits: number[] = [];
-  const updater = { state: () => ({ failed: undefined, hubOlder: false, error: undefined }) };
+  const updater = {
+    state: () => ({ failed: undefined, hubOlder: false, error: undefined, pull: undefined }),
+  };
   const syncDir = join(dir, "sync");
   const page = createStatusPage({
     link,

@@ -9,6 +9,7 @@ import {
   type CatalogInstallSlicer,
   type CatalogInstallStatus,
   COMMENT_STATUSES,
+  CONNECTOR_INSTALLS,
   type ConnectorUpdateFailure,
   type DevicePresetLibrary,
   type DeviceSlicer,
@@ -21,6 +22,7 @@ import {
   MAINTENANCE_TARGETS,
   NEW_SPOOL_FIELD,
   ORIGINS,
+  PAIRING_CODE_KINDS,
   type Permissions,
   PICK_LEVELS,
   PRESET_HOLD_REASONS,
@@ -1356,6 +1358,8 @@ export const devices = sqliteTable(
     tokenHash: text().notNull(),
     os: text(),
     connectorVersion: text(),
+    /** How the connector is installed (ADR-0024, `X-Connector-Install`); null = not reported. */
+    install: text({ enum: CONNECTOR_INSTALLS }),
     /** What the connector reported when its stream last opened (`X-Connector-Update`). */
     updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
     /**
@@ -1439,16 +1443,30 @@ export const devicePicks = sqliteTable(
   ],
 );
 
-/** One-time pairing codes an admin makes for a user. `id` is the code's sha256; used = deleted. */
-export const pairingCodes = sqliteTable("pairing_codes", {
-  id: text().primaryKey(),
-  userId: text()
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  /** Set: not for pairing, it changes this device's user to `userId`. */
-  deviceId: text().references(() => devices.id, { onDelete: "cascade" }),
-  expiresAt: text().notNull(),
-});
+/**
+ * One-time pairing codes an admin makes for a user; used or withdrawn = deleted. Only the code's
+ * sha256 is stored, and only `id` leaves the server (an 8-symbol code's hash could be brute-forced).
+ */
+export const pairingCodes = sqliteTable(
+  "pairing_codes",
+  {
+    id: id(),
+    codeHash: text().notNull(),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Set: not for pairing, it changes this device's user to `userId`. */
+    deviceId: text().references(() => devices.id, { onDelete: "cascade" }),
+    /** A desktop's lasts 10 minutes, a NAS's, server's or container's 24 hours (ADR-0024). */
+    kind: text({ enum: PAIRING_CODE_KINDS }).notNull().default("desktop"),
+    expiresAt: text().notNull(),
+    createdAt: text().notNull().$defaultFn(now),
+  },
+  (t) => [
+    uniqueIndex("pairing_codes_hash_uq").on(t.codeHash),
+    check("pairing_codes_kind_ck", oneOf(t.kind, PAIRING_CODE_KINDS)),
+  ],
+);
 
 /**
  * Hub → device events waiting for the device (ADR-0014). `seq` is the SSE event id; a reconnect's

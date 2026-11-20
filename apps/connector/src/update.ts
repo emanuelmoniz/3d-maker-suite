@@ -37,6 +37,10 @@ export function createUpdater({
   log = () => {},
 }: Options) {
   const install = env.APP_INSTALL === "bundle" ? env.APP_INSTALL_DIR : undefined;
+  // A container can't replace its own image (ADR-0009, ADR-0024): it says what to run instead.
+  const docker = env.APP_INSTALL === "docker";
+  /** The hub's newer version a container waits for `docker compose pull` to bring. */
+  let pull: string | undefined;
   // The launcher went back from this version once: don't try it again.
   let failed: string | undefined;
   try {
@@ -52,6 +56,7 @@ export function createUpdater({
       failed,
       hubOlder,
       error: failure?.reason === "download" ? failure.error : undefined,
+      pull,
     }),
     failure: () => failure,
 
@@ -59,6 +64,15 @@ export function createUpdater({
     async follow(hub: string, force = false) {
       hubOlder = cmp(hub, version) < 0;
       failure = undefined;
+      if (docker) {
+        const behind = cmp(hub, version) > 0 ? hub : undefined;
+        if (behind && behind !== pull)
+          log(
+            `the hub is on ${hub}: update this container with docker compose pull, then docker compose up -d`,
+          );
+        pull = behind;
+        return;
+      }
       if (!install || cmp(hub, version) <= 0) return;
       if (hub === failed && !force) {
         failure = { version: hub, reason: "rollback" };

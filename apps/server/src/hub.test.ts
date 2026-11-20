@@ -233,6 +233,85 @@ describe("changing a device's user", () => {
     expect((await d.call("/check", { code: "AAAA-AAAA" }, other.token)).statusCode).toBe(400);
   });
 
+  it("an admin changes a headless connector's user without a code; a desktop keeps the code", async () => {
+    const d = await device();
+    const set = (payload: object, id = d.deviceId) =>
+      d.send("POST", `/api/hub/devices/${id}/user`, payload);
+    const install = (kind: "bundle" | "headless" | "docker" | null) =>
+      d.db
+        .update(schema.devices)
+        .set({ install: kind })
+        .where(eq(schema.devices.id, d.deviceId))
+        .run();
+
+    // A desktop, or one that never said: the code proves someone is at the machine.
+    for (const kind of ["bundle", null] as const) {
+      install(kind);
+      const res = await set({ userId: d.admin.id, projects: "move" });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe("device_has_screen");
+    }
+    install("docker");
+    expect((await set({ userId: d.viewer.id, projects: "move" })).json().error.code).toBe(
+      "same_user",
+    );
+    expect((await set({ userId: crypto.randomUUID(), projects: "move" })).statusCode).toBe(404);
+    expect(
+      (await set({ userId: d.admin.id, projects: "move" }, crypto.randomUUID())).statusCode,
+    ).toBe(404);
+    // Not for the device itself: its token isn't an admin's session.
+    const byDevice = await d.app.inject({
+      method: "POST",
+      url: `/api/hub/devices/${d.deviceId}/user`,
+      payload: { userId: d.admin.id, projects: "move" },
+      headers: { authorization: `Bearer ${d.token}` },
+    });
+    expect(byDevice.statusCode).toBe(403);
+
+    // A code made earlier goes: it would change the user again.
+    const earlier = await d.codeFor(d.admin.id);
+    const done = await set({ userId: d.admin.id, projects: "move" });
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ userName: "admin", moved: 1 });
+    expect(d.ownerOf(d.onDevice)).toBe(d.admin.id);
+    expect(d.ownerOf(d.onHub)).toBe(d.viewer.id);
+    expect((await d.bearer(d.token)).json().user.id).toBe(d.admin.id);
+    expect(d.db.select().from(schema.pairingCodes).all()).toEqual([]);
+    expect((await d.call("", { code: earlier, projects: "stay" })).statusCode).toBe(400);
+    expect(d.db.select().from(schema.hubEvents).all().at(-1)?.data).toEqual({
+      type: "roots.changed",
+    });
+    expect(
+      JSON.parse(d.logged.find((l) => l.includes("device user changed")) ?? "{}"),
+    ).toMatchObject({
+      deviceId: d.deviceId,
+      fromUserId: d.viewer.id,
+      toUserId: d.admin.id,
+      moved: 1,
+    });
+
+    // Back to the viewer, projects staying; a disabled user is refused.
+    install("headless");
+    expect((await set({ userId: d.viewer.id, projects: "stay" })).json()).toEqual({
+      userName: "viewer",
+      moved: 0,
+    });
+    const gone = d.db
+      .insert(schema.users)
+      .values({
+        email: "gone@x.io",
+        displayName: "gone",
+        roleId: BUILT_IN_ROLE_IDS.editor,
+        passwordHash: hash,
+        disabled: true,
+      })
+      .returning()
+      .get();
+    expect((await set({ userId: gone.id, projects: "stay" })).json().error.code).toBe(
+      "user_disabled",
+    );
+  });
+
   it("revokes a device that has a live code, and the code goes with it", async () => {
     const d = await device();
     await d.codeFor(d.admin.id);
@@ -1334,6 +1413,79 @@ describe("hub events", () => {
     await answer("connector.restart", { ok: false, code: "EIO" });
     expect((await failing).statusCode).toBe(502);
     await s.cancel();
+  });
+
+  it("answers a missing sync folder's held deletes from the hub, live only", async () => {
+    const { app, db, send, open, token, deviceId, viewer } = await live();
+    const url = `/api/hub/devices/${deviceId}/sync/held`;
+    const rootId = crypto.randomUUID();
+    const offline = await send("POST", url, { rootId, action: "restore" });
+    expect(offline.json().error.code).toBe("device_offline");
+    expect((await send("POST", url, { rootId, action: "drop" })).statusCode).toBe(400);
+    expect(db.select().from(schema.hubEvents).all()).toEqual([]); // never queued
+
+    const s = await open();
+    await s.until(": open");
+    const done = send("POST", url, { rootId, action: "confirm" });
+    const text = (await s.until("event: sync.held")) ?? "";
+    const event = JSON.parse(text.split("event: sync.held\ndata: ")[1]?.split("\n")[0] ?? "{}");
+    expect(event).toMatchObject({ type: "sync.held", rootId, action: "confirm" });
+    await app.inject({
+      method: "POST",
+      url: `/api/hub/device/replies/${event.requestId}`,
+      payload: { ok: true, result: null },
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect((await done).statusCode).toBe(204);
+
+    // Its own user answers it too, with the machine's projects switch; nobody else sees the machine.
+    const other = db
+      .insert(schema.users)
+      .values({
+        email: "o@x.io",
+        displayName: "o",
+        roleId: BUILT_IN_ROLE_IDS.editor,
+        passwordHash: hash,
+      })
+      .returning()
+      .get();
+    const as = async (email: string) => {
+      const login = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email, password: PW },
+      });
+      return String(login.headers["set-cookie"]).split(";")[0] ?? "";
+    };
+    const post = async (email: string) =>
+      app.inject({
+        method: "POST",
+        url,
+        payload: { rootId, action: "restore" },
+        headers: { cookie: await as(email) },
+      });
+    expect((await post(other.email)).statusCode).toBe(404);
+    expect((await post(viewer.email)).statusCode).toBe(403); // a viewer has no projects write
+    await s.cancel();
+  });
+
+  it("records how the connector is installed, and leaves out a kind it doesn't know", async () => {
+    const { send, open, deviceId } = await live();
+    const s = await open({ "x-connector-version": VERSION, "x-connector-install": "docker" });
+    await s.until(": open");
+    expect((await send("GET", "/api/hub/devices")).json()[0]).toMatchObject({
+      id: deviceId,
+      install: "docker",
+      connectorVersion: VERSION,
+    });
+    await s.cancel();
+    const t = await open({ "x-connector-version": VERSION, "x-connector-install": "snap" });
+    await t.until(": open");
+    expect((await send("GET", "/api/hub/devices")).json()[0]).toMatchObject({
+      install: "docker",
+      connectorVersion: VERSION,
+    });
+    await t.cancel();
   });
 
   it("pulls a listed file from its device and keeps it only when its hash matches", async () => {

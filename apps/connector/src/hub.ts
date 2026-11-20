@@ -1,5 +1,6 @@
 import { Readable } from "node:stream";
 import {
+  type ConnectorInstall,
   type ConnectorSettings,
   type ConnectorSettingsPatch,
   type ConnectorSettingsResult,
@@ -89,6 +90,8 @@ type Options = {
   store: Store;
   version: string;
   os: string;
+  /** How it is installed (ADR-0024), sent on pairing and with every connect; none from source. */
+  install?: ConnectorInstall;
   /** The status page's port, sent so the hub's project page can find it (`/api/whoami`). */
   port?: number;
   /**
@@ -137,6 +140,7 @@ export function createLink({
   store,
   version,
   os,
+  install,
   port,
   onHubVersion,
   updateFailure,
@@ -333,6 +337,14 @@ export function createLink({
         return void slicers.remove(event.data);
       if (event.success && event.data.type === "slice")
         return void slicers.slice(event.data, (sha) => sync?.copyOf(sha) ?? Promise.resolve(null));
+      // The choice its own page offers for a missing sync folder, made on the hub (6.3.0 Step 2).
+      if (event.success && event.data.type === "sync.held") {
+        const { requestId, rootId, action } = event.data;
+        if (!sync) return void reply(requestId, { ok: false, code: "ENOTSUP" });
+        void (action === "confirm" ? sync.confirm(rootId) : sync.restore(rootId));
+        log(`sync: held deletes in ${rootId}: ${action}, from the hub`);
+        return void reply(requestId, { ok: true, result: null });
+      }
       if (event.success && event.data.type === "presets.set") {
         store.set({ presetLibraries: event.data.libraries });
         void reply(event.data.requestId, { ok: true, result: null });
@@ -415,6 +427,7 @@ export function createLink({
           accept: "text/event-stream",
           "x-connector-version": version,
           "x-connector-os": os,
+          ...(install && { "x-connector-install": install }),
           "x-connector-system": JSON.stringify(systemInfo()),
           ...(port && { "x-connector-port": String(port) }),
           ...(sources && { "x-source-adapters": sources.adapterIds().join(",") }),
@@ -624,7 +637,7 @@ export function createLink({
       const res = await fetch(`${hub}/api/hub/pair`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, name, os, connectorVersion: version }),
+        body: JSON.stringify({ code, name, os, connectorVersion: version, install }),
         signal: AbortSignal.timeout(15_000),
       }).catch(() => {
         throw new PairError("unreachable");

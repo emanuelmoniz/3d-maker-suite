@@ -4950,7 +4950,7 @@ Do Step 1 of the 6.3.0 plan in PLAN.md. Show me each spike result before you wri
 Do Step 1b of the 6.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Headless connector
+### [x] Step 2 - Headless connector
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - The connector starts and pairs with no browser and no desktop session, as decided in Step 1 (ADR-0024): `CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE`, optional `CONNECTOR_NAME`, or the flags `--hub-url`, `--pairing-code`, `--name` (the launcher passes its arguments through).

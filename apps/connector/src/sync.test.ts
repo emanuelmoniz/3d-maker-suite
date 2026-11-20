@@ -221,7 +221,7 @@ describe("hub root sync", () => {
   );
 
   it(
-    "holds a mass delete until it is restored or confirmed",
+    "holds a mass delete until it is restored or confirmed from the hub",
     async () => {
       const h = await hub();
       await h.send("PATCH", "/api/preferences", { hubDeleteGuard: 3 });
@@ -237,14 +237,17 @@ describe("hub root sync", () => {
       const [d] = (await h.send("GET", "/api/hub/devices")).json();
       expect(d.sync).toMatchObject({ state: "paused", held: [{ files: 4 }] });
 
-      await a.sync().restore(h.root.id);
+      // The choice its own page offers, made on the hub (6.3.0) for a machine with no screen.
+      const held = (action: "confirm" | "restore") =>
+        h.send("POST", `/api/hub/devices/${a.id}/sync/held`, { rootId: h.root.id, action });
+      expect((await held("restore")).statusCode).toBe(204);
       await until(() => read(join(a.folder, "p/1.txt")) === "file 1");
       expect(a.sync().state().held).toEqual([]);
       await until(() => h.open("hub_mass_delete").length === 0);
 
       for (const n of [1, 2, 3, 4]) rmSync(join(a.folder, `p/${n}.txt`));
       await until(() => a.sync().state().state === "paused");
-      await a.sync().confirm(h.root.id);
+      expect((await held("confirm")).statusCode).toBe(204);
       await until(() => !existsSync(join(h.dir, "p/1.txt")) && !existsSync(join(h.dir, "p/4.txt")));
       expect(read(join(h.dir, "p/5.txt"))).toBe("file 5");
     },

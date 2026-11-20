@@ -114,6 +114,8 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   // ADR-0021: anyone lists their own machines (the route narrows it); the rest is hub.manage.
   "/api/hub/devices": ["R", "R"],
   "/api/hub/devices/abc/user-code": ["-", "-"],
+  "/api/hub/devices/abc/user": ["-", "-"],
+  "/api/hub/pairing-codes/abc": ["-", "-"],
   // The machine page's System section: whose machine it is, narrowed by the route (`machineGuard`).
   "/api/hub/devices/abc/system": ["R", "R"],
   "/api/hub/pairing-codes": ["-", "-"],

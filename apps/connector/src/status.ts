@@ -227,6 +227,7 @@ ${roots.error ? `<p class="error">${t("connector:status.rootsError", { error: ro
 ${update.failed ? note(t("connector:status.updateFailed", { version: update.failed, current: version })) : ""}
 ${update.error ? note(t("connector:status.updateError", { error: update.error })) : ""}
 ${update.hubOlder ? note(t("connector:status.hubOlder")) : ""}
+${update.pull ? note(t("connector:status.updateDocker", { version: update.pull })) : ""}
 <div class="actions">
 <form method="post" action="/open-folder"><button type="submit">${t("connector:status.openFolder")}</button></form>
 ${status === "online" ? `<a href="${esc(machineUrl() ?? "")}">${t("connector:status.openHub")}</a>` : ""}
