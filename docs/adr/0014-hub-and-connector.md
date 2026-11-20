@@ -312,4 +312,4 @@ ADR-0024 decides the packaging and setup; the protocol doesn't change (pairing, 
 - **A code's lifetime:** a code made for a NAS, server or container lasts 24 hours (a desktop code still lasts 10 minutes, see Pairing above), and an unused one can be withdrawn in Hub management.
 - **The local page** of a headless or Docker connector stays on loopback, for `/api/health` only. Its two actions that have no hub path yet (a missing sync folder's **Delete on the hub too** and **Restore them**) become fixed operations sent from the hub, added to the list above by Plan 6.3.0 Step 2.
 - **Change user** on a headless connector needs no code; an admin does it on the hub.
-- **Slicing on ARM:** an ARM machine can be a slice worker for OrcaSlicer, not for Bambu Studio, which has no Linux ARM build.
+- **No slicing on ARM:** an ARM machine is never a slice worker (its slice worker switch is greyed out). OrcaSlicer has a Linux ARM build, but it was left out for now (ADR-0024).

@@ -70,11 +70,13 @@ NAS systems don't let users add services, so they use the image. A connector in 
 
 ### ARM builds (decided with the user)
 - The `linux-arm64` archives of the connector **and the app** are built on a native ARM runner (`ubuntu-24.04-arm`): the same build times and sizes as x64, and the app starts on the `linux-arm64` `better-sqlite3` prebuild (S1).
-- The images are multi-arch: each architecture is built on its own native runner and merged into one tag with `docker buildx imagetools create`, so `docker pull` picks the right one. Not QEMU: the app image took 8.4 times as long under it (S1). The ARM pairing test runs on the native runner too, so no test needs QEMU.
+- The app and connector images are multi-arch: each architecture is built on its own native runner and merged into one tag with `docker buildx imagetools create`, so `docker pull` picks the right one. Not QEMU: the app image took 8.4 times as long under it (S1). The ARM pairing test runs on the native runner too, so no test needs QEMU. The `-slicer` image stays x64 only (see No slicing on ARM).
 
-### Slicing on ARM (agreed with the user after S1)
-- **OrcaSlicer works on Linux ARM64.** It has published an aarch64 AppImage since 2.4.0, and 2.5.1 sliced a fixture on the ARM runner, as the `PUID` user, with the app's own CLI flags (S1). Bambu Studio publishes x64 only.
-- So on ARM: the managed install picks Orca's `aarch64` AppImage; the `-slicer` image is multi-arch like the others (it builds natively on ARM, S1); an ARM machine can be a slice worker for Orca. Bambu Studio is greyed out under **Where** on an ARM server or machine, with the reason, and the server refuses its install with a clear error (today nothing checks the architecture before an install, `packages/host/src/slicerInstall.ts`).
+### No slicing on ARM (agreed with the user after S1)
+- An ARM machine doesn't slice in 6.3.0: no managed slicer install, no slice worker. **This server** under **Where** is greyed out for both slicers on an ARM server, with the reason. The server refuses the install with a clear error. The slice worker switch is greyed out on an ARM machine. Slicing goes to the hub or a slice worker on x64 or a Mac.
+- Today nothing checks the architecture before an install (`packages/host/src/slicerInstall.ts`): on ARM it would download an x64 AppImage and fail.
+- The `-slicer` image stays x64 only and says so in its description.
+- OrcaSlicer could slice on ARM (S1), and the user chose to leave it out for a simpler plan; see Rejected options.
 
 ### Names
 - Image `ghcr.io/emanuelmoniz/3d-maker-suite-connector`, tags as the app's: `X.Y.Z` and `latest` for stable releases, `X.Y.Z-alpha.N` and `dev` for pre-releases.
@@ -88,19 +90,21 @@ NAS systems don't let users add services, so they use the image. A connector in 
 - **Bridge networking with published UDP ports as the default.** It hears broadcasts only, needs 2021 and 1990 free on the host, and depends on Docker's userland proxy.
 - **A system service for the headless install.** It needs sudo to install; a user service with linger needs it at most once, for linger.
 - **A polling watcher for shares.** The rescan already reads the folders that changed; polling would read every folder every few seconds on the slowest disks.
-- **No slicing on ARM.** It was the plan's assumption until the spike showed OrcaSlicer's ARM build slicing.
+- **OrcaSlicer on ARM in 6.3.0** (left out by the user after the spike, for a simpler plan). It works:
+  - Orca has published a Linux aarch64 AppImage since 2.4.0, and 2.5.1 sliced a fixture on the ARM runner as the `PUID` user, with the app's own CLI flags (S1). Bambu Studio publishes x64 only.
+  - It would need Orca's `aarch64` asset in the managed install, a multi-arch `-slicer` image, a per-slicer rule for ARM slice workers, and a test on a small board: speed and the 10-minute slice limit on a Pi or an ARM NAS are unmeasured.
+  - It can come in a later plan on this evidence.
 
 ## Risks and mitigations
-- **Slicing on small ARM boards.** The spike's ARM runner is a server-class machine and the fixture was one small part (1 s). A Raspberry Pi or an ARM NAS is much slower, and many have 1 to 2 GB of memory; a big project may hit the 10-minute slice limit (`SLICE_TIMEOUT_MS`) or run out of memory. The real test (Plan 6.3.0 Step 9) slices a real project on the user's hardware. A timed-out or killed slice already fails with its reason.
 - **A 24-hour code sits in a compose file.** It is single-use, works only for pairing, can be withdrawn while unused, and is ignored once the device is paired.
 - **Host networking gives the container the host's network stack.** The connector listens only on loopback, and the image runs as the `PUID` user.
 - **`rslave` and NAS UIs.** Some NAS container UIs can't set bind propagation; there, a share mounted later needs the container restarted. The wiki says so, and the machine page reports a missing root.
 - **Not tested on NAS hardware or a real printer.** Everything here ran on GitHub's runners with a simulated printer. Plan 6.3.0 Step 6 tests the A1, and Step 9 a real NAS or server.
 
 ## Consequences
-- Plan 6.3.0 Steps 2 to 7 follow this ADR. Step 2: headless start, refused codes, install kind; Step 3: ARM archives, `--headless`; Step 4: images, `PUID`/`PGID`, the start command, the multi-arch `-slicer` image, Orca on ARM; Step 5: re-watching a returning root, `rslave`; Step 6: per adapter, the A1; Step 7: the pairing choice, 24-hour codes, **Withdraw**.
-- The README support matrix gains Linux ARM64 and Docker for the connector, and Linux ARM64 for the app; OrcaSlicer slices on ARM, Bambu Studio doesn't.
-- The release workflow gains native ARM runners and a multi-arch merge for three images.
+- Plan 6.3.0 Steps 2 to 7 follow this ADR. Step 2: headless start, refused codes, install kind; Step 3: ARM archives, `--headless`; Step 4: images, `PUID`/`PGID`, the start command, slicers greyed out on ARM; Step 5: re-watching a returning root, `rslave`; Step 6: per adapter, the A1; Step 7: the pairing choice, 24-hour codes, **Withdraw**.
+- The README support matrix gains Linux ARM64 and Docker for the connector, and Linux ARM64 for the app; slicing stays on x64 and macOS.
+- The release workflow gains native ARM runners and a multi-arch merge for the app and connector images; the `-slicer` image stays x64.
 
 ## Spike results (2026-11-20)
 Scripts, logs and details: branch `spike/connector` (`spike/connector/NOTES.md`, not merged). GitHub runners `ubuntu-24.04` (x64) and `ubuntu-24.04-arm` (arm64), Docker 28.0.4, Node 22, app and connector 6.2.0. Runs 44814580829 (all), 44816519547 (S6 again), 44817797801 (slice). The printer is simulated (agreed with the user).
