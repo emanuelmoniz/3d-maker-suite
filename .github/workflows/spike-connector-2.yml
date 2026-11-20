@@ -2,9 +2,8 @@
 # mounts and propagation; the slicer as the PUID user and a real slice, natively on each arch.
 # Lives only on the spike/connector branch.
 name: spike-connector-2
+# Runs: 44816519547, 44817091438, 44817456437, 44817797801 (see spike/connector/NOTES.md).
 on:
-  push:
-    branches: [spike/connector]
   workflow_dispatch:
 permissions:
   contents: read
