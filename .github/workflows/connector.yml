@@ -32,6 +32,7 @@ jobs:
           for ($n = 0; $n -lt 60 -and -not (Test-Path 'C:\cmc\unins000.exe'); $n++) { Start-Sleep 1 }
           Get-ChildItem C:\cmc, C:\cmc\node | Select-Object FullName
           Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name '3D Maker Suite Connector' -ErrorAction SilentlyContinue
+          wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true
           net user cmsvc 'Spike-Pass-2026!x' /add /Y
           if ($LASTEXITCODE) { throw 'net user failed' }
           icacls C:\cmc /grant 'cmsvc:(OI)(CI)M' | Out-Null

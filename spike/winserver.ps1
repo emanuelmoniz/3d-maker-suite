@@ -25,7 +25,7 @@ function WaitFor([scriptblock]$cond, [int]$sec) {
   while ($sw.Elapsed.TotalSeconds -lt $sec) { if (& $cond) { return [math]::Round($sw.Elapsed.TotalSeconds, 1) }; Start-Sleep -Milliseconds 500 }
   return $null
 }
-function Procs { @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.ExecutablePath -like "$Install\*" }) }
+function Procs { @(Get-CimInstance Win32_Process -Filter "Name='nodew.exe'" | Where-Object { $_.ExecutablePath -like "$Install\*" }) }
 function Launcher { Procs | Where-Object { $_.CommandLine -like '*launcher.mjs*' } | Select-Object -First 1 }
 function Program { Procs | Where-Object { $_.CommandLine -like '*src/main.ts*' } | Select-Object -First 1 }
 function Who($p) {
@@ -56,7 +56,8 @@ $code = (Invoke-RestMethod "$Hub/api/hub/pairing-codes" -Method Post -WebSession
 function Mine { Invoke-RestMethod "$Hub/api/hub/devices" -WebSession $web | Where-Object { $_.name -eq $Device } }
 
 # Register.
-$node = "$Install\node\node.exe"
+$node = "$Install\node\nodew.exe"
+try {
 $launcherArgs = "`"$Install\launcher.mjs`" --background --headless --hub-url $Hub --pairing-code $code --name $Device"
 $user = if ($Variant -eq 'task-s4u') { "$env:USERDOMAIN\$env:USERNAME" } else { "$env:COMPUTERNAME\$Account" }
 Note 'runsAs' $user
@@ -120,14 +121,15 @@ Note 'register' "ok in $([math]::Round($sw.Elapsed.TotalSeconds,1)) s"
 # 1. Start with nobody signed in as that user (the scheduler or the SCM starts it, session 0).
 StartIt
 $t = WaitFor { Up } 90
-Note 'start' $(if ($t) { "up in $t s" } else { 'NOT UP in 90 s' })
+Note 'start' $(if ($t) { "up in $t s" } else { "NOT UP in 90 s, state=$(State)" })
+if (-not $t) { throw 'not up' }
 Note 'launcher' (Who (Launcher))
 Note 'program' (Who (Program))
 $paired = WaitFor { (Mine).online } 60
 Note 'paired' $(if ($paired) { "online on the hub in $paired s, install=$((Mine).install)" } else { 'NOT online on the hub' })
 $keys = @(Get-ChildItem -Path 'C:\Users\*\AppData\Roaming\3d-maker-suite-connector\secret.key', 'C:\Windows\System32\config\systemprofile\AppData\Roaming\3d-maker-suite-connector\secret.key', 'C:\Windows\ServiceProfiles\*\AppData\Roaming\3d-maker-suite-connector\secret.key' -ErrorAction SilentlyContinue)
 Note 'dataDir' (($keys | ForEach-Object { "$($_.DirectoryName) owner=$((Get-Acl $_.FullName).Owner)" }) -join ' | ')
-Note 'logOwner' "$((Get-Acl "$Install\logs\server.log").Owner)"
+Note 'logOwner' "$((Get-Acl "$Install\logs\launcher.log").Owner)"
 
 # 2. Self-update path: the program exits 75, the launcher starts it again; the supervisor must not see it.
 $l1 = (Launcher).ProcessId; $p1 = (Program).ProcessId
@@ -167,17 +169,34 @@ StopIt
 $down = WaitFor { -not (Up) } 30
 Start-Sleep 3
 Note 'supervisorStop' "start=$t down=$down nodeLeft=$((Procs).Count) state=$(State)"
-KillAll
-
-# The launcher's own log.
-Get-Content "$Install\logs\launcher.log" -Tail 30 | ForEach-Object { Write-Host "  launcher.log: $_" }
-if (-not $isTask -and (Test-Path "$Install\connector-service.wrapper.log")) { Get-Content "$Install\connector-service.wrapper.log" -Tail 20 | ForEach-Object { Write-Host "  winsw: $_" } }
-
-# Clean up for the next variant.
-if ($isTask) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
-elseif ($Variant -eq 'winsw') { & "$Install\connector-service.exe" uninstall | Out-Null; Remove-Item "$Install\connector-service.*" -Force }
-else { & "$env:RUNNER_TEMP\nssm.exe" remove $Svc confirm | Out-Null }
-$keys | ForEach-Object { Remove-Item $_.DirectoryName -Recurse -Force -ErrorAction SilentlyContinue }
+} catch {
+  Note 'error' "$_ at line $($_.InvocationInfo.ScriptLineNumber)"
+} finally {
+  try { StopIt } catch {}
+  KillAll
+  # The launcher's own log, the wrapper's, the scheduler's history.
+  Get-Content "$Install\logs\launcher.log" -Tail 40 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  launcher.log: $_" }
+  Get-Content "$Install\logs\server.log" -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  server.log: $_" }
+  Get-ChildItem "$Install\connector-service*.log" -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_ -Tail 25 | ForEach-Object { Write-Host "  $($_.PSChildName): $_" } }
+  if ($isTask) {
+    Get-WinEvent -LogName Microsoft-Windows-TaskScheduler/Operational -MaxEvents 40 -ErrorAction SilentlyContinue |
+      Where-Object { $_.Message -like "*$TaskName*" } | Sort-Object TimeCreated |
+      ForEach-Object { Write-Host "  sched $($_.TimeCreated.ToString('HH:mm:ss')) $($_.Id): $(($_.Message -split "`n")[0])" }
+  } else {
+    Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Service Control Manager' } -MaxEvents 30 -ErrorAction SilentlyContinue |
+      Where-Object { $_.Message -like '*3D Maker Suite*' } | Sort-Object TimeCreated |
+      ForEach-Object { Write-Host "  scm $($_.TimeCreated.ToString('HH:mm:ss')) $($_.Id): $(($_.Message -split "`n")[0])" }
+  }
+  # Clean up for the next variant.
+  try {
+    if ($isTask) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
+    elseif ($Variant -eq 'winsw') { & "$Install\connector-service.exe" uninstall | Out-Null; Remove-Item "$Install\connector-service.*" -Force }
+    else { & "$env:RUNNER_TEMP\nssm.exe" remove $Svc confirm | Out-Null }
+  } catch { Write-Host "cleanup: $_" }
+  KillAll
+}
+$keys = @(Get-ChildItem -Path 'C:\Users\*\AppData\Roaming\3d-maker-suite-connector', 'C:\Windows\System32\config\systemprofile\AppData\Roaming\3d-maker-suite-connector' -ErrorAction SilentlyContinue)
+$keys | ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
 Remove-Item "$Install\logs" -Recurse -Force -ErrorAction SilentlyContinue
 $out | ConvertTo-Json | Set-Content "$env:RUNNER_TEMP\spike-$Variant.json"
 "### $Variant`n" + (($out.GetEnumerator() | ForEach-Object { "- **$($_.Key)**: $($_.Value)" }) -join "`n") + "`n" | Add-Content $env:GITHUB_STEP_SUMMARY
