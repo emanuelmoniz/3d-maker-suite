@@ -1,9 +1,8 @@
 # 6.3.0 Step 1 spikes (ADR-0024). Lives only on the spike/connector branch. Nothing is pushed to a
 # registry: per-arch images travel as artifacts and are merged in a local registry.
 name: spike-connector
+# First run: 44814580829. Reruns are in spike-connector-2.yml.
 on:
-  push:
-    branches: [spike/connector]
   workflow_dispatch:
 permissions:
   contents: read

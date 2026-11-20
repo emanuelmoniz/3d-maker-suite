@@ -1,0 +1,39 @@
+# 6.3.0 Step 1 spikes, second run (ADR-0024): S6 without the shared-superblock artifact, plus late
+# mounts and propagation; the slicer as the PUID user and a real slice, natively on each arch.
+# Lives only on the spike/connector branch.
+name: spike-connector-2
+on:
+  push:
+    branches: [spike/connector]
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  folders:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: docker build -q -t spike-connector -f spike/connector/Dockerfile.connector . > /dev/null
+      - run: bash spike/connector/folders.sh
+
+  slicer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: slicer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the -slicer image natively (timed)
+        run: |
+          s=$(date +%s)
+          docker build -q -t spike-slicer --target slicer . > /dev/null
+          echo "RESULT slicer $(uname -m): -slicer image built natively in $(( $(date +%s) - s )) s, $(docker image ls -f reference=spike-slicer --format '{{.Size}}')"
+      - run: bash spike/connector/slicer.sh
