@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import yazl from "yazl";
-import { BundleError, fetchBundle } from "./bundle.ts";
+import { BundleError, bundleAsset, fetchBundle } from "./bundle.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -56,4 +56,20 @@ it.each([
   expect(err).toBeInstanceOf(BundleError);
   expect(err.code).toBe(code);
   expect(existsSync(dest)).toBe(false);
+});
+
+it("names the zip for the machine's OS and architecture, linux-arm64 included", () => {
+  const id = "3d-maker-suite-connector";
+  expect(bundleAsset(id, "v6.3.0", "linux", "arm64")).toBe(
+    "3d-maker-suite-connector-v6.3.0-app-linux-arm64.zip",
+  );
+  expect(bundleAsset("3d-maker-suite", "v6.3.0", "linux", "x64")).toBe(
+    "3d-maker-suite-v6.3.0-app-linux-x64.zip",
+  );
+  expect(bundleAsset(id, "v6.3.0", "darwin", "arm64")).toBe(
+    "3d-maker-suite-connector-v6.3.0-app-macos-arm64.zip",
+  );
+  expect(bundleAsset(id, "v6.3.0", "win32", "x64")).toBe(
+    "3d-maker-suite-connector-v6.3.0-app-windows-x64.zip",
+  );
 });

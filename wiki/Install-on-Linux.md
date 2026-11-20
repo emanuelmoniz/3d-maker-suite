@@ -4,12 +4,12 @@ Use the archive (`.tar.gz`). It brings its own Node, so you don't need Node, pnp
 
 ## Who can use it
 
-Anyone with a 64-bit (x64) Linux computer that has a desktop.
+Anyone with a 64-bit Linux computer that has a desktop: x64 (Intel or AMD), or ARM64, such as a Raspberry Pi 4 or 5 with Raspberry Pi OS (64-bit). Slicing isn't available on ARM.
 
 ## Download
 
 1. Open the [releases page](https://github.com/emanuelmoniz/3d-maker-suite/releases) and pick the newest release.
-2. Download `3d-maker-suite-<version>-linux-x64.tar.gz`. `<version>` is the release tag, such as `v4.1.0`.
+2. Download `3d-maker-suite-<version>-linux-x64.tar.gz`, or `3d-maker-suite-<version>-linux-arm64.tar.gz` on an ARM64 computer. `<version>` is the release tag, such as `v4.1.0`. `uname -m` tells which you have: `x86_64` is x64, `aarch64` is ARM64.
 3. Optional: check the file. Download `SHA256SUMS` from the same release into the same folder and run `sha256sum -c SHA256SUMS`.
 
 ## Install
@@ -58,7 +58,7 @@ Uninstalling removes the program and keeps your data. Back up the data folder to
 
 ## Updating
 
-Open **Settings → About & updates**. The app also shows a banner when a new version is out.
+Open **Settings → About & updates**. The app also shows a banner when a new version is out. An ARM64 computer gets the ARM64 release file.
 
 ## Problems and fixes
 

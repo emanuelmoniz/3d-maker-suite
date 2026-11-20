@@ -1,7 +1,10 @@
 name: Connector pairing
-# The installed connector against a hub run from source, on Linux and macOS (ADR-0014): pair through
-# the status page, online in Hub management, a rename over the event stream, a revoke.
+# The installed connector against a hub run from source, on Linux (x64 and ARM64) and macOS (ADR-0014):
+# pair through the status page, online in Hub management, a rename over the event stream, a revoke.
 # Windows: run scripts/pair-test.mjs by hand (docs in the script).
+# `headless`: the Linux archive installed with `install.sh --headless` (a systemd user service) on both
+# architectures (ADR-0024): pairs from its Environment=, comes back after a kill, stays down for a stop
+# it was asked for, and follows a newer hub (scripts/headless-test.mjs).
 on:
   push:
     branches: [dev]
@@ -13,6 +16,7 @@ on:
       - "packages/host/**"
       - "packaging/**"
       - "scripts/pair-test.mjs"
+      - "scripts/headless-test.mjs"
       - ".github/workflows/connector.yml"
   workflow_dispatch:
 jobs:
@@ -20,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
     name: pair (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -65,3 +69,92 @@ jobs:
             [ -d "$d" ] && tail -n 50 "$d"/*.log
           done
           true
+  headless:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: headless (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      HUB: http://127.0.0.1:4310
+      DOWNLOADS: http://127.0.0.1:4320
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @3d-maker-suite/web build
+      - run: node packaging/build.mjs --product connector
+      - name: User services without a login session (linger)
+        run: |
+          sudo loginctl enable-linger "$USER"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+          for _ in $(seq 40); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done
+          uname -m
+      - name: Start a hub (fresh data, port 4310)
+        run: |
+          mkdir -p "$RUNNER_TEMP/hub"
+          cd apps/server
+          # Its own process group, to stop it again for the update test.
+          PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" setsid nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/hub.pid"
+      - name: Pairing code for a headless connector
+        run: |
+          CODE=$(node scripts/headless-test.mjs code --hub "$HUB")
+          echo "::add-mask::$CODE"
+          echo "CODE=$CODE" >> "$GITHUB_ENV"
+      - name: Install headless (pairs from the service's Environment=)
+        run: |
+          tar -xzf packaging/out/3d-maker-suite-connector-*.tar.gz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/3d-maker-suite-connector/install.sh" --headless --hub-url "$HUB" --pairing-code "$CODE" --name ci-headless
+          # No app menu entry and no start at login of its own: systemd starts it.
+          test ! -e "$HOME/.local/share/applications/3d-maker-suite-connector.desktop"
+          systemctl --user is-enabled 3d-maker-suite-connector
+          loginctl show-user "$USER" -p Linger | grep -q yes
+      - name: Online, comes back after a kill, stays down for a stop
+        run: node scripts/headless-test.mjs check --hub "$HUB"
+      - name: A newer hub (a test build of this commit with a higher version)
+        run: |
+          # Stop the hub, bump every version, commit it (the build packs HEAD) and build that connector.
+          kill -- "-$(cat "$RUNNER_TEMP/hub.pid")"
+          NEW=$(node -e '
+            const fs = require("fs");
+            const [major, minor, patch] = JSON.parse(fs.readFileSync("package.json", "utf8")).version.split("-")[0].split(".").map(Number);
+            const next = `${major}.${minor}.${patch + 100}`;
+            const files = ["package.json", ...["apps", "packages", "packages/adapters"].flatMap((d) => fs.existsSync(d) ? fs.readdirSync(d).map((n) => `${d}/${n}/package.json`) : [])];
+            for (const f of files.filter((f) => fs.existsSync(f))) {
+              const json = JSON.parse(fs.readFileSync(f, "utf8"));
+              if (json.version === undefined) continue;
+              json.version = next;
+              fs.writeFileSync(f, JSON.stringify(json, null, 2) + "\n");
+            }
+            console.log(next);
+          ')
+          echo "NEW=$NEW" >> "$GITHUB_ENV"
+          git -c user.name=ci -c user.email=ci@example.invalid commit -qam "test: version $NEW"
+          node packaging/build.mjs --product connector --tag "v$NEW"
+          cd packaging/out
+          sha256sum *-app-*.zip > SHA256SUMS
+          nohup python3 -m http.server 4320 --bind 127.0.0.1 > "$RUNNER_TEMP/downloads.log" 2>&1 &
+          cd ../../apps/server
+          PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" setsid nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub2.log" 2>&1 &
+          # The connector downloads from here instead of GitHub (APP_DOWNLOAD_URL) and meets the new hub.
+          systemctl --user set-environment "APP_DOWNLOAD_URL=$DOWNLOADS"
+          systemctl --user restart 3d-maker-suite-connector
+      - name: Follows the hub to the newer version
+        run: |
+          node scripts/headless-test.mjs update --hub "$HUB" --version "$NEW"
+          # The name the release's zip has for this machine.
+          ls packaging/out/*-app-linux-"$(node -p process.arch)".zip
+      - name: Logs
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP/hub.log" "$RUNNER_TEMP/hub2.log" "$RUNNER_TEMP/downloads.log" || true
+          journalctl --user -u 3d-maker-suite-connector --no-pager | tail -n 60 || true
+          tail -n 60 "$HOME"/.local/share/3d-maker-suite-connector/install/logs/*.log || true

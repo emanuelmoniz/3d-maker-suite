@@ -14,10 +14,11 @@ beforeEach(() => {
 afterEach(() => rmSync(install, { recursive: true, force: true }));
 
 const os = { win32: "windows", darwin: "macos", linux: "linux" }[process.platform as string];
-const asset = `3d-maker-suite-connector-v5.1.0-app-${os}-${process.arch}.zip`;
+const defaultAsset = `3d-maker-suite-connector-v5.1.0-app-${os}-${process.arch}.zip`;
+const asset = defaultAsset;
 
 /** A download folder with the 5.1.0 connector zip and its SHA256SUMS; counts requests. */
-const release = async () => {
+const release = async (asset = defaultAsset) => {
   const z = new yazl.ZipFile();
   z.addBuffer(Buffer.from('{"version":"5.1.0"}'), "apps/connector/package.json");
   z.end();
@@ -56,6 +57,23 @@ it("follows a newer hub: versions/<v>, pending.json, exit 75", async () => {
     from: "5.0.0",
     fromVersion: "5.0.0",
   });
+  expect(exits).toEqual([75]);
+});
+
+it("an ARM64 Linux machine takes the linux-arm64 zip", async () => {
+  const name = "3d-maker-suite-connector-v5.1.0-app-linux-arm64.zip";
+  const { download, asked } = await release(name);
+  const exits: number[] = [];
+  const u = createUpdater({
+    version: "5.0.0",
+    env: { ...env, APP_INSTALL_DIR: install },
+    download,
+    exit: (c) => exits.push(c),
+    target: { platform: "linux", arch: "arm64" },
+  });
+  await u.follow("5.1.0");
+  expect(asked).toEqual(["https://dl/SHA256SUMS", `https://dl/${name}`]);
+  expect(existsSync(join(install, "versions", "5.1.0", "apps/connector/package.json"))).toBe(true);
   expect(exits).toEqual([75]);
 });
 

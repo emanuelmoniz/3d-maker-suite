@@ -124,3 +124,9 @@ Nothing is code-signed: that would take a Windows certificate (a few hundred eur
 - Users see one unsigned-app warning per installer.
 - ADR-0009 gains the `bundle` install type. Git installs, `pnpm start` and Docker don't change.
 - Step 10 ships the layout and a launcher that only picks, relinks, runs and restarts. Update, rollback and pruning come in Step 13; opening the browser and Stop server in Step 11; start at login in Step 12.
+
+## Amendment (2026-11-20): Linux arm64 (6.3.0 Step 3, ADR-0024)
+- **Linux arm64 is a target now** (it was left out above): `3d-maker-suite-<tag>-linux-arm64.tar.gz` and `…-app-linux-arm64.zip` for the app, and the same two for the connector. The release builds them on a native ARM runner (`ubuntu-24.04-arm`), as a fifth build job, and installs and starts each once like the others. Nothing is published unless it passed too. Windows arm64 stays out.
+- `packaging/build.mjs --arch arm64` on an arm64 Linux machine: the arm64 Node tarball, and for the app better-sqlite3's `linux-arm64` prebuild. A cross build is not supported: the install script runs the archive's own Node.
+- **One asset name for every updater.** `bundleAsset()` in `packages/host` names the zip (`<id>-<tag>-app-<os>-<arch>.zip`) for the app's in-app update and the connector's self-update, both from `process.platform` and `process.arch`, so an ARM64 machine takes the `linux-arm64` file.
+- **The launcher exits non-zero when its program dies from a signal** (128 plus the signal's number, like a shell), not 0. A supervisor (systemd) then sees a crash. A SIGTERM that follows the launcher's own SIGTERM is a stop, and exits 0.

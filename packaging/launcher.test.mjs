@@ -14,6 +14,7 @@ import {
   beginPending,
   compareVersions,
   dataDir,
+  exitCode,
   launchArgs,
   newest,
   product,
@@ -205,5 +206,24 @@ describe("rotate", () => {
     rotate(file, 5);
     expect(existsSync(file)).toBe(false);
     expect(readFileSync(`${file}.1`, "utf8")).toHaveLength(10);
+  });
+});
+
+describe("exitCode", () => {
+  it("passes the program's own code on, 75 and 0 included", () => {
+    expect(exitCode(0, null)).toBe(0);
+    expect(exitCode(1, null)).toBe(1);
+    expect(exitCode(75, null)).toBe(75);
+  });
+
+  it("reports a program killed by a signal as a crash, 128 plus the signal", () => {
+    expect(exitCode(null, "SIGKILL")).toBe(137);
+    expect(exitCode(null, "SIGSEGV")).toBe(139);
+    expect(exitCode(null, "SIGTERM")).toBe(143);
+  });
+
+  it("calls the SIGTERM that follows the launcher's own SIGTERM a clean stop", () => {
+    expect(exitCode(null, "SIGTERM", true)).toBe(0);
+    expect(exitCode(null, "SIGKILL", true)).toBe(137);
   });
 });

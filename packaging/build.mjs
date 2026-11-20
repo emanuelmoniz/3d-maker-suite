@@ -4,7 +4,8 @@
 //   <id>-<tag>-app-<os>-<arch>.zip
 // <id> is 3d-maker-suite (the app) or 3d-maker-suite-connector. The app needs apps/web/dist built
 // first (the guide is built here, into it); Windows needs Inno Setup 6. Node stdlib + system tools only.
-// node packaging/build.mjs [--product server|connector] [--arch x64] [--tag v4.1.0]
+// node packaging/build.mjs [--product server|connector] [--arch x64|arm64] [--tag v4.1.0]
+// Linux arm64 (Raspberry Pi, ARM NAS, ADR-0024) builds on an arm64 machine: install.sh runs its Node.
 import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -61,6 +62,7 @@ const PRODUCTS = {
     alwaysStart: true,
   },
 };
+if (!["x64", "arm64"].includes(a.arch)) throw new Error("--arch: x64 or arm64");
 const p = PRODUCTS[a.product];
 if (!p) throw new Error(`--product: ${Object.keys(PRODUCTS).join(" or ")}`);
 const server = a.product === "server";

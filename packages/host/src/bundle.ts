@@ -12,6 +12,21 @@ export class BundleError extends Error {
   }
 }
 
+const OS: Record<string, string> = { win32: "windows", darwin: "macos", linux: "linux" };
+
+/**
+ * The name of a product's app-only zip in a release (packaging/build.mjs): `<id>-<tag>-app-<os>-<arch>.zip`
+ * for this machine, so an ARM machine takes the `linux-arm64` one (ADR-0024).
+ */
+export function bundleAsset(
+  id: string,
+  tag: string,
+  platform: string = process.platform,
+  arch: string = process.arch,
+) {
+  return `${id}-${tag}-app-${OS[platform]}-${arch}.zip`;
+}
+
 /** The `<hash>` of `asset` in a `sha256sum` listing (`<hash>  <name>` or `<hash> *<name>`). */
 const checksumOf = (sums: string, asset: string) =>
   sums

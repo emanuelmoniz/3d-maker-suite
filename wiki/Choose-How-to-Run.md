@@ -12,7 +12,7 @@ Anyone who installs the app. You don't need an account to start. Accounts are on
 |---|---|---|---|
 | [**Windows**](Install-on-Windows.md) | One person on a Windows PC | No. It runs while your PC is on | Nothing else. The installer brings what it needs |
 | [**macOS**](Install-on-macOS.md) | One person on a Mac | No. It runs while your Mac is on | Nothing else. The installer brings what it needs |
-| [**Linux**](Install-on-Linux.md) | A Linux computer with a desktop | No, unless the computer stays on | A 64-bit (x64) computer. The archive brings what it needs |
+| [**Linux**](Install-on-Linux.md) | A Linux computer with a desktop | No, unless the computer stays on | A 64-bit computer, x64 or ARM64 (a Raspberry Pi). The archive brings what it needs |
 | [**Docker**](Docker.md) | A home server or NAS you already run | Yes | Docker with Compose, on an Intel or AMD (x64) processor |
 | [**From source**](Install-from-Source.md) | Changing the code, or a machine the other installs don't fit | As long as you keep it running | Node 22, Git and a terminal |
 
@@ -28,7 +28,8 @@ A NAS is a machine, not a way to install. Follow the page for what it runs:
 
 - **It has Docker and an Intel or AMD processor:** [Docker](Docker.md#on-a-nas). This is the easy way.
 - **It runs Windows:** [Install on Windows](Install-on-Windows.md).
-- **It has no Docker, or an ARM processor:** [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
+- **It has a Linux desktop, on an ARM processor too:** [Install on Linux](Install-on-Linux.md).
+- **It has no Docker and no desktop:** [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
 
 ## After you install
 

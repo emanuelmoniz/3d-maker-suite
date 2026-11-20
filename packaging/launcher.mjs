@@ -2,7 +2,8 @@
 // otherwise runs the newest version in versions/ (on macOS also the one inside the .app),
 // recreating its links first, logs to <install dir>/logs/server.log, opens the browser on a loader
 // page (loader.html) that goes to the app once it answers (not with --background, Start at login)
-// and starts it again when it exits with RESTART. After an update or rollback
+// and starts it again when it exits with RESTART. It exits with its program's code, and non-zero
+// (128 + signal) when the program was killed, so a supervisor sees a crash. After an update or rollback
 // (.update/pending.json) the new version gets TRIAL_MS to answer, or the launcher goes back.
 // Node stdlib only. It ships with the installer and doesn't change with updates, so keep it small.
 // node launcher.mjs [--background] [server args, e.g. --port 4400]
@@ -21,7 +22,7 @@ import {
   writeFileSync,
   writeSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { constants, homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -35,6 +36,18 @@ const finished = (name) => VERSION.test(name) && !/\.(partial|old)$/.test(name);
 const TRIAL_MS = 60_000;
 /** Version folders kept after a good update: the running one and the one to roll back to. */
 const KEEP = 2;
+
+/**
+ * The launcher's exit code for a program that ended with `code` or, killed, by `signal`: a signal
+ * is a crash, so it reports 128 + the signal's number like a shell (a supervisor such as systemd
+ * restarts on it; 0 would look like a clean stop). `stopped`: the launcher itself was asked to stop
+ * (SIGTERM), so the program's SIGTERM is the clean end of that.
+ */
+export function exitCode(code, signal, stopped = false) {
+  if (code !== null && code !== undefined) return code;
+  if (!signal || (stopped && signal === "SIGTERM")) return 0;
+  return 128 + (constants.signals[signal] ?? 0);
+}
 
 /** Semver order, a copy of compareVersions in packages/core: the launcher can't import workspace code. */
 export function compareVersions(a, b) {
@@ -288,7 +301,11 @@ async function main() {
   // Ctrl+C (when started from a terminal) reaches the server too; wait for it to exit.
   process.on("SIGINT", () => {});
   let server;
-  process.on("SIGTERM", () => server?.kill("SIGTERM"));
+  let stopped = false;
+  process.on("SIGTERM", () => {
+    stopped = true;
+    server?.kill("SIGTERM");
+  });
   try {
     for (;;) {
       const pending = beginPending(install);
@@ -319,7 +336,7 @@ async function main() {
             APP_LAUNCH_CMD: `"${process.execPath}" "${fileURLToPath(import.meta.url)}" ${BACKGROUND}`,
           },
         });
-        server.on("exit", (c) => done(c ?? 0));
+        server.on("exit", (c, signal) => done(exitCode(c, signal, stopped)));
       });
       if (pending) {
         // The port may have changed since the launcher started: read it again.

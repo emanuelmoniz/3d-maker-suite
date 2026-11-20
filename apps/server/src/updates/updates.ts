@@ -15,7 +15,7 @@ import {
   updateHistoryEntrySchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { BundleError, fetchBundle as downloadBundle } from "@3d-maker-suite/host";
+import { BundleError, bundleAsset, fetchBundle as downloadBundle } from "@3d-maker-suite/host";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { raise } from "../alerts/evaluate.ts";
@@ -40,7 +40,6 @@ const RELEASES =
 const KEEP = 5;
 /** Bundles: the data as it was right before an update or rollback; the launcher restores it if that fails. */
 const UNDO = "update-undo";
-const OS: Record<string, string> = { win32: "windows", darwin: "macos", linux: "linux" };
 /** The Node major a package.json asks for in `engines.node` (">=22"), or 0. */
 const nodeNeeded = (pkg: { engines?: { node?: string } }) =>
   Number(/>=\s*(\d+)/.exec(pkg.engines?.node ?? "")?.[1] ?? 0);
@@ -296,7 +295,7 @@ export function createUpdater(
     const release = (releases ?? (await fetchAll().catch(() => []))).find((r) => r.tag === tag);
     if (!release) throw fail();
     const base = release.url.replace("/releases/tag/", "/releases/download/");
-    const asset = `3d-maker-suite-${tag}-app-${OS[process.platform]}-${process.arch}.zip`;
+    const asset = bundleAsset("3d-maker-suite", tag);
     const partial = join(versionsDir, `${tag.slice(1)}.partial`);
     await downloadBundle(base, asset, partial, download).catch((e) => {
       throw e instanceof BundleError && e.code === "bad_checksum"

@@ -1,6 +1,6 @@
 # Connector setup
 
-The connector is a small program that joins a computer to your [hub](Hub-Setup.md). This page shows how to install it on Windows, macOS and Linux, pair it, keep it up to date and remove it.
+The connector is a small program that joins a computer to your [hub](Hub-Setup.md). This page shows how to install it on Windows, macOS and Linux (also a Raspberry Pi or a server with no desktop), pair it, keep it up to date and remove it.
 
 ## Who can use it
 
@@ -22,7 +22,7 @@ It also reports its name, system, version, disk use and slicers, so the hub can 
 
 - **The hub is on,** and you have its address, see [Hub setup](Hub-Setup.md).
 - **An admin** makes you a pairing code, or you are the admin.
-- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit (x64) Linux computer with a desktop. There is no connector for a NAS, a Raspberry Pi or any computer without a desktop yet. A connector's pairing page opens in a browser on the same computer. To use a NAS's folders, run the hub on the NAS with [Docker](Docker.md#on-a-nas) and mount the NAS folders into it as hub folders. The hub then reads them directly.
+- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit Linux computer: x64, or ARM64 such as a Raspberry Pi 4 or 5 with a 64-bit system. With a desktop you pair on the connector's page in a browser on the same computer. With no desktop, see [Linux with no desktop](#linux-with-no-desktop). There is no connector for a NAS's own system yet. To use a NAS's folders, run the hub on the NAS with [Docker](Docker.md#on-a-nas) and mount the NAS folders into it as hub folders. The hub then reads them directly.
 - **The same version as the hub.** Download the connector from the same release as the hub. If it is older, it updates itself when it pairs.
 - **No hub on the same computer.** The connector doesn't start where a hub is running.
 
@@ -36,7 +36,8 @@ It also reports its name, system, version, disk use and slicers, so the hub can 
 | Windows | `3d-maker-suite-connector-<version>-windows-x64-setup.exe` |
 | macOS, Apple silicon | `3d-maker-suite-connector-<version>-macos-arm64.dmg` |
 | macOS, Intel | `3d-maker-suite-connector-<version>-macos-x64.dmg` |
-| Linux | `3d-maker-suite-connector-<version>-linux-x64.tar.gz` |
+| Linux, x64 | `3d-maker-suite-connector-<version>-linux-x64.tar.gz` |
+| Linux, ARM64 (Raspberry Pi) | `3d-maker-suite-connector-<version>-linux-arm64.tar.gz` |
 
 3. Optional: check the file against `SHA256SUMS` from the same release. Run `sha256sum -c SHA256SUMS --ignore-missing`, or `Get-FileHash` in PowerShell.
 
@@ -65,6 +66,8 @@ Take care to pick files with `connector` in the name. The files without it are t
 tar -xzf 3d-maker-suite-connector-<version>-linux-x64.tar.gz
 ```
 
+On an ARM64 computer, use the `linux-arm64` file.
+
 2. Go into the unpacked folder and run the install script:
 
 ```bash
@@ -75,6 +78,41 @@ cd 3d-maker-suite-connector
 3. Open **3D Maker Suite Connector** from your application menu. Once it runs, it turns on starting at login by itself.
 
 The script needs no administrator rights. Running a newer `install.sh` updates the install.
+
+### Linux with no desktop
+
+Use this on a Raspberry Pi or a Linux server you reach over SSH, where nobody signs in at a screen and there is no application menu. The connector runs as a service: it starts when the machine boots, and comes back by itself after a crash. It needs a 64-bit Linux with systemd, x64 or ARM64.
+
+1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before step 3.
+2. On the machine, download the connector file for its system (see [Download](#download)) and unpack it as above.
+3. Go into the unpacked folder and install it as a service, with the hub's address and the code:
+
+```bash
+cd 3d-maker-suite-connector
+./install.sh --headless --hub-url https://maker.example.com --pairing-code AB12-CD34 --name "Workshop Pi"
+```
+
+`--name` is optional. It starts as the machine's name.
+
+4. If the script prints a `sudo loginctl enable-linger <your user>` line, run it once. Without it the service stops when you sign out, and doesn't start at boot.
+5. In **Hub management** the machine shows **Online**.
+
+What the script does:
+
+- It installs the connector in the same folder as on a desktop and adds a user service, `~/.config/systemd/user/3d-maker-suite-connector.service`, that starts at boot. It adds no application menu entry and no start-at-login file.
+- It needs no administrator rights, except for the `loginctl` line above.
+- The address and the code are kept in the service file, which only your user can read. The first start pairs with them. The pairing stays in the connector's data folder, so after that the code is ignored.
+- If the hub is off or can't be reached yet, the connector tries again. If the hub refuses the code (wrong, used or expired), the connector keeps running, unpaired, and writes one line about it in the log. Make a new code and run `install.sh --headless` again with it. A code that was refused is never sent twice.
+- It runs as your user, so the files it creates in your folders belong to you.
+
+To look at it:
+
+```bash
+systemctl --user status 3d-maker-suite-connector
+journalctl --user -u 3d-maker-suite-connector
+```
+
+The connector's own log is `logs/server.log` in its install folder. **Stop connector** in the hub, or `systemctl --user stop 3d-maker-suite-connector`, keeps it stopped until you run `systemctl --user start 3d-maker-suite-connector` or the machine restarts. A crash or a killed process is restarted after 5 seconds. Running a newer `install.sh --headless` without the address and code updates the install and keeps the ones the service has.
 
 ## Warnings you will see
 
@@ -168,7 +206,7 @@ The computer keeps its name, folders and settings. After 5 wrong codes, wait 15 
 
 ## Updates
 
-The connector follows the hub's version. After you update the hub, each connector downloads the same version and restarts by itself when it reconnects. The release file is checked against `SHA256SUMS` first.
+The connector follows the hub's version. After you update the hub, each connector downloads the same version (the file for its own system, ARM64 Linux included) and restarts by itself when it reconnects. The release file is checked against `SHA256SUMS` first.
 
 In **Hub management** a computer that isn't on the hub's version shows **Outdated**. If the update failed it shows **Update failed**, with the reason: the download failed, or the new version didn't start and the connector went back to the old one. Click **Update now** on its page to try again at once. The hub raises an alert if a computer is still on another version 15 minutes after it connected.
 
@@ -192,6 +230,7 @@ A stopped connector keeps the computer offline for the hub until you start it ag
 | Windows | **Settings → Apps → Installed apps → 3D Maker Suite Connector → Uninstall**. It also stops starting at sign-in |
 | macOS | Drag **3D Maker Suite Connector** from Applications to the Bin, then delete `~/Library/LaunchAgents/com.3dmakersuite.connector.login.plist` |
 | Linux | Delete `~/.local/share/3d-maker-suite-connector/install`, `~/.local/share/applications/3d-maker-suite-connector.desktop` and `~/.config/autostart/3d-maker-suite-connector.desktop` |
+| Linux, with no desktop | Run `systemctl --user disable --now 3d-maker-suite-connector`, then delete `~/.config/systemd/user/3d-maker-suite-connector.service` and `~/.local/share/3d-maker-suite-connector/install` |
 
 To remove everything, also delete the data folder (see the table below) and the `3D Maker Suite` folder in your home folder. The data folder holds the pairing, so the computer is unpaired once it is gone.
 
@@ -202,6 +241,7 @@ To remove everything, also delete the data folder (see the table below) and the 
 | Windows | `%LOCALAPPDATA%\Programs\3D Maker Suite Connector`, logs in `logs\` | `%APPDATA%\3d-maker-suite-connector` |
 | macOS | `/Applications/3D Maker Suite Connector.app` | `~/Library/Application Support/3d-maker-suite-connector`, logs in `install/logs/` |
 | Linux | `~/.local/share/3d-maker-suite-connector/install`, logs in `logs/` | `~/.local/share/3d-maker-suite-connector` |
+| Linux, with no desktop | the same, run by the user's systemd through `~/.config/systemd/user/3d-maker-suite-connector.service` (with linger) | the same |
 
 - **Allow by hash.** Every release file is in `SHA256SUMS`. You can also verify one with `gh attestation verify <file> -R emanuelmoniz/3d-maker-suite`.
 - **Network.** The connector connects out to the hub (HTTPS, or HTTP on a LAN) and to GitHub releases for updates. It also reaches the printers and the spool library the hub gives it, on their web or MQTT port. Its own page listens on `127.0.0.1:4301` only.
@@ -211,7 +251,8 @@ To remove everything, also delete the data folder (see the table below) and the 
 
 ## Limits and tips
 
-- **No NAS or ARM connector yet.** Only Windows, macOS and Linux x64 with a desktop.
+- **No connector for a NAS's own system yet.** Windows, macOS, Linux x64 and Linux ARM64 are covered. A NAS that can't add services needs a container, which comes later.
+- **ARM can't slice.** A connector on ARM can't be a slice worker.
 - **One hub per computer,** and one pairing per computer.
 - **Starts at login.** The connector has no tray icon and no window. Its Start-menu or application-menu entry opens the hub's page for the computer, or the pair page before it is paired. When the hub can't be reached, it opens the connector's own page.
 - **Index a shared folder from one connector only.** If two connectors share the same network folder, every project shows twice.

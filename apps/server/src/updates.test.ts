@@ -207,16 +207,16 @@ describe("update and rollback on a bundle", () => {
     { tag: "v1.1.0", prerelease: false, url: "https://gh/releases/tag/v1.1.0" },
   ];
   /** The release's app zip, and a fake GitHub serving it with SHA256SUMS. */
-  const serve = async (pkg: object, sum?: string) => {
+  const serve = async (pkg: object, sum?: string, name = asset) => {
     const zip = new yazl.ZipFile();
     zip.addBuffer(Buffer.from(JSON.stringify(pkg)), "package.json");
     zip.addBuffer(Buffer.from("x"), "apps/server/src/main.ts");
     zip.end();
     const body = await buffer(zip.outputStream);
     const files: Record<string, Buffer> = {
-      [asset]: body,
+      [name]: body,
       SHA256SUMS: Buffer.from(
-        `${sum ?? createHash("sha256").update(body).digest("hex")}  ${asset}\n`,
+        `${sum ?? createHash("sha256").update(body).digest("hex")}  ${name}\n`,
       ),
     };
     return (async (url: string) => {
@@ -224,6 +224,45 @@ describe("update and rollback on a bundle", () => {
       return new Response(f ? new Uint8Array(f) : null, { status: f ? 200 : 404 });
     }) as typeof fetch;
   };
+
+  it("takes the zip of this machine's architecture (an ARM64 machine: arm64)", async () => {
+    const arch = Object.getOwnPropertyDescriptor(process, "arch");
+    if (!arch) throw new Error("no process.arch");
+    Object.defineProperty(process, "arch", { ...arch, value: "arm64" });
+    try {
+      const installDir = join(dir, "install-arm");
+      mkdirSync(join(installDir, "versions", "1.0.0"), { recursive: true });
+      const dataDir = join(dir, "data-arm");
+      mkdirSync(dataDir);
+      const fileDb = openDb(join(dataDir, "app.sqlite"));
+      const name = `3d-maker-suite-v1.1.0-app-${OS}-arm64.zip`;
+      const download = await serve(
+        { version: "1.1.0", engines: { node: ">=22" } },
+        undefined,
+        name,
+      );
+      const app = await buildApp(fileDb, false, dataDir, {
+        updater: {
+          install: "bundle",
+          installDir,
+          releases: bundleReleases,
+          version: "1.0.0",
+          download,
+        },
+      });
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/updates/apply",
+        payload: { tag: "v1.1.0" },
+      });
+      expect(res.statusCode).toBe(202);
+      expect(existsSync(join(installDir, "versions", "1.1.0", "package.json"))).toBe(true);
+      await app.close();
+      fileDb.$client.close();
+    } finally {
+      Object.defineProperty(process, "arch", arch);
+    }
+  });
 
   it("downloads, checks, unpacks and stages an undo; then rolls back", async () => {
     const installDir = join(dir, "install");

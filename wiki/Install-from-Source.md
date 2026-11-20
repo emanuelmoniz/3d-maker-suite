@@ -37,7 +37,7 @@ Turn on **Start at login** in the **General** card of **Settings**. It runs `pnp
 
 ## On a NAS or a machine with no desktop
 
-Use this when a NAS has Node 22 but no Docker, has an ARM processor, or when a server has no desktop. If the NAS has Docker on an Intel or AMD processor, [Docker](Docker.md#on-a-nas) is easier.
+Use this when a NAS has Node 22 but no Docker, or when a server has no desktop. If the NAS has Docker on an Intel or AMD processor, [Docker](Docker.md#on-a-nas) is easier. An ARM64 computer with a desktop, such as a Raspberry Pi, doesn't need this: use [Install on Linux](Install-on-Linux.md).
 
 1. Install Node 22 on the machine, with its own package tool or from <https://nodejs.org>. `node -v` must print `v22.x`.
 2. Follow [Install and start](#install-and-start) over SSH. You need Git and a terminal.
@@ -53,7 +53,7 @@ Use the machine's own address in `APP_ALLOWED_HOSTS`. It is needed until the fir
 
 - The app runs as the user who starts it, and has that user's access to files and folders.
 - `pnpm start` restarts itself after an update, so **Update** in **Settings → About & updates** works, for a copy with no local changes.
-- ARM is not tested by us. Slicing isn't available on ARM, because Bambu Lab has no Linux ARM slicer. Another computer can slice for it through a hub, see [Hub setup](Hub-Setup.md).
+- The ARM64 archive is tested by us on an ARM runner, but this route is not tested on a NAS. Slicing isn't available on ARM, because Bambu Lab has no Linux ARM slicer. Another computer can slice for it through a hub, see [Hub setup](Hub-Setup.md).
 - The app can't watch a share that the machine mounts from somewhere else (SMB, NFS), see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates). Keep the data folder on the machine's own disk too.
 
 ## Where your data is kept

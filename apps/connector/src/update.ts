@@ -1,11 +1,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ConnectorUpdateFailure, compareVersions, REPO_URL } from "@3d-maker-suite/core";
-import { fetchBundle } from "@3d-maker-suite/host";
+import { bundleAsset, fetchBundle } from "@3d-maker-suite/host";
 
 /** Exit code that asks the launcher to start the newest version (RESTART in packaging/launcher.mjs). */
 export const RESTART = 75;
-const OS: Record<string, string> = { win32: "windows", darwin: "macos", linux: "linux" };
 const cmp = (a: string, b: string) => {
   try {
     return compareVersions(a, b);
@@ -20,6 +19,8 @@ type Options = {
   download?: typeof fetch;
   exit?: (code: number) => void;
   log?: (line: string) => void;
+  /** The machine, to test another one's zip (`linux` and `arm64`); this one by default. */
+  target?: { platform: string; arch: string };
 };
 
 /**
@@ -35,6 +36,7 @@ export function createUpdater({
   download = fetch,
   exit = (code) => process.exit(code),
   log = () => {},
+  target = process,
 }: Options) {
   const install = env.APP_INSTALL === "bundle" ? env.APP_INSTALL_DIR : undefined;
   // A container can't replace its own image (ADR-0009, ADR-0024): it says what to run instead.
@@ -80,7 +82,7 @@ export function createUpdater({
       }
       const tag = `v${hub}`;
       const base = env.APP_DOWNLOAD_URL ?? `${REPO_URL}/releases/download/${tag}`;
-      const asset = `3d-maker-suite-connector-${tag}-app-${OS[process.platform]}-${process.arch}.zip`;
+      const asset = bundleAsset("3d-maker-suite-connector", tag, target.platform, target.arch);
       const partial = join(install, "versions", `${hub}.partial`);
       log(`updating to ${hub}`);
       try {
