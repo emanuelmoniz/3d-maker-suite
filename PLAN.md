@@ -5235,6 +5235,24 @@ Do Step 8e of the 6.3.0 plan in PLAN.md.
 Do Step 8f of the 6.3.0 plan in PLAN.md. Tell me what to check by hand on macOS and Linux.
 ```
 
+## Phase 67c - Rights
+
+### [ ] Step 8g - Editors: no empty Integrations tab
+**Model:** Sonnet · **Effort:** Medium
+**Why:** found on a VPS. An editor without `integrations.manage` but with `integrations.sync` (and the editor flag on the server's slicer task) sees **Settings → Integrations**. It opens to one slicer card whose body is empty, because every control in it is behind `integrations.manage` (`IntegrationCard.tsx`). `useHasTasks` only asks whether the user may sync or review a task that `onIntegrationsPage` puts on that page; it never asks whether the page offers them anything. The editor's real way to sync and review slicer presets is **Catalog → Sources**.
+**Scope:**
+- **The tab and the page are for `integrations.manage`.** `useHasTasks` (`apps/web/src/lib/integrations.ts`) and the Integrations tab in `SettingsShell.tsx` stop counting slicer tasks for a non-manager; `IntegrationsPage.tsx` drops its editor filter. An editor who opens `/settings/integrations` lands on General, as for any hidden tab. Remove `onIntegrationsPage` if nothing else uses it.
+- **Check first** that an editor still reaches everything they could run from that page: slicer presets sync and review through Catalog → Sources, and `SettingsLink` / the Sources tabs keep their own checks. If one task is reachable only from the Integrations page, say so and ask before removing it.
+- **No server change:** the task rights (`integrations.sync`, `integrations.review`, the per-task editor flags) stay as they are.
+- Tests: update `apps/web/src/lib/integrations.test.ts` (the `onIntegrationsPage` cases); an editor with sync on and a slicer task has no Integrations tab, a manager keeps it; the direct address redirects to General. The e2e spec for the Settings tabs of an editor.
+- Docs: ADR-0012 (amend: Integrations is for managers; say which step), `wiki/Integrations.md` and `wiki/Roles.md` (what an editor sees and where they sync), `docs/architecture.md` if it names the editor view.
+
+**Done when:** an editor without `integrations.manage` never sees the Integrations tab, whatever their sync and review rights, and still syncs and reviews from the Sources tabs and Catalog → Sources; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass; `pnpm wiki:check` passes.
+**Prompt:**
+```
+Do Step 8g of the 6.3.0 plan in PLAN.md.
+```
+
 ## Phase 68 - Release
 
 ### [ ] Step 9 - Real test, docs, push & v6.3.0-alpha.1
