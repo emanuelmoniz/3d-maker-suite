@@ -75,7 +75,7 @@ test("settings tabs: old addresses land on their tab with search and hash", asyn
   }
 });
 
-test("settings tabs: a viewer sees only theirs, and a hidden tab's address opens General", async ({
+test("settings tabs: a viewer sees only theirs, and a hidden tab's address can't open", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -109,8 +109,11 @@ test("settings tabs: a viewer sees only theirs, and a hidden tab's address opens
     "/hub",
     "/logs",
   ]) {
+    // An admin area without the right says so (6.2.0 Step 3f); the old addresses land on their tab.
     await page.goto(path);
-    await expect(page, path).toHaveURL(/\/settings$/);
+    await expect(page.getByRole("heading", { name: "You can't open this" }), path).toBeVisible();
+    await expect(page, path).toHaveURL(/\/settings\/[a-z/]+$/);
+    await expect(page.getByRole("link", { name: "Go to the dashboard" })).toBeVisible();
   }
 });
 

@@ -184,7 +184,7 @@ The breakdown of what the print cost: **Material**, **Energy**, **Printer wear**
 | **Another print already has this number. It may be archived.** | Use another number, or leave the field empty |
 | **Couldn't save the print. Check that every spool has enough filament.** | A spool has less than the grams you typed. Lower them or pick another spool |
 | A spool is missing from the list | It is empty, archived, or it was opened after the print started |
-| **Print not found.** | The print was deleted. Go back to the list |
+| **This doesn't exist, or you can't open it.** | The print was deleted. Go back to the list |
 
 ## Related pages
 

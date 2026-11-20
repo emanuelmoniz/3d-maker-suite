@@ -8,7 +8,7 @@ import {
   printerFilters,
 } from "@3d-maker-suite/core";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Plus, Printer as PrinterIcon, Puzzle } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,7 @@ import { SyncButton } from "../../components/SyncButton.tsx";
 import { Tabs } from "../../components/Tabs.tsx";
 import { Write } from "../../components/Write.tsx";
 import { accessoryName } from "../../lib/accessories.ts";
-import { useCan, useRights } from "../../lib/auth.ts";
+import { useCan } from "../../lib/auth.ts";
 import { useModelInfo } from "../../lib/catalog.ts";
 import { textLink } from "../../lib/cx.ts";
 import { formatDuration, formatNumber } from "../../lib/format.ts";
@@ -57,17 +57,13 @@ export type PrintersTab = "printers" | "accessories" | "maintenance";
 /**
  * Title, gear and tabs around the open tab (6.1.0 Steps 24 and 25). Printers and Accessories show
  * with `printers` read, Maintenance with `maintenance` read; someone with only one of them lands
- * on the tabs they can read.
+ * on the tabs they can read (the routes declare it, 6.2.0 Step 3f).
  */
 export function PrintersPage({ tab }: { tab: PrintersTab }) {
   const { t } = useTranslation();
-  const loaded = !!useRights();
-  const canPrinters = useCan("printers", "read") || !loaded;
-  const canMaintenance = useCan("maintenance", "read") || !loaded;
-  const onMaintenance = tab === "maintenance";
-  if (onMaintenance && !canMaintenance && canPrinters) return <Navigate to="/printers" replace />;
-  if (!onMaintenance && !canPrinters && canMaintenance)
-    return <Navigate to="/printers/maintenance" replace />;
+  // The guard waits for the rights, so these are known here.
+  const canPrinters = useCan("printers", "read");
+  const canMaintenance = useCan("maintenance", "read");
 
   const addAccessory = (
     <Write can="printers" level="manage">

@@ -74,12 +74,15 @@ export const useUploadQuoteFile = () =>
 export const quoteFileUrl = (id: string, entry: string) =>
   `/api/costs/files/${id}?${new URLSearchParams({ entry })}`;
 
-/** The calculator plates' slices (results, errors, jobs). Polls while some are being sliced. */
-export const useQuoteSlice = (body: Omit<QuoteSliceInput, "run">) =>
+/**
+ * The calculator plates' slices (results, errors, jobs). Polls while some are being sliced. A POST
+ * the server keeps for costs write: `enabled` is off for a reader (6.2.0 Step 3f).
+ */
+export const useQuoteSlice = (body: Omit<QuoteSliceInput, "run">, enabled = true) =>
   useQuery({
     queryKey: ["costs", "slice", body],
     queryFn: () => api<QuoteSlice>("POST", "/api/costs/slice", { ...body, run: false }),
-    enabled: body.plates.length > 0,
+    enabled: enabled && body.plates.length > 0,
     refetchInterval: (q) => slicePoll(q.state.data?.plates),
   });
 

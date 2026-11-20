@@ -5,6 +5,7 @@ import { Box, EyeOff, File, Folder, FolderOpen, Laptop, Server } from "lucide-re
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker, type PickSource } from "../../components/PathPicker.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
@@ -500,7 +501,7 @@ export function ProjectFolderPage() {
       )}
       {/* Just added: the list is read again before the new folder is in it. */}
       {roots.data && root === undefined && !roots.isFetching && (
-        <p className="text-muted">{t("settings:folder.notFound")}</p>
+        <ItemMissing back="/projects/settings" />
       )}
       {roots.data && root !== undefined && (
         // Re-mounted per folder, so the form starts from what is stored.

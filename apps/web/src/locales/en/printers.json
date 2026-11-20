@@ -55,7 +55,6 @@
     "numberTaken": "Another printer already has this number. It may be archived."
   },
   "detail": {
-    "notFound": "This printer doesn't exist.",
     "edit": "Edit",
     "actionError": "That didn't work. Try again.",
     "photo": {
@@ -156,7 +155,6 @@
       "numberTaken": "Another accessory already has this number. It may be archived."
     },
     "detail": {
-      "notFound": "This accessory doesn't exist.",
       "printer": "On printer",
       "notInstalled": "Not installed"
     },
@@ -196,7 +194,6 @@
     }
   },
   "catalog": {
-    "notFound": "This entry doesn't exist.",
     "removeImage": "Remove image",
     "error": "Couldn't save. Try again.",
     "duplicate": "An entry with this name already exists. It may be archived.",

@@ -24,6 +24,7 @@ import { usePreferences } from "../lib/preferences.ts";
 import { useServerState, useSetServerState } from "../lib/serverState.ts";
 import { useVersion } from "../lib/updates.ts";
 import { ALL_ITEMS, NAV_GROUPS, type NavItem, SETTINGS_ITEM, SETTINGS_SUB_PAGES } from "./nav.ts";
+import { RouteGuard } from "./RouteGuard.tsx";
 import { ThemeToggle } from "./ThemeToggle.tsx";
 
 const linkClass =
@@ -156,28 +157,31 @@ function UpdateBanner() {
   );
 }
 
-/** The server said no (403): the role isn't enough for what was just tried. */
+/**
+ * The role isn't enough: the server said no (403), or the route guard sent the person from a form
+ * they can't save to its item (6.2.0 Step 3f). The event carries the message's i18n key.
+ */
 function ForbiddenBanner() {
   const { t } = useTranslation();
-  const [shown, setShown] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
-    const on = () => setShown(true);
+    const on = (e: Event) => setMessage((e as CustomEvent<string>).detail ?? "common:forbidden");
     window.addEventListener(FORBIDDEN_EVENT, on);
     return () => window.removeEventListener(FORBIDDEN_EVENT, on);
   }, []);
-  if (!shown) return null;
+  if (!message) return null;
   return (
     <div
       role="alert"
       className="mb-5 flex items-center gap-x-4 rounded-lg border border-bad/40 bg-surface-2 px-4 py-2.5"
     >
       <ShieldAlert className="size-4 shrink-0 text-bad" aria-hidden />
-      <span className="min-w-0 flex-1 font-medium">{t("common:forbidden")}</span>
+      <span className="min-w-0 flex-1 font-medium">{t(message)}</span>
       <button
         type="button"
         className="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-fg"
         aria-label={t("common:updateBanner.dismiss")}
-        onClick={() => setShown(false)}
+        onClick={() => setMessage(null)}
       >
         <X className="size-4" aria-hidden />
       </button>
@@ -455,7 +459,9 @@ export function AppShell() {
           <Brand mobile />
           <ForbiddenBanner />
           <UpdateBanner />
-          <Outlet />
+          <RouteGuard>
+            <Outlet />
+          </RouteGuard>
         </div>
         <div className="mx-auto w-full max-w-6xl">
           <Footer />

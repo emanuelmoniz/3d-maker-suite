@@ -376,5 +376,6 @@ test("hub: a machine's own user sees its slicers and edits only what their switc
 
   // Someone else's machine isn't theirs to see.
   await page.goto(`/hub/devices/${anas.deviceId}`);
-  await expect(page.getByText("This device doesn't exist anymore.")).toBeVisible();
+  // The same text as a missing one (6.2.0 Step 3f): it doesn't tell that the machine exists.
+  await expect(page.getByText("This doesn't exist, or you can't open it.")).toBeVisible();
 });

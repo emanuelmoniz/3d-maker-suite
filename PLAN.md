@@ -4817,7 +4817,7 @@ Do Step 3d of the 6.2.0 plan in PLAN.md.
 Do Step 3e of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3f - Every page checks the right it needs  **[plan mode]**
+### [x] Step 3f - Every page checks the right it needs  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Why:** only the module settings pages (`ConfigPage`) and a few others (Catalog, Printers tabs) send someone without the right back. A Viewer who types or bookmarks an add or edit form gets **Save**, and saving shows only **Your role doesn't allow that.** It happens on every add and edit form (printers, accessories, maintenance tasks, spools, catalog brands, models and materials, projects, prints, quotes, orders, clients), `/integrations/new`, `/integrations/$id/edit`, `/projects/settings/folders/*` and `/users/roles/*`. An alert or computer the person may not see shows an empty **Alert** page, or **This device doesn't exist anymore.** The server already refuses; this is about what the person sees.
 **Scope (agreed with the user):**

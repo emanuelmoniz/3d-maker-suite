@@ -199,7 +199,18 @@
   },
   "notFound": {
     "title": "Page not found",
-    "body": "This page doesn't exist. Use the menu to get back on track."
+    "body": "This page doesn't exist. Use the menu to get back on track.",
+    "item": "This doesn't exist, or you can't open it.",
+    "itemBody": "It may have been deleted, or your role doesn't show it. Open it from its list.",
+    "back": "Back to the list"
+  },
+  "rights": {
+    "cantChange": "Your role can't change this.",
+    "cantOpen": {
+      "title": "You can't open this",
+      "body": "Your role doesn't include this page. Ask an admin if you need it.",
+      "home": "Go to the dashboard"
+    }
   },
   "placeholder": {
     "title": "Coming soon",

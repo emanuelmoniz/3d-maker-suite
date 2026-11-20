@@ -9,6 +9,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge, Dependents } from "../../components/ArchiveActions.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { useCanSettings } from "../../components/SettingsLink.tsx";
 import { Write } from "../../components/Write.tsx";
@@ -114,12 +115,7 @@ export function PresetPage({ kind }: { kind: keyof typeof KINDS }) {
     queryFn: () => api<InUseDetails>("GET", `${path}/${id}/use`),
   });
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("catalog:preset.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing />;
   if (!row) return null;
 
   const name = kind === "filament" ? filamentLabel(row as FilamentPreset) : row.name;

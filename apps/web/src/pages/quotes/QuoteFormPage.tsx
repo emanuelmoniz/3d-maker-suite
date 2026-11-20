@@ -25,11 +25,13 @@ import {
   QuoteBreakdownView,
 } from "../../components/CostBreakdown.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { PlateSlice, plateKey, SliceSetup } from "../../components/SliceSetup.tsx";
 import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 import { useClient, useClients } from "../../lib/clients.ts";
 import {
   changePlates,
@@ -266,6 +268,8 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
     useClients({ pageSize: "100" }).data?.items ?? [],
     useClient(editing?.clientId ?? "").data,
   );
+  // A reader sees a saved quote and may try numbers, but saves, uploads and slices nothing.
+  const mayWrite = useCan("costs");
   const save = useSaveQuote();
   const patch = usePatchQuote();
   const qc = useQueryClient();
@@ -293,7 +297,7 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
     projectId: f.projectId || null,
     plates: f.plates.filter((p) => !p.result).map(({ result: _, ...setup }) => setup),
   };
-  const slice = useQuoteSlice(toSlice);
+  const slice = useQuoteSlice(toSlice, mayWrite);
   const sliceOf = (p: { file: string; plate: number }) =>
     slice.data?.plates.find((s) => plateKey(s) === plateKey(p));
   const plates: QuotePlate[] = f.plates.map((p) => ({
@@ -499,36 +503,40 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
               }}
             />
           )}
-          <div className="flex flex-wrap items-center gap-3">
-            <label
-              className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2 focus-within:ring-2 focus-within:ring-accent ${upload.isPending ? "opacity-60" : ""}`}
-            >
-              <Upload className="size-4" aria-hidden />
-              {upload.isPending ? t("costs:form.uploading") : t("costs:form.addFile")}
-              <input
-                type="file"
-                accept=".3mf"
-                multiple
-                className="sr-only"
-                disabled={upload.isPending}
-                onChange={(e) => {
-                  if (e.target.files?.length) void addFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <Button
-              disabled={!unsliced || !!left || runSlice.isPending || slice.data?.canSlice === false}
-              onClick={() => runSlice.mutate(toSlice)}
-            >
-              {t("projects:slicing.slice")}
-            </Button>
-            {plates.length > 0 && (
-              <p aria-live="polite" className={runSlice.isError ? "text-bad" : "text-muted"}>
-                {sliceStatus}
-              </p>
-            )}
-          </div>
+          {mayWrite && (
+            <div className="flex flex-wrap items-center gap-3">
+              <label
+                className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2 focus-within:ring-2 focus-within:ring-accent ${upload.isPending ? "opacity-60" : ""}`}
+              >
+                <Upload className="size-4" aria-hidden />
+                {upload.isPending ? t("costs:form.uploading") : t("costs:form.addFile")}
+                <input
+                  type="file"
+                  accept=".3mf"
+                  multiple
+                  className="sr-only"
+                  disabled={upload.isPending}
+                  onChange={(e) => {
+                    if (e.target.files?.length) void addFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <Button
+                disabled={
+                  !unsliced || !!left || runSlice.isPending || slice.data?.canSlice === false
+                }
+                onClick={() => runSlice.mutate(toSlice)}
+              >
+                {t("projects:slicing.slice")}
+              </Button>
+              {plates.length > 0 && (
+                <p aria-live="polite" className={runSlice.isError ? "text-bad" : "text-muted"}>
+                  {sliceStatus}
+                </p>
+              )}
+            </div>
+          )}
           {upload.isError && (
             <p role="alert" className="text-bad">
               {t("costs:form.uploadFailed")}
@@ -624,8 +632,8 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
               )}
             </FormField>
             <FormField label={t("costs:saved.client")}>
-              {(p) => (
-                <PickerWithAdd label={t("costs:saved.newClient")} onAdd={() => setNewClient(true)}>
+              {(p) => {
+                const picker = (
                   <Combobox
                     {...p}
                     value={clientId}
@@ -635,8 +643,18 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                       ...clients.map((c) => ({ value: c.id, label: c.name })),
                     ]}
                   />
-                </PickerWithAdd>
-              )}
+                );
+                return mayWrite ? (
+                  <PickerWithAdd
+                    label={t("costs:saved.newClient")}
+                    onAdd={() => setNewClient(true)}
+                  >
+                    {picker}
+                  </PickerWithAdd>
+                ) : (
+                  picker
+                );
+              }}
             </FormField>
             <FormField label={t("costs:saved.notes")}>
               {(p) => (
@@ -648,16 +666,22 @@ function QuoteForm({ ctx, editing }: { ctx: CostContext; editing?: Quote }) {
                 />
               )}
             </FormField>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="primary" disabled={save.isPending || patch.isPending}>
-                {t(editing ? "costs:saved.update" : "costs:saved.save")}
-              </Button>
-              {editing && (
-                <Button disabled={save.isPending || !name.trim()} onClick={saveNew}>
-                  {t("costs:saved.saveAsNew")}
+            {mayWrite && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={save.isPending || patch.isPending}
+                >
+                  {t(editing ? "costs:saved.update" : "costs:saved.save")}
                 </Button>
-              )}
-            </div>
+                {editing && (
+                  <Button disabled={save.isPending || !name.trim()} onClick={saveNew}>
+                    {t("costs:saved.saveAsNew")}
+                  </Button>
+                )}
+              </div>
+            )}
             {patch.isSuccess && (
               <p role="status" className="text-muted">
                 {t("costs:saved.updated")}
@@ -711,9 +735,7 @@ export function QuoteEditPage() {
     return (
       <>
         <PageHeader title={t("nav:items.quotes.label")} backTo={{ to: "/quotes" }} />
-        <p role="alert" className="text-bad">
-          {t("costs:saved.notFound")}
-        </p>
+        <ItemMissing back="/quotes" />
       </>
     );
   return (
@@ -723,7 +745,7 @@ export function QuoteEditPage() {
         backTo={{ to: "/quotes" }}
         description={quote.data?.archivedAt && <ArchivedBadge />}
         actions={
-          <>
+          <Write can="costs">
             <Link
               to={`/orders/new?${new URLSearchParams({ quoteId: id })}` as LinkProps["to"]}
               className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-surface px-3 font-medium hover:bg-surface-2"
@@ -732,16 +754,14 @@ export function QuoteEditPage() {
               {t("costs:saved.createOrder")}
             </Link>
             {quote.data && (
-              <Write can="costs">
-                <ArchiveActions
-                  path={`/api/costs/quotes/${id}`}
-                  name={quoteName(t, quote.data)}
-                  archived={quote.data.archivedAt !== null}
-                  onDeleted={() => navigate({ to: "/quotes" })}
-                />
-              </Write>
+              <ArchiveActions
+                path={`/api/costs/quotes/${id}`}
+                name={quoteName(t, quote.data)}
+                archived={quote.data.archivedAt !== null}
+                onDeleted={() => navigate({ to: "/quotes" })}
+              />
             )}
-          </>
+          </Write>
         }
       />
       {ctx.isError && <LoadError />}

@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useClient } from "../../lib/clients.ts";
@@ -13,12 +14,7 @@ export function ClientDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data: client, isError } = useClient(id);
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("clients:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/clients" />;
   if (!client) return null;
   const none = t("clients:detail.none");
   return (

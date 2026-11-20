@@ -5,6 +5,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
 import { isConflict } from "../../lib/catalog.ts";
@@ -233,7 +234,8 @@ export function SpoolCreatePage() {
 export function SpoolEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
-  const { data } = useSpool(id);
+  const { data, isError } = useSpool(id);
+  if (isError) return <ItemMissing back="/filament" />;
   return (
     <>
       <PageHeader

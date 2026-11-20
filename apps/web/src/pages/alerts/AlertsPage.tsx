@@ -31,6 +31,7 @@ import { textLink } from "../../lib/cx.ts";
 import { formatDateTime } from "../../lib/format.ts";
 import { useAdapterName, useMayTask } from "../../lib/integrations.ts";
 import { useUrlListQuery } from "../../lib/list.ts";
+import { useProject } from "../../lib/projects.ts";
 import { SYNC_TARGETS } from "../../lib/syncTargets.ts";
 import { TITLE } from "../import/SourceReviewPage.tsx";
 import { CAPS, ERRORS } from "../settings/integrationLabels.ts";
@@ -162,12 +163,26 @@ export function AlertMore({ a }: { a: Alert }) {
 }
 
 /** The alert's short title. In the list it opens the alert; in its own view, what it is about. */
+/**
+ * Whether the person may open a slicing alert's project for editing: projects write, and that
+ * project editable for them (not download-only, not someone else's without the right). Only read on
+ * the alert's own page (`enabled`), not for each alert in the list.
+ */
+export function useMayEditAlertProject(a: Alert | undefined, enabled = true) {
+  const may = useCan("projects");
+  const id = enabled && may && a?.kind.startsWith("slice_") ? String(a.context.projectId) : "";
+  return !!useProject(id).data?.canEdit;
+}
+
 export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
   const { t } = useTranslation();
   const adapterName = useAdapterName();
   const mayOpen = useMayOpenTask();
   const integrationsManage = useCan("integrations.manage");
   const hubManage = useCan("hub.manage");
+  // The title opens a form only for someone who may save it, else the item's page (6.2.0 Step 3f).
+  const mayEditSpool = useCan("filament");
+  const mayEditProject = useMayEditAlertProject(a, !inList);
   const c = a.context;
   const type = t(CAPS[c.type as Capability] ?? "");
   const text = {
@@ -249,7 +264,11 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
     case "spool_no_price":
     case "spool_no_open_date":
       return (
-        <Link to="/filament/spools/$id/edit" params={{ id: a.entityId }} className={textLink}>
+        <Link
+          to={mayEditSpool ? "/filament/spools/$id/edit" : "/filament/spools/$id"}
+          params={{ id: a.entityId }}
+          className={textLink}
+        >
           {text}
         </Link>
       );
@@ -309,13 +328,17 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
       );
     case "slice_setup_changed":
     case "slice_failed":
-      return (
+      return mayEditProject ? (
         <Link
           to="/projects/$id/edit"
           params={{ id: String(c.projectId) }}
           hash="slicing"
           className={textLink}
         >
+          {text}
+        </Link>
+      ) : (
+        <Link to="/projects/$id" params={{ id: String(c.projectId) }} className={textLink}>
           {text}
         </Link>
       );

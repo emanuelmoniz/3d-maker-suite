@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { Collapsible } from "../../components/Collapsible.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker } from "../../components/PathPicker.tsx";
 import { cardGrid } from "../../components/Section.tsx";
@@ -22,6 +23,7 @@ import {
 import { useRoots } from "../../lib/roots.ts";
 import { useTagEditor } from "../../lib/tags.ts";
 import { useUsers } from "../../lib/users.ts";
+import { Away } from "../../shell/RouteGuard.tsx";
 import { DescriptionEditor, type DescriptionState } from "./DescriptionEditor.tsx";
 import { GalleryPicker } from "./GalleryPicker.tsx";
 import { FolderActions } from "./ProjectFolder.tsx";
@@ -396,7 +398,10 @@ export function ProjectCreatePage() {
 export function ProjectEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
-  const { data, isFetchedAfterMount } = useProject(id);
+  const { data, isError, isFetchedAfterMount } = useProject(id);
+  if (isError) return <ItemMissing back="/projects" />;
+  // A project the person sees but may not edit (download-only, someone else's): its page, saying why.
+  if (data && !data.canEdit) return <Away to="/projects/$id" params={{ id }} notice />;
   return (
     <>
       <PageHeader

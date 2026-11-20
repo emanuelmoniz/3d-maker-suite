@@ -25,7 +25,7 @@ import { FilterBar } from "../../components/FilterBar.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
-import { SettingsLink } from "../../components/SettingsLink.tsx";
+import { SettingsLink, useCanSettings } from "../../components/SettingsLink.tsx";
 import { TagFilter } from "../../components/TagFilter.tsx";
 import { Write } from "../../components/Write.tsx";
 import { cx, textLink } from "../../lib/cx.ts";
@@ -266,6 +266,7 @@ export function ProjectsPage() {
     query,
   );
   const hasArchived = useHasArchived(["projects", "list"], "/api/projects");
+  const maySetUp = useCanSettings("projects");
   const materials = useProjectMaterials().data ?? [];
   const set = (patch: ListQuery, keepPage = false) => {
     const next: ListQuery = { ...query, ...patch };
@@ -319,12 +320,15 @@ export function ProjectsPage() {
           title={t("projects:list.emptyTitle")}
           description={t("projects:list.emptyBody")}
           action={
-            <Link
-              to="/projects/settings"
-              className={`${linkButton} border border-border bg-surface`}
-            >
-              {t("projects:list.settings")}
-            </Link>
+            // Folders are set up in the settings: manage's (6.2.0 Step 3f).
+            maySetUp && (
+              <Link
+                to="/projects/settings"
+                className={`${linkButton} border border-border bg-surface`}
+              >
+                {t("projects:list.settings")}
+              </Link>
+            )
           }
         />
       ) : (

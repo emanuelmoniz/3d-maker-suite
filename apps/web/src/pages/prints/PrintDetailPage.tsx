@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { CostBreakdown } from "../../components/CostBreakdown.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { TagList } from "../../components/TagList.tsx";
@@ -97,12 +98,7 @@ export function PrintDetailPage() {
   const tagsOf = useTagsOf("print");
   const tagsOn = useTagsEnabled();
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("prints:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/prints" />;
   if (!print) return null;
 
   const none = t("filament:detail.none");

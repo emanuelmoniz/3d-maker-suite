@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import {
@@ -45,12 +46,7 @@ export function AccessoryDetailPage() {
   const printers = usePrinters({ archived: "all" }).data?.items ?? [];
   const costInfo = useCostInfo(accessory, "accessory");
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("printers:accessories.detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/printers/accessories" />;
   if (!accessory) return null;
 
   const none = t("printers:detail.info.none");

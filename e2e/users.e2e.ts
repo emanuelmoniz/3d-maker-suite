@@ -150,8 +150,10 @@ test("users: a custom role and an override change what a user sees", async ({ pa
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Users" })).toHaveCount(0);
   await expect(settingsTab(page, "Users")).toHaveCount(0);
+  // The old address lands on the Users tab, which her role can't open (6.2.0 Step 3f).
   await page.goto("/users");
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings\/users$/);
+  await expect(page.getByRole("heading", { name: "You can't open this" })).toBeVisible();
 });
 
 test("users: old Settings links land on the Users and Roles tabs", async ({ page, app }) => {

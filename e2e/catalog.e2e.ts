@@ -118,7 +118,7 @@ test("old catalog and Presets addresses land on their Catalog tab and table", as
   await page.goto("/printers/presets/new");
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await page.goto("/printers/process-presets/new");
-  await expect(page.getByRole("alert")).toContainText("Preset not found");
+  await expect(page.getByText("This doesn't exist, or you can't open it.")).toBeVisible();
   await page.goto("/filament/presets/new");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
@@ -144,7 +144,7 @@ test("Catalog is in the sidebar under Filament and in the More sheet; Settings h
   expect(sheet).toEqual(["Catalog", "Settings"]);
 });
 
-test("Catalog needs its read: no sidebar item, and its address goes home", async ({ page }) => {
+test("Catalog needs its read: no sidebar item, and its address can't open", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   await post(page, "/api/auth/setup", {
@@ -174,10 +174,11 @@ test("Catalog needs its read: no sidebar item, and its address goes home", async
     "/catalog/filament",
     "/catalog",
     "/settings/catalog/printers",
-    // An old Presets link goes through Catalog, so home too.
+    // An old Presets link goes through Catalog, so the same.
     "/presets/printer",
   ]) {
+    // No right to the module at all (6.2.0 Step 3f).
     await page.goto(path);
-    await expect(page, path).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { name: "You can't open this" }), path).toBeVisible();
   }
 });

@@ -70,7 +70,7 @@ Under it are two tables:
 - **Saved quotes:** their quotes, as on [Quotes](Quotes.md#quotes-list), with the same filter and sorting.
 - **Orders:** their orders, as on [Orders](Orders.md#orders-list), without the **Client** column.
 
-A table only shows when the client has any. **Client not found.** means the client was deleted. Go back to **Clients**.
+A table only shows when the client has any. **This doesn't exist, or you can't open it.** means the client was deleted. Go back to **Clients**.
 
 ## Common tasks
 

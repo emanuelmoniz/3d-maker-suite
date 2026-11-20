@@ -7,6 +7,7 @@ import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { useClients } from "../../lib/clients.ts";
 import { textLink } from "../../lib/cx.ts";
 import { useHasArchived, useUrlListQuery } from "../../lib/list.ts";
@@ -16,6 +17,7 @@ export function ClientsPage() {
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = useClients(query);
   const hasArchived = useHasArchived(["clients", "list"], "/api/clients");
+  const mayAdd = useCan("costs");
   const add = (
     <Link
       to="/clients/new"
@@ -51,7 +53,7 @@ export function ClientsPage() {
           icon={Users}
           title={t("clients:list.emptyTitle")}
           description={t("clients:list.emptyBody")}
-          action={add}
+          action={mayAdd ? add : undefined}
         />
       ) : (
         data && (

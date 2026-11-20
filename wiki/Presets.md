@@ -150,7 +150,7 @@ The card can show a message instead:
 | What you see | What to do |
 |---|---|
 | The tables have no presets | Connect a slicer or upload its zip. See [How presets arrive](#how-presets-arrive) |
-| **Preset not found.** | The preset was deleted. Go back to the table |
+| **This doesn't exist, or you can't open it.** | The preset was deleted. Go back to the table |
 | **Could not read the settings. Try again in a moment.** | Reload. If it stays, check the slicer's files |
 | A preset can't be deleted | Something uses it. Archive it instead |
 

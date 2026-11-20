@@ -1,10 +1,8 @@
-import { Navigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { SyncButton } from "../../components/SyncButton.tsx";
 import { Tabs } from "../../components/Tabs.tsx";
-import { useCan, useRights } from "../../lib/auth.ts";
 import { FilamentCatalog } from "../filament/Catalog.tsx";
 import { PresetsHint } from "../presets/PresetsHint.tsx";
 import { FilamentPresets, MachinePresets, ProcessPresets } from "../presets/PresetTables.tsx";
@@ -53,14 +51,10 @@ const INTRO = {
 
 /**
  * Brands, models, materials and their presets (ADR-0023), one tab per part, in the sidebar under
- * Filament (6.1.0 Step 23). Without `catalog` read the address goes home.
+ * Filament (6.1.0 Step 23). It needs `catalog` read (the route declares it, 6.2.0 Step 3f).
  */
 export function CatalogPage({ tab }: { tab: CatalogTab }) {
   const { t } = useTranslation();
-  const loaded = !!useRights();
-  const may = useCan("catalog", "read");
-  if (!loaded) return null;
-  if (!may) return <Navigate to="/" replace />;
   return (
     <>
       <PageHeader

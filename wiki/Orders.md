@@ -13,7 +13,8 @@ The right is **Quotes, orders and clients** (it covers quotes and clients too).
 | You can | You need |
 |---|---|
 | See the list and open an order | **Read** |
-| Make an order, change it, change its status, add or remove its prints, archive, restore or delete it | **Write** |
+| Make an order, change it, change its status, archive, restore or delete it | **Write** |
+| Add or remove its prints | **Write** on **Prints** too |
 | Open the Orders settings | **Manage** |
 
 Works the same with or without a hub.
@@ -159,7 +160,7 @@ You quoted a dragon print for `24.21` for 3 prints, and the client accepted.
 
 | What you see | What to do |
 |---|---|
-| **Order not found.** | It was deleted. Go back to **Orders** |
+| **This doesn't exist, or you can't open it.** | It was deleted. Go back to **Orders** |
 | **Another order has this number. It may be archived.** | Pick another number, or leave **Number** empty. **Show archived** finds the other order |
 | **A project you removed still has prints in this order. Remove those prints first.** | Take its prints out of the order, then remove the project |
 | **Add at least one project to save the order.** | Add a project in the **Projects** field |

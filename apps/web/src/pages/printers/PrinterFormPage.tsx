@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DateInput } from "../../components/DateInput.tsx";
 import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ReviewLevelField } from "../../components/ReviewLevelField.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
@@ -299,12 +300,7 @@ export function PrinterEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data, isError } = usePrinter(id);
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("printers:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/printers" />;
   if (!data) return null;
   return (
     <>

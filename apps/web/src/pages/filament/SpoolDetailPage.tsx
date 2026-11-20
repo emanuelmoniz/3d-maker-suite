@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { TagList } from "../../components/TagList.tsx";
 import { Write } from "../../components/Write.tsx";
@@ -177,12 +178,7 @@ export function SpoolDetailPage() {
   const tagsOn = useTagsEnabled();
   const [adjusting, setAdjusting] = useState(false);
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("filament:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/filament" />;
   if (!spool) return null;
 
   const none = t("filament:detail.none");

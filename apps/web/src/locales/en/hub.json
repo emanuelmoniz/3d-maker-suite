@@ -57,7 +57,6 @@
     }
   },
   "edit": {
-    "notFound": "This device doesn't exist anymore.",
     "identity": "Identity",
     "software": "Software",
     "connection": "Connection",

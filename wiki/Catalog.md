@@ -14,7 +14,7 @@ You open the **Catalog** from the sidebar. It has two views, **Printers** and **
 | Add, edit, archive, restore or delete a brand, model or material, and archive or delete a preset | **Catalog** with **Manage** |
 | Change the Catalog settings | **Catalog** with **Manage**, or the **Run syncs** or **Review imports** right on a source that feeds the catalog |
 
-Without **Read** on **Catalog**, the address takes you to the dashboard. Works the same with or without a hub.
+Without **Read** on **Catalog**, its address says **You can't open this**, with a link to the dashboard. Works the same with or without a hub.
 
 ## Before you start
 
@@ -191,7 +191,7 @@ The form says **Optional defaults, applied when you pick this material on a new 
 
 | What you see | What to do |
 |---|---|
-| The Catalog opens the dashboard | Your role has no **Read** on **Catalog** |
+| The Catalog says **You can't open this** | Your role has no **Read** on **Catalog** |
 | The add buttons don't show | Your role has no **Manage** on **Catalog** |
 | **Sync all** doesn't show | No source has a catalog table on **Auto**, or your role can't run syncs |
 | A name can't be changed | A slicer brought the row. Its name is locked |

@@ -174,7 +174,7 @@ This is true for every install: a PC with a mapped drive, a Docker host, a NAS.
 
 | What you see | What to do |
 |---|---|
-| **This project folder doesn't exist any more.** | Someone removed it. Go back to [Projects settings](Projects-Settings.md) |
+| **This doesn't exist, or you can't open it.** | Someone removed it. Go back to [Projects settings](Projects-Settings.md) |
 | **Source** doesn't show | No computer is online with a shared folder, so the folder can only be on the server |
 | A folder on a computer can't be picked | It is outside the folders the computer shares. Share it first |
 | No new projects after saving a new layout | For a folder on the server, press **Scan folders** on **Projects** |

@@ -3,13 +3,14 @@ import { RouterProvider } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
 import i18n from "./i18n.ts";
 import "./styles.css";
+import { retryUnlessRefused } from "./lib/api.ts";
 import { preferencesQuery } from "./lib/preferences.ts";
 import { setTheme } from "./lib/theme.ts";
 import { router } from "./router.tsx";
 
 document.title = i18n.t("common:appName");
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: retryUnlessRefused } } });
 
 // Server is the source of truth; localStorage only avoids a theme flash on load.
 queryClient

@@ -96,6 +96,9 @@ test("roles: viewer and editor see only what they can do; logs show the actor", 
     await expect(page.getByRole("main").getByRole("link", { name: /settings/i })).toHaveCount(0);
     await page.goto("/orders/settings");
     await expect(page).toHaveURL(/\/orders$/);
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Your role can't change this." }),
+    ).toBeVisible();
   };
 
   // Viewer: reads everything, changes nothing.

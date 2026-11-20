@@ -12,7 +12,7 @@ The right is **Quotes, orders and clients** (it covers orders and clients too).
 
 | You can | You need |
 |---|---|
-| See the list and open a quote | **Read** |
+| See the list and open a quote: with **Read** it has no save, upload, slice or **Create order** buttons | **Read** |
 | Make a quote, change it, archive, restore or delete it | **Write** |
 | Open the Quotes settings | **Manage** |
 
@@ -213,7 +213,7 @@ A 2 hour print that uses 50 g of PLA, `0.5` hours of labor, for 3 prints:
 | What you see | What to do |
 |---|---|
 | **Couldn't load cost data. Is the server running?** | Check that the app is running, then reload |
-| **That quote no longer exists.** | It was deleted. Go back to **Quotes** |
+| **This doesn't exist, or you can't open it.** | It was deleted. Go back to **Quotes** |
 | **Set up a slicer in Settings → Integrations to slice.** | Connect a slicer, or type the print in by hand |
 | **Could not start slicing.** | Try again. The server log has the reason |
 | The material cost is too low | Set a price on the spool, or on the material or filament preset |

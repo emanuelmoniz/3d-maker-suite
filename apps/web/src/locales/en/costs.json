@@ -70,7 +70,6 @@
     "saveAsNew": "Save as new",
     "updated": "Changes saved.",
     "new": "New quote",
-    "notFound": "That quote no longer exists.",
     "saveError": "Couldn't save the quote.",
     "columns": {
       "name": "Quote",

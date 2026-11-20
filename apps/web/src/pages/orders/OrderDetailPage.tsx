@@ -8,10 +8,12 @@ import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.t
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { Write } from "../../components/Write.tsx";
 import { api } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 import { useClient } from "../../lib/clients.ts";
 import { quoteName, useMoney, useQuote } from "../../lib/cost.ts";
 import { textLink } from "../../lib/cx.ts";
@@ -43,8 +45,12 @@ function OrderPrints({ order }: { order: OrderDetail }) {
   const hasArchived = useHasArchived(["prints", "list"], "/api/prints", { orderId: order.id });
   const link = useLinkPrint();
   const prompt = useProjectLeftPrompt();
+  // Linking a print changes the print (prints write); dropping its project changes the order.
+  const mayLink = useCan("prints");
+  const mayChangeOrder = useCan("costs");
   // ponytail: the newest 100 prints of the order's projects; type a print number on its page past that.
   const candidates = useQuery({
+    enabled: mayLink,
     queryKey: ["prints", "candidates", order.projectIds],
     queryFn: () =>
       api<Page<PrintDetail>>(
@@ -59,49 +65,54 @@ function OrderPrints({ order }: { order: OrderDetail }) {
       <h2 id="order-prints" className="mb-3 text-base font-semibold">
         {t("orders:detail.prints")}
       </h2>
-      <div className="mb-3 flex max-w-xl gap-2">
-        <div className="min-w-0 flex-1">
-          <Combobox
-            key={order.printCount}
-            aria-label={t("orders:detail.pickPrint")}
-            value={pick}
-            onChange={setPick}
-            options={[
-              { value: "", label: t("orders:detail.pickPrint") },
-              ...(candidates ?? []).map((p) => ({ value: p.id, label: printName(t, p) })),
-            ]}
-          />
+      {mayLink && (
+        <div className="mb-3 flex max-w-xl gap-2">
+          <div className="min-w-0 flex-1">
+            <Combobox
+              key={order.printCount}
+              aria-label={t("orders:detail.pickPrint")}
+              value={pick}
+              onChange={setPick}
+              options={[
+                { value: "", label: t("orders:detail.pickPrint") },
+                ...(candidates ?? []).map((p) => ({ value: p.id, label: printName(t, p) })),
+              ]}
+            />
+          </div>
+          <Button
+            disabled={!pick}
+            onClick={async () => {
+              await link(pick, order.id);
+              setPick("");
+            }}
+          >
+            <Plus className="size-4" aria-hidden />
+            {t("orders:detail.addPrint")}
+          </Button>
         </div>
-        <Button
-          disabled={!pick}
-          onClick={async () => {
-            await link(pick, order.id);
-            setPick("");
-          }}
-        >
-          <Plus className="size-4" aria-hidden />
-          {t("orders:detail.addPrint")}
-        </Button>
-      </div>
+      )}
       {prints.data &&
         (prints.data.total || Object.keys(query).length || hasArchived ? (
           <PrintsTable
             data={prints.data}
             query={query}
             onQueryChange={setQuery}
-            actions={(p) => (
-              <Button
-                variant="ghost"
-                aria-label={t("orders:detail.removePrint", { name: printName(t, p) })}
-                onClick={async () => {
-                  const drop = await prompt.confirm(order.id, p.projectId, p.id);
-                  await link(p.id, null);
-                  if (drop && p.projectId) await prompt.drop(order.id, p.projectId);
-                }}
-              >
-                <Unlink className="size-4" aria-hidden />
-              </Button>
-            )}
+            actions={(p) =>
+              mayLink && (
+                <Button
+                  variant="ghost"
+                  aria-label={t("orders:detail.removePrint", { name: printName(t, p) })}
+                  onClick={async () => {
+                    const drop =
+                      mayChangeOrder && (await prompt.confirm(order.id, p.projectId, p.id));
+                    await link(p.id, null);
+                    if (drop && p.projectId) await prompt.drop(order.id, p.projectId);
+                  }}
+                >
+                  <Unlink className="size-4" aria-hidden />
+                </Button>
+              )
+            }
           />
         ) : (
           <p className="text-muted">{t("orders:detail.printsNone")}</p>
@@ -122,13 +133,9 @@ export function OrderDetailPage() {
   const client = useClient(order?.clientId ?? "").data;
   const quote = useQuote(order?.quoteId ?? undefined).data;
   const save = useSaveOrder(id);
+  const mayEdit = useCan("costs");
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("orders:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/orders" />;
   if (!order) return null;
   const none = t("orders:detail.none");
   const name = orderName(t, order);
@@ -154,19 +161,26 @@ export function OrderDetailPage() {
       />
       <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
         <div className="mb-4 max-w-xs">
-          <FormField label={t("orders:form.status")}>
-            {(p) => (
-              <Combobox
-                {...p}
-                value={order.status}
-                onChange={(status) => status !== order.status && save.mutate({ status })}
-                options={[...new Set([...statuses, order.status])].map((s) => ({
-                  value: s,
-                  label: statusLabel(s),
-                }))}
-              />
-            )}
-          </FormField>
+          {/* Changing the status saves the order: costs write. */}
+          {mayEdit ? (
+            <FormField label={t("orders:form.status")}>
+              {(p) => (
+                <Combobox
+                  {...p}
+                  value={order.status}
+                  onChange={(status) => status !== order.status && save.mutate({ status })}
+                  options={[...new Set([...statuses, order.status])].map((s) => ({
+                    value: s,
+                    label: statusLabel(s),
+                  }))}
+                />
+              )}
+            </FormField>
+          ) : (
+            <dl>
+              <Info label={t("orders:form.status")}>{statusLabel(order.status)}</Info>
+            </dl>
+          )}
         </div>
         <dl className="grid gap-3 sm:grid-cols-3">
           <Info label={t("orders:detail.price")}>

@@ -12,7 +12,6 @@
   "dismiss": "Dismiss",
   "view": {
     "title": "Alert",
-    "notFound": "This alert no longer exists.",
     "severity": "Severity",
     "module": "Module",
     "task": "Task",

@@ -203,6 +203,7 @@ export function PrintReviewPage() {
   const assign = useAssignReview();
   const dismiss = useDismissReview();
   const mayAssign = useCan("prints"); // the routes' "prints write"
+  const mayAddSpool = useCan("filament"); // a new spool is filament write's
   const [picked, setPicked] = useState<Record<string, string>>({});
   // Grams a person corrected, as typed; empty = as recorded.
   const [typed, setTyped] = useState<Record<string, string>>({});
@@ -282,10 +283,12 @@ export function PrintReviewPage() {
                 : "prints:review.assign",
             )}
           </Button>
-          <Button onClick={() => setAdding(i)}>
-            <Plus className="size-4" aria-hidden />
-            {t("prints:review.addSpool")}
-          </Button>
+          {mayAddSpool && (
+            <Button onClick={() => setAdding(i)}>
+              <Plus className="size-4" aria-hidden />
+              {t("prints:review.addSpool")}
+            </Button>
+          )}
           <Button
             variant="ghost"
             disabled={dismiss.isPending}

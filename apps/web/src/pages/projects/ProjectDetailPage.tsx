@@ -18,6 +18,7 @@ import {
   PrinterHint,
   ProductionCost,
 } from "../../components/CostBreakdown.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { Markdown } from "../../components/Markdown.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { RootStateBadge } from "../../components/RootStateBadge.tsx";
@@ -363,12 +364,7 @@ export function ProjectDetailPage() {
   // A device root's files open on the device, not here: they're only viewed and downloaded.
   const onDevice = allRoots.some((r) => r.id === project?.rootId && r.location !== ROOT_HUB);
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("projects:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/projects" />;
   if (!project) return null;
 
   // A missing folder serves no files: only the stored thumbnail is shown until it is fixed.

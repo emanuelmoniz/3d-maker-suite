@@ -46,8 +46,10 @@ The log is stored with your data, so a backup includes it. Passwords, tokens and
 - **The page asks for a setup token.** It is printed in the console of the app, or in `docker compose logs app`, while no account exists. See [First run](First-Run.md#find-the-setup-token).
 - **I can't find the token.** Restart the app and read the console again. It only prints while no account exists.
 - **I forgot the admin password.** Reset it from the server's shell with `pnpm user:reset-password you@example.com`, in Docker `docker compose exec app pnpm user:reset-password you@example.com`. The new password is printed once. Sign in with it and change it under [My account](My-Account.md#name-and-password).
-- **"Your role doesn't allow that. Ask an admin if you need it."** You opened a form or a page by its address, or from a bookmark, that your role may see but not change. Nothing was saved. Ask an admin for the right, see [Roles](Roles.md).
-- **A page is empty, or says it doesn't exist.** Your role may not see that item, for example another person's alert or computer. Go back and open it from its list.
+- **"Your role can't change this."** You opened a form by its address or from a bookmark, and your role may read that item but not change it. The app opened the item's page, or its list, instead. Ask an admin for the right, see [Roles](Roles.md).
+- **"You can't open this"**, with a link to the dashboard. Your role has no right to that module or admin page at all, for example Settings → Users for a Viewer. Ask an admin if you need it.
+- **"This doesn't exist, or you can't open it."** The item was deleted, or your role may not see it, for example another person's alert, someone else's computer or a private project. The app shows the same text for both, so it doesn't tell what exists. Open it from its list.
+- **"Your role doesn't allow that. Ask an admin if you need it."** The server refused a change your role can't make. Nothing was saved. Ask an admin for the right.
 
 ## Updates and backups
 

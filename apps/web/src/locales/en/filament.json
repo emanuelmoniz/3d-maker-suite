@@ -86,7 +86,6 @@
   },
   "detail": {
     "title": "Spool details",
-    "notFound": "Spool not found.",
     "none": "Not set",
     "edit": "Edit",
     "loaded": "Loaded in",

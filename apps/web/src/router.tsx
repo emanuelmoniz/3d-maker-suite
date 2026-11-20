@@ -11,7 +11,19 @@ import { SearchX } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "./components/EmptyState.tsx";
+import type { SettingsModule } from "./components/SettingsLink.tsx";
 import { loadNamespace } from "./i18n.ts";
+import {
+  at,
+  cfg,
+  either,
+  form,
+  on,
+  PUBLIC,
+  type RouteAccess,
+  type RouteRight,
+  SESSION,
+} from "./lib/routeAccess.ts";
 import { AlertDetailPage } from "./pages/alerts/AlertDetailPage.tsx";
 import { AlertsPage } from "./pages/alerts/AlertsPage.tsx";
 import { LoginPage, SetupPage } from "./pages/auth/AuthPages.tsx";
@@ -124,18 +136,67 @@ const modules = ALL_ITEMS.filter((i) => !built.includes(i.to)).map((item) =>
   createRoute({
     getParentRoute: () => root,
     path: item.to,
+    staticData: { access: { need: SESSION } },
     component: () => <ModulePage item={item} />,
   }),
 );
 
+/**
+ * What each page needs (6.2.0 Step 3f, `lib/routeAccess.ts`); `shell/RouteGuard.tsx` enforces it.
+ * A form the person may read goes to its item or list with a notice; an area with no right at all
+ * shows "You can't open this". `routeAccess.test.ts` fails on a page that declares nothing.
+ */
+const read = (module: Parameters<typeof at>[0]): RouteAccess => ({ need: at(module, "read") });
+const PRINTERS = at("printers", "read");
+const CATALOG_READ = at("catalog", "read");
+const CATALOG_MANAGE = at("catalog", "manage");
+// A preset's page opens from Printers and Filament too (the server's GET rule).
+const PRESETS = either(PRINTERS, at("filament", "read"), CATALOG_READ);
+const printerForm = (to: string) => form(at("printers", "manage"), PRINTERS, to);
+/** A module's list, add form, item page and edit form: read opens the pages, `level` the forms. */
+const crud = (module: Parameters<typeof at>[0], level: Parameters<typeof at>[1], list: string) => ({
+  list: read(module),
+  add: form(at(module, level), at(module, "read"), list),
+  item: read(module),
+  edit: form(at(module, level), at(module, "read"), `${list}/$id`),
+});
+/**
+ * A module's settings page (`ConfigPage`): its General address needs the settings right, and
+ * someone with only the Sources tab lands there quietly; the Sources and Consumers addresses open
+ * with either. Without both, back to the module with the notice if they read it (ADR-0012, ADR-0021).
+ */
+const configAccess = (
+  base: string,
+  path: string,
+  module: SettingsModule,
+  moduleRead: RouteRight | null,
+): RouteAccess => {
+  const settings = cfg(module, "settings");
+  const sources = cfg(module, "sources");
+  const back = module === "hub" || module === "logs" ? `/settings/${module}` : `/${module}`;
+  const toModule = moduleRead ? [{ if: moduleRead, to: back, notice: true as const }] : [];
+  if (path === base)
+    return { need: settings, otherwise: [{ if: sources, to: `${base}/sources` }, ...toModule] };
+  if (path.endsWith("/library")) return { need: settings, otherwise: toModule };
+  return { need: either(settings, sources), otherwise: toModule };
+};
+const PRINTS = crud("prints", "write", "/prints");
+const PROJECTS = crud("projects", "write", "/projects");
+const QUOTES = crud("costs", "write", "/quotes");
+const ORDERS = crud("costs", "write", "/orders");
+const CLIENTS = crud("costs", "write", "/clients");
+const access = (a: RouteAccess) => ({ staticData: { access: a } });
+
 const printerRoute = (
   path: string,
   component: () => ReactNode,
+  a: RouteAccess,
   extra: { beforeLoad?: (ctx: { location: { search: object; hash: string } }) => void } = {},
 ) =>
   createRoute({
     getParentRoute: () => root,
     path,
+    ...access(a),
     ...extra,
     loader: () =>
       Promise.all([
@@ -153,15 +214,23 @@ const printerRoute = (
 const settingsLayout = createRoute({
   getParentRoute: () => root,
   path: SETTINGS_ITEM.to,
+  ...access({ need: SESSION }),
   // users: the accounts switch on General and the save bar.
   loader: () => Promise.all(["settings", "logs", "users"].map(loadNamespace)),
   component: SettingsShell,
 });
 
-const settingsTab = (path: string, namespaces: string[], component: () => ReactNode) =>
+/** A Settings tab: an admin area, so no right shows "You can't open this" (6.2.0 Step 3f). */
+const settingsTab = (
+  path: string,
+  namespaces: string[],
+  component: () => ReactNode,
+  need: RouteAccess["need"],
+) =>
   createRoute({
     getParentRoute: () => settingsLayout,
     path,
+    ...access({ need }),
     loader: () => Promise.all(namespaces.map(loadNamespace)),
     component,
   });
@@ -170,6 +239,7 @@ const settingsTabs: AnyRoute[] = [
   createRoute({
     getParentRoute: () => settingsLayout,
     path: "/",
+    ...access({ need: SESSION }),
     // The Users and Roles sections were here before 5.6.0: their `#users` and `#roles` links land.
     beforeLoad: ({ location }) => {
       const h = location.hash.replace(/^#/, "");
@@ -178,11 +248,16 @@ const settingsTabs: AnyRoute[] = [
     },
     component: SettingsPage,
   }),
-  settingsTab("hub", ["hub"], HubPage),
+  settingsTab("hub", ["hub"], HubPage, on("hub.manage")),
   // import + filament: a server slicer card's "import from a zip" steps (ManagedSlicer.tsx).
-  settingsTab("integrations", ["integrations", "import", "filament"], IntegrationsPage),
-  settingsTab("users", ["users"], () => <UsersPage tab="users" />),
-  settingsTab("roles", ["users"], () => <UsersPage tab="roles" />),
+  settingsTab(
+    "integrations",
+    ["integrations", "import", "filament"],
+    IntegrationsPage,
+    either(on("integrations.sync"), on("integrations.review"), on("integrations.manage")),
+  ),
+  settingsTab("users", ["users"], () => <UsersPage tab="users" />, on("users.manage")),
+  settingsTab("roles", ["users"], () => <UsersPage tab="roles" />, on("users.manage")),
   // Catalog was a tab of Settings (6.1.0 Steps 15 to 22): its addresses land on the page.
   ...["catalog", ...CATALOG_TABS.map((tab) => `catalog/${tab}`)].map((path) =>
     createRoute({
@@ -213,9 +288,10 @@ const settingsTabs: AnyRoute[] = [
       `data/${tab}`,
       ["import", "integrations", "catalog", "filament", "tags", "printers"],
       () => <ImportPage tab={tab} />,
+      on("integrations.manage"),
     ),
   ),
-  settingsTab("logs", ["logs"], LogsPage),
+  settingsTab("logs", ["logs"], LogsPage, on("settings.logs")),
 ];
 
 // "/printers/new" is declared before "/printers/$id" so it wins the match.
@@ -267,6 +343,7 @@ const routes: AnyRoute[] = [
             hash: location.hash,
           });
       },
+      ...access({ need: CATALOG_READ }),
       // integrations: the names of the accounts a row can come from.
       loader: () =>
         Promise.all(
@@ -280,6 +357,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/",
+    ...access({ need: SESSION }),
     loader: () =>
       Promise.all(
         ["dashboard", "stats", "printers", "maintenance", "filament", "prints", "costs"].map(
@@ -288,37 +366,65 @@ const routes: AnyRoute[] = [
       ),
     component: HomePage,
   }),
-  printerRoute("/printers", () => <PrintersPage tab="printers" />, {
-    // The accessories table sat below the printers: its `accessories.*` filters land on its tab.
-    beforeLoad: ({ location }) => {
-      const search = Object.fromEntries(
-        Object.entries(location.search).filter(([k]) => k.startsWith("accessories.")),
-      );
-      if (Object.keys(search).length)
-        throw redirect({
-          to: "/printers/accessories",
-          search: search as never,
-          hash: location.hash,
-        });
+  // Printers and Accessories need printers read, Maintenance its own: without one, the other tab.
+  printerRoute(
+    "/printers",
+    () => <PrintersPage tab="printers" />,
+    { need: PRINTERS, otherwise: [{ if: at("maintenance", "read"), to: "/printers/maintenance" }] },
+    {
+      // The accessories table sat below the printers: its `accessories.*` filters land on its tab.
+      beforeLoad: ({ location }) => {
+        const search = Object.fromEntries(
+          Object.entries(location.search).filter(([k]) => k.startsWith("accessories.")),
+        );
+        if (Object.keys(search).length)
+          throw redirect({
+            to: "/printers/accessories",
+            search: search as never,
+            hash: location.hash,
+          });
+      },
     },
+  ),
+  printerRoute("/printers/accessories", () => <PrintersPage tab="accessories" />, {
+    need: PRINTERS,
+    otherwise: [{ if: at("maintenance", "read"), to: "/printers/maintenance" }],
   }),
-  printerRoute("/printers/accessories", () => <PrintersPage tab="accessories" />),
-  printerRoute("/printers/new", PrinterCreatePage),
+  printerRoute("/printers/new", PrinterCreatePage, printerForm("/printers")),
   ...(
     [
       ["brands", BrandFormPage],
       ["models", ModelFormPage],
     ] as const
   ).flatMap(([kind, page]) => [
-    printerRoute(`/printers/${kind}/new`, page),
-    printerRoute(`/printers/${kind}/$id/edit`, page),
+    printerRoute(
+      `/printers/${kind}/new`,
+      page,
+      form(CATALOG_MANAGE, CATALOG_READ, "/catalog/printers"),
+    ),
+    printerRoute(
+      `/printers/${kind}/$id/edit`,
+      page,
+      form(CATALOG_MANAGE, CATALOG_READ, "/catalog/printers"),
+    ),
   ]),
-  printerRoute("/printers/accessories/new", AccessoryCreatePage),
-  printerRoute("/printers/accessories/$id", AccessoryDetailPage),
-  printerRoute("/printers/accessories/$id/edit", AccessoryEditPage),
-  printerRoute("/printers/$id", PrinterDetailPage),
-  printerRoute("/printers/$id/edit", PrinterEditPage),
-  printerRoute("/printers/maintenance", () => <PrintersPage tab="maintenance" />),
+  printerRoute(
+    "/printers/accessories/new",
+    AccessoryCreatePage,
+    printerForm("/printers/accessories"),
+  ),
+  printerRoute("/printers/accessories/$id", AccessoryDetailPage, read("printers")),
+  printerRoute(
+    "/printers/accessories/$id/edit",
+    AccessoryEditPage,
+    printerForm("/printers/accessories/$id"),
+  ),
+  printerRoute("/printers/$id", PrinterDetailPage, read("printers")),
+  printerRoute("/printers/$id/edit", PrinterEditPage, printerForm("/printers/$id")),
+  printerRoute("/printers/maintenance", () => <PrintersPage tab="maintenance" />, {
+    need: at("maintenance", "read"),
+    otherwise: [{ if: PRINTERS, to: "/printers" }],
+  }),
   // Maintenance was a page of its own before 6.1.0 Step 25: it is a tab of Printers now.
   createRoute({
     getParentRoute: () => root,
@@ -334,37 +440,55 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/maintenance/new",
+    ...access(
+      form(at("maintenance", "manage"), at("maintenance", "read"), "/printers/maintenance"),
+    ),
     loader: () => loadNamespace("maintenance"),
     component: TypeCreatePage,
   }),
-  ...[
-    ["/maintenance/types/$id", TypeDetailPage],
-    ["/maintenance/types/$id/edit", TypeEditPage],
-  ].map(([path, component]) =>
+  ...(
+    [
+      ["/maintenance/types/$id", TypeDetailPage, read("maintenance")],
+      [
+        "/maintenance/types/$id/edit",
+        TypeEditPage,
+        form(at("maintenance", "manage"), at("maintenance", "read"), "/maintenance/types/$id"),
+      ],
+    ] as const
+  ).map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
-      path: path as string,
+      path,
+      ...access(a),
       loader: () => loadNamespace("maintenance"),
-      component: component as () => ReactNode,
+      component,
     }),
   ),
   createRoute({
     getParentRoute: () => root,
     path: "/filament/spools/new",
+    ...access(form(at("filament", "write"), at("filament", "read"), "/filament")),
     // printers: quick-add modals (preset, brand, material) share the catalog forms.
     loader: () => Promise.all(["filament", "tags", "printers"].map(loadNamespace)),
     component: SpoolCreatePage,
   }),
-  ...[
-    ["/filament/spools/$id", SpoolDetailPage],
-    ["/filament/spools/$id/edit", SpoolEditPage],
-    ["/catalog/filament-presets/$id", FilamentPresetPage],
-    ["/catalog/printer-presets/$id", MachinePresetPage],
-    ["/catalog/process-presets/$id", ProcessPresetPage],
-  ].map(([path, component]) =>
+  ...(
+    [
+      ["/filament/spools/$id", SpoolDetailPage, read("filament")],
+      [
+        "/filament/spools/$id/edit",
+        SpoolEditPage,
+        form(at("filament", "write"), at("filament", "read"), "/filament/spools/$id"),
+      ],
+      ["/catalog/filament-presets/$id", FilamentPresetPage, { need: PRESETS }],
+      ["/catalog/printer-presets/$id", MachinePresetPage, { need: PRESETS }],
+      ["/catalog/process-presets/$id", ProcessPresetPage, { need: PRESETS }],
+    ] as const
+  ).map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
-      path: path as string,
+      path,
+      ...access(a),
       loader: () =>
         Promise.all(
           // The spool page lists its projects and prints; printers: quick-add modals; catalog: a
@@ -409,6 +533,7 @@ const routes: AnyRoute[] = [
       createRoute({
         getParentRoute: () => root,
         path,
+        ...access(form(CATALOG_MANAGE, CATALOG_READ, "/catalog/filament")),
         loader: () =>
           Promise.all(["filament", "printers", "catalog", "integrations"].map(loadNamespace)),
         component: page,
@@ -458,6 +583,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/import/$source/$id/$type",
+    ...access({ need: either(on("integrations.review"), on("integrations.manage")) }),
     // filament + tags + printers: a print's review can add a spool (NewSpoolDialog) and its preset.
     loader: () =>
       Promise.all(["import", "integrations", "filament", "tags", "printers"].map(loadNamespace)),
@@ -467,6 +593,7 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
+      ...access({ need: on("integrations.manage") }),
       loader: () =>
         Promise.all([
           loadNamespace("import"),
@@ -479,20 +606,22 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/filament",
+    ...access(read("filament")),
     loader: () =>
       Promise.all([loadNamespace("filament"), loadNamespace("printers"), loadNamespace("tags")]),
     component: FilamentPage,
   }),
   ...[
-    ["/prints", PrintsPage],
-    ["/prints/new", PrintCreatePage],
-    ["/prints/review", PrintReviewPage],
-    ["/prints/$id", PrintDetailPage],
-    ["/prints/$id/edit", PrintEditPage],
-  ].map(([path, component]) =>
+    ["/prints", PrintsPage, PRINTS.list],
+    ["/prints/new", PrintCreatePage, PRINTS.add],
+    ["/prints/review", PrintReviewPage, PRINTS.list],
+    ["/prints/$id", PrintDetailPage, PRINTS.item],
+    ["/prints/$id/edit", PrintEditPage, PRINTS.edit],
+  ].map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
+      ...access(a as RouteAccess),
       loader: () =>
         Promise.all([
           loadNamespace("prints"),
@@ -506,14 +635,15 @@ const routes: AnyRoute[] = [
     }),
   ),
   ...[
-    ["/projects", ProjectsPage],
-    ["/projects/new", ProjectCreatePage],
-    ["/projects/$id", ProjectDetailPage],
-    ["/projects/$id/edit", ProjectEditPage],
-  ].map(([path, component]) =>
+    ["/projects", ProjectsPage, PROJECTS.list],
+    ["/projects/new", ProjectCreatePage, PROJECTS.add],
+    ["/projects/$id", ProjectDetailPage, PROJECTS.item],
+    ["/projects/$id/edit", ProjectEditPage, PROJECTS.edit],
+  ].map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
+      ...access(a as RouteAccess),
       loader: () =>
         Promise.all([
           loadNamespace("projects"),
@@ -529,13 +659,15 @@ const routes: AnyRoute[] = [
   ),
   // "/quotes/new" is declared before "/quotes/$id" so it wins the match.
   ...[
-    ["/quotes", QuotesPage],
-    ["/quotes/new", QuoteCreatePage],
-    ["/quotes/$id", QuoteEditPage],
-  ].map(([path, component]) =>
+    ["/quotes", QuotesPage, QUOTES.list],
+    ["/quotes/new", QuoteCreatePage, QUOTES.add],
+    // The saved quote is its own page: read opens it, its save controls need write.
+    ["/quotes/$id", QuoteEditPage, QUOTES.item],
+  ].map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
+      ...access(a as RouteAccess),
       loader: () =>
         Promise.all(
           // "projects", "filament", "integrations": the slicing setup's labels, spools, slicers.
@@ -562,14 +694,15 @@ const routes: AnyRoute[] = [
   }),
   // "/orders/new" is declared before "/orders/$id" so it wins the match.
   ...[
-    ["/orders", OrdersPage],
-    ["/orders/new", OrderCreatePage],
-    ["/orders/$id", OrderDetailPage],
-    ["/orders/$id/edit", OrderEditPage],
-  ].map(([path, component]) =>
+    ["/orders", OrdersPage, ORDERS.list],
+    ["/orders/new", OrderCreatePage, ORDERS.add],
+    ["/orders/$id", OrderDetailPage, ORDERS.item],
+    ["/orders/$id/edit", OrderEditPage, ORDERS.edit],
+  ].map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
+      ...access(a as RouteAccess),
       // "prints", "tags", "costs": the order's prints table; "clients": the new client dialog.
       loader: () =>
         Promise.all(["orders", "clients", "costs", "prints", "tags"].map(loadNamespace)),
@@ -578,14 +711,15 @@ const routes: AnyRoute[] = [
   ),
   // "/clients/new" is declared before "/clients/$id" so it wins the match.
   ...[
-    ["/clients", ClientsPage],
-    ["/clients/new", ClientCreatePage],
-    ["/clients/$id", ClientDetailPage],
-    ["/clients/$id/edit", ClientEditPage],
-  ].map(([path, component]) =>
+    ["/clients", ClientsPage, CLIENTS.list],
+    ["/clients/new", ClientCreatePage, CLIENTS.add],
+    ["/clients/$id", ClientDetailPage, CLIENTS.item],
+    ["/clients/$id/edit", ClientEditPage, CLIENTS.edit],
+  ].map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
+      ...access(a as RouteAccess),
       loader: () => Promise.all(["clients", "costs", "orders"].map(loadNamespace)),
       component: component as () => ReactNode,
     }),
@@ -593,6 +727,7 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/stats",
+    ...access(read("stats")),
     loader: () =>
       Promise.all([
         loadNamespace("stats"),
@@ -605,32 +740,61 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/alerts",
+    ...access({ need: SESSION }),
     loader: () => Promise.all([loadNamespace("alerts"), loadNamespace("integrations")]),
     component: AlertsPage,
   }),
   // Module config pages (gear button in each module header); "settings" holds the field labels.
   ...(
     [
-      ["/quotes/settings", CostsConfigPage, ["costs"]],
-      ["/orders/settings", OrdersConfigPage, ["orders"]],
+      ["/quotes/settings", CostsConfigPage, ["costs"], "quotes", at("costs", "read")],
+      ["/orders/settings", OrdersConfigPage, ["orders"], "orders", at("costs", "read")],
       // integrations: the accounts' lines on Sources (ADR-0021).
-      ["/printers/settings", PrintersConfigPage, ["printers", "catalog", "integrations"]],
-      ["/prints/settings", PrintsConfigPage, ["prints", "integrations"]],
+      [
+        "/printers/settings",
+        PrintersConfigPage,
+        ["printers", "catalog", "integrations"],
+        "printers",
+        PRINTERS,
+      ],
+      [
+        "/prints/settings",
+        PrintsConfigPage,
+        ["prints", "integrations"],
+        "prints",
+        at("prints", "read"),
+      ],
       // hub: the machines on Sources (ADR-0021).
-      ["/projects/settings", ProjectsConfigPage, ["projects", "hub"]],
-      ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"]],
-      ["/hub/settings", HubConfigPage, ["hub"]],
-      ["/logs/settings", LogsConfigPage, ["logs"]],
-      ["/filament/settings", FilamentConfigPage, ["filament", "integrations"]],
+      [
+        "/projects/settings",
+        ProjectsConfigPage,
+        ["projects", "hub"],
+        "projects",
+        at("projects", "read"),
+      ],
+      // Everyone reads their own alerts.
+      ["/alerts/settings", AlertsConfigPage, ["alerts", "integrations"], "alerts", SESSION],
+      // Hub management and Logs have no read level: without the right, "You can't open this".
+      ["/hub/settings", HubConfigPage, ["hub"], "hub", null],
+      ["/logs/settings", LogsConfigPage, ["logs"], "logs", null],
+      [
+        "/filament/settings",
+        FilamentConfigPage,
+        ["filament", "integrations"],
+        "filament",
+        at("filament", "read"),
+      ],
       // hub, integrations: the lines and the machines on Sources (ADR-0021); import, filament: the
-      // zip's steps and the slicer's desktop name.
+      // zip's steps and the slicer's desktop name. Its settings open with read.
       [
         "/catalog/settings",
         CatalogConfigPage,
         ["catalog", "hub", "import", "integrations", "filament"],
+        "catalog",
+        null,
       ],
     ] as const
-  ).flatMap(([path, component, ns]) =>
+  ).flatMap(([path, component, ns, module, moduleRead]) =>
     // Data types also have a Sources tab; Catalog and Projects have Consumers, Catalog Library too
     // (ADR-0023).
     [
@@ -640,10 +804,11 @@ const routes: AnyRoute[] = [
         ? [`${path}/consumers`]
         : []),
       ...(path === "/catalog/settings" ? [`${path}/library`] : []),
-    ].map((path) =>
+    ].map((sub) =>
       createRoute({
         getParentRoute: () => root,
-        path,
+        path: sub,
+        ...access(configAccess(path, sub, module, moduleRead)),
         // A catalog table's old address lands on its tab; the page keeps the default printer.
         beforeLoad: ({ location }: { location: { pathname: string; hash: string } }) => {
           if (location.pathname !== "/printers/settings") return;
@@ -659,19 +824,22 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/alerts/$id",
+    // Each alert is its owner's: the server's 404 shows the same text as a missing one.
+    ...access({ need: SESSION }),
     loader: () => Promise.all(["alerts", "integrations", "maintenance"].map(loadNamespace)),
     component: AlertDetailPage,
   }),
   ...(
     [
-      ["/login", LoginPage],
-      ["/setup", SetupPage],
-      ["/account", MyAccountPage],
+      ["/login", LoginPage, PUBLIC],
+      ["/setup", SetupPage, PUBLIC],
+      ["/account", MyAccountPage, SESSION],
     ] as const
-  ).map(([path, component]) =>
+  ).map(([path, component, need]) =>
     createRoute({
       getParentRoute: () => root,
       path,
+      ...access({ need }),
       // alerts: the alert kinds' names in My alerts.
       loader: () => Promise.all(["users", "alerts"].map(loadNamespace)),
       component,
@@ -682,6 +850,7 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
+      ...access(form(at("projects", "manage"), at("projects", "read"), "/projects")),
       // users: the save bar; integrations: the rescan's schedule (catalog sync's controls).
       loader: () => Promise.all(["settings", "hub", "users", "integrations"].map(loadNamespace)),
       component: ProjectFolderPage,
@@ -699,6 +868,7 @@ const routes: AnyRoute[] = [
     createRoute({
       getParentRoute: () => root,
       path,
+      ...access({ need: on("users.manage") }),
       // alerts: the alert kinds' names in the alerts card.
       loader: () => Promise.all(["users", "alerts"].map(loadNamespace)),
       component,
@@ -730,17 +900,25 @@ const routes: AnyRoute[] = [
   createRoute({
     getParentRoute: () => root,
     path: "/hub/devices/$deviceId",
+    // A machine's own user opens it too; someone else's is the server's 404, shown as a missing one.
+    ...access({ need: SESSION }),
     // integrations: the slicers' names.
     loader: () => Promise.all(["hub", "integrations"].map(loadNamespace)),
     component: MachinePage,
   }),
   ...[
-    ["/integrations/new", IntegrationCreatePage],
-    ["/integrations/$id/edit", IntegrationEditPage],
-  ].map(([path, component]) =>
+    ["/integrations/new", IntegrationCreatePage, { need: on("integrations.manage") }],
+    // A catalog card is catalog manage's; the page checks the account itself.
+    [
+      "/integrations/$id/edit",
+      IntegrationEditPage,
+      { need: either(on("integrations.manage"), CATALOG_MANAGE) },
+    ],
+  ].map(([path, component, a]) =>
     createRoute({
       getParentRoute: () => root,
       path: path as string,
+      ...access(a as RouteAccess),
       // import + filament: a server slicer card's "import from a zip" steps (ManagedSlicer.tsx).
       loader: () => Promise.all(["integrations", "import", "filament"].map(loadNamespace)),
       component: component as () => ReactNode,
@@ -762,6 +940,7 @@ if (import.meta.env.DEV) {
     createRoute({
       getParentRoute: () => root,
       path: "/design",
+      ...access({ need: SESSION }),
       loader: () => loadNamespace("design"),
       component: DesignPage,
     }),

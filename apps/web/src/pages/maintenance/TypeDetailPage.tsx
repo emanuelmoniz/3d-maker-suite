@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { textLink } from "../../lib/cx.ts";
@@ -16,12 +17,7 @@ export function TypeDetailPage() {
   const { data: type, isError } = useMaintenanceType(id);
   const appliesTo = useAppliesTo();
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("maintenance:types.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/printers/maintenance" />;
   if (!type) return null;
 
   const none = t("maintenance:types.none");

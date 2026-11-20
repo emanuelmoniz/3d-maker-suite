@@ -83,6 +83,9 @@ export function SettingsShell() {
   const path = useLocation({ select: (l) => l.pathname });
   if (!me.data || (!prefs.data && !prefs.isError)) return null;
   const current = tabs.find((tab) => path === tab.to || path.startsWith(`${tab.to}/`));
+  // The tab's right is its route's (6.2.0 Step 3f): without it the guard shows "You can't open
+  // this" and the shell never renders. What's left is the app's state: the hub or accounts
+  // switched off, or an editor without an account to sync or review; that lands on General.
   const denied = !!current && !current.open;
   // An editor's Integrations tab depends on the list: wait for it before sending them away.
   if (denied && !tasksLoading) return <Navigate to="/settings" replace />;

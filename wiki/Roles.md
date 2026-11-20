@@ -62,6 +62,8 @@ Each right has a hint under it in the form. This is the full list.
 
 A module has four steps. **None** hides it. **Read** shows it. **Write** adds and edits the day-to-day data. **Manage** also changes its settings and does the bigger jobs. **Stats** has only **None** and **Read**.
 
+Every page checks its right, also when it's opened by its address or from a bookmark. A Viewer who opens an add or edit form, or a module's settings, lands on the item's page or the list, with **Your role can't change this.** A page of a module or admin area the role has no right to says **You can't open this**, with a link to the dashboard. An item the person may not see, such as another person's alert, reads **This doesn't exist, or you can't open it.**, the same as a deleted one. Buttons a role can't use don't show.
+
 | Right | **Write** allows | **Manage** allows |
 |---|---|---|
 | **Printers and accessories** | Logging accessory installs | Adding and editing printers and accessories |
@@ -167,9 +169,11 @@ The last card sets what the role gets for each kind of alert: **Off**, **In app*
 | **A role with this name already exists.** | Choose another name |
 | **The Admin role can't be changed.** | Make another role instead |
 | **You can't give more than you have yourself.** | Ask someone with more rights, or pick a lower step |
-| **This role doesn't exist anymore.** | Someone deleted it. Go back to the list |
+| **This doesn't exist, or you can't open it.** | Someone deleted it. Go back to the list |
 | **That didn't work. Try again.** | Check the connection, then try again |
 | A person can't see a page | Check the module's right in their role, and on their user page |
+| **Your role can't change this.** | The person opened a form their role may only read; give the role **Write** or **Manage** if they need it |
+| **You can't open this** | The role has no right to that module or admin page |
 
 ## Related pages
 

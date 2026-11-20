@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { CopyButton } from "../../components/CopyButton.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { cardGrid, Section } from "../../components/Section.tsx";
 import { useSettingsAccess } from "../../components/SettingsLink.tsx";
@@ -890,6 +891,8 @@ export function MachinePage() {
   const { deviceId } = useParams({ strict: false }) as { deviceId: string };
   const devices = useDevices();
   const device = devices.data?.find((d) => d.id === deviceId);
+  // The hub is off (the server's 404 `hub_off`).
+  const hubOff = devices.error instanceof ApiError && devices.error.status === 404;
   const rights = useRights();
   const me = useMe();
   const manage = useCan("hub.manage");
@@ -901,12 +904,14 @@ export function MachinePage() {
       ) : (
         <PageHeader title={t("hub:machine.titleFallback")} backTo={backTo} />
       )}
-      {devices.isError && (
+      {devices.isError && !hubOff && (
         <p role="alert" className="text-bad">
           {t("hub:loadError")}
         </p>
       )}
-      {devices.data && !device && <p className="text-muted">{t("hub:edit.notFound")}</p>}
+      {/* Someone else's machine is left out of the list, and with the hub off there is none: it
+          looks like a missing one. */}
+      {((devices.data && !device) || hubOff) && <ItemMissing />}
       {device && (
         <div className="grid gap-4">
           {!device.online && <p className="text-muted">{t("hub:machine.offline")}</p>}

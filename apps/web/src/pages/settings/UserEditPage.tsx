@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useMe, useRights } from "../../lib/auth.ts";
@@ -199,7 +200,7 @@ export function UserEditPage() {
           {t("users:list.errors.generic")}
         </p>
       )}
-      {users.data && !user && <p className="text-muted">{t("users:edit.notFound")}</p>}
+      {users.data && !user && <ItemMissing back="/settings/users" />}
       {user && roles.data && <UserForm key={user.id} user={user} roles={roles.data} />}
     </>
   );

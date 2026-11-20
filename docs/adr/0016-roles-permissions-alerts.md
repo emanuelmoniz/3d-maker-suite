@@ -17,7 +17,7 @@ ADR-0012 gave every user one of three fixed roles, checked against one prefix ta
 - Seeded roles: **Admin** (built-in, every permission at its top, every project right; can't be edited, disabled or deleted), **Editor** and **Viewer** with exactly today's rights (tables below). Editor and Viewer are ordinary roles once seeded: they can be renamed, edited, disabled, and deleted when no user has them.
 
 ### Effective rights
-`effective(user) = role values, then the user's overrides on top`. The auth hook reads them per request (the session lookup already joins the user; it joins the role too), so a change to a role or an override applies on the next request, with no session reset. `/api/auth/me` returns the effective permissions and project rights, and the web hides what they don't allow (`useCan(permission)`).
+`effective(user) = role values, then the user's overrides on top`. The auth hook reads them per request (the session lookup already joins the user; it joins the role too), so a change to a role or an override applies on the next request, with no session reset. `/api/auth/me` returns the effective permissions and project rights, and the web hides what they don't allow (`useCan(permission)`). *Amended in 6.2.0 Step 3f:* every web route also declares the right its page needs (`staticData.access`), and one route guard sends someone without it from a form to the item or list ("Your role can't change this.") or shows "You can't open this". A hidden item reads the same as a missing one. See `docs/architecture.md`, "Web routes: the right each page needs".
 
 Admin-role users take no permission overrides. Of the project rights only `editOtherDevices` can be overridden for them, because ADR-0014 lets an admin turn it off today.
 

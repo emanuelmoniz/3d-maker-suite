@@ -19,6 +19,7 @@ import { ProjectRef } from "../../components/ProjectRef.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { SyncButton } from "../../components/SyncButton.tsx";
 import { Write } from "../../components/Write.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatWeight } from "../../lib/format.ts";
@@ -189,6 +190,7 @@ export function PrintsPage() {
   const [query, setQuery] = useUrlListQuery();
   const { data, isError } = usePrints(query);
   const hasArchived = useHasArchived(["prints", "list"], "/api/prints");
+  const mayAdd = useCan("prints");
   const waiting = useFilamentReview({ pageSize: "1" }).data?.total ?? 0;
   const add = (
     <Link
@@ -236,7 +238,7 @@ export function PrintsPage() {
           icon={Layers}
           title={t("prints:list.emptyTitle")}
           description={t("prints:list.emptyBody")}
-          action={add}
+          action={mayAdd ? add : undefined}
         />
       ) : (
         data && <PrintsTable data={data} query={query} onQueryChange={setQuery} />

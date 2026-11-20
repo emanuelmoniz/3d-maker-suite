@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useMyRole, useRights } from "../../lib/auth.ts";
@@ -185,9 +186,7 @@ export function RoleEditPage() {
           {t("users:list.errors.generic")}
         </p>
       )}
-      {roles.data && role === undefined && (
-        <p className="text-muted">{t("users:roles.notFound")}</p>
-      )}
+      {roles.data && role === undefined && <ItemMissing back="/settings/roles" />}
       {roles.data && role !== undefined && (
         // Re-mounted per role, so the form starts from what is stored.
         <RoleForm key={role?.id ?? "new"} role={role} roles={roles.data} />

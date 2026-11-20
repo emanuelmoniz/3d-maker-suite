@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useClient, useSaveClient } from "../../lib/clients.ts";
@@ -117,12 +118,7 @@ export function ClientEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data, isError } = useClient(id);
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("clients:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/clients" />;
   if (!data) return null;
   return (
     <>

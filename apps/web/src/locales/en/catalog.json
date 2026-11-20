@@ -30,7 +30,6 @@
   },
   "moved": "Brands, printer models and presets are in <catalog>Catalog</catalog>.",
   "preset": {
-    "notFound": "Preset not found.",
     "openPreset": "Open in the preset library",
     "details": "What the app uses",
     "usedBy": "Where it is used",

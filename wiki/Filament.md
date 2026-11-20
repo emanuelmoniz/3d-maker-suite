@@ -179,7 +179,7 @@ The spool stays, with its weight and history, and stays linked to its other libr
 | A print is not taken from a spool | The spool is not loaded in the printer's slot. See [Printers](Printers.md#loaded-spools) |
 | **Another spool already has this number. It may be archived.** | Use another number, or leave the field empty |
 | **Couldn't save the spool.** | Check the required fields and try again. If it keeps failing, see [Troubleshooting](Troubleshooting.md) |
-| **Spool not found.** | The spool was deleted. Go back to the list |
+| **This doesn't exist, or you can't open it.** | The spool was deleted. Go back to the list |
 
 ## Related pages
 

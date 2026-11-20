@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { ApiError } from "../../lib/api.ts";
@@ -253,12 +254,7 @@ export function OrderEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
   const { data, isError } = useOrder(id);
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("orders:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/orders" />;
   if (!data) return null;
   return (
     <>

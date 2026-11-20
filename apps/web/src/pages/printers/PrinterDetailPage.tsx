@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ArchiveActions, ArchivedBadge } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { type DateRange, DateRangePicker } from "../../components/DateRangePicker.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { StatCard } from "../../components/StatCard.tsx";
 import { Write } from "../../components/Write.tsx";
@@ -123,12 +124,7 @@ export function PrinterDetailPage() {
   const allLive = usePrinterStatus().data ?? [];
   const live = allLive.find((s) => s.printerId === id);
 
-  if (isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("printers:detail.notFound")}
-      </p>
-    );
+  if (isError) return <ItemMissing back="/printers" />;
   if (!printer) return null;
 
   const none = t("printers:detail.info.none");

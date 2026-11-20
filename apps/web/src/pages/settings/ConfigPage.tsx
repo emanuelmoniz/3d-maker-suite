@@ -1,5 +1,4 @@
 import { DEVICE_FOLDER_MAX_MB_LIMIT, type Preferences } from "@3d-maker-suite/core";
-import { useQuery } from "@tanstack/react-query";
 import { type LinkProps, Navigate, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,7 +10,6 @@ import {
   useSettingsAccess,
 } from "../../components/SettingsLink.tsx";
 import { Tabs } from "../../components/Tabs.tsx";
-import { meQuery } from "../../lib/auth.ts";
 import { usePreferences, useSavePreferences } from "../../lib/preferences.ts";
 import { PresetsTab } from "../presets/LibraryTab.tsx";
 import { AccountSources } from "./AccountSources.tsx";
@@ -65,8 +63,8 @@ export function ConfigPage({
       : `/${module}`) as LinkProps["to"],
   };
   const base = `/${module}/settings`;
-  // Only the pathname: a re-render on every location change would make the `Navigate` below (a
-  // denied page) navigate again on each one, and never stop.
+  // Only the pathname: a re-render on every location change would make a `Navigate` below
+  // navigate again on each one, and never stop.
   const path = useLocation({ select: (l) => l.pathname });
   const tab0 =
     path === `${base}/sources`
@@ -78,17 +76,12 @@ export function ConfigPage({
           : "general";
   const hasTabs = SOURCE_MODULES.includes(module);
   // An editor with a sync or review task gets only Sources and Consumers (ADR-0012, ADR-0021).
-  const { settings: allowed, sources, loading } = useSettingsAccess(module);
+  // The route decides who opens which address (6.2.0 Step 3f); this only picks the tab.
+  const { settings: allowed, loading } = useSettingsAccess(module);
   const tab = !hasTabs ? "general" : allowed || tab0 === "consumers" ? tab0 : "sources";
   const accountType = ACCOUNT_TYPE[module];
 
-  // Without the permission, back to the module.
-  const loaded = !!useQuery(meQuery).data;
-  if (!loaded || loading) return null;
-  if (!allowed && !(hasTabs && sources)) return <Navigate {...backTo} replace />;
-  // On the General address only: while a link leaves, the pathname is already the next page's.
-  if (!allowed && path === base)
-    return <Navigate to={`${base}/sources` as LinkProps["to"]} replace />;
+  if (loading) return null;
   if (isError)
     return (
       <>

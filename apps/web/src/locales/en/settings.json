@@ -351,7 +351,6 @@
   "folder": {
     "addTitle": "Add project folder",
     "titleFallback": "Project folder",
-    "notFound": "This project folder doesn't exist any more.",
     "add": "Add folder",
     "edit": "Edit {{path}}",
     "saved": "Saved.",

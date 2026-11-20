@@ -238,7 +238,7 @@ Which printers can report status depends on the source. Klipper printers report 
 | What you see | What to do |
 |---|---|
 | **Couldn't load printers. Is the server running?** | Check that the app is running, then reload the page |
-| **This printer doesn't exist.** | It was deleted. Go back to the list |
+| **This doesn't exist, or you can't open it.** | It was deleted. Go back to the list |
 | **Another printer already has this number.** | Pick another number, or look in **Show archived** |
 | A printer says **Synced only** and you want live status | Add a source on your network. See [Sources and sync](Sources-and-Sync.md) |
 | A print is not charged to a spool | It waits in **Filament to review**. Load the right spool in the slot |

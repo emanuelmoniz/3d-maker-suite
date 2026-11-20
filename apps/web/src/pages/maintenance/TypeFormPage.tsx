@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { SearchPicker } from "../../components/SearchPicker.tsx";
 import { accessoryName, useAccessories, useAccessoryTypes } from "../../lib/accessories.ts";
@@ -231,7 +232,8 @@ export function TypeCreatePage() {
 export function TypeEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
-  const { data } = useMaintenanceType(id);
+  const { data, isError } = useMaintenanceType(id);
+  if (isError) return <ItemMissing back="/printers/maintenance" />;
   return (
     <>
       <PageHeader

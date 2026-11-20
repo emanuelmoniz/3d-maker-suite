@@ -358,7 +358,17 @@ A spool library that is also a target (Spoolman, ADR-0015) gets what each print 
 
 ## Web routes: Settings (6.1.0 Step 15)
 
-`/settings` is a layout route (`apps/web/src/pages/settings/SettingsShell.tsx`): the title, a tab row, and the open tab's page. A tab shows only with the right its page needs, and the address of a tab the caller may not open goes to `/settings`. The API checks the same rights on its own.
+`/settings` is a layout route (`apps/web/src/pages/settings/SettingsShell.tsx`): the title, a tab row, and the open tab's page. A tab shows only with the right its page needs. A tab address without the right shows "You can't open this" (the route guard below); one the app's state hides (the hub or accounts off, no account to sync or review) goes to `/settings`. The API checks the same rights on its own.
+
+## Web routes: the right each page needs (6.2.0 Step 3f)
+
+Every page route declares what it needs in `staticData.access` (`apps/web/src/lib/routeAccess.ts`), named like the server's `RULES`: `at(module, level)`, `on(switch)`, `either(...)`, `SESSION`, `PUBLIC`, and `cfg(module, "settings" | "sources")` for a module settings page (`useSettingsAccess`). One guard, `apps/web/src/shell/RouteGuard.tsx`, wraps the shell's `<Outlet/>` and checks the deepest matched route once the caller's rights are in:
+
+- **Allowed:** the page renders.
+- **`otherwise`:** the first alternative the caller has sends them on, with "Your role can't change this." in the shell's role banner when it says `notice`. An add form goes to its list, an edit form to its item, a module settings page to the module. The Printers and Maintenance tabs swap quietly.
+- **Nothing:** "You can't open this", with a link home.
+
+A missing item and one the caller may not see (the API's 404 for another person's alert, a private project, someone else's machine) show the same `ItemMissing` text. Reads that end in 403 or 404 aren't retried (`retryUnlessRefused`), so that text shows at once. `apps/web/src/routeMap.test.ts` fails when a page declares no right, when a form or admin page needs only a session, or when a Viewer would open one. The API still refuses on its own; the guard only decides what the person sees.
 
 | Tab | Address | Right |
 | --- | --- | --- |

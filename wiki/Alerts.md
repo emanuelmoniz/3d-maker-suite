@@ -65,7 +65,7 @@ The list refreshes about once a minute.
 
 Click a title to open the alert. Opening it marks it read for you, once. Mark it unread again and it stays unread.
 
-The page is called **Alert**; the back arrow returns to the list. If it was removed you get **This alert no longer exists.**
+The page is called **Alert**; the back arrow returns to the list. If it was removed, or it is another person's, you get **This doesn't exist, or you can't open it.**
 
 It shows the title, a few words of context and a table:
 
@@ -165,7 +165,7 @@ Click a heading to sort and use its filter to narrow the rows. Open a title to s
 | What you see | What to do |
 |---|---|
 | **All clear** | Nothing needs attention |
-| **This alert no longer exists.** | It was resolved and removed. Go back to the list |
+| **This doesn't exist, or you can't open it.** | It was resolved and removed, or it isn't yours. Go back to the list |
 | An alert I expected isn't there | Your role has it **Off**, or lacks the right for it. Check **Roles** and [My account](My-Account.md#my-alerts) |
 | A button is missing | You lack the right for that fix |
 | **Sign in again** | The account of a source was signed out. Press it to sign in again |

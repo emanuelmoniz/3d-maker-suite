@@ -6,9 +6,11 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { Write } from "../../components/Write.tsx";
+import { useCan } from "../../lib/auth.ts";
 import {
   type CatalogKind,
   type CatalogRow,
@@ -109,6 +111,26 @@ export function CatalogAddDialog<K extends CatalogKind>(props: {
   );
 }
 
+/** "+ Add …" next to a picker, only with catalog manage (what adding a row needs). */
+function AddIfAllowed({
+  label,
+  onAdd,
+  children,
+}: {
+  label: string;
+  onAdd: () => void;
+  children: ReactNode;
+}) {
+  const canAdd = useCan("catalog", "manage");
+  return canAdd ? (
+    <PickerWithAdd label={label} onAdd={onAdd}>
+      {children}
+    </PickerWithAdd>
+  ) : (
+    children
+  );
+}
+
 /** Brand picker (`brandId`) with "+ Add brand". */
 export function BrandPicker({ defaultValue, ...p }: ControlProps & { defaultValue?: string }) {
   const { t } = useTranslation();
@@ -117,7 +139,7 @@ export function BrandPicker({ defaultValue, ...p }: ControlProps & { defaultValu
   const [adding, setAdding] = useState(false);
   return (
     <>
-      <PickerWithAdd label={t("printers:catalog.brands.add")} onAdd={() => setAdding(true)}>
+      <AddIfAllowed label={t("printers:catalog.brands.add")} onAdd={() => setAdding(true)}>
         <Combobox
           key={brands.length}
           {...p}
@@ -127,7 +149,7 @@ export function BrandPicker({ defaultValue, ...p }: ControlProps & { defaultValu
           onChange={setId}
           options={brands.map((b) => ({ value: b.id, label: b.name }))}
         />
-      </PickerWithAdd>
+      </AddIfAllowed>
       <CatalogAddDialog
         kind="brands"
         open={adding}
@@ -158,7 +180,7 @@ export function ModelPicker({
   const [adding, setAdding] = useState(false);
   return (
     <>
-      <PickerWithAdd label={t("printers:catalog.models.add")} onAdd={() => setAdding(true)}>
+      <AddIfAllowed label={t("printers:catalog.models.add")} onAdd={() => setAdding(true)}>
         <ModelSelect
           {...p}
           defaultValue={id}
@@ -167,7 +189,7 @@ export function ModelPicker({
             onChange?.(v);
           }}
         />
-      </PickerWithAdd>
+      </AddIfAllowed>
       <CatalogAddDialog
         kind="printer-models"
         open={adding}
@@ -221,12 +243,7 @@ export function CatalogForm<K extends CatalogKind>(props: {
     });
   };
 
-  if (id && item.isError)
-    return (
-      <p role="alert" className="text-bad">
-        {t("printers:catalog.notFound")}
-      </p>
-    );
+  if (id && item.isError) return <ItemMissing />;
   if (id && !row) return null;
   const error = save.error ?? image.error;
 

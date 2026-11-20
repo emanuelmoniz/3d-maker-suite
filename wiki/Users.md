@@ -162,7 +162,7 @@ They are signed out at once. **Enable** brings the account back.
 | **Only admins change admin accounts.** | Ask an admin |
 | **You can't give more than you have yourself.** | Pick a lower step, or ask someone with more rights |
 | **That didn't work. Try again.** | Check the connection, then try again |
-| **This user doesn't exist anymore.** | Someone deleted them. Go back to the list |
+| **This doesn't exist, or you can't open it.** | Someone deleted them. Go back to the list |
 | The **Users** tab is missing | You lack **Users and roles**, or **User accounts** is off |
 
 ## Related pages

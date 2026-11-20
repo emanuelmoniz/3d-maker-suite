@@ -7,9 +7,11 @@ import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
 import { DateTimeInput } from "../../components/DateTimeInput.tsx";
 import { FormField, formGrid, fullRow, inputClass } from "../../components/FormField.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PickerWithAdd } from "../../components/PickerWithAdd.tsx";
 import { TagPicker } from "../../components/TagPicker.tsx";
+import { useCan } from "../../lib/auth.ts";
 import { isConflict, useCatalogItem, useMachinePresets } from "../../lib/catalog.ts";
 import { spoolName, useFilamentPresets, useSpools } from "../../lib/filament.ts";
 import { formatWeight, toLocalInput } from "../../lib/format.ts";
@@ -33,6 +35,9 @@ const OUTCOMES = {
 type Row = { key: number; spoolId: string; grams: string };
 
 function PrintForm({ print }: { print?: PrintDetail }) {
+  // Adding a spool is filament write's (6.2.0 Step 3f).
+  const canAddSpool = useCan("filament");
+  const mayChangeOrder = useCan("costs");
   const { t } = useTranslation();
   const navigate = useNavigate();
   const printers = usePrinters({ archived: false }).data?.items ?? [];
@@ -128,9 +133,11 @@ function PrintForm({ print }: { print?: PrintDetail }) {
       print?.orderId && (body.orderId !== print.orderId || body.projectId !== print.projectId)
         ? { orderId: print.orderId, projectId: print.projectId }
         : null;
-    const drop = left
-      ? await projectLeft.confirm(left.orderId, left.projectId, print?.id ?? "")
-      : false;
+    // Dropping the project changes the order (costs write); without it the print only leaves it.
+    const drop =
+      left && mayChangeOrder
+        ? await projectLeft.confirm(left.orderId, left.projectId, print?.id ?? "")
+        : false;
     // mutateAsync, not mutate's callbacks: saving an edit remounts this form (see PrintEditPage),
     // which would drop them.
     const saved = (await save.mutateAsync(body).catch(() => null)) as PrintDetail | null;
@@ -285,11 +292,8 @@ function PrintForm({ print }: { print?: PrintDetail }) {
             <div key={r.key} className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
                 <FormField label={t("prints:form.spool")}>
-                  {(p) => (
-                    <PickerWithAdd
-                      label={t("prints:form.newSpool")}
-                      onAdd={() => setAddSpoolTo(r.key)}
-                    >
+                  {(p) => {
+                    const picker = (
                       <Combobox
                         {...p}
                         required
@@ -300,8 +304,18 @@ function PrintForm({ print }: { print?: PrintDetail }) {
                           ...spoolsFor(r).map((s) => ({ value: s.id, label: spoolLabel(s) })),
                         ]}
                       />
-                    </PickerWithAdd>
-                  )}
+                    );
+                    return canAddSpool ? (
+                      <PickerWithAdd
+                        label={t("prints:form.newSpool")}
+                        onAdd={() => setAddSpoolTo(r.key)}
+                      >
+                        {picker}
+                      </PickerWithAdd>
+                    ) : (
+                      picker
+                    );
+                  }}
                 </FormField>
               </div>
               <div className="w-24">
@@ -450,7 +464,8 @@ export function PrintCreatePage() {
 export function PrintEditPage() {
   const { t } = useTranslation();
   const { id } = useParams({ strict: false }) as { id: string };
-  const { data } = usePrint(id);
+  const { data, isError } = usePrint(id);
+  if (isError) return <ItemMissing back="/prints" />;
   return (
     <>
       <PageHeader

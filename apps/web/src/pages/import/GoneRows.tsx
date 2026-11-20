@@ -6,6 +6,7 @@ import { Dependents } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { api } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 
 /**
  * Catalog rows whose preset is gone from the slicer (ADR-0019). Nothing goes without a person: a
@@ -25,6 +26,8 @@ export function GoneRows({
   onKept?: (r: ImportResult) => void;
 }) {
   const { t } = useTranslation();
+  // The server deletes a gone row for integrations manage only (its `RULES`), not for a reviewer.
+  const mayDelete = useCan("integrations.manage");
   const qc = useQueryClient();
   const [ask, setAsk] = useState<ImportGone | null>(null);
   // The review is read again: what is left comes back fresh.
@@ -72,7 +75,7 @@ export function GoneRows({
                 </>
               )}
             </div>
-            {g.dependents.length === 0 && (
+            {mayDelete && g.dependents.length === 0 && (
               <Button
                 aria-label={t("common:archive.named.delete", { name: g.label })}
                 onClick={() => {

@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
+import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { Write } from "../../components/Write.tsx";
 import { useAlertAction, useAlertDetail, useEvaluateAlerts } from "../../lib/alerts.ts";
@@ -26,6 +27,7 @@ import {
   signedOutAlert,
   syncTaskLink,
   Title,
+  useMayEditAlertProject,
   useMayOpenTask,
 } from "./AlertsPage.tsx";
 
@@ -58,6 +60,7 @@ export function AlertDetailPage() {
   const mayOpen = useMayOpenTask();
   const integrationsManage = useCan("integrations.manage");
   const hubManage = useCan("hub.manage");
+  const mayEditProject = useMayEditAlertProject(a);
   const [logging, setLogging] = useState(false);
   // Opening an alert reads it (for this user), once: marking it unread afterwards must stick.
   const act = useAlertAction();
@@ -72,9 +75,8 @@ export function AlertDetailPage() {
     return (
       <>
         {header}
-        <p role="alert" className="text-bad">
-          {t("alerts:view.notFound")}
-        </p>
+        {/* Someone else's alert is the server's 404 too: the same text as a missing one. */}
+        <ItemMissing back="/alerts" />
       </>
     );
   }
@@ -237,7 +239,7 @@ export function AlertDetailPage() {
                   </Link>
                 )}
               </Write>
-              <Write can="projects">
+              <Write can="projects" when={mayEditProject}>
                 {a.kind.startsWith("slice_") && (
                   <Link
                     to="/projects/$id/edit"

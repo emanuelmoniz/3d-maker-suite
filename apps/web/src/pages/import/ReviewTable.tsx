@@ -51,6 +51,7 @@ import { EmptyState } from "../../components/EmptyState.tsx";
 import { inputClass } from "../../components/FormField.tsx";
 import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
 import { ApiError } from "../../lib/api.ts";
+import { useCan } from "../../lib/auth.ts";
 import { useMoney } from "../../lib/cost.ts";
 import { cx } from "../../lib/cx.ts";
 import { spoolName, useFilamentPresets } from "../../lib/filament.ts";
@@ -171,6 +172,8 @@ export function ReviewTable({
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
+  // A reviewer often has no filament write: no new spool from here then (6.2.0 Step 3f).
+  const canAddSpool = useCan("filament");
   const money = useMoney();
   const apply = useApply(entity);
   const columns: readonly ImportColumn[] = IMPORT_COLUMNS[entity];
@@ -533,7 +536,9 @@ export function ReviewTable({
                       label: n,
                     })),
                     ...names.map((n) => ({ value: n, label: n })),
-                    { value: NEW_SPOOL, label: t("import:review.addSpool") },
+                    ...(canAddSpool
+                      ? [{ value: NEW_SPOOL, label: t("import:review.addSpool") }]
+                      : []),
                   ]}
                 />
                 {!label && <span className="text-warn">{t("import:review.noSpool")}</span>}
@@ -568,7 +573,7 @@ export function ReviewTable({
                       value: o.id,
                       label: o.id === NO_PROJECT ? t("import:review.noProject") : o.label,
                     })),
-                    ...(c.ref === "spools"
+                    ...(c.ref === "spools" && canAddSpool
                       ? [{ value: NEW_SPOOL, label: t("import:review.addSpool") }]
                       : []),
                   ]}

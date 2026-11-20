@@ -4,16 +4,33 @@ export class ApiError extends Error {
   readonly detail?: string;
   /** The error's own data, e.g. what uses a row (`in_use`). */
   readonly details?: unknown;
-  constructor(message: string, code?: string, detail?: string, details?: unknown) {
+  /** The HTTP status, when the server answered. */
+  readonly status?: number;
+  constructor(message: string, code?: string, detail?: string, details?: unknown, status?: number) {
     super(message);
     this.code = code;
     this.detail = detail;
     this.details = details;
+    this.status = status;
   }
 }
 
-/** Fired on a 403 to a write (a blocked GET is a hidden section, not an action), so the shell can say the role isn't enough (the server enforces; ADR-0012). */
+/**
+ * Retries a failed read as React Query does (3 times), but not a 403 or 404: a missing or hidden
+ * item stays so, and its page says it at once instead of after the retries (6.2.0 Step 3f).
+ */
+export const retryUnlessRefused = (count: number, error: unknown) =>
+  count < 3 && !(error instanceof ApiError && (error.status === 403 || error.status === 404));
+
+/**
+ * Fired on a 403 to a write (a blocked GET is a hidden section, not an action), so the shell can say
+ * the role isn't enough (the server enforces; ADR-0012). Its `detail` is the message's i18n key.
+ */
 export const FORBIDDEN_EVENT = "app:forbidden";
+
+/** The shell's role banner with `key`: a 403, or a form the route guard sent the person away from. */
+export const notifyDenied = (key = "common:forbidden") =>
+  window.dispatchEvent(new CustomEvent<string>(FORBIDDEN_EVENT, { detail: key }));
 
 /** Sends the visitor to the login page, which returns to where they were. A reload on purpose: it drops every cached query. */
 export function toLogin() {
@@ -37,9 +54,15 @@ export async function api<T = void>(
   if (!res.ok) {
     // A wrong password on the login form is a 401 too, but the form shows that itself.
     if (res.status === 401 && !url.startsWith("/api/auth/login")) toLogin();
-    if (res.status === 403 && method !== "GET") window.dispatchEvent(new Event(FORBIDDEN_EVENT));
+    if (res.status === 403 && method !== "GET") notifyDenied();
     const e = (await res.json().catch(() => null))?.error;
-    throw new ApiError(`${method} ${url} failed: ${res.status}`, e?.code, e?.message, e?.details);
+    throw new ApiError(
+      `${method} ${url} failed: ${res.status}`,
+      e?.code,
+      e?.message,
+      e?.details,
+      res.status,
+    );
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
