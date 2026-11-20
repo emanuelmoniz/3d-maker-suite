@@ -56,6 +56,7 @@ A link to anything else in the repo, such as `../README.md`, stops the publish b
 - **Each page's description** for search results is its first paragraph, the one or two sentences on what the page is for. Keep that paragraph first.
 - **Search** runs in the browser, over every page's text.
 - A `sitemap.xml` lists every page, and each page names its canonical address.
+- **Google Search Console** has the site as a URL-prefix property, `https://emanuelmoniz.github.io/3d-maker-suite/`, with the sitemap submitted. It is verified by the `google-site-verification` meta tag in the config: keep it, or the property loses its verification.
 
 The site's helpers are in `scripts/docs-site.mjs`, tested in `scripts/docs-site.test.mjs`.
 

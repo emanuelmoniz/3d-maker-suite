@@ -158,6 +158,11 @@ describe("the site's config", () => {
     expect(config.srcExclude).toEqual(["_Sidebar.md", "_Footer.md"]);
     expect(config.themeConfig.search.provider).toBe("local");
     expect(JSON.stringify(config)).not.toMatch(/noindex/i);
+    // Search Console's ownership check (docs/wiki-guide.md).
+    expect(config.head).toContainEqual([
+      "meta",
+      { name: "google-site-verification", content: expect.stringMatching(/^[\w-]{20,}$/) },
+    ]);
   });
 
   it("gives each page its description and canonical address", () => {

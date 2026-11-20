@@ -19,6 +19,9 @@ const wiki = join(repo, "wiki");
 const read = (file) => readFileSync(join(wiki, file), "utf8");
 const site = `${DOCS_URL}/`;
 const base = new URL(site).pathname;
+// Google Search Console's ownership check for the site (URL-prefix property). Public by design:
+// Google reads it from the page. Removing it unverifies the property.
+const GOOGLE_SITE_VERIFICATION = "SZubR3Dr3941JsObs9BQuykLffe7luB8lyCceFVGhTc";
 const description =
   "User guide for 3D Maker Suite: printers, maintenance, filament, projects, prints, costs and stats.";
 
@@ -40,7 +43,10 @@ export default defineConfig({
   // Brand files (docs/brand) are served from the site's root: the favicon and the nav logo.
   // The search index (about 600 kB) is one chunk, loaded only when search opens.
   vite: { publicDir: join(repo, "docs/brand"), build: { chunkSizeWarningLimit: 1024 } },
-  head: [["link", { rel: "icon", type: "image/svg+xml", href: `${base}icon-color.svg` }]],
+  head: [
+    ["link", { rel: "icon", type: "image/svg+xml", href: `${base}icon-color.svg` }],
+    ["meta", { name: "google-site-verification", content: GOOGLE_SITE_VERIFICATION }],
+  ],
   markdown: {
     // GitHub's anchors, so wiki links, `pnpm wiki:check` and the route map hold on the site too.
     anchor: { slugify: githubSlug },
