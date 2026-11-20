@@ -35,7 +35,7 @@ A NAS is a machine, not a way to install. Follow the page for what it runs:
 These add to any install:
 
 - **Reach it from your phone or another computer.** [Use from another device](Use-From-Another-Device.md).
-- **Reach it from outside my home.** Put it behind HTTPS: [Server and remote access](Server-and-Remote-Access.md).
+- **Reach it from outside my home.** Put it behind HTTPS: [Public access](Public-Access.md).
 - **My project files are spread over several computers.** Run a hub, and put a connector on each computer: [Hub setup](Hub-Setup.md) and [Connector setup](Connector-Setup.md).
 
 ## What stays the same
@@ -56,4 +56,4 @@ All installs run the same app and keep your data on your own machine. Bambu Clou
 - [Install from source](Install-from-Source.md)
 - [Docker](Docker.md)
 - [Use from another device](Use-From-Another-Device.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

@@ -4,7 +4,7 @@ Open 3D Maker Suite on your phone, tablet or another computer, on the same netwo
 
 ## Who can use it
 
-Anyone who can change the app's host setting and the firewall of the machine that runs it. For access from outside your home, see [Server and remote access](Server-and-Remote-Access.md).
+Anyone who can change the app's host setting and the firewall of the machine that runs it. For access from outside your home, see [Public access](Public-Access.md).
 
 ## Before you start
 
@@ -50,7 +50,7 @@ If the page doesn't open, the machine's firewall may block port 4300.
 | Linux | Allow TCP 4300, for example `sudo ufw allow from 192.168.1.0/24 to any port 4300` |
 | Docker host, such as a NAS | Allow port 4300 for your home network only. Use the host's own firewall or its NAS settings |
 
-Never open the port to the internet. See [Server and remote access](Server-and-Remote-Access.md#what-not-to-expose).
+Never open the port to the internet. See [Public access](Public-Access.md#what-not-to-expose).
 
 ## Use a name instead of an address
 
@@ -60,7 +60,7 @@ An address like `192.168.1.20` can change. Give the machine a fixed address in y
 
 - The address must be the one you type in the browser. A different name for the same machine gets `403 forbidden_host`, until the first admin exists and accounts are on.
 - Changes to host and port apply after a restart. **Settings → Network** shows when a command-line flag or an environment variable is overriding the saved value.
-- Links in alert emails and ntfy messages follow **Public address** in **Settings → Network**. See [Server and remote access](Server-and-Remote-Access.md).
+- Links in alert emails and ntfy messages follow **Public address** in **Settings → Network**. See [Public access](Public-Access.md).
 - In Docker, change the port in the `ports:` line of the compose file, not in the app. See [Docker](Docker.md).
 
 ## Problems and fixes
@@ -75,4 +75,4 @@ An address like `192.168.1.20` can change. Give the machine a fixed address in y
 - [First run](First-Run.md)
 - [Configuration](Configuration.md)
 - [Docker](Docker.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

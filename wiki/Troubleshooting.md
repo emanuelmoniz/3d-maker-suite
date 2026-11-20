@@ -38,7 +38,7 @@ The log is stored with your data, so a backup includes it. Passwords, tokens and
 
 - **The page doesn't open from a phone or another computer.** Check the network, that the host is `0.0.0.0`, and the firewall. See [Use from another device](Use-From-Another-Device.md#problems-and-fixes).
 - **`403 forbidden_host`.** The app doesn't know the address you typed. Add it to `APP_ALLOWED_HOSTS` and restart.
-- **Everybody is locked out after a few wrong passwords.** Behind a reverse proxy, set `APP_TRUST_PROXY`. See [Server and remote access](Server-and-Remote-Access.md#problems-and-fixes).
+- **Everybody is locked out after a few wrong passwords.** Behind a reverse proxy, set `APP_TRUST_PROXY`. See [Public access](Public-Access.md#problems-and-fixes).
 - **It worked yesterday and not today.** The computer's address changed. Give it a fixed address.
 
 ## Signing in

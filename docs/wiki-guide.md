@@ -66,7 +66,7 @@ Every feature page uses these sections, in this order. Leave out any that don't 
 
 | Group | Pages |
 |---|---|
-| Get started | Choose-How-to-Run, Install-on-Windows, Install-on-macOS, Install-on-Linux, Install-from-Source, Docker, Server-and-Remote-Access, First-Run, Use-From-Another-Device, Configuration, Updates, Backups-and-Restore, Move-or-Uninstall, Hub-Setup, Connector-Setup |
+| Get started | Choose-How-to-Run, Install-on-Windows, Install-on-macOS, Install-on-Linux, Install-from-Source, Docker, First-Run, Use-From-Another-Device, Public-Access, Configuration, Updates, Backups-and-Restore, Move-or-Uninstall, Hub-Setup, Connector-Setup |
 | Equipment | Dashboard, Printers, Printers-Settings, Accessories, Maintenance, Filament, Filament-Settings, Catalog, Presets, Catalog-Settings |
 | Work | Projects, Projects-Settings, Project-Folders, Prints, Filament-Review, Prints-Settings |
 | Accounting | Quotes, Quotes-Settings, Orders, Orders-Settings, Clients |
@@ -87,6 +87,6 @@ Every feature page uses these sections, in this order. Leave out any that don't 
 - `section` is the anchor GitHub makes from the heading. The heading `## Printer details` becomes `printer-details`.
 - The sections in the map are planned names. When a page is written, use those headings, or change the map if a better heading fits.
 - A new app page gets its entry in the map, its wiki section and its Help link in the same step.
-- Don't rename a page or a heading the map points to without updating the map. A renamed page also leaves a pointer page behind.
+- Don't rename a page or a heading the map points to without updating the map. A pointer page is only needed for a page the map points to; any other page is simply renamed or deleted.
 - Addresses that only redirect stay out of the map.
 - Dialogs have no address, so they are explained in the section of the screen that opens them.

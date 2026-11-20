@@ -209,4 +209,4 @@ docker compose exec app pnpm user:reset-password you@example.com
 - [Choose how to run](Choose-How-to-Run.md)
 - [Install from source](Install-from-Source.md)
 - [Project folders](Project-Folders.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

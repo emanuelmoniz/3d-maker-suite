@@ -28,7 +28,7 @@ With the hub switched off, the app works exactly as before.
 
 - **A server that is always on.** A computer, a home server, a VPS or a NAS that runs 3D Maker Suite with [Docker](Docker.md#on-a-nas). Computers can only join while it is running.
 - **User accounts turned on, and at least one admin.** See [First run](First-Run.md).
-- **An address every computer can open.** On one network, `http://192.168.1.20:4300` is enough. Across the internet you need a public name with HTTPS, see [Server and remote access](Server-and-Remote-Access.md).
+- **An address every computer can open.** On one network, `http://192.168.1.20:4300` is enough. Across the internet you need a public name with HTTPS, see [Public access](Public-Access.md).
 - **Backups.** Make a backup before you turn the hub on, see [Backups and restore](Backups-and-Restore.md).
 
 ## Turn the hub on
@@ -47,7 +47,7 @@ While the hub is on, **User accounts** can't be turned off.
 Every connector has to open the hub's address. It is the same address you type in your browser to open the web app.
 
 1. **Same network.** Use the server's address on that network, with the port: `http://192.168.1.20:4300`. For this the server must listen on the network. See [Use from another device](Use-From-Another-Device.md).
-2. **Over the internet.** Put a reverse proxy with HTTPS in front of the hub and use its name: `https://maker.example.com`. The steps, with Caddy, nginx and Traefik, are on [Server and remote access](Server-and-Remote-Access.md).
+2. **Over the internet.** Put a reverse proxy with HTTPS in front of the hub and use its name: `https://maker.example.com`. The steps, with Caddy, nginx and Traefik, are on [Public access](Public-Access.md).
 3. If you set `APP_ALLOWED_HOSTS`, the name or address the connectors use must be in the list. Otherwise the hub answers `403 forbidden_host` and the connector says it can't reach the hub.
 4. Optional: set **Public address** in **Settings → Network**, so the app shows the right address in links.
 
@@ -97,13 +97,13 @@ Turn **Hub** off in **Settings → General**. Nothing is deleted. The connectors
 - **The hub switch can't be turned on.** Turn on **User accounts** and sign in as an admin first.
 - **The connector says it can't reach the hub.** Check the address, and that the hub is running. With `APP_ALLOWED_HOSTS` set, add the name the connector uses, then restart the app.
 - **The connector says the hub is off.** Turn **Hub** on in **Settings → General**.
-- **Every computer is locked out after a few wrong codes.** Behind a reverse proxy, set `APP_TRUST_PROXY`. See [Server and remote access](Server-and-Remote-Access.md#problems-and-fixes).
+- **Every computer is locked out after a few wrong codes.** Behind a reverse proxy, set `APP_TRUST_PROXY`. See [Public access](Public-Access.md#problems-and-fixes).
 
 ## Related pages
 
 - [Connector setup](Connector-Setup.md)
 - [Hub management](Hub-Management.md)
 - [Choose how to run](Choose-How-to-Run.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)
 - [First run](First-Run.md)
 - [Backups and restore](Backups-and-Restore.md)

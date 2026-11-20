@@ -105,5 +105,5 @@ Everything else is a setting in the app, stored in the database. It is not an en
 - [First run](First-Run.md)
 - [Use from another device](Use-From-Another-Device.md)
 - [Docker](Docker.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)
 - [Install from source](Install-from-Source.md)

@@ -65,7 +65,7 @@ When **User accounts** is turned back on, everyone is signed out and signs in ag
 
 - A password is at least 8 characters and at most 256.
 - After too many wrong attempts the app blocks sign-in for 15 minutes, so don't keep guessing.
-- Behind a reverse proxy, creating the first admin through the public name always asks for the setup token. See [Server and remote access](Server-and-Remote-Access.md#first-admin-through-the-public-name).
+- Behind a reverse proxy, creating the first admin through the public name always asks for the setup token. See [Public access](Public-Access.md#first-admin-through-the-public-name).
 
 ## Problems and fixes
 
@@ -80,4 +80,4 @@ When **User accounts** is turned back on, everyone is signed out and signs in ag
 - [First run](First-Run.md)
 - [My account](My-Account.md)
 - [Settings](Settings-General.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

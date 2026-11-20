@@ -4640,7 +4640,7 @@ How this plan works:
 Do Step 1 of the Wiki Install plan in PLAN.md. Show me where each section of the NAS page goes before you move it.
 ```
 
-### [ ] Step 2 - Public access
+### [x] Step 2 - Public access
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Rename `Server-and-Remote-Access` to `Public-Access`, title **Public access**. The intro says it is for any install that must be reached from the internet (reverse proxy, HTTPS, the public name, what not to expose, VPN), not "run it on a server". Its "Before you start" names Docker and source installs without `NAS.md`.

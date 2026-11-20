@@ -1,15 +1,15 @@
-# Server and remote access
+# Public access
 
-Run 3D Maker Suite on a server, give it a public address, and reach it from outside your home over HTTPS. This page covers the server, the reverse proxy, HTTPS and what must never be exposed.
+Reach 3D Maker Suite from the internet over HTTPS. This page is for any install that must be reachable from outside your home, on any machine. It covers the reverse proxy, HTTPS, the public name, what must never be exposed, and a VPN as the safer choice.
 
 ## Who can use it
 
-Anyone who can run Docker or Node on a machine that is always on, and who controls a domain name. You need to be able to change the machine's firewall and install a reverse proxy.
+Anyone who has already installed the app on a machine that is always on, and who controls a domain name. You need to be able to change the machine's firewall and install a reverse proxy.
 
 ## Before you start
 
 - **A machine that is always on.** A small Linux server, a VPS, a home server or a NAS.
-- **Docker on an Intel or AMD (x64) processor,** or Node 22. The published Docker image doesn't run on ARM. An ARM server needs the [source install](Install-from-Source.md).
+- **A [Docker](Docker.md) or a [source](Install-from-Source.md) install** that already works on the machine. The published Docker image needs an Intel or AMD (x64) processor; an ARM machine needs the source install.
 - **A domain name** that points at the machine, such as `3d.example.com`.
 - **A reverse proxy** that serves HTTPS: Caddy, nginx or Traefik. The app doesn't do HTTPS by itself.
 - **User accounts.** Anyone who reaches the app needs to sign in. Create them before you open the app to the internet.

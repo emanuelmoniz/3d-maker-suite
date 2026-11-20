@@ -29,10 +29,10 @@ Words used in the app and in this guide, in alphabetical order.
 | **Preset** | A set of slicer settings for a printer, a process (the print settings) or a filament. Presets come only from a slicer |
 | **Print** | One recorded print job, with its filament and cost |
 | **Project** | A model or job with its files, plates, prints and costs |
-| **Public address** | The address the app is reached at from outside, used in the links of alerts. See [Server and remote access](Server-and-Remote-Access.md) |
+| **Public address** | The address the app is reached at from outside, used in the links of alerts. See [Public access](Public-Access.md) |
 | **Quote** | An offer to a client with an estimated price, which can become an order |
 | **Restore** | Bring an archived item back, or replace the app's data with a backup |
-| **Reverse proxy** | A server in front of the app that serves HTTPS. See [Server and remote access](Server-and-Remote-Access.md) |
+| **Reverse proxy** | A server in front of the app that serves HTTPS. See [Public access](Public-Access.md) |
 | **Review and import** | The screen where you decide on rows a sync found. See [Sources and sync](Sources-and-Sync.md#review-and-import) |
 | **Role** | A named set of rights given to users. Built in: Admin, Editor and Viewer |
 | **Setup token** | A one-time code, printed in the console, that allows creating the first admin from another device. See [First run](First-Run.md) |

@@ -96,7 +96,7 @@ The server that sends alerts by email.
 
 ## Limits and tips
 
-- Links in email and ntfy messages point to the app's public address. Set it in **Settings**, see [Server and remote access](Server-and-Remote-Access.md).
+- Links in email and ntfy messages point to the app's public address. Set it in **Settings**, see [Public access](Public-Access.md).
 - Without user accounts, the **To address**, **Topic** and **Access token** here are the only destination.
 - The SMTP password and the ntfy token are never returned by the API or written to the logs.
 - A channel that is off, or that fails, never stops alerts from appearing in the app.
@@ -116,4 +116,4 @@ The server that sends alerts by email.
 - [Alerts](Alerts.md)
 - [Maintenance](Maintenance.md)
 - [Filament settings](Filament-Settings.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

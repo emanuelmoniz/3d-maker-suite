@@ -42,7 +42,7 @@ No. Type the print time and grams for each plate, or let a slicer on the server'
 Yes: `ghcr.io/emanuelmoniz/3d-maker-suite`, for Intel and AMD (x64) processors. See [Docker](Docker.md), and [Docker on a NAS](Docker.md#on-a-nas).
 
 **Can I use it from my phone?**
-Yes, on the same network or from outside through a reverse proxy. See [Use from another device](Use-From-Another-Device.md) and [Server and remote access](Server-and-Remote-Access.md).
+Yes, on the same network or from outside through a reverse proxy. See [Use from another device](Use-From-Another-Device.md) and [Public access](Public-Access.md).
 
 **Do I have to create an account?**
 Not for one computer. With no accounts, anyone who can reach the app has full access. Create accounts as soon as other people can reach it. See [First run](First-Run.md).

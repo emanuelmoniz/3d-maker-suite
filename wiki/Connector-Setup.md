@@ -234,4 +234,4 @@ To remove everything, also delete the data folder (see the table below) and the 
 - [Hub setup](Hub-Setup.md)
 - [Choose how to run](Choose-How-to-Run.md)
 - [Docker](Docker.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

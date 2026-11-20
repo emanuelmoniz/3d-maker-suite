@@ -39,7 +39,7 @@ The app prints the token in its console each time it starts, until the first acc
 
 The line reads `No users yet. To create the first admin from another device, use this setup token: ...`.
 
-A request addressed to `localhost` from the server itself never needs the token. A request through a public name behind a reverse proxy always does, see [Server and remote access](Server-and-Remote-Access.md#first-admin-through-the-public-name).
+A request addressed to `localhost` from the server itself never needs the token. A request through a public name behind a reverse proxy always does, see [Public access](Public-Access.md#first-admin-through-the-public-name).
 
 ## The first things to set up
 
@@ -70,4 +70,4 @@ A short order that works for most people:
 - [Use from another device](Use-From-Another-Device.md)
 - [Configuration](Configuration.md)
 - [Docker](Docker.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)

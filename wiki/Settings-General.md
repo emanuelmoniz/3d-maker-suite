@@ -226,5 +226,5 @@ When your install can't update itself (Docker, a source copy), the card shows th
 - [Configuration](Configuration.md)
 - [Backups and restore](Backups-and-Restore.md)
 - [Updates](Updates.md)
-- [Server and remote access](Server-and-Remote-Access.md)
+- [Public access](Public-Access.md)
 - [Hub setup](Hub-Setup.md)
