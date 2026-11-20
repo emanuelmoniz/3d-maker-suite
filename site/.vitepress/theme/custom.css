@@ -20,3 +20,21 @@
   max-width: 640px;
   height: auto;
 }
+
+/*
+ * The nav logo is the app's sidebar logo (apps/web/public/logo.svg, about 4.4:1) at the app's size:
+ * 192px wide, as in the app's 224px sidebar with 16px on each side (AppShell.tsx, Brand).
+ */
+.VPNavBarTitle .logo {
+  width: 192px;
+  height: auto;
+  margin-right: 0;
+}
+
+/* Beside the sidebar, centered over its column, as in the app. The title box has the sidebar's
+   width and padding at every width (VPNavBar.vue, VPSidebar.vue), so centering in it lines up. */
+@media (min-width: 960px) {
+  .VPNavBarTitle.has-sidebar .title {
+    justify-content: center;
+  }
+}

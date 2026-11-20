@@ -84,7 +84,9 @@ export default defineConfig({
     pageData.frontmatter.head.push(["link", { rel: "canonical", href: `${site}${path}` }]);
   },
   themeConfig: {
-    logo: "/icon-color.svg",
+    // The app's simple logo (icon and name, no tags) stands for the name, so the title text is off.
+    logo: "/logo-simple-color-horizontal.svg",
+    siteTitle: false,
     sidebar: sidebarFromMarkdown(read("_Sidebar.md")),
     search: { provider: "local" },
     outline: { level: [2, 3] },
