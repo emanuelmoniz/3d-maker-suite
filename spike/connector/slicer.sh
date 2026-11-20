@@ -44,5 +44,14 @@ with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, \"w\", zipfile.ZIP_DEFLATE
     --logfile /data/out/log.txt /data/model.3mf > /tmp/slice.txt 2>&1
   e=$?
   echo "RESULT slice exit $e in $(( $(date +%s) - s )) s, out.3mf $(stat -c %s /data/out/out.3mf 2>/dev/null || echo missing) bytes"
-  tail -5 /tmp/slice.txt
+  cat /tmp/slice.txt | tail -15
+  echo "-- log.txt"; grep -iE "error|fail|not |invalid" /data/out/log.txt | tail -15
+  rm -rf /data/out2 && mkdir -p /data/out2
+  s=$(date +%s)
+  timeout 300 ./squashfs-root/AppRun --slice 1 --outputdir /data/out2 --export-3mf out.3mf --allow-newer-file \
+    --logfile /data/out2/log.txt /fixtures/unsliced.3mf > /tmp/slice2.txt 2>&1
+  e=$?
+  echo "RESULT slice unsliced.3mf exit $e in $(( $(date +%s) - s )) s, out.3mf $(stat -c %s /data/out2/out.3mf 2>/dev/null || echo missing) bytes"
+  tail -8 /tmp/slice2.txt
+  echo "-- log.txt"; grep -iE "error|fail|not |invalid" /data/out2/log.txt | tail -10
 ' 2>&1 | sed "s/^RESULT /RESULT slicer $m: /"
