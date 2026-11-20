@@ -4972,7 +4972,7 @@ Do Step 1b of the 6.3.0 plan in PLAN.md.
 Do Step 2 of the 6.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Linux ARM64 archive and headless install
+### [x] Step 3 - Linux ARM64 archive and headless install
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - `packaging/build.mjs --arch arm64` on Linux (Node arm64 tarball; `better-sqlite3` prebuild for the app's archive, the connector needs none).
@@ -4984,6 +4984,8 @@ Do Step 2 of the 6.3.0 plan in PLAN.md.
   - The variables and flags of Step 2 go in the service's `Environment=`.
 - The launcher exits non-zero when its program dies from a signal, so any supervisor sees a crash.
 - `SHA256SUMS` and the attestations cover the new files; the connector's self-update picks the `linux-arm64` file of the hub's release (`apps/connector/src/update.ts`).
+
+**Done (2026-11-20):** test build `v6.2.0-build.88` (run 44834744509, draft deleted) built, installed and started the app and the connector on `ubuntu-24.04-arm`; `connector.yml` (run 44834734637) passed on x64 and ARM64: pairing, `install.sh --headless` pairing from `Environment=`, SIGKILL of the program and of the launcher, **Stop connector** and `systemctl --user stop` staying stopped, and an update to a higher hub version. Agreed deviation: the service uses `Restart=on-failure`, not `always` (ADR-0024 amendment), so a stop asked for on the hub isn't undone.
 
 **Done when:** a test build (`workflow_dispatch`) produces the ARM archive; the install, the headless install and a pairing test pass on the ARM runner; the connector on an ARM machine updates to the hub's version in a test; tests, lint and `pnpm typecheck` pass.
 **Prompt:**
