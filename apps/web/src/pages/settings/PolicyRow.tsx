@@ -179,19 +179,23 @@ export function ActionSwitches({ integration: i }: { integration: Integration })
   return i.policies.flatMap(({ type, mode, pending }) => {
     if (!isAction(type)) return [];
     const waiting = ACTION_PENDING[type];
+    // Slicing needs the program: without it the switch is off and says why, not on and idle.
+    const noProgram = type === "slice" && !!i.slicerProgramMissing;
     return [
       <div key={type} className="grid gap-1">
         <Switch
           label={t(CAPS[type])}
-          checked={mode !== "off"}
-          disabled={patch.isPending}
+          checked={mode !== "off" && !noProgram}
+          disabled={patch.isPending || noProgram}
           onChange={(e) =>
             patch.mutate({
               policies: [{ type, mode: e.target.checked ? "manual" : "off" }],
             })
           }
         />
-        <p className="text-muted">{t(ACTION_HINTS[type])}</p>
+        <p className="text-muted">
+          {t(noProgram ? "integrations:actionHints.sliceNoProgram" : ACTION_HINTS[type])}
+        </p>
         {waiting && mode !== "off" && pending > 0 && (
           <p className="inline-flex items-center gap-1 text-warn">
             <TriangleAlert aria-hidden className="size-4 shrink-0" />

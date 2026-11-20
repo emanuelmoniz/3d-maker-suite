@@ -83,8 +83,8 @@ Open its row on the card. The **Slicer** part has:
 | Field | What it means | Required | Example |
 |---|---|---|---|
 | **Config folder** | Where the slicer keeps its presets. Leave empty to use the detected one, which the hint shows | No | `C:\Users\you\AppData\Roaming\BambuStudio` |
-| **Slicer program** | The full path to the slicer's program. **Use as slicer** needs it | Yes, to slice | `C:\Program Files\Bambu Studio\bambu-studio.exe` |
-| **Use as slicer** | **When active, this integration can be used for slicing projects.** | | On |
+| **Slicer program** | The full path to the slicer's program. **Use as slicer** needs it. It is found automatically: when you add the slicer, and at each start when the field is empty or the program moved (a slicer update). A path you typed is kept while it exists. Type it only when the slicer is somewhere else, such as an AppImage or a portable copy | Only if it isn't found | `C:\Program Files\Bambu Studio\bambu-studio.exe` |
+| **Use as slicer** | **When active, this integration can be used for slicing projects.** Greyed out, with **Slicing needs the slicer program. It wasn't found on this computer. Type its path below.**, while there is no program | | On |
 
 The program must exist on the computer that runs the app, so a NAS has none. Both fields have a button to browse the computer's folders.
 

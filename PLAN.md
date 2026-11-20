@@ -4835,7 +4835,7 @@ Do Step 3e of the 6.2.0 plan in PLAN.md.
 Do Step 3f of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3g - Find the slicer program on this computer
+### [x] Step 3g - Find the slicer program on this computer
 **Model:** Sonnet · **Effort:** Medium
 **Why:** a Bambu Studio or OrcaSlicer install on this server never fills in **Slicer program**, and `available()` in `apps/server/src/integrations/capabilities.ts` drops slicing until that path exists, while **Use as slicer** looks on and nothing says why. The hint `integrations:slicer.pathHint` still says the path is "used by Open in slicer", removed in 5.6.0. The finder that knows the install paths (`packages/host/src/findSlicers.ts`: registry, Applications, Flatpak) already fills the program on connectors; the server uses it only for the config folder (`apps/server/src/integrations/deviceCatalog.ts`).
 **Scope (agreed with the user):**

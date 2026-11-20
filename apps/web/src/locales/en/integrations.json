@@ -316,6 +316,7 @@
   },
   "actionHints": {
     "slice": "When active, this integration can be used for slicing projects.",
+    "sliceNoProgram": "Slicing needs the slicer program. It wasn't found on this computer. Type its path below.",
     "printerStatus": "When active, the app follows what the printer is doing and records each print when it ends.",
     "spoolUsage": "When active, the filament each print takes from a spool linked to this source is written back to it, and a spool of yours that isn't there yet is added when a print uses it. A print Moonraker already reported to Spoolman isn't written again."
   },
@@ -464,7 +465,7 @@
     "configDir": "Config folder",
     "configDirHint": "Where the slicer keeps its presets. Leave empty to use the detected one: {{dir}}",
     "path": "Slicer program",
-    "pathHint": "Full path to the slicer executable, used by \"Open in slicer\".",
+    "pathHint": "Found automatically. Type it only when the slicer is somewhere else, such as an AppImage or a portable copy.",
     "isDefault": "Default slicer",
     "makeDefault": "Make default slicer"
   },

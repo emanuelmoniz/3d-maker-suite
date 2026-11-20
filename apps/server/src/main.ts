@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "@3d-maker-suite/db";
-import { createAutostart } from "@3d-maker-suite/host";
+import { createAutostart, findSlicers } from "@3d-maker-suite/host";
 import fastifyStatic from "@fastify/static";
 import { buildApp } from "./app.ts";
 import { applyPendingRestore } from "./backup/backup.ts";
@@ -37,6 +37,7 @@ const app = await buildApp(db, true, config.dataDir, {
   logRetentionSchedule: "0 * * * *",
   updateCheckSchedule: "0 9 * * *",
   watchProjects: true,
+  findSlicers,
   printerStatus: true,
   spoolPush: true,
   access: { host: config.host, password: config.password, allowedHosts: config.allowedHosts },

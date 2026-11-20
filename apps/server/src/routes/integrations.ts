@@ -77,6 +77,7 @@ import {
 } from "../integrations/printerSources.ts";
 import { readSecrets, writeSecrets } from "../integrations/secrets.ts";
 import type { ServerPresets } from "../integrations/serverPresets.ts";
+import { programExists, type SlicerProgram } from "../integrations/slicerProgram.ts";
 import type { SourceBridge } from "../integrations/sourceBridge.ts";
 import type { Syncer } from "../integrations/sync.ts";
 import type { WorkerSlicers } from "../integrations/workerSlicer.ts";
@@ -144,6 +145,8 @@ export const integrationsRoutes =
     presets: Pick<ServerPresets, "pass"> = { pass: async () => {} },
     /** Printers reached through a connector (ADR-0015, LAN reach). */
     bridge?: Pick<SourceBridge, "check" | "test">,
+    /** Finds a new local slicer's program on this computer (6.2.0 Step 3g). */
+    program: Pick<SlicerProgram, "fill"> = { fill: async () => false },
   ): FastifyPluginAsyncZod =>
   async (app) => {
     /** A worker's slicer is on its device; a server's is here. */
@@ -216,6 +219,8 @@ export const integrationsRoutes =
           slicerConfigDir,
           slicerPath,
           slicerVersion,
+          // This computer's slicer without a program that exists: slicing is off, and says why.
+          ...(adapter?.kind === "local" && { slicerProgramMissing: !programExists(full) }),
           hasSecrets: !!secrets,
           // Which keys are stored (never their values): the edit form says which it keeps.
           storedKeys: secrets ? Object.keys(readSecrets(db, key, full.id)) : [],
@@ -541,6 +546,7 @@ export const integrationsRoutes =
           found && printer ? { found, printer, printerName } : undefined,
         );
         if (deviceId) workers.syncWorker(deviceId);
+        await program.fill(get(id));
         return reply.status(201).send(toApi(get(id)));
       },
     );

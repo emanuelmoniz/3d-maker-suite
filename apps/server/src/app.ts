@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IntegrationAdapter, LogModule, PrinterStatus, SpoolLoad } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { type Autostart, detectedIps, loadKey } from "@3d-maker-suite/host";
+import { type Autostart, detectedIps, type findSlicers, loadKey } from "@3d-maker-suite/host";
 // Types only: reply.sendFile below; main.ts registers the plugin when it serves the web build.
 import type {} from "@fastify/static";
 import swagger from "@fastify/swagger";
@@ -27,6 +27,7 @@ import { createSlicerInstaller, linkLibraries } from "./integrations/managedSlic
 import { rebuildLibraries, recheckRemovals } from "./integrations/presetLibrary.ts";
 import { createPrinterStatus, type PrinterStatusRunner } from "./integrations/printerStatus.ts";
 import { createServerPresets } from "./integrations/serverPresets.ts";
+import { createSlicerProgram } from "./integrations/slicerProgram.ts";
 import { createSourceBridge } from "./integrations/sourceBridge.ts";
 import { createSpoolPush, type SpoolPush } from "./integrations/spoolPush.ts";
 import { createSyncer } from "./integrations/sync.ts";
@@ -167,6 +168,8 @@ export async function buildApp(
     updater?: Parameters<typeof createUpdater>[3];
     /** Test seam for managed slicer installs (releases, download, smoke test, system). */
     slicerInstaller?: Parameters<typeof createSlicerInstaller>[4];
+    /** Finds the slicers installed on this computer, to fill in Slicer program (off in tests). */
+    findSlicers?: typeof findSlicers;
   } = {},
 ) {
   // Any logger also feeds the `logs` table (Settings -> Logs decides what is kept).
@@ -567,6 +570,14 @@ export async function buildApp(
   );
   if (dataDir) serverPresets.start();
   app.addHook("onClose", async () => serverPresets.stop());
+  // A slicer's program is found on this computer when it is added and at each start (6.2.0 Step 3g).
+  const slicerProgram = createSlicerProgram(db, opts.adapters ?? [], opts.findSlicers);
+  if (opts.findSlicers)
+    app.addHook("onReady", async () =>
+      slicerProgram
+        .all()
+        .catch((err) => logFor("integrations").error({ err }, "finding slicer programs failed")),
+    );
   await app.register(
     integrationsRoutes(
       db,
@@ -577,6 +588,7 @@ export async function buildApp(
       deviceCatalog,
       serverPresets,
       sourceBridge,
+      slicerProgram,
     ),
     {
       prefix: "/api/integrations",

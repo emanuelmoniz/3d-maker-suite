@@ -181,6 +181,8 @@ export const integrationSchema = z.object({
   slicerPath: z.string().nullable().optional(),
   /** A server integration's installed slicer version; null = none. */
   slicerVersion: z.string().nullable().optional(),
+  /** A local slicer whose program isn't on this computer (none set, or the file is gone). */
+  slicerProgramMissing: z.boolean().optional(),
   /** The server's own install receives the hub's catalog (ADR-0022); local slicers only. */
   catalogReceive: z.boolean().optional(),
   /** Its last look; null = none yet. */

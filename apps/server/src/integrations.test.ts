@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -995,6 +995,71 @@ describe("capabilities", () => {
     expect((await setPolicy(id, "slice", { mode: "auto" })).statusCode).toBe(400);
     await set(process.execPath);
     expect((await setPolicy(id, "slice", { mode: "off" })).json().capabilities).toEqual([]);
+  });
+
+  it("finds a local slicer's program: on add and at start, a typed one that exists wins, none says so", async () => {
+    const slicer = {
+      ...mockAdapter(state),
+      id: "slicer",
+      kind: "local" as const,
+      capabilities: ["slice" as const],
+      library: { id: "slicer", defaultDirs: () => [], read: async () => [] },
+      desktop: {
+        windowsName: "Slicer",
+        macApp: "Slicer.app",
+        flatpak: "x.Slicer",
+        config: "Slicer",
+        process: "slicer",
+        presetIndent: "  ",
+        uploadsDiskEdits: false,
+        cloudClockLeadS: 0,
+        tombstones: false,
+      },
+    };
+    const exe = join(dataDir, "slicer-a.exe");
+    const moved = join(dataDir, "slicer-b.exe");
+    writeFileSync(exe, "");
+    writeFileSync(moved, "");
+    let at: string | null = exe;
+    const find = vi.fn(async () =>
+      at
+        ? [{ id: "slicer", name: "Slicer", version: "1", path: at, cli: { cmd: at, args: [] } }]
+        : [],
+    );
+    const start = async () => {
+      await app?.close();
+      app = await buildApp(db, false, "", {
+        adapters: [slicer],
+        findSlicers: find as never,
+      });
+      await app.ready();
+    };
+    const path = async (id: string) => (await get(`/api/integrations/${id}`)).slicerPath;
+    await start();
+    // Found when it is added.
+    const made = (
+      await send("POST", "/api/integrations", { adapterId: "slicer", secrets: { token: "t" } })
+    ).json();
+    const { id } = made;
+    expect(await path(id)).toBe(exe);
+    expect((await get(`/api/integrations/${id}`)).slicerProgramMissing).toBe(false);
+    // Its program moved: found again at the next start.
+    rmSync(exe);
+    at = moved;
+    await start();
+    expect(await path(id)).toBe(moved);
+    // A typed path that exists is kept.
+    const typed = join(dataDir, "typed.exe");
+    writeFileSync(typed, "");
+    await send("PATCH", `/api/integrations/${id}`, { slicerPath: typed });
+    await start();
+    expect(await path(id)).toBe(typed);
+    // Not found: the card says so, and slicing stays off.
+    rmSync(typed);
+    at = null;
+    await start();
+    const row = await get(`/api/integrations/${id}`);
+    expect(row).toMatchObject({ slicerProgramMissing: true, capabilities: [] });
   });
 
   it("a local source is ok when its folder is on this server, else unavailable; only its own types run", async () => {
