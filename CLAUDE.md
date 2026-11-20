@@ -52,6 +52,7 @@ site/              VitePress config that builds the docs site from wiki/ (output
 - `pnpm i18n:check` - missing/unused translation keys
 - `pnpm wiki:check` - wiki links, anchors, images, sidebar and route map (pending pages are listed, `--strict` fails on them)
 - `pnpm docs:dev` / `pnpm docs:build` - the documentation site from `wiki/`, live or built into `site/dist`
+- `pnpm guide:build` - the copy of that site the app serves at `/guide/` (built into `apps/web/dist/guide`, after the web build; the release build and the Dockerfile run it)
 
 ## Workflow
 - Work is driven by `PLAN.md`. Read **only the current step** in it, not the whole file.

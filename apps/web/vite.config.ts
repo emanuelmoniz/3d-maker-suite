@@ -14,6 +14,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
+      // The guide the server serves (or sends to the public site when not built, see lib/guide.ts).
+      "/guide": { target: api() },
       "/api": {
         target: api(),
         configure: (proxy) => {

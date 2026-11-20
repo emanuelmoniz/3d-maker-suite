@@ -243,7 +243,10 @@ export async function buildApp(
   });
   app.setNotFoundHandler((req, reply) =>
     // Client-side routes (reload / deep link) get the SPA shell; `sendFile` exists only when main.ts serves the web build.
-    req.method === "GET" && !req.url.startsWith("/api/") && reply.sendFile
+    req.method === "GET" &&
+    !req.url.startsWith("/api/") &&
+    !req.url.startsWith("/guide/") && // a missing guide page is a 404, not the app
+    reply.sendFile
       ? reply.sendFile("index.html")
       : reply.status(404).send({ error: { code: "not_found", message: "Route not found" } }),
   );

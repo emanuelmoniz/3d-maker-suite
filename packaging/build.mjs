@@ -3,7 +3,7 @@
 //   <id>-<tag>-<os>-<arch>{-setup.exe | .dmg | .tar.gz}
 //   <id>-<tag>-app-<os>-<arch>.zip
 // <id> is 3d-maker-suite (the app) or 3d-maker-suite-connector. The app needs apps/web/dist built
-// first; Windows needs Inno Setup 6. Node stdlib + system tools only.
+// first (the guide is built here, into it); Windows needs Inno Setup 6. Node stdlib + system tools only.
 // node packaging/build.mjs [--product server|connector] [--arch x64] [--tag v4.1.0]
 import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -127,6 +127,9 @@ writeFileSync(
 // for the server the built web app. --filter-prod: the connector's tests use the server, its bundle
 // doesn't. better-sqlite3 has N-API prebuilds for every platform and no install script.
 sh(`git archive --format=tar HEAD | tar -x -C "${app}"`);
+// The guide that ships with the app (/guide/, Step 0b of Plan 6.2.0): built from the working tree's
+// wiki/ into apps/web/dist/guide, after the web build that empties apps/web/dist.
+if (server) sh("pnpm guide:build");
 const cross = a.arch === process.arch ? "" : ` --cpu=${a.arch}`;
 sh(
   `pnpm install --prod --frozen-lockfile --filter-prod "@3d-maker-suite/${p.app}..." --config.node-linker=hoisted${cross}`,

@@ -15,6 +15,7 @@ pnpm i18n:check     # missing or unused translation keys
 pnpm wiki:check     # wiki links, anchors, images, sidebar and route map
 pnpm docs:dev       # the documentation site from wiki/, live at http://localhost:5173/3d-maker-suite/
 pnpm docs:build     # the same site, built into site/dist
+pnpm guide:build    # the copy the app serves at /guide/, built into apps/web/dist/guide (after the web build)
 ```
 
 A slow or busy machine (a laptop on battery, say) can make the heavier tests (files, git, SQLite, the mock slicer) miss Vitest's 5 s default timeout. Run `pnpm speed:check` to see CPU load, memory and power, then set `TEST_TIMEOUT=<ms>` for longer timeouts or `TEST_TIMEOUT=0` for none (PowerShell: `$env:TEST_TIMEOUT=0; pnpm test`). It sets the test, hook and `expect.poll` timeouts and skips wall-clock speed checks. It reaches `pnpm test:e2e` too (Playwright's test and `expect` timeouts) and a test's own limit, via `testTimeout(ms)` from `test-timeout.ts`; use that helper for any limit you hard-code. `pnpm test` without it stays the strict run that CI does, so run that before you push. Guard a speed check of your own with `if (!process.env.TEST_TIMEOUT)`; a polling helper with its own deadline should wait `Number(process.env.TEST_TIMEOUT) || Infinity` when it is set.

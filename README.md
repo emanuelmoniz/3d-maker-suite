@@ -99,7 +99,7 @@ PrusaLink and OctoPrint follow printer messages others published, and Bambu LAN 
 
 ## Documentation
 
-The user guide is at [emanuelmoniz.github.io/3d-maker-suite](https://emanuelmoniz.github.io/3d-maker-suite/), with search. The same pages are also on the [GitHub wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki). Both are written in [`wiki/`](wiki), see [the wiki guide](docs/wiki-guide.md). Its pages:
+The user guide is at [emanuelmoniz.github.io/3d-maker-suite](https://emanuelmoniz.github.io/3d-maker-suite/), with search, and every install and Docker image carries a copy for its own version at `/guide/` that works offline. The same pages are also on the [GitHub wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki). Both are written in [`wiki/`](wiki), see [the wiki guide](docs/wiki-guide.md). Its pages:
 
 | Topic | Where |
 |---|---|

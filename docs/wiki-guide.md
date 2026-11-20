@@ -55,6 +55,7 @@ A link to anything else in the repo, such as `../README.md`, stops the publish b
 - **The home page** shows the logo from `docs/brand` in place of its title.
 - **Each page's description** for search results is its first paragraph, the one or two sentences on what the page is for. Keep that paragraph first.
 - **Search** runs in the browser, over every page's text.
+- **The copy inside the app.** `pnpm guide:build` builds the same site with `GUIDE=app` into `apps/web/dist/guide`, where the server serves it at `/guide/` (no sign-in, no network). The release build (`packaging/build.mjs`) and the `Dockerfile` run it after the web build, so an install or image carries the guide of its own version. Differences from the public site: the base is `/guide/`, the top bar shows the version and a **Newest version online** link, the screenshots are converted to WebP (`scripts/guide-images.mjs`, about 70% smaller), and there is no sitemap, canonical link or Search Console tag, and the pages ask search engines not to index them. A source checkout that hasn't run it redirects `/guide/` to the public site. `pnpm test:e2e` builds it too. The connector doesn't carry it.
 - A `sitemap.xml` lists every page, and each page names its canonical address.
 - **Google Search Console** has the site as a URL-prefix property, `https://emanuelmoniz.github.io/3d-maker-suite/`, with the sitemap submitted. It is verified by the `google-site-verification` meta tag in the config: keep it, or the property loses its verification.
 

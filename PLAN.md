@@ -4691,7 +4691,7 @@ Every app page gets a Help icon that opens the matching section of the guide. Th
 Do Step 0 of the 6.2.0 plan in PLAN.md. Show me the spike before you set up the workflow, and ask me before the first publish.
 ```
 
-### [ ] Step 0b - The guide inside the app
+### [x] Step 0b - The guide inside the app
 **Model:** Sonnet · **Effort:** Medium
 **Why:** the online site needs internet, can be blocked on a company network, and always shows the newest version, so someone on an older install reads about buttons they don't have. The site from Step 0 is static and small (text about 0.5 MB, screenshots about 8 MB). Agreed with the user: ship it with the app, and Help opens that copy.
 **Scope:**

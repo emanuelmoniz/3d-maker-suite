@@ -12,6 +12,7 @@ import { loadConfig } from "./config.ts";
 import { adapters } from "./integrations/registry.ts";
 import { isLoopback } from "./lib/access.ts";
 import { accountsOn, hasUsers } from "./lib/auth.ts";
+import { registerGuide } from "./lib/guide.ts";
 
 /** Exit code that asks the launcher for a restart (RESTART in scripts/update.mjs). */
 const RESTART = 75;
@@ -56,9 +57,9 @@ const app = await buildApp(db, true, config.dataDir, {
       process.exit(process.env.APP_LAUNCHER ? RESTART : 0);
     }),
 });
-await app.register(fastifyStatic, {
-  root: fileURLToPath(new URL("../../web/dist", import.meta.url)),
-});
+const webDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
+await app.register(fastifyStatic, { root: webDist });
+await registerGuide(app, join(webDist, "guide")); // the guide that ships with this version
 if (accountsOn(db) && config.password)
   app.log.warn(
     "APP_PASSWORD is ignored now that users exist: sign in with your account and remove it from the environment.",

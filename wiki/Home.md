@@ -10,6 +10,8 @@ It runs on your own computer, or in Docker on a NAS or server. Your data stays w
 
 Use the sidebar to find a topic. The guide explains how to install the app and how to use each of its pages.
 
+The app carries its own copy of the guide, for the version you have installed. Open `/guide/` on the app's address, for example <http://localhost:4300/guide/>. It needs no internet and no sign-in. Each page shows the version it belongs to and a **Newest version online** link to the latest guide, in case you are on an older version.
+
 ## Finding your way in the app
 
 - **On a computer**, the menu is on the left, in groups: **Overview**, **Equipment**, **Work**, **Accounting** and **Insights**. **Settings**, your name and the theme switch are at the bottom. On a narrow window the menu shows only icons.

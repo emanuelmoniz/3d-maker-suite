@@ -5,7 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
   && rm -rf /var/lib/apt/lists/* && corepack enable
 WORKDIR /app
 COPY . .
-RUN pnpm install --frozen-lockfile && pnpm --filter @3d-maker-suite/web build
+# The guide (/guide/) is built from wiki/ after the web build, which empties its dist.
+RUN pnpm install --frozen-lockfile && pnpm --filter @3d-maker-suite/web build && pnpm guide:build
 # APP_INSTALL: the app shows `docker compose pull` instead of an Update button (ADR-0009).
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4300 APP_DATA_DIR=/data APP_INSTALL=docker
 VOLUME /data

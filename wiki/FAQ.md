@@ -19,6 +19,11 @@ No. Each print stores its cost when it is recorded.
 **Why does the Filament table on Stats show less than the total cost?**
 It shows **Material cost**: only what the filament cost. Energy, labour and wear aren't part of it. The other tables show the total cost.
 
+## The guide
+
+**Can I read this guide without internet?**
+Yes. The app has a copy of it, matching your version, at `/guide/` on the app's address, for example <http://localhost:4300/guide/>. Anyone who can reach the app can read it, signed in or not. Each page links to the **Newest version online**. The connector has no copy.
+
 ## Printers and accounts
 
 **Do I need a Bambu account?**
