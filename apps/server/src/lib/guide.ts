@@ -10,8 +10,12 @@ import type { FastifyInstance } from "fastify";
  */
 export async function registerGuide(app: FastifyInstance, root: string): Promise<boolean> {
   if (!existsSync(root)) {
+    // The same page on the public site, so a Help link still lands on its section (the browser
+    // keeps the `#section` across the redirect). The site is on a fixed host, so no open redirect.
     app.get("/guide", (_req, reply) => reply.redirect(DOCS_URL));
-    app.get("/guide/*", (_req, reply) => reply.redirect(DOCS_URL));
+    app.get<{ Params: { "*": string } }>("/guide/*", (req, reply) =>
+      reply.redirect(`${DOCS_URL}/${encodeURI(req.params["*"])}`),
+    );
     app.log.info(
       `The guide isn't built, so /guide/ opens ${DOCS_URL}. Run "pnpm guide:build" to serve it from here.`,
     );

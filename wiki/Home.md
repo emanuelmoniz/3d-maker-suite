@@ -18,6 +18,7 @@ The app carries its own copy of the guide, for the version you have installed. O
 - **On a phone**, a bar at the bottom holds **Home**, **Filament**, **Projects** and **Prints**. **More** opens the other pages, **Settings**, your account and the theme switch.
 - You only see the pages your role lets you open. **Alerts** carries a count of unread alerts.
 - The foot of each page shows the version and links to the website and GitHub.
+- Each page has a **Help** icon (a question mark) next to its title. It opens this guide in a new tab, at the part that explains that page, in the app's own copy. On a **Settings** tab it opens the section for that tab.
 - Many pages have a gear button at the top right. It opens that page's settings, such as [Printers settings](Printers-Settings.md).
 
 New here? Start with [Choose how to run](Choose-How-to-Run.md), then [First run](First-Run.md).

@@ -4707,7 +4707,7 @@ Do Step 0 of the 6.2.0 plan in PLAN.md. Show me the spike before you set up the 
 Do Step 0b of the 6.2.0 plan in PLAN.md. Tell me the size the guide adds to the installers and the image.
 ```
 
-### [ ] Step 1 - Help icon in the page header  **[plan mode]**
+### [x] Step 1 - Help icon in the page header  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - `packages/core/src/links.ts`: add `docsUrl(page, section)`: Help links open the documentation site served by the app at `/guide/` (Step 0b), matching the installed version and working offline; the public site (`DOCS_URL`, Step 0) is a link from there (agreed with the user).

@@ -2,7 +2,7 @@
 
 `wiki/` in this repo is the only source of the user guide. A workflow publishes it in two places:
 
-- **The documentation site**, <https://emanuelmoniz.github.io/3d-maker-suite/>, where users read the guide. It has search, and search engines index it. The app's Help links go there.
+- **The documentation site**, <https://emanuelmoniz.github.io/3d-maker-suite/>, where users read the guide. It has search, and search engines index it. The app also carries a copy for its own version at `/guide/`, and its Help links open that copy (each page links to the site).
 - **The GitHub wiki**, a mirror, so older links keep working.
 
 Never edit the wiki on GitHub: the next publish overwrites the change.
@@ -112,7 +112,7 @@ Every feature page uses these sections, in this order. Leave out any that don't 
 - The key is the address exactly as written in `apps/web/src/router.tsx`.
 - `section` is the anchor GitHub makes from the heading. The heading `## Printer details` becomes `printer-details`.
 - The sections in the map are planned names. When a page is written, use those headings, or change the map if a better heading fits.
-- A new app page gets its entry in the map, its wiki section and its Help link in the same step.
+- A new app page gets its entry in the map, its wiki section and its Help link in the same step. The page header's Help icon reads the map, so the page needs no code for it; without an entry the icon doesn't show, and `apps/web/src/routeMap.test.ts` fails.
 - Don't rename a page or a heading the map points to without updating the map. A pointer page is only needed for a page the map points to; any other page is simply renamed or deleted.
 - Addresses that only redirect stay out of the map.
 - Dialogs have no address, so they are explained in the section of the screen that opens them.

@@ -208,3 +208,12 @@ export const WIKI_ROUTES = {
 } as const satisfies Record<string, WikiTarget>;
 
 export type WikiRoute = keyof typeof WIKI_ROUTES;
+
+/**
+ * The guide section for a route's `fullPath` as the router reports it (an index route ends in `/`:
+ * `/settings/`), or undefined when the map has no entry (redirects, dev-only pages).
+ */
+export function wikiTarget(fullPath: string): WikiTarget | undefined {
+  const path = fullPath.length > 1 ? fullPath.replace(/\/+$/, "") : fullPath;
+  return Object.hasOwn(WIKI_ROUTES, path) ? WIKI_ROUTES[path as WikiRoute] : undefined;
+}

@@ -48,12 +48,17 @@ describe("the guide at /guide/", () => {
     expect((await a.inject({ url: "/guide/Nope" })).statusCode).toBe(404);
   });
 
-  it("not built: /guide/ goes to the public site", async () => {
+  it("not built: /guide/ goes to the same page of the public site", async () => {
     const a = await app(join(dir, "missing"));
-    for (const url of ["/guide", "/guide/", "/guide/Printers"]) {
+    for (const [url, to] of [
+      ["/guide", DOCS_URL],
+      ["/guide/", `${DOCS_URL}/`],
+      ["/guide/Printers", `${DOCS_URL}/Printers`],
+      ["/guide/Printers?x=1", `${DOCS_URL}/Printers`],
+    ]) {
       const res = await a.inject({ url });
       expect(res.statusCode).toBe(302);
-      expect(res.headers.location).toBe(DOCS_URL);
+      expect(res.headers.location).toBe(to);
     }
   });
 });

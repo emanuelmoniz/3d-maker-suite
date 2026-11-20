@@ -22,7 +22,7 @@ It shows **Material cost**: only what the filament cost. Energy, labour and wear
 ## The guide
 
 **Can I read this guide without internet?**
-Yes. The app has a copy of it, matching your version, at `/guide/` on the app's address, for example <http://localhost:4300/guide/>. Anyone who can reach the app can read it, signed in or not. Each page links to the **Newest version online**. The connector has no copy.
+Yes. The app has a copy of it, matching your version, at `/guide/` on the app's address, for example <http://localhost:4300/guide/>. Anyone who can reach the app can read it, signed in or not. Each page links to the **Newest version online**. The **Help** icon next to a page's title opens this copy at that page's section. The connector has no copy.
 
 ## Printers and accounts
 
