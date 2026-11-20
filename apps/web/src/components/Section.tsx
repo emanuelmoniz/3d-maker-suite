@@ -1,4 +1,4 @@
-import { REPO_URL } from "@3d-maker-suite/core";
+import { docsUrl, type WikiPage } from "@3d-maker-suite/core";
 import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { textLink } from "../lib/cx.ts";
@@ -24,8 +24,8 @@ export function Section({
   title: string;
   /** Anchor for links such as `/settings#updates`. */
   id?: string;
-  /** Doc path in the repo (e.g. `docs/projects.md`), shown as a small "Help" link. */
-  help?: string;
+  /** Guide page (and section), opened from a small "Help" link in the copy served at `/guide/`. */
+  help?: { page: WikiPage; section?: string };
   /** A link or button on the right of the title (e.g. "Add another account"). */
   action?: ReactNode;
   children: ReactNode;
@@ -44,7 +44,7 @@ export function Section({
         </h2>
         {help && (
           <a
-            href={`${REPO_URL}/blob/main/${help}`}
+            href={docsUrl(help.page, help.section)}
             target="_blank"
             rel="noreferrer"
             className={`text-sm ${textLink}`}

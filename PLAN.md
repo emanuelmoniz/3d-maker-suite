@@ -4722,7 +4722,7 @@ Do Step 0b of the 6.2.0 plan in PLAN.md. Tell me the size the guide adds to the 
 Do Step 1 of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 2 - Card help and the sign-in screens
+### [x] Step 2 - Card help and the sign-in screens
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - `apps/web/src/components/Section.tsx`: the `help` prop takes a guide page and section (opened on the documentation site) instead of a path in `docs/`.

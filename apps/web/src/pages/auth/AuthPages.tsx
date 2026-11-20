@@ -1,8 +1,10 @@
+import { WIKI_ROUTES, type WikiTarget } from "@3d-maker-suite/core";
 import { Link, useSearch } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { FormField, inputClass } from "../../components/FormField.tsx";
+import { HelpLink } from "../../components/HelpLink.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { safeNext, useLogin, useSetup } from "../../lib/auth.ts";
 import { brandMark, usePublicBranding } from "../../lib/branding.ts";
@@ -51,15 +53,21 @@ function AuthBrand() {
 function AuthCard({
   title,
   hint,
+  help,
   children,
 }: {
   title: string;
   hint?: string;
+  /** These screens have no page header, so the card carries the Help icon. */
+  help: WikiTarget;
   children: ReactNode;
 }) {
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-8">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-5 sm:p-6">
+      <div className="relative w-full max-w-sm rounded-lg border border-border bg-surface p-5 sm:p-6">
+        <div className="absolute end-2 top-2">
+          <HelpLink {...help} />
+        </div>
         <AuthBrand />
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {hint && <p className="mt-1 text-muted">{hint}</p>}
@@ -82,7 +90,7 @@ export function LoginPage() {
     login.mutate({ email: field(f, "email"), password: field(f, "password") });
   };
   return (
-    <AuthCard title={t("users:login.title")}>
+    <AuthCard title={t("users:login.title")} help={WIKI_ROUTES["/login"]}>
       <form onSubmit={submit} className="grid gap-4">
         <FormField label={t("users:fields.email")}>
           {(p) => (
@@ -141,7 +149,11 @@ export function SetupPage() {
     });
   };
   return (
-    <AuthCard title={t("users:setup.title")} hint={t("users:setup.hint")}>
+    <AuthCard
+      title={t("users:setup.title")}
+      hint={t("users:setup.hint")}
+      help={WIKI_ROUTES["/setup"]}
+    >
       <form onSubmit={submit} className="grid gap-4">
         <FormField label={t("users:fields.displayName")}>
           {(p) => (

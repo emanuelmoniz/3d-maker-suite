@@ -195,7 +195,7 @@ export function ProjectsConfigPage() {
     <ConfigPage module="projects">
       {({ num }) => (
         <>
-          <Section title={t("settings:projects.roots")} help="docs/projects.md">
+          <Section title={t("settings:projects.roots")} help={{ page: "Project-Folders" }}>
             <ProjectRoots />
           </Section>
           <div className={cardGrid}>
@@ -460,7 +460,7 @@ export function LogsConfigPage() {
     <ConfigPage module="logs">
       {() => (
         <div className={cardGrid}>
-          <Section title={t("settings:sections.logs")} help="docs/logs.md">
+          <Section title={t("settings:sections.logs")} help={{ page: "Logs", section: "logs-tab" }}>
             <LogSection />
           </Section>
         </div>
@@ -484,7 +484,10 @@ export function HubConfigPage() {
         } = values;
         return (
           <div className={cardGrid}>
-            <Section title={t("hub:settings.title")} help="docs/hub.md">
+            <Section
+              title={t("hub:settings.title")}
+              help={{ page: "Hub-Management", section: "devices" }}
+            >
               <FormField
                 label={t("hub:settings.deleteGuard")}
                 hint={t("hub:settings.deleteGuardHint")}
