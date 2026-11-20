@@ -11,7 +11,7 @@ How to hide, bring back and remove things in 3D Maker Suite, one at a time or ma
 
 Printers, accessories, maintenance types, printer brands, printer models, printer presets, process presets, spools, filament brands, filament materials, filament presets, projects, prints, orders, quotes and clients.
 
-Maintenance records can't be archived or deleted. They stay as permanent history.
+Maintenance records can't be archived. They can be deleted one by one from [Maintenance history](Maintenance.md#maintenance-history), by the person who logged them or by someone with **Manage**.
 
 ## Archive
 

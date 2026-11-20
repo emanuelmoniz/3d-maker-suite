@@ -38,6 +38,29 @@
     "save": "Save",
     "error": "Couldn't save. Try again."
   },
+  "history": {
+    "title": "Maintenance history",
+    "table": "Maintenance history",
+    "empty": "Nothing logged yet.",
+    "columns": {
+      "date": "Date",
+      "task": "Task",
+      "doneBy": "Done by",
+      "cost": "Cost",
+      "notes": "Notes",
+      "usage": "Usage then",
+      "actions": "Actions"
+    },
+    "usage": "{{hours}} h, {{prints}} prints",
+    "edit": "Edit record",
+    "editTitle": "Edit maintenance record",
+    "editSummary": "{{task}}",
+    "deleteTitle": "Delete this record?",
+    "deleteBody": "The next due date will then count from the previous record. If it was logged on the wrong printer, delete it and log it again on the right one.",
+    "delete": "Delete record",
+    "error": "Couldn't save. Try again.",
+    "deleteError": "Couldn't delete the record."
+  },
   "types": {
     "title": "Maintenance tasks",
     "table": "Maintenance tasks",

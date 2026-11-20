@@ -4767,7 +4767,7 @@ Found while writing the Wiki plan ("Out of scope for the Wiki plan"). Each step 
 Do Step 3b of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3c - Maintenance history: see, edit and delete records  **[plan mode]**
+### [x] Step 3c - Maintenance history: see, edit and delete records  **[plan mode]**
 **Model:** Sonnet · **Effort:** High
 **Why:** **Log done** saves a record (`maintenance_tasks`: date, cost, notes, usage at that date), but no screen lists them, only **Last done** shows. A wrong date, cost or note can't be fixed, and a wrong date shifts when the task is next due. Records don't keep who logged them.
 **Scope (agreed with the user):**

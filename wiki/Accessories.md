@@ -113,6 +113,10 @@ The buttons are:
 
 With no history, the card says **Never installed.** An archived accessory shows no buttons here.
 
+### Maintenance history
+
+Every record logged for this accessory is listed here, newest first: **Date**, **Done by**, **Cost**, **Usage then** (print hours and prints at that date) and **Notes**. **Done by** is empty for records made before 6.2.0 and for imported ones. See [Maintenance history](Maintenance.md#maintenance-history) for editing and deleting a record.
+
 ### Notes
 
 The **Notes** card keeps short notes about the accessory. It works as on a printer. See [Printers](Printers.md#notes).

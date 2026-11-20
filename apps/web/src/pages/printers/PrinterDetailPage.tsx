@@ -27,6 +27,7 @@ import {
   useUploadPhoto,
   useUsage,
 } from "../../lib/printers.ts";
+import { MaintenanceHistory } from "../maintenance/MaintenanceHistory.tsx";
 import { Comments } from "./Comments.tsx";
 import { ConnectionSection } from "./ConnectionSection.tsx";
 import { useCostInfo } from "./CostFields.tsx";
@@ -275,6 +276,8 @@ export function PrinterDetailPage() {
         {!archived && <LoadedSpools printerId={id} live={live} />}
 
         <PrinterAccessories printerId={id} />
+
+        <MaintenanceHistory printerId={id} />
 
         <Comments base={`/api/printers/${id}`} />
       </div>

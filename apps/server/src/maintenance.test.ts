@@ -2,6 +2,7 @@ import { openDb, schema } from "@3d-maker-suite/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.ts";
 import { modelIdFor } from "./lib/catalog.ts";
+import { hashPassword } from "./lib/password.ts";
 
 let db: ReturnType<typeof openDb>;
 let app: Awaited<ReturnType<typeof buildApp>>;
@@ -239,5 +240,179 @@ describe("maintenance", () => {
       typeId: type.id,
     });
     expect(missing.statusCode).toBe(404);
+  });
+});
+
+describe("maintenance history", () => {
+  const seed = async () => {
+    const printer = (
+      await post("/api/printers", { name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
+    ).json();
+    const type = (
+      await post("/api/maintenance/types", { name: "Clean nozzle", intervalPrints: 10 })
+    ).json();
+    return { printer, type };
+  };
+  const log = async (printerId: string, typeId: string, doneAt: string) =>
+    (await post("/api/maintenance/tasks", { printerId, typeId, doneAt, cost: 100 })).json();
+  const list = async (q: string) => (await app.inject(`/api/maintenance/tasks?${q}`)).json();
+
+  it("lists newest first; editing the date recomputes the usage and the due date follows", async () => {
+    const { printer, type } = await seed();
+    const prints = (n: number, startedAt: string) =>
+      db
+        .insert(schema.prints)
+        .values(
+          Array.from({ length: n }, () => ({
+            printerId: printer.id,
+            title: "t",
+            outcome: "success" as const,
+            startedAt,
+            durationSec: 600,
+          })),
+        )
+        .run();
+    prints(3, "2026-01-10T00:00:00.000Z");
+    prints(4, "2026-03-10T00:00:00.000Z");
+    const first = await log(printer.id, type.id, "2026-02-01T00:00:00.000Z");
+    const second = await log(printer.id, type.id, "2026-04-01T00:00:00.000Z");
+    expect(first).toMatchObject({ printerPrintsAt: 3 });
+    expect(second).toMatchObject({ printerPrintsAt: 7 });
+
+    const page = await list(`printerId=${printer.id}&sort=-doneAt`);
+    expect(page.items.map((t: { id: string }) => t.id)).toEqual([second.id, first.id]);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: `/api/maintenance/tasks/${second.id}`,
+      payload: { doneAt: "2026-02-15T00:00:00.000Z", cost: 250, notes: "fixed" },
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json()).toMatchObject({ printerPrintsAt: 3, cost: 250, notes: "fixed" });
+    expect((await due())[0]).toMatchObject({ lastDoneAt: "2026-02-15T00:00:00.000Z" });
+
+    const future = await app.inject({
+      method: "PATCH",
+      url: `/api/maintenance/tasks/${second.id}`,
+      payload: { doneAt: "2999-01-01T00:00:00.000Z" },
+    });
+    expect(future.statusCode).toBe(400);
+  });
+
+  it("deleting the latest record makes the due date count from the previous one", async () => {
+    const { printer, type } = await seed();
+    const first = await log(printer.id, type.id, "2026-02-01T00:00:00.000Z");
+    const second = await log(printer.id, type.id, "2026-04-01T00:00:00.000Z");
+    expect((await due())[0].lastDoneAt).toBe(second.doneAt);
+    const del = await app.inject({ method: "DELETE", url: `/api/maintenance/tasks/${second.id}` });
+    expect(del.statusCode).toBe(204);
+    expect((await due())[0].lastDoneAt).toBe(first.doneAt);
+    const again = await app.inject({
+      method: "DELETE",
+      url: `/api/maintenance/tasks/${second.id}`,
+    });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it("without users, doneBy stays empty", async () => {
+    const { printer, type } = await seed();
+    const task = await log(printer.id, type.id, "2026-02-01T00:00:00.000Z");
+    expect(task.doneBy).toBeNull();
+    expect((await list("")).items[0]).toMatchObject({ doneBy: null, doneByName: null });
+  });
+});
+
+describe("maintenance history rights", () => {
+  it("Write changes only its own records, Manage any, Read none; doneBy is filled", async () => {
+    const hash = await hashPassword("password123");
+    const role = (name: string, level: "read" | "write" | "manage") =>
+      db
+        .insert(schema.roles)
+        .values({
+          name,
+          permissions: { maintenance: level, printers: "read" } as never,
+          projectRights: {} as never,
+        })
+        .returning()
+        .get().id;
+    const user = (email: string, roleId: string) =>
+      db
+        .insert(schema.users)
+        .values({ email, displayName: email, roleId, passwordHash: hash })
+        .returning()
+        .get();
+    const [w, w2, m, r] = [
+      user("w@x.io", role("W", "write")),
+      user("w2@x.io", role("W2", "write")),
+      user("m@x.io", role("M", "manage")),
+      user("r@x.io", role("R", "read")),
+    ];
+    const cookie = async (email: string) =>
+      String(
+        (
+          await app.inject({
+            method: "POST",
+            url: "/api/auth/login",
+            payload: { email, password: "password123" },
+          })
+        ).headers["set-cookie"] ?? "",
+      ).split(";")[0] as string;
+    const [cw, cw2, cm, cr] = await Promise.all(
+      ["w@x.io", "w2@x.io", "m@x.io", "r@x.io"].map(cookie),
+    );
+    const send = (c: string, method: "POST" | "PATCH" | "DELETE", url: string, payload?: object) =>
+      app.inject({ method, url, payload, headers: { cookie: c } });
+
+    const printer = db
+      .insert(schema.printers)
+      .values({ name: "P1", modelId: modelIdFor(db, "Bambu", "P1S") })
+      .returning()
+      .get();
+    const type = db
+      .insert(schema.maintenanceTypes)
+      .values({ name: "Clean", intervalDays: 30 })
+      .returning()
+      .get();
+    const made = await send(cw as string, "POST", "/api/maintenance/tasks", {
+      printerId: printer.id,
+      typeId: type.id,
+    });
+    expect(made.json()).toMatchObject({ doneBy: w.id });
+    const url = `/api/maintenance/tasks/${made.json().id}`;
+    const listed = await app.inject({
+      url: "/api/maintenance/tasks",
+      headers: { cookie: cw as string },
+    });
+    expect(listed.json().items[0]).toMatchObject({ doneByName: "w@x.io" });
+
+    expect((await send(cw2 as string, "PATCH", url, { notes: "x" })).statusCode).toBe(403);
+    expect((await send(cw2 as string, "DELETE", url)).statusCode).toBe(403);
+    expect((await send(cr as string, "PATCH", url, { notes: "x" })).statusCode).toBe(403);
+    expect((await send(cr as string, "DELETE", url)).statusCode).toBe(403);
+    expect((await send(cw as string, "PATCH", url, { notes: "mine" })).statusCode).toBe(200);
+    expect((await send(cm as string, "PATCH", url, { notes: "boss" })).statusCode).toBe(200);
+    expect((await send(cw as string, "DELETE", url)).statusCode).toBe(204);
+
+    // A record whose author is gone (or never known) is the manager's.
+    const old = db
+      .insert(schema.maintenanceTasks)
+      .values({
+        printerId: printer.id,
+        typeId: type.id,
+        doneAt: "2026-01-01T00:00:00.000Z",
+        printerRuntimeSecAt: 0,
+        printerPrintsAt: 0,
+      })
+      .returning()
+      .get();
+    expect(
+      (await send(cw as string, "DELETE", `/api/maintenance/tasks/${old.id}`)).statusCode,
+    ).toBe(403);
+    expect(
+      (await send(cm as string, "DELETE", `/api/maintenance/tasks/${old.id}`)).statusCode,
+    ).toBe(204);
+    void m;
+    void w2;
+    void r;
   });
 });

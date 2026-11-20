@@ -65,7 +65,7 @@ A module has four steps. **None** hides it. **Read** shows it. **Write** adds an
 | Right | **Write** allows | **Manage** allows |
 |---|---|---|
 | **Printers and accessories** | Logging accessory installs | Adding and editing printers and accessories |
-| **Maintenance** | Logging work done | Editing the tasks and types |
+| **Maintenance** | Logging work done, and editing or deleting the records you logged | Editing the tasks and types, and editing or deleting any record |
 | **Filament** | Adding and editing spools | Archiving and deleting many spools at once |
 | **Projects** | Adding and editing projects and their files | Setting up the project folders |
 | **Prints** | Logging and editing prints | Changing print settings |

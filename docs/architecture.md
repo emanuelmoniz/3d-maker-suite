@@ -58,7 +58,7 @@ flowchart LR
 | **PrinterComment** | Note on a printer timeline | printerId, body, pinned, status (`open` | `resolved`) |
 | **MaintenanceType** | Reusable maintenance template | name, intervalSec?, intervalPrints?, intervalDays? (the first one reached triggers), appliesToModelIds[] + appliesToPrinterIds[] (union; empty = all printers) |
 | **UsageCorrection** | A hand correction of usage (a used machine, a counter read off it) | printerId or accessoryId, deltaSec, deltaPrints, note?, createdAt |
-| **MaintenanceTask** | A logged "done" event | printerId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes? |
+| **MaintenanceTask** | A logged "done" event | printerId or accessoryId, typeId, doneAt, printerRuntimeSecAt, printerPrintsAt, notes?, cost?, doneBy? (the user who logged it; null for older and imported records) |
 | **FilamentMaterial** | A plastic (PLA, PETG…) | name, densityGcm3?, nozzleTempC?, bedTempC?, pricePerKg? (the default for a spool without a price paid) |
 | **FilamentPreset** | A slicer's filament preset (settings only, no colour) | brand, material, name, diameterMm, densityGcm3, sourcePreset? |
 | **Spool** | A physical roll of filament | brandId?, materialId, name?, colorHex, colorName?, initialGrams, remainingGrams, pricePaid?, purchasedAt?, openedAt?, location?, archivedAt? |
@@ -73,7 +73,7 @@ flowchart LR
 
 Notes:
 
-- **Maintenance "due" is computed, not stored.** It comes from the latest MaintenanceTask for each (printer, type), compared with the printer's current hours, print count and the date.
+- **Maintenance "due" is computed, not stored.** It comes from the latest MaintenanceTask for each (printer, type), compared with the printer's current hours, print count and the date. A record can be fixed (`PATCH /api/maintenance/tasks/:id`: date, cost, notes; a new date re-snapshots the usage) or deleted (`DELETE`), so the baseline follows with no recompute. Write may change the records it logged (`doneBy`), Manage any; the route narrows the Write rule in `lib/auth.ts`. `GET /api/maintenance/tasks` adds `doneByName` and `typeName`.
 - **Printer totals are derived.** Hours and print count are the sum of its Prints plus its UsageCorrections (up to the time asked for). The user types the real totals; the API stores the difference.
 - **Usage keeps the material.** `PrintFilamentUsage.spoolId` can be null for imported prints where the spool is unknown. Its `material` is then what prices it (that material's default), so cost and stats still work.
 - **A spool is not a preset** (ADR-0020). A spool says what is on the shelf (brand, material, name, colour); a preset is a slicer setting. A plate keeps both per slot. A spool's price per kg is its price paid, else its material's default.

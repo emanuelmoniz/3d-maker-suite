@@ -20,6 +20,7 @@ import { textLink } from "../../lib/cx.ts";
 import { formatCurrency, formatDate, formatDuration, formatNumber } from "../../lib/format.ts";
 import { usePreferences } from "../../lib/preferences.ts";
 import { printerName, usePrinters } from "../../lib/printers.ts";
+import { MaintenanceHistory } from "../maintenance/MaintenanceHistory.tsx";
 import { Comments } from "./Comments.tsx";
 import { useCostInfo } from "./CostFields.tsx";
 import { InstallDialog, RemoveDialog } from "./InstallDialogs.tsx";
@@ -225,6 +226,8 @@ export function AccessoryDetailPage() {
             </ul>
           )}
         </section>
+
+        <MaintenanceHistory accessoryId={id} />
 
         <Comments base={`/api/accessories/${id}`} />
       </div>

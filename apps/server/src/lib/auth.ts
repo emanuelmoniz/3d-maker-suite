@@ -132,6 +132,8 @@ const RULES: [RegExp, string, Need][] = [
   [p(PRINTERS), "W", at("printers", "manage")],
   [p("maintenance"), "R", at("maintenance", "read")],
   [/^\/api\/maintenance\/tasks$/, "POST", at("maintenance", "write")],
+  // Fixing or deleting a record: Write for the own ones, Manage for any; the route narrows it.
+  [/^\/api\/maintenance\/tasks\/[^/]+$/, "W", at("maintenance", "write")],
   [p("maintenance"), "W", at("maintenance", "manage")],
   [p("filament"), "R", at("filament", "read")],
   [p("filament"), "W", at("filament", "write")],

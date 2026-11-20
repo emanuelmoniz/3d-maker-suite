@@ -409,6 +409,12 @@ export const maintenanceTaskSchema = z.object({
   printerPrintsAt: z.number().int().nonnegative(),
   notes: z.string().nullable(),
   cost: money.nullable(),
+  /** The user who logged it; null for older and imported records. */
+  doneBy: id.nullable(),
+  /** That user's display name, filled by the list. */
+  doneByName: z.string().nullable().optional(),
+  /** The task's name, filled by the list. */
+  typeName: z.string().optional(),
   ...timestamps,
 });
 

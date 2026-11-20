@@ -1,6 +1,8 @@
 import type {
   MaintenanceDueItem,
   MaintenanceLog,
+  MaintenanceTask,
+  MaintenanceTaskPatch,
   MaintenanceType,
   MaintenanceTypeInput,
   MaintenanceTypePatch,
@@ -10,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { accessoryName, useAccessories } from "./accessories.ts";
 import { api } from "./api.ts";
 import { useModelInfo } from "./catalog.ts";
+import { useListPage } from "./list.ts";
 import { printerName, usePrinters } from "./printers.ts";
 
 export const useDue = () =>
@@ -43,6 +46,26 @@ export const usePatchType = () =>
 
 export const useLogDone = () =>
   useInvalidating((v: MaintenanceLog) => api("POST", "/api/maintenance/tasks", v));
+
+/** The records logged for one printer, accessory or task, newest first (the list's key is under "maintenance"). */
+export const useTaskHistory = (filter: {
+  printerId?: string;
+  accessoryId?: string;
+  typeId?: string;
+}) =>
+  useListPage<MaintenanceTask>(["maintenance", "tasks", filter], "/api/maintenance/tasks", {
+    ...(Object.fromEntries(Object.entries(filter).filter(([, v]) => v)) as Record<string, string>),
+    sort: "-doneAt",
+    pageSize: "100",
+  });
+
+export const usePatchTask = () =>
+  useInvalidating((v: { id: string; patch: MaintenanceTaskPatch }) =>
+    api("PATCH", `/api/maintenance/tasks/${v.id}`, v.patch),
+  );
+
+export const useDeleteTask = () =>
+  useInvalidating((id: string) => api("DELETE", `/api/maintenance/tasks/${id}`));
 
 /** "P1S, 01-X1C" / "AMS, 02-Hotend": what a type applies to, or "All printers/accessories". */
 export function useAppliesTo() {

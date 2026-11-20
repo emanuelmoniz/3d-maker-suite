@@ -544,9 +544,12 @@ export const maintenanceTasks = sqliteTable(
     notes: text(),
     /** Minor units. */
     cost: integer(),
+    /** Who logged it. Null for older and imported records, and once the user is deleted. */
+    doneBy: text().references((): AnySQLiteColumn => users.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (t) => [
+    index("maintenance_tasks_done_by_idx").on(t.doneBy),
     index("maintenance_tasks_latest_idx").on(t.printerId, t.typeId, t.doneAt),
     index("maintenance_tasks_accessory_idx").on(t.accessoryId, t.typeId, t.doneAt),
     check(

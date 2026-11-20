@@ -988,6 +988,13 @@
       "when": 1795034983128,
       "tag": "0140_device_outdated_since",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "6",
+      "when": 1795184181326,
+      "tag": "0141_maintenance_done_by",
+      "breakpoints": true
     }
   ]
 }

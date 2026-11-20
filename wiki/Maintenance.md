@@ -12,6 +12,8 @@ Maintenance is the third tab of the **Printers** page. You describe a task once,
 |---|---|
 | See the tab, **Due** and a task's page | **Maintenance** with **Read** |
 | Press **Log done** | **Maintenance** with **Write** |
+| Edit or delete a record you logged | **Maintenance** with **Write** |
+| Edit or delete any record | **Maintenance** with **Manage** |
 | Add, edit, archive, restore or delete a task | **Maintenance** with **Manage** |
 
 Someone who can read only **Maintenance** (and not **Printers**) sees only this tab. Works the same with or without a hub.
@@ -59,7 +61,27 @@ Press **Log done** on a line to open **Log maintenance done**. It names the task
 
 Press **Save**. The line starts counting again from that day. Cancel with **Cancel** or the Escape key.
 
-A log can't be edited or deleted afterwards. It stays as permanent history.
+The record keeps who logged it. To fix it later, see [Maintenance history](#maintenance-history).
+
+### Maintenance history
+
+The **Maintenance history** card lists the records logged. It is on [a task's page](#task-details) (that task's records), on a printer's page and on an accessory's page (all records for it). Newest first, with:
+
+| Column | What it shows |
+|---|---|
+| **Date** | The day the work was done |
+| **Task** | The task. Not shown on the task's own page |
+| **Done by** | Who logged it. **—** for records made before 6.2.0 and for imported ones |
+| **Cost** | The cost, or **—** |
+| **Usage then** | The print hours and prints at that date |
+| **Notes** | What was written |
+
+With nothing logged, it says **Nothing logged yet.**
+
+A record can be corrected or deleted by the person who logged it (**Maintenance** with **Write**), or by anyone with **Manage**. Others see the list without the buttons.
+
+- **Edit record** (the pencil) opens **Edit maintenance record** with **Date**, **Cost** and **Notes**. A new **Date** counts the usage up to that day again, and can't be in the future. The task's next due date follows, because it counts from the latest record.
+- **Delete record** (the bin) asks **Delete this record?** The next due date then counts from the previous record. It can't be undone. If a record is on the wrong printer or accessory, delete it and log it again on the right one. There is no move.
 
 ### Maintenance tasks
 
@@ -127,7 +149,7 @@ The **Task details** card shows:
 | **Applies to** | What it is limited to, or **All printers** or **All accessories** |
 | **Documentation link** | The link, shown as the site's name. It opens in a new tab. Only shown when set |
 
-The page doesn't list the work already logged. That history shows as **Last done** in [Due](#due).
+Under the card, [Maintenance history](#maintenance-history) lists the work already logged for this task. **Last done** in [Due](#due) is the latest of those records.
 
 ## Common tasks
 
@@ -168,7 +190,7 @@ The usage is counted up to that day, so prints made since then count toward the 
 
 1. Open the task and press **Archive**.
 
-An archived task leaves **Due** and its logs stay. **Restore** brings it back. A task with logs can't be deleted.
+An archived task leaves **Due** and its logs stay. **Restore** brings it back. A task can't be deleted while it has records. Delete its records first, or keep it archived.
 
 ## Related settings
 
@@ -181,7 +203,7 @@ An archived task leaves **Due** and its logs stay. **Restore** brings it back. A
 - A task is for printers or for accessories, not both. Make two tasks if you need both.
 - A task's limits are counted from the last time it was logged, for each printer or accessory on its own.
 - A past **Date** counts the usage up to that day. A **Date** in the future is not allowed.
-- Maintenance logs are permanent. Log with care, and use **Notes** to explain.
+- A wrong record can be edited or deleted from [Maintenance history](#maintenance-history). Deleting the latest one moves the due date back to the previous record.
 - **Correct usage** on a printer or accessory changes due dates at once. Work already logged keeps the usage it recorded when it was done.
 - Archiving a printer, an accessory or a model removes its lines from **Due**.
 
@@ -191,6 +213,7 @@ An archived task leaves **Due** and its logs stay. **Restore** brings it back. A
 |---|---|
 | The **Maintenance** tab doesn't show | Your role has no **Maintenance** right |
 | No **Log done** button | It needs **Maintenance** with **Write** |
+| No pencil or bin on a record | Write changes only the records you logged. Ask someone with **Manage**. Older and imported records have no author, so they need **Manage** too |
 | No **Add task** button | It needs **Maintenance** with **Manage** |
 | **Nothing scheduled** | Add a task, or check that it isn't archived and applies to a printer that exists |
 | A printer is missing from **Due** | Check **Only for models** and **Only for printers**, and that the printer isn't archived |

@@ -1,12 +1,14 @@
 import {
   apiErrorSchema,
   archivedFilter,
+  hasLevel,
   idList,
   listQuery,
   type MaintenanceTask,
   type MaintenanceType,
   maintenanceDueItemSchema,
   maintenanceLogSchema,
+  maintenanceTaskPatchSchema,
   maintenanceTaskSchema,
   maintenanceTaskSortFields,
   maintenanceTypeFilters,
@@ -18,7 +20,7 @@ import {
   pageOf,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
@@ -27,8 +29,9 @@ import { modelName } from "../lib/catalog.ts";
 import { deleteItem } from "../lib/dependents.ts";
 import { inIds, listPage } from "../lib/list.ts";
 import { accessoryUsageOf, dueItems, usageOf } from "../lib/maintenance.ts";
+import type { SessionUser } from "../lib/session.ts";
 
-const { accessories, maintenanceTypes, maintenanceTasks, printers } = schema;
+const { accessories, maintenanceTypes, maintenanceTasks, printers, users } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 // "Brand Model, Brand Model" of the models a type applies to (accessory types for accessory
@@ -148,8 +151,8 @@ export const maintenanceRoutes =
           response: { 200: pageOf(maintenanceTaskSchema) },
         },
       },
-      async (req) =>
-        listPage(db, maintenanceTasks, req.query, {
+      async (req) => {
+        const page = listPage(db, maintenanceTasks, req.query, {
           sort: { doneAt: maintenanceTasks.doneAt, createdAt: maintenanceTasks.createdAt },
           dateColumn: maintenanceTasks.doneAt,
           where: [
@@ -157,7 +160,93 @@ export const maintenanceRoutes =
             inIds(maintenanceTasks.accessoryId, req.query.accessoryId),
             inIds(maintenanceTasks.typeId, req.query.typeId),
           ],
-        }) as Page<MaintenanceTask>,
+        }) as Page<MaintenanceTask>;
+        const ids = [...new Set(page.items.flatMap((t) => (t.doneBy ? [t.doneBy] : [])))];
+        const names = new Map(
+          ids.length
+            ? db
+                .select({ id: users.id, name: users.displayName })
+                .from(users)
+                .where(inArray(users.id, ids))
+                .all()
+                .map((u) => [u.id, u.name])
+            : [],
+        );
+        const typeIds = [...new Set(page.items.map((t) => t.typeId))];
+        const typeNames = new Map(
+          typeIds.length
+            ? db
+                .select({ id: maintenanceTypes.id, name: maintenanceTypes.name })
+                .from(maintenanceTypes)
+                .where(inArray(maintenanceTypes.id, typeIds))
+                .all()
+                .map((x) => [x.id, x.name])
+            : [],
+        );
+        return {
+          ...page,
+          items: page.items.map((t) => ({
+            ...t,
+            doneByName: t.doneBy ? (names.get(t.doneBy) ?? null) : null,
+            typeName: typeNames.get(t.typeId),
+          })),
+        };
+      },
+    );
+
+    const getTask = (taskId: string) => {
+      const row = db.select().from(maintenanceTasks).where(eq(maintenanceTasks.id, taskId)).get();
+      if (!row) throw new HttpError(404, "not_found", "Maintenance record not found");
+      return row;
+    };
+    /** Write fixes or deletes the user's own records, Manage any (no users yet: anyone). */
+    const assertMayChange = (user: SessionUser | undefined, task: { doneBy: string | null }) => {
+      if (!user || user.rights.admin || hasLevel(user.rights.permissions, "maintenance", "manage"))
+        return;
+      if (task.doneBy !== user.id)
+        throw new HttpError(403, "forbidden", "You can only change the records you logged");
+    };
+
+    app.patch(
+      "/tasks/:id",
+      {
+        schema: {
+          params,
+          body: maintenanceTaskPatchSchema,
+          response: { 200: maintenanceTaskSchema, 403: apiErrorSchema, ...notFound },
+        },
+      },
+      async (req) => {
+        const task = getTask(req.params.id);
+        assertMayChange(req.user, task);
+        const patch: Partial<typeof maintenanceTasks.$inferInsert> = { ...req.body };
+        if (req.body.doneAt && req.body.doneAt !== task.doneAt) {
+          if (new Date(req.body.doneAt).getTime() > Date.now() + 60_000)
+            throw new HttpError(400, "future_date", "A record can't be dated in the future");
+          const at = task.printerId
+            ? usageOf(db, getPrinter(task.printerId), req.body.doneAt)
+            : accessoryUsageOf(db, task.accessoryId as string, req.body.doneAt);
+          patch.printerRuntimeSecAt = at.runtimeSec;
+          patch.printerPrintsAt = at.prints;
+        }
+        const row = db
+          .update(maintenanceTasks)
+          .set(patch)
+          .where(eq(maintenanceTasks.id, task.id))
+          .returning()
+          .get();
+        return row as MaintenanceTask;
+      },
+    );
+
+    app.delete(
+      "/tasks/:id",
+      { schema: { params, response: { 204: z.null(), 403: apiErrorSchema, ...notFound } } },
+      async (req, reply) => {
+        assertMayChange(req.user, getTask(req.params.id));
+        db.delete(maintenanceTasks).where(eq(maintenanceTasks.id, req.params.id)).run();
+        return reply.status(204).send(null);
+      },
     );
 
     app.post(
@@ -188,6 +277,7 @@ export const maintenanceRoutes =
             doneAt,
             printerRuntimeSecAt: at.runtimeSec,
             printerPrintsAt: at.prints,
+            doneBy: req.user?.id ?? null,
           })
           .returning()
           .get();

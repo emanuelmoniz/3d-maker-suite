@@ -58,6 +58,16 @@ export const maintenanceLogSchema = maintenanceTaskSchema
     message: "Give either printerId or accessoryId",
   });
 
+/** Fixing a logged record: any subset. A new `doneAt` re-snapshots the usage at that date. */
+export const maintenanceTaskPatchSchema = z
+  .object({
+    doneAt: isoDate,
+    cost: maintenanceTaskSchema.shape.cost,
+    notes: maintenanceTaskSchema.shape.notes,
+  })
+  .partial()
+  .strict();
+
 /** One printer (or accessory) x type pair with its next-due calculation. */
 export const maintenanceDueItemSchema = maintenanceDueSchema.extend({
   target: z.enum(MAINTENANCE_TARGETS),
@@ -78,5 +88,6 @@ export const maintenanceTaskSortFields = ["doneAt", "createdAt"] as const;
 
 export type MaintenanceTypeInput = z.infer<typeof maintenanceTypeInputSchema>;
 export type MaintenanceTypePatch = z.infer<typeof maintenanceTypePatchSchema>;
+export type MaintenanceTaskPatch = z.infer<typeof maintenanceTaskPatchSchema>;
 export type MaintenanceLog = z.infer<typeof maintenanceLogSchema>;
 export type MaintenanceDueItem = z.infer<typeof maintenanceDueItemSchema>;

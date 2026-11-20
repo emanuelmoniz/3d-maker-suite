@@ -11,7 +11,7 @@ Plan 5.2.0 Phase 22 gives every entity the same three actions. This ADR is the d
 ## Decision
 
 ### The three actions
-Applies to 16 entities: printers, accessories, maintenance types, printer brands, printer models, machine profiles, print profiles, spools, filament brands, filament materials, filament profiles, projects, prints, orders, quotes, clients. Maintenance task records stay permanent history.
+Applies to 16 entities: printers, accessories, maintenance types, printer brands, printer models, machine profiles, print profiles, spools, filament brands, filament materials, filament profiles, projects, prints, orders, quotes, clients. Maintenance task records are not archived; since 6.2.0 Step 3c a record can be edited or deleted one by one (its author with Write, anyone with Manage).
 
 - **Archive** hides an item from lists and pickers; a "Show archived" filter finds it and Restore brings it back. Stats, costs and spool weight still count it.
 - **Delete** is real and only works when nothing depends on the item. Archived items still block.
@@ -215,7 +215,7 @@ Each row is the `PATCH` or `DELETE` its own button sends, replayed in process as
 
 ## Consequences
 - `DELETE` on a printer or accessory now removes the row. This is a behaviour change for API users, in the CHANGELOG, on a minor version: the web never called these, and one with history is refused rather than lost.
-- A printer that has printed can't be deleted, only archived, and neither can one with a maintenance task, since those records are permanent. That is the point.
+- A printer that has printed can't be deleted, only archived, and neither can one with a maintenance task. The records stay until someone deletes them one by one (6.2.0 Step 3c), so history is never lost in bulk.
 - Six blocks rest on the helper alone, with the FK saying otherwise. The guard test keeps the map complete, but a raw `db.delete` that skips the helper would take the FK's action.
 - `spool_weight_entries` is append-only except when its whole spool is deleted.
 - `archivedAt` keeps two meanings on profiles (archived by you, old preset version), and "Show archived" shows both.

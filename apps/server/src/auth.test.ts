@@ -74,6 +74,7 @@ const MATRIX: Record<string, [viewer: string, editor: string]> = {
   "/api/clients": ["R", "RW"],
   "/api/accessories/abc/installs": ["R", "RW"],
   "/api/maintenance/tasks": ["R", "RW"],
+  "/api/maintenance/tasks/abc": ["R", "RW"],
   "/api/maintenance/types": ["R", "R"],
   "/api/filament/presets": ["R", "R"],
   "/api/stats": ["R", "R"],

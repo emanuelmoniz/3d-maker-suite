@@ -7,6 +7,7 @@ import { textLink } from "../../lib/cx.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { useAppliesTo, useMaintenanceType } from "../../lib/maintenance.ts";
 import { Info, linkButton } from "../filament/SpoolDetailPage.tsx";
+import { MaintenanceHistory } from "./MaintenanceHistory.tsx";
 
 export function TypeDetailPage() {
   const { t } = useTranslation();
@@ -67,6 +68,9 @@ export function TypeDetailPage() {
           )}
         </dl>
       </section>
+      <div className="mt-4">
+        <MaintenanceHistory typeId={id} />
+      </div>
     </>
   );
 }
