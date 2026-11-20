@@ -39,7 +39,11 @@ test("catalog row: pick brands, only those arrive, then only what you have", asy
   const { id } = await app.api<{ id: string }>("POST", "/api/integrations", {
     adapterId: "orca-slicer",
   });
-  await app.api("PATCH", `/api/integrations/${id}`, { slicerConfigDir: slicerFolder() });
+  // A program that exists, so the card doesn't say the slicer program wasn't found (Step 3g).
+  await app.api("PATCH", `/api/integrations/${id}`, {
+    slicerConfigDir: slicerFolder(),
+    slicerPath: process.execPath,
+  });
   // Actions say what they do; they stay with the connection.
   await gotoIntegrations(page);
   await expect(page.getByText("When active, this integration can be used")).toBeVisible();
