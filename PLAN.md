@@ -4578,7 +4578,7 @@ Do Step 27 of the Wiki plan in PLAN.md. Ask me before running the publish.
 ## Out of scope for the Wiki plan (later plans)
 - **Found while writing Step 6, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
   - **First admin from another device in Docker.** **Planned: Plan 6.3.0, Step 1b.** The shipped `docker-compose.yml` (`HOST: 0.0.0.0`, no `APP_PASSWORD`) answers `403 forbidden_host` to every address except `localhost` until the first admin exists, yet the log offers a setup token "from another device". A phone on the LAN can't reach the setup page unless `APP_ALLOWED_HOSTS` names the server's address.
-  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. Slicing stays x64 only. **Planned: Plan 6.3.0, Step 4** (with the connector image, native ARM runners, slicer greyed out on ARM) **and Step 3** (the app's `linux-arm64` archive).
+  - **ARM image.** `release.yml` builds the Docker image for x64 only (no `platforms:`, no QEMU), so ARM NAS devices and Raspberry Pi can't pull it. Publish `linux/arm64` too, or decide it stays unsupported. **Planned: Plan 6.3.0, Step 4** (with the connector image, native ARM runners; OrcaSlicer slices on ARM and Bambu Studio is greyed out there, ADR-0024) **and Step 3** (the app's `linux-arm64` archive).
   - **Connector on a NAS.** **Planned: Plan 6.3.0** (pairing by environment variables, Docker for NAS and servers, a systemd archive for a Pi or a server without Docker, no LAN status page, sync folder answers and change user from the hub: agreed with the user, written in Steps 1, 2 and 7). The connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build or Docker image. A headless or ARM NAS can't be paired. `docs/hub.md` still says a NAS "joins by running a small connector".
   - **File owner in Docker.** **Planned: Plan 6.3.0, Step 4** (`PUID`/`PGID`, one start script for the app and connector images, agreed with the user). The image runs as `root`, so files and folders the app creates in a mounted project folder belong to `root` on the NAS. Add a way to pick the user (`PUID`/`PGID` or `user:`).
 - **Found while writing Step 8, each needs its own plan step** (the wiki pages state today's behaviour and must be updated when these are fixed):
@@ -4903,7 +4903,7 @@ A connector can run on an ARM computer, in Docker and on a NAS, so a NAS or smal
 Today (found in Wiki Step 6): the connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build and no Docker image. A headless or ARM NAS can't be paired.
 
 How this plan works:
-- **Targets:** Linux ARM64 (Raspberry Pi, ARM NAS), a container image for x64 and ARM64, and NAS devices with Docker or with a Linux shell. Windows ARM and macOS don't change. A connector on ARM can't slice: the slicers have no Linux ARM build, so it can't be a slice worker.
+- **Targets:** Linux ARM64 (Raspberry Pi, ARM NAS), a container image for x64 and ARM64, and NAS devices with Docker or with a Linux shell. Windows ARM and macOS don't change. On ARM only OrcaSlicer slices: it has a Linux ARM64 build, Bambu Studio doesn't (found in Step 1, ADR-0024), so an ARM machine is a slice worker for Orca only.
 - **Same protocol, same rules.** Pairing, the closed list of operations, the device token, "one hub per machine" and "follows the hub's version" stay as in ADR-0014. This plan changes packaging, the way to pair without a screen, and how the version is kept.
 - **A connector in Docker is not a hub.** It joins a hub that runs elsewhere (or in another container). The first-admin problem of the app image is fixed in Step 1b.
 - **Docs and wiki follow in the same commit as each step** (`CLAUDE.md`): `docs/hub.md`, ADR-0014 (amend, saying which step), README's support matrix, and the wiki pages `Docker`, `Install-from-Source`, `Install-on-Linux`, `Choose-How-to-Run`, `Connector-Setup` and `Hub-Setup` (the NAS page is gone after the Wiki Install plan; its facts live on these pages).
@@ -4911,7 +4911,7 @@ How this plan works:
 
 ## Phase 66 - Design and packaging
 
-### [ ] Step 1 - Design, spikes and ADR  **[plan mode]**
+### [x] Step 1 - Design, spikes and ADR  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Scope:**
 - ADR-0024. Decide, after a spike on each:
@@ -4921,10 +4921,12 @@ How this plan works:
   - **Printers.** What reaches a printer from a container: bridge networking with a typed address, or host networking for discovery (the Bambu LAN adapter discovers by SSDP). Which printer and spool-library adapters work in each.
   - **Folders on shares.** Which mounted folders send change events, and the rescan that covers the rest (the hub already drives a scheduled rescan, `roots.rescan`).
   - **Where each install fits (decided with the user).** Docker is the main route for a NAS (Synology, QNAP, Asustor) and any server with Docker, private servers included: isolated, runs as a chosen user, sees only its mounts, listens on nothing outside the container. The Linux archive with `install.sh --headless` (a systemd service started at boot, instead of an app-menu entry) is for a Raspberry Pi or a Linux server without Docker. NAS systems don't support adding services, so they use the container.
-  - **ARM builds (decided with the user).** The ARM64 Linux archives of the connector **and the app** come from a native ARM runner (`ubuntu-24.04-arm`). The images are multi-arch, each architecture built on its own native runner and merged into one tag; QEMU only where a test needs it. The `-slicer` image stays x64 only.
+  - **ARM builds (decided with the user).** The ARM64 Linux archives of the connector **and the app** come from a native ARM runner (`ubuntu-24.04-arm`). The images are multi-arch, each architecture built on its own native runner and merged into one tag; QEMU only where a test needs it. The `-slicer` image stays x64 only (changed after the spike: multi-arch, for OrcaSlicer on ARM; see Done below).
 - Spikes: the connector's Node bundle running on ARM64 (native runner, and QEMU for the image), a container paired against a hub in CI, and a Bambu LAN printer seen from a container in bridge and host mode.
 - Settle names: the image (`ghcr.io/emanuelmoniz/3d-maker-suite-connector`), its tags (`X.Y.Z`, `latest`, `dev`), the compose example.
 - Adjust Steps 2 to 7 to what the spikes show.
+
+**Done (2026-11-20):** `docs/adr/0024-connector-arm-docker-nas.md`, evidence on the branch `spike/connector` (`spike/connector/NOTES.md`). Agreed with the user after the spikes: OrcaSlicer is supported on ARM; a refused code leaves the connector up unpaired; codes for headless devices last 24 hours; the compose example uses host networking. Steps 2 to 7 below are adjusted.
 
 **Done when:** the ADR is accepted; each decision above has a measured result; the steps below match it.
 **Prompt:**
@@ -4951,17 +4953,20 @@ Do Step 1b of the 6.3.0 plan in PLAN.md.
 ### [ ] Step 2 - Headless connector
 **Model:** Sonnet · **Effort:** High
 **Scope:**
-- The connector starts and pairs with no browser and no desktop session, as decided in Step 1: environment variables or flags only.
+- The connector starts and pairs with no browser and no desktop session, as decided in Step 1 (ADR-0024): `CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE`, optional `CONNECTOR_NAME`, or the flags `--hub-url`, `--pairing-code`, `--name` (the launcher passes its arguments through).
 - **No LAN status page (decided with the user).** The local page keeps running for `/api/health` (the container's health check) but stays on the container's own loopback: the compose example publishes no port, so nothing is reachable from the network. Desktops keep the page as it is (pairing, "this machine" through `/api/whoami`, unpair, stop).
 - **The two actions only the local page has get a hub path, for every connector** (server side here, the buttons in Step 7):
   - A missing sync folder's **Delete on the hub too** and **Restore them** (`/sync/confirm`, `/sync/restore` in `apps/connector/src/status.ts`) can also be answered from the hub: the hub sends the choice to the connector over its event stream, within the closed list of operations (ADR-0014, amend).
   - **Change user** on a headless connector is done by an admin on the hub, with no code: the code proves someone is at the machine, which a machine with no screen can't do. Desktops keep the code. The connector reports whether it is headless (archive `--headless` or Docker).
-- `APP_INSTALL=docker` for the connector (set by its image): no start at login, no self-update, **Outdated** shows the command. The connector's own locale file carries the texts.
-- The device token and data stay in the data folder, so a restart or an image update keeps the pairing. A wrong or used code gives a clear log line and exit, not a loop.
+- `APP_INSTALL=docker` for the connector (set by its image): no start at login, no self-update, **Outdated** shows the command. The connector sends its install kind (bundle, headless, docker) with its version and the hub stores it: today a Docker connector and a bundle one that hasn't updated yet look the same (Step 1, S3). The connector's own locale file carries the texts.
+- A headless or Docker connector doesn't write the desktop autostart file (today it does whenever the launcher sets `APP_LAUNCH_CMD`, so a Pi with a desktop would start it twice).
+- The device token and data stay in the data folder, so a restart or an image update keeps the pairing.
+- **A refused code (agreed with the user after Step 1):** one clear log line ("wrong, used or expired": the hub answers the same 401 for all three), and the connector **stays up unpaired**. It never exits for it: under `restart: unless-stopped` that looped 11 times in 2 minutes and locked pairing out for that address, valid codes included (S2). It keeps a hash of each refused code in its data folder and never sends it again, across restarts and after a revoke; a new code in the variable is tried at the next start.
+- **Pairing codes, server side:** `POST /api/hub/pairing-codes` takes the kind; a code for a NAS, server or container lasts 24 hours, a desktop one 10 minutes (agreed with the user). Unused codes are listed for admins and can be withdrawn (the page is Step 7). Amend ADR-0014's pairing.
 - Ownership of created files: the connector writes as the user it runs as (the image's `PUID`/`PGID` start script is in Step 4; the systemd service runs as the installing user).
-- Unit tests for the new start paths, and for pairing from environment variables against a test hub.
+- Unit tests for the new start paths, and for pairing from environment variables against a test hub: a refused code is not sent again after a restart, a revoked connector doesn't resend its used code, a 24-hour code still pairs after 10 minutes, a withdrawn code is refused.
 
-**Done when:** a connector started with only environment variables pairs and shows online in Hub management; a restart stays paired; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Done when:** a connector started with only environment variables pairs and shows online in Hub management; a restart stays paired; a refused code leaves it up and isn't sent twice; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 2 of the 6.3.0 plan in PLAN.md.
@@ -4971,12 +4976,16 @@ Do Step 2 of the 6.3.0 plan in PLAN.md.
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - `packaging/build.mjs --arch arm64` on Linux (Node arm64 tarball; `better-sqlite3` prebuild for the app's archive, the connector needs none).
-- `release.yml`: a build matrix entry on a native ARM runner (`ubuntu-24.04-arm`) for the connector **and the app** (agreed with the user), each installed and started once like the others. `connector.yml`: the pairing test on the ARM runner.
+- `release.yml`: a build matrix entry on a native ARM runner (`ubuntu-24.04-arm`) for the connector **and the app** (agreed with the user), each installed and started once like the others (the spike's `bundle` job did this in 2 minutes). `connector.yml`: the pairing test on the ARM runner, and an `install.sh --headless` run there that pairs from `Environment=`, is killed and comes back.
 - The app's in-app update picks the `linux-arm64` archive (`apps/server/src/updates/updates.ts` already names the asset by `process.arch`; test it). The wiki page `Install-on-Linux` covers ARM64 (Raspberry Pi with a desktop), so `Install-from-Source` is no longer the ARM route.
-- `packaging/install.sh`: the headless install decided in Step 1 (a systemd service for the user, started at boot), next to the app-menu entry.
+- `packaging/install.sh --headless`, as decided in Step 1 (ADR-0024), next to the app-menu entry:
+  - It writes a systemd **user** service that runs `launcher.mjs --background`, with `Restart=always`. With `on-failure`, a connector killed by a signal stayed down in the spike (S7), because the launcher reports that as exit 0.
+  - It runs `loginctl enable-linger` and, if that is refused, prints the `sudo` line to run once. Without linger the service stops when the user's last session ends.
+  - The variables and flags of Step 2 go in the service's `Environment=`.
+- The launcher exits non-zero when its program dies from a signal, so any supervisor sees a crash.
 - `SHA256SUMS` and the attestations cover the new files; the connector's self-update picks the `linux-arm64` file of the hub's release (`apps/connector/src/update.ts`).
 
-**Done when:** a test build (`workflow_dispatch`) produces the ARM archive; the install and a pairing test pass on the ARM runner; the connector on an ARM machine updates to the hub's version in a test; tests, lint and `pnpm typecheck` pass.
+**Done when:** a test build (`workflow_dispatch`) produces the ARM archive; the install, the headless install and a pairing test pass on the ARM runner; the connector on an ARM machine updates to the hub's version in a test; tests, lint and `pnpm typecheck` pass.
 **Prompt:**
 ```
 Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not a tag.
@@ -4985,15 +4994,26 @@ Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not 
 ### [ ] Step 4 - Container images for x64 and ARM64
 **Model:** Sonnet · **Effort:** High
 **Scope:**
-- A `Dockerfile` target (or a second file) for the connector: small, runs as the chosen user, `HEALTHCHECK` on its `/api/health`, data in a volume, shared folders as mounts.
-- `release.yml` `docker` job: `linux/amd64` and `linux/arm64`, each built on its own native runner (`ubuntu-latest`, `ubuntu-24.04-arm`) and merged into one multi-arch tag with `docker buildx imagetools create`, so `docker pull` picks the right one. No QEMU for the build: `pnpm install` and the web build under emulation are several times slower and flaky. Tags `X.Y.Z` and `latest` for stable, `X.Y.Z-alpha.N` and `dev` for pre-releases, same as the app.
-- The app image gets `linux/arm64` the same way (closes the "ARM image" item); the `-slicer` image stays x64 only and says so in its description.
+- A `Dockerfile` target (or a second file) for the connector, `ghcr.io/emanuelmoniz/3d-maker-suite-connector`:
+  - Built from the connector's archive contents (the pruned tree of `packaging/build.mjs`, 133 MB installed) on `node:22-trixie-slim`, not from the source tree (630 MB in the spike).
+  - Runs as the chosen user, with `HEALTHCHECK` on its `/api/health`.
+  - Data in a volume, shared folders as mounts.
+- `release.yml` `docker` job: `linux/amd64` and `linux/arm64`, each built on its own native runner (`ubuntu-latest`, `ubuntu-24.04-arm`) and merged into one multi-arch tag with `docker buildx imagetools create`, so `docker pull` picks the right one.
+  - No QEMU: in Step 1 the app image took 421 s under it against 50 s natively.
+  - Tags `X.Y.Z` and `latest` for stable, `X.Y.Z-alpha.N` and `dev` for pre-releases, same as the app.
+- The app image gets `linux/arm64` the same way (closes the "ARM image" item). So does the `-slicer` image: it builds natively on ARM (74 s, 1.91 GB in Step 1), for OrcaSlicer.
+- **The images start the program with `node`, not `pnpm`.** As another user, the app image's `pnpm --filter … start` makes corepack download pnpm again, then fails on `node_modules` (permission denied), and offline it fails at the download (Step 1, S4). Started with `tsx` directly it runs, offline too.
 - **File owner: `PUID` and `PGID` (decided with the user),** one start script shared by the app image and the connector image. It runs as root once, changes the owner of `/data` only (never the mounted project folders), then drops to that user with `setpriv` (util-linux, already in the base image; no new dependency) and starts the program. Without the variables it stays `root`, so existing installs keep working after the update. `docker-compose.yml` and the connector example carry `PUID`/`PGID` lines with a comment on how to find them (`id` over SSH, or the NAS user page). Slicers installed into `/data/slicers` still run. A CI test starts the image with `PUID`/`PGID`, uploads into a mounted folder and checks the owner. Wiki `Docker`: the folder permissions section.
-- **The app says it can't slice on ARM.** Nothing checks the architecture before a slicer install today (`packages/host/src/slicerInstall.ts`), so on ARM it would download an x64 AppImage and fail. On an ARM server, **This server** under **Where** for Bambu Studio and OrcaSlicer is greyed out with the reason (i18n), the server refuses the install with a clear error, and slicing goes to a connector or slice worker on x64 or a Mac. Tests for both.
-- A compose example for the connector (`docker-compose.connector.yml`, or a section in `docker-compose.yml`) with the pairing variables, the data volume and a shared folder.
-- A CI job that starts the connector image against a hub and pairs it (`scripts/pair-test.mjs`).
+- **Slicing on ARM: OrcaSlicer yes, Bambu Studio no** (agreed with the user after Step 1). Orca has published a Linux aarch64 AppImage since 2.4.0, and 2.5.1 sliced on the ARM runner as the `PUID` user. Bambu Studio has no Linux ARM build. Nothing checks the architecture before a slicer install today (`packages/host/src/slicerInstall.ts`).
+  - The managed Orca install picks `OrcaSlicer_Linux_AppImage_Ubuntu2404_aarch64_V*.AppImage` on ARM (`packages/adapters/orca/src/index.ts`, x64 only today).
+  - On an ARM server, **This server** under **Where** for Bambu Studio is greyed out with the reason (i18n), and the server refuses its install with a clear error.
+  - Tests for both, with the releases fixture's aarch64 names.
+- A compose example for the connector, `docker-compose.connector.yml`:
+  - **Host networking** (agreed with the user): discovery hears broadcast and multicast, and there are no ports to publish. A commented bridge variant for typed printer addresses.
+  - The pairing variables, `PUID`/`PGID`, the data volume, and a shared folder mounted with `bind-propagation: rslave`. In Step 1 a share mounted on the host after the container started was invisible without it.
+- A CI job that starts the connector image against a hub and pairs it (`scripts/pair-test.mjs`), on both native runners.
 
-**Done when:** a test build pushes both images for both architectures; the image pairs in CI; `docker run` on an ARM64 machine (or QEMU) starts and pairs; tests, lint and `pnpm typecheck` pass.
+**Done when:** a test build pushes the three images for both architectures; the image pairs in CI on both; Orca installs and slices on the ARM runner; tests, lint and `pnpm typecheck` pass.
 **Prompt:**
 ```
 Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag and delete them after.
@@ -5005,11 +5025,19 @@ Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag a
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - A device root on a mounted folder: browse, index, upload, create folder and move to its trash, with the chosen file owner; read-only mounts say so instead of failing quietly.
-- Change events on mounts that send none (SMB, NFS, some Docker mounts): the rescan from Step 1 covers it, and the machine page shows when a root is only rescanned. Large folders don't stall the connector.
+- Change events (Step 1, S6):
+  - A folder on the machine's own disk sends events in a container (bind mount or volume), including new subfolders and bursts.
+  - A share mounted from elsewhere (SMB, NFS) sends events only for changes made through that mount. Changes on the server or from another computer send none, though a listing sees them at once.
+  - So the scheduled rescan covers those roots. The machine page shows when a root is on such a share and only rescanned (the root's file system type: `cifs`, `smb3`, `nfs`, `fuse.*`). Large folders don't stall the connector.
+- **A root that comes back is watched again.** A share that dropped and was mounted again left the watcher silent, with no error (S6).
+  - Today `roots.rescan` re-indexes it but never restarts its watcher (`apps/connector/src/roots.ts`). The hub's scanner re-watches only when the roots change (`apps/server/src/projects/scanner.ts`).
+  - Fix both: watch a root again when a rescan or a check finds it back after being missing.
 - A root that isn't there (an unmounted share) is reported and skipped, as on the hub.
-- Tests against temp folders (read-only, missing, no events), and the e2e spec for a device root.
+- Tests against temp folders: read-only, missing, no events, and missing then back (watched again).
+- The e2e spec for a device root.
+- Wiki: the `rslave` mount, and NAS container UIs that can't set it (restart the container after the share is mounted).
 
-**Done when:** a connector in a container indexes a mounted folder, keeps it current without change events, uploads and trashes files with the right owner; tests, lint and `pnpm typecheck` pass.
+**Done when:** a connector in a container indexes a mounted folder, keeps it current without change events, watches a root again when it comes back, uploads and trashes files with the right owner; tests, lint and `pnpm typecheck` pass.
 **Prompt:**
 ```
 Do Step 5 of the 6.3.0 plan in PLAN.md.
@@ -5018,8 +5046,12 @@ Do Step 5 of the 6.3.0 plan in PLAN.md.
 ### [ ] Step 6 - Printers through a container or NAS connector
 **Model:** Sonnet · **Effort:** High
 **Scope:**
-- Check every adapter the connector can run (Bambu LAN, Moonraker, OctoPrint, PrusaLink, Spoolman) from a container with bridge networking, and with host networking where the adapter needs it (discovery).
-- Fix what fails. Where a mode can't work, the setup screen says so in plain words (i18n keys), not a workaround in the docs.
+- Check every adapter the connector can run (Bambu LAN, Moonraker, OctoPrint, PrusaLink, Spoolman) from a container with host networking (the compose example's default) and with bridge networking.
+- Step 1's simulation (S5), which this step confirms:
+  - Every adapter goes out from the connector, so a typed address works in every mode.
+  - Only Bambu LAN's discovery depends on the mode: none in bridge; broadcast only in bridge with UDP 2021/1990 published; broadcast and multicast in host or macvlan.
+- Check on the A1 which destination its announce uses (broadcast or multicast).
+- Fix what fails. Where discovery hears nothing (bridge, another subnet), the printer setup says so in plain words and asks for the address (i18n keys), not a workaround in the docs.
 - Bambu LAN on the real printer from a container: the user's A1 on the LAN, tested together.
 
 **Done when:** each adapter is marked works or doesn't in the ADR, with the reason; the A1 reports status and a print through a container connector; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
@@ -5031,9 +5063,11 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 ### [ ] Step 7 - Hub management: pair a headless or container device
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container. The second shows the code and the exact command or compose lines with the hub's address filled in (copy buttons, no secret beyond the one-time code).
-- The machine page shows how the connector is installed (archive, Docker), its architecture, and for Docker the update command when it is **Outdated**.
-- The slice worker switch is greyed out, with the reason, on ARM.
+- **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container.
+  - The second makes a code that lasts 24 hours (Step 2). It shows the code and the exact command or compose lines (host networking, `PUID`/`PGID`, `rslave` shares) with the hub's address filled in. Copy buttons; no secret beyond the one-time code.
+- Unused codes are listed with **Withdraw**: a 24-hour code outlives the admin's visit.
+- The machine page shows how the connector is installed (archive, headless, Docker), its architecture, and for Docker the update command when it is **Outdated**.
+- On ARM the slice worker switch is for OrcaSlicer only. Bambu Studio is greyed out with the reason (no Linux ARM build).
 - The machine page shows a connector's missing sync folders with **Delete on the hub too** and **Restore them** (every connector, desktops too), and **Change user** on a headless connector applies at once, without a code (Step 2).
 - i18n keys, e2e spec, `pnpm screenshots` and the wiki screenshots for Hub management.
 
@@ -5209,7 +5243,7 @@ Do Step 8f of the 6.3.0 plan in PLAN.md. Tell me what to check by hand on macOS 
 ### [ ] Step 9 - Real test, docs, push & v6.3.0-alpha.1
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
-- Real test, with the user's hardware: an ARM64 machine with the archive, a NAS or server with the container, a hub, a printer on the container's network, a project folder on the NAS shown in the hub, and one update of the hub with the connector following.
+- Real test, with the user's hardware: an ARM64 machine with the archive, a NAS or server with the container, a hub, a printer on the container's network, a project folder on the NAS shown in the hub, and one update of the hub with the connector following. A real project sliced with OrcaSlicer on the ARM64 machine, timed against the 10-minute slice limit and watched for memory (ADR-0024 risk); the ADR records the result.
 - Updates and backups (Phase 67b): a Docker update leaves a backup, and a Docker rollback with the app's steps works; a newer backup is refused; a fresh install restores from the first-run screen and restarts by itself, with the public address and slicers back; **Uninstall…** on the user's PC.
 - Hub (Steps 1b, 7b to 7d): the first admin of a fresh container from another device; the hub moved to a new address with its connectors following; a connector replaced by another computer, and one removed.
 - Fix anything found. Docs and wiki: `docs/hub.md` (its "a NAS joins by running a connector" is now true, with the install steps), ADR-0014 amendment, README feature list and support matrix, the wiki pages named at the top of this plan (and their screenshots), CHANGELOG, version `6.3.0-alpha.1` in root, `apps/*` and `packages/*`, `pnpm version:check`, `pnpm wiki:check`.

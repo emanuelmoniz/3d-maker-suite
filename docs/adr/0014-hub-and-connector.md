@@ -1,6 +1,6 @@
 # ADR-0014: Hub and connector: central files, device roots, slice workers
 
-- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub, and a spool library, its first write on another system, and a test of a source before it is saved (see the 2026-11-17 amendments).
+- Status: Accepted (after the Plan 5.0.0 Step 1 spikes, see Spike results). Amended by ADR-0020: the fixed operation list gains sending a slicer's `system/` folder. Amended by ADR-0021: the connector opens the hub page, shared folders are picked and stored on the hub, picks replace the sync mode, `fs.list` reaches the whole disk, and three operations are added (see the 2026-11-10 amendment). Amended by ADR-0015: the connector reaches printers for the hub, and a spool library, its first write on another system, and a test of a source before it is saved (see the 2026-11-17 amendments). Amended by ADR-0024: the connector on ARM, in Docker and on a NAS, pairing without a screen and 24-hour codes for headless devices (see the 2026-11-20 amendment).
 - Date: 2026-10-26, accepted 2026-10-27
 
 ## Context
@@ -302,3 +302,14 @@ A hub on another network reaches Spoolman through a connector there, as it reach
 - **No outbox on the connector.** The hub's `spool_usage_pushes` is the outbox: what each spool should hold per key, minus what was confirmed. An edit or delete of a print changes that, so a write kept on the connector could go stale. Usage exists only once the hub has recorded a print, so while the hub is away there is nothing to keep; a print the connector's tracker held reaches the hub when it is back, and its usage follows. While the machine is offline, the write-back skips the library without an error and counts what waits; its connect kicks a run.
 - **Moonraker through the same machine** keeps `chargedAtSource`: its snapshots and ended prints carry it through the connector, so its jobs aren't written to Spoolman twice, and a spool it prints with waits as on the LAN.
 - **Names.** Before 6.0.0 shipped, the names Step 14 gave the bridge became source names, since they carry a spool library too: the events `sources.changed` and `sources.read` (were `printers.*`), `/api/hub/device/sources` (was `/printers`), `X-Source-Adapters`, the connector's `sources.json` and `apps/connector/src/sources/registry.ts`. No released connector used the old ones.
+
+## Amendment (2026-11-20): the connector on ARM, in Docker and on a NAS (6.3.0 Step 1, ADR-0024)
+
+ADR-0024 decides the packaging and setup; the protocol doesn't change (pairing, the closed list of operations, the device token, one hub per machine, following the hub's version).
+
+- **Packaging** gains a Linux ARM64 archive, a headless Linux install (`install.sh --headless`, a systemd user service) and a multi-arch image, `ghcr.io/emanuelmoniz/3d-maker-suite-connector`. In the image the connector doesn't update itself: it reports its install kind, and the hub's **Outdated** shows `docker compose pull`.
+- **Pairing without a screen:** the hub URL and the code come from `CONNECTOR_HUB_URL` and `CONNECTOR_PAIRING_CODE` (or `--hub-url` and `--pairing-code`). A refused code is never sent again, and the connector stays up unpaired instead of exiting.
+- **A code's lifetime:** a code made for a NAS, server or container lasts 24 hours (a desktop code still lasts 10 minutes, see Pairing above), and an unused one can be withdrawn in Hub management.
+- **The local page** of a headless or Docker connector stays on loopback, for `/api/health` only. Its two actions that have no hub path yet (a missing sync folder's **Delete on the hub too** and **Restore them**) become fixed operations sent from the hub, added to the list above by Plan 6.3.0 Step 2.
+- **Change user** on a headless connector needs no code; an admin does it on the hub.
+- **Slicing on ARM:** an ARM machine can be a slice worker for OrcaSlicer, not for Bambu Studio, which has no Linux ARM build.

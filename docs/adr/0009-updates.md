@@ -1,6 +1,6 @@
 # ADR-0009: Updates through a small launcher, git tags and pre-update backups
 
-- Status: Accepted, amended by ADR-0011 (installers and bundle updates)
+- Status: Accepted, amended by ADR-0011 (installers and bundle updates) and ADR-0024 (the connector in Docker, see below)
 - Date: 2026-10-22
 
 ## Context
@@ -32,6 +32,8 @@ There is no process supervisor. The app runs in a terminal from `pnpm start`, an
 | docker | `APP_INSTALL=docker`, set in the Dockerfile | `docker compose pull` + `docker compose up -d` |
 | other (a zip, or the server started without the launcher) | neither of the above | the git commands to run by hand |
 | dev (`pnpm dev`) | `npm_lifecycle_event=dev` | the git commands to run by hand |
+
+The connector's image follows the same rule (amended 2026-11-20, Plan 6.3.0 Step 1, ADR-0024). Its `APP_INSTALL=docker` means no self-update. The connector reports that install kind to its hub, and the hub's **Outdated** shows `docker compose pull` + `docker compose up -d` for it.
 
 ### Restart: a built-in launcher instead of a supervisor
 - `pnpm start` runs `node scripts/start.mjs`: Node stdlib only, no workspace imports, so it works from whatever version is checked out.
