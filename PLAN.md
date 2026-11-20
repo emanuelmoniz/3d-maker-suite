@@ -4653,7 +4653,7 @@ Do Step 1 of the Wiki Install plan in PLAN.md. Show me where each section of the
 Do Step 2 of the Wiki Install plan in PLAN.md.
 ```
 
-### [ ] Step 3 - Review and publish
+### [x] Step 3 - Review and publish
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - Read the **Get started** pages in sidebar order as a new user, once for each of the five installs, plus a NAS with Docker and a NAS without it. Each path reaches the first admin without a dead end or a missing step.
