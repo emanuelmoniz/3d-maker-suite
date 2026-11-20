@@ -16,6 +16,13 @@ import { BUILT_IN_ROLE_IDS } from "../packages/core/src/schemas/roles.ts";
 
 const IMAGES = "docs/images";
 
+// The app's wide logo in the sidebar and on the sign-in card (Show the app name off), the same
+// logo, size and place as the documentation site's (site/.vitepress/theme/custom.css). Set before
+// any account exists, so it needs no session.
+test.beforeEach(async ({ app }) => {
+  await app.api("PATCH", "/api/preferences", { brandShowName: false });
+});
+
 test("README screenshots", async ({ page, app }) => {
   test.setTimeout(180_000);
   const type = await app.api<{ id: string }>("POST", "/api/maintenance/types", {
