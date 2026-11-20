@@ -396,6 +396,57 @@ describe("alerts", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("raises one warranty alert per accessory, naming its printer, and resolves it", async () => {
+    const inDays = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString();
+    const make = async (name: string, warrantyEndsAt?: string) =>
+      (await send("POST", "/api/accessories", { name, type: "AMS", warrantyEndsAt })).json();
+    const due = await make("Due", inDays(12));
+    const loose = await make("Loose", inDays(5));
+    await make("Far", inDays(90));
+    await make("Past", inDays(-3));
+    await make("None");
+    const archived = await make("Old", inDays(4));
+    db.update(schema.accessories)
+      .set({ archivedAt: new Date().toISOString() })
+      .where(eq(schema.accessories.id, archived.id))
+      .run();
+    const printer = (
+      await send("POST", "/api/printers", { name: "A1", modelId: modelIdFor(db, "Bambu", "P1S") })
+    ).json();
+    db.insert(schema.accessoryInstalls)
+      .values({ accessoryId: due.id, printerId: printer.id, installedAt: inDays(-30) })
+      .run();
+
+    await evaluate();
+    await evaluate();
+    const alerts = (await list()).filter((a: { kind: string }) => a.kind === "warranty_ending");
+    expect(alerts).toHaveLength(2);
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          module: "printers",
+          entityType: "accessory",
+          entityId: due.id,
+          context: expect.objectContaining({ days: 12, printer: expect.stringContaining("A1") }),
+        }),
+        expect.objectContaining({
+          entityId: loose.id,
+          context: expect.objectContaining({ days: 5 }),
+        }),
+      ]),
+    );
+    expect(
+      alerts.find((a: { entityId: string }) => a.entityId === loose.id).context,
+    ).not.toHaveProperty("printer");
+
+    // The date moves out of the window: resolved.
+    await send("PATCH", `/api/accessories/${due.id}`, { warrantyEndsAt: inDays(60) });
+    await evaluate();
+    expect(
+      (await list()).filter((a: { kind: string }) => a.kind === "warranty_ending"),
+    ).toHaveLength(1);
+  });
+
   it("raises sync_pending while an auto sync leaves rows for review, unless switched off", async () => {
     const { id } = db.insert(schema.integrations).values({ adapterId: "mock" }).returning().get();
     const policy = (set: Partial<typeof schema.syncPolicies.$inferInsert>) =>

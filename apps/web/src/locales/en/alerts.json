@@ -107,6 +107,8 @@
     "maintenance_overdue": "{{task}} is overdue on {{printer}}",
     "warranty_ending_one": "Warranty of {{name}} ends in {{count}} day",
     "warranty_ending_other": "Warranty of {{name}} ends in {{count}} days",
+    "warranty_ending_on_one": "Warranty of {{name}} on {{printer}} ends in {{count}} day",
+    "warranty_ending_on_other": "Warranty of {{name}} on {{printer}} ends in {{count}} days",
     "sync_pending_one": "{{type}} from {{name}}: {{count}} waits for your review",
     "sync_pending_other": "{{type}} from {{name}}: {{count}} wait for your review",
     "sync_success": "{{type}} from {{name}} synced",

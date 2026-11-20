@@ -26,7 +26,7 @@ Nothing. Alerts are raised by the app itself. The menu item shows a count of the
 | **Spool without price** | A spool has no price | **Filament** read |
 | **Spool without open date** | A spool is in use but has no open date | **Filament** read |
 | **Maintenance due** | A task is due soon or overdue | **Maintenance** read |
-| **Warranty ending** | A printer's warranty ends soon | **Printers** read |
+| **Warranty ending** | A printer's or an accessory's warranty ends within 30 days (one alert each; an archived one raises none) | **Printers** read |
 | **Printer offline** | A printer stops answering during a print for over 2 minutes | **Printers** read |
 | **Printer unreachable** | The connector of a printer went offline during a print | **Printers** read |
 | **Print finished**, **Print failed** | One alert per print. A cancelled print raises none, and neither does imported history | **Prints** read |

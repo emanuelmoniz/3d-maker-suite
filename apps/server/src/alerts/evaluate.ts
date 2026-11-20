@@ -31,7 +31,7 @@ import type { Silent } from "../integrations/printerStatus.ts";
 import { accountsOn, alertVisible } from "../lib/auth.ts";
 import { spoolName } from "../lib/catalog.ts";
 import { dueItems } from "../lib/maintenance.ts";
-import { printerTitle } from "../lib/numbers.ts";
+import { accessoryTitle, printerTitle } from "../lib/numbers.ts";
 import { readPreferences } from "../lib/preferences.ts";
 import { isEnabled, sessionUser } from "../lib/session.ts";
 import { own } from "../routes/alerts.ts";
@@ -40,6 +40,8 @@ import { VERSION } from "../updates/updates.ts";
 import { channels, destinationsOf, readChannel, sendVia } from "./channels.ts";
 
 const {
+  accessories,
+  accessoryInstalls,
   alerts,
   alertStates,
   devices,
@@ -213,6 +215,31 @@ function conditions(db: Db, now: Date, offline: Silent[]): Found {
       });
   }
 
+  // Accessories: the same rule; the alert names the printer the accessory is on now, if any.
+  for (const a of db.select().from(accessories).where(isNull(accessories.archivedAt)).all()) {
+    const ends = a.warrantyEndsAt ? Date.parse(a.warrantyEndsAt) : Number.NaN;
+    if (!(ends >= now.getTime() && ends <= limit)) continue;
+    const on = db
+      .select({ number: printers.number, name: printers.name })
+      .from(accessoryInstalls)
+      .innerJoin(printers, eq(printers.id, accessoryInstalls.printerId))
+      .where(and(eq(accessoryInstalls.accessoryId, a.id), isNull(accessoryInstalls.removedAt)))
+      .get();
+    add({
+      kind: "warranty_ending",
+      severity: "warning",
+      module: "printers",
+      task: `accessory:${a.id}`,
+      entityType: "accessory",
+      entityId: a.id,
+      context: {
+        name: accessoryTitle(a),
+        days: Math.ceil((ends - now.getTime()) / DAY_MS),
+        ...(on && { printer: printerTitle(on) }),
+      },
+    });
+  }
+
   // An auto sync left rows for a person (a print no spool matches, a twin preset...), or a slicer's
   // catalog or user presets did: those are looked after whatever the type's mode, unless it's off.
   for (const p of db
@@ -376,7 +403,10 @@ function textOf(a: typeof alerts.$inferSelect): { title: string; body: string } 
         body: `${c.task} on ${c.printer}`,
       };
     case "warranty_ending":
-      return { title: "Warranty ending", body: `${c.name}: ${c.days} days left` };
+      return {
+        title: "Warranty ending",
+        body: `${c.name}${c.printer ? ` on ${c.printer}` : ""}: ${c.days} days left`,
+      };
     case "sync_pending":
       return { title: "Sync needs review", body: `${c.count} ${c.type} waiting for review` };
     case "sync_success":

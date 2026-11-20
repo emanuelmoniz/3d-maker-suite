@@ -27,7 +27,7 @@ An alert was a `kind` plus the entity it is about and a few display values. How 
 |---|---|---|---|---|
 | `spool_low` | same | warning | filament | `spool:<spoolId>` |
 | `maintenance_due` | same | warning; error if `overdue` = 1 (`overdue` is dropped from the context) | maintenance | `maintenance:<targetId>:<typeId>` |
-| `warranty_ending` | same | warning | printers | `printer:<printerId>` |
+| `warranty_ending` | same | warning | printers | `printer:<printerId>`, or `accessory:<accessoryId>` (Plan 6.2.0, Step 3b) |
 | `sync_pending` | same | warning | integrations | `sync:<integrationId>:<type>` |
 | `sync_success` | same | success | integrations | `sync:<integrationId>:<type>` (from the context) |
 | `sync_error` | same | error | integrations | `sync:<integrationId>:<type>` (from the context) |

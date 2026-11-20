@@ -182,7 +182,13 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         { task: c.task, printer: c.printer },
       ),
     warranty_ending: () =>
-      t("alerts:kinds.warranty_ending", { name: c.name, count: Number(c.days) }),
+      c.printer
+        ? t("alerts:kinds.warranty_ending_on", {
+            name: c.name,
+            printer: c.printer,
+            count: Number(c.days),
+          })
+        : t("alerts:kinds.warranty_ending", { name: c.name, count: Number(c.days) }),
     sync_pending: () =>
       t("alerts:kinds.sync_pending", {
         name: adapterName(String(c.adapterId)),
@@ -261,6 +267,15 @@ export function Title({ a, inList }: { a: Alert; inList?: boolean }) {
         </Link>
       );
     case "warranty_ending":
+      return a.entityType === "accessory" ? (
+        <Link to="/printers/accessories/$id" params={{ id: a.entityId }} className={textLink}>
+          {text}
+        </Link>
+      ) : (
+        <Link to="/printers/$id" params={{ id: a.entityId }} className={textLink}>
+          {text}
+        </Link>
+      );
     case "printer_offline":
     case "printer_unreachable":
       return (

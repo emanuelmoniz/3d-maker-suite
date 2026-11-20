@@ -4751,7 +4751,7 @@ Do Step 3 of the 6.2.0 plan in PLAN.md.
 
 Found while writing the Wiki plan ("Out of scope for the Wiki plan"). Each step updates the wiki page that states today's behaviour, in the same commit.
 
-### [ ] Step 3b - Warranty alert for accessories
+### [x] Step 3b - Warranty alert for accessories
 **Model:** Sonnet · **Effort:** Medium
 **Why:** an accessory has **Warranty ends**, but `warranty_ending` in `apps/server/src/alerts/evaluate.ts` only checks printers, so an accessory's warranty runs out silently.
 **Scope (agreed with the user):**

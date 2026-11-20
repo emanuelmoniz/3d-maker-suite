@@ -63,7 +63,7 @@ Press a column header to sort. Most columns have a filter too. **State** is filt
 | **Typical power (W)** | Used to estimate energy for the prints it is on | No | `30` |
 | **Purchase date** | When you bought it | No | `2026-03-14` |
 | **Purchase price (EUR)** | What you paid, in your currency, which the label shows | No | `120.00` |
-| **Warranty ends** | The date the warranty ends. Unlike a printer's, an accessory's ending warranty raises no alert | No | `2028-03-14` |
+| **Warranty ends** | The date the warranty ends. Like a printer's, it raises a **Warranty ending** alert 30 days before (see [Alerts](Alerts.md)); the alert names the printer the accessory is on, and opens the accessory | No | `2028-03-14` |
 | **Warranty notes** | Where the receipt is, who to call | No | `Shop receipt in the drawer` |
 | **Tags** | Your own labels | No | `spare` |
 
