@@ -4903,7 +4903,7 @@ A connector can run on an ARM computer, in Docker and on a NAS, so a NAS or smal
 Today (found in Wiki Step 6): the connector is packaged for desktops only (Windows, macOS, Linux x64 with an app menu and an autostart `.desktop` file), its pair page answers on `127.0.0.1:4301` only, and there is no ARM build and no Docker image. A headless or ARM NAS can't be paired.
 
 How this plan works:
-- **Targets:** Linux ARM64 (Raspberry Pi, ARM NAS), a container image for x64 and ARM64, and NAS devices with Docker or with a Linux shell. Windows ARM and macOS don't change. A machine on ARM doesn't slice and can't be a slice worker. Bambu Studio has no Linux ARM build. OrcaSlicer has one, but supporting it was left out after Step 1 (ADR-0024).
+- **Targets:** Linux ARM64 (Raspberry Pi, ARM NAS), a container image for x64 and ARM64, NAS devices with Docker or with a Linux shell, and Windows Server x64 with no one signed in (Step 3b, added with the user after Step 2). Windows ARM and macOS don't change. A machine on ARM doesn't slice and can't be a slice worker. Bambu Studio has no Linux ARM build. OrcaSlicer has one, but supporting it was left out after Step 1 (ADR-0024).
 - **Same protocol, same rules.** Pairing, the closed list of operations, the device token, "one hub per machine" and "follows the hub's version" stay as in ADR-0014. This plan changes packaging, the way to pair without a screen, and how the version is kept.
 - **A connector in Docker is not a hub.** It joins a hub that runs elsewhere (or in another container). The first-admin problem of the app image is fixed in Step 1b.
 - **Docs and wiki follow in the same commit as each step** (`CLAUDE.md`): `docs/hub.md`, ADR-0014 (amend, saying which step), README's support matrix, and the wiki pages `Docker`, `Install-from-Source`, `Install-on-Linux`, `Choose-How-to-Run`, `Connector-Setup` and `Hub-Setup` (the NAS page is gone after the Wiki Install plan; its facts live on these pages).
@@ -4991,6 +4991,27 @@ Do Step 2 of the 6.3.0 plan in PLAN.md.
 Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not a tag.
 ```
 
+### [ ] Step 3b - Windows Server: headless install  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why (added with the user after Step 2):** on Windows the connector only starts when a user signs in (start at login), and it pairs on its local page in a browser there. A Windows Server without a desktop (Server Core), or one that should run the connector at boot with nobody signed in, has no supported setup. Docker isn't a route there either: the connector image is a Linux image, and Windows Server doesn't normally run Linux containers.
+**Scope:**
+- **Decide first, after a spike (ADR-0024, amend):** what starts the connector at boot with nobody signed in, and as which user. The options to measure:
+  - a Task Scheduler task "at startup, whether the user is signed in or not" (built into Windows, no new dependency; creating it needs admin rights and the account's password, or a service account);
+  - a real Windows service through a wrapper (WinSW, NSSM: a new dependency, with a short reason in the commit).
+
+  For each: it starts at boot with no sign-in, comes back after a crash or a kill, stops for good on **Stop connector** (exit 0), survives a self-update (the launcher's exit 75), and which user owns its data folder and the files it writes. Not `LocalSystem`: its data folder would land in the system profile and it would write as SYSTEM. Recommended unless the spike says otherwise: the scheduled task, as the installing user or an account the admin names.
+- **The install:** the Windows installer (`packaging/setup.iss`) gains a headless choice, also as a silent install for Server Core (`/VERYSILENT` with the hub URL, code and name). It registers the start chosen above with the launcher's `--background --headless` and the Step 2 variables or flags, and writes no start-at-login entry. The uninstaller removes it (keep in step with Step 7c).
+- The launcher exits non-zero when its program dies from a signal or is killed (as in Step 3), so the task or service sees a crash.
+- The connector reports `headless`, so the hub's change user without a code (Step 2) and Step 7's buttons work for it. Self-update keeps working, as for any bundle install.
+- **CI:** GitHub's Windows runners are Windows Server. `connector.yml` runs a silent headless install there that pairs from the variables, is killed and comes back, and survives a restart of the task or service; a second run checks an update to a newer test build.
+- Wiki: `Connector-Setup` (Windows Server, with and without a desktop; the silent install line), `Choose-How-to-Run`, `Hub-Setup`. README support matrix: Windows Server x64 for the connector. ADR-0024's "Where each install fits" gains a Windows Server row. Windows on ARM stays as it is.
+
+**Done when:** on a Windows Server runner, a silent headless install pairs from the variables with nobody signed in, comes back after a kill, stops for good on **Stop connector**, and updates to the hub's version; the uninstaller removes it; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 3b of the 6.3.0 plan in PLAN.md. Show me the spike results for the task and the service before you pick one. Use a workflow_dispatch test build, not a tag.
+```
+
 ### [ ] Step 4 - Container images for x64 and ARM64
 **Model:** Sonnet · **Effort:** High
 **Scope:**
@@ -5061,7 +5082,7 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container.
-  - The second makes a code that lasts 24 hours (Step 2). It shows the code and the exact command or compose lines (host networking, `PUID`/`PGID`, `rslave` shares) with the hub's address filled in. Copy buttons; no secret beyond the one-time code.
+  - The second makes a code that lasts 24 hours (Step 2). It shows the code and the exact command or compose lines (host networking, `PUID`/`PGID`, `rslave` shares), and the Windows Server silent install line (Step 3b), with the hub's address filled in. Copy buttons; no secret beyond the one-time code.
 - Unused codes are listed with **Withdraw**: a 24-hour code outlives the admin's visit.
 - The machine page shows how the connector is installed (archive, headless, Docker), its architecture, and for Docker the update command when it is **Outdated**.
 - The slice worker switch is greyed out, with the reason, on ARM.
