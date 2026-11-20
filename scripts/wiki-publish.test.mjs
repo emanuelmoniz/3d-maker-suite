@@ -149,23 +149,55 @@ describe("shouldPublishOnRelease", () => {
 describe("workflows", () => {
   const workflow = (name) => readFileSync(join(repo, ".github/workflows", name), "utf8");
 
-  it("release.yml publishes the wiki last, and only when the release check says so", () => {
+  /** The text of one job: from `  name:` to the next job or the end. */
+  const job = (text, name) => {
+    const start = text.indexOf(`\n  ${name}:\n`);
+    expect(start, `job ${name}`).toBeGreaterThan(-1);
+    const next = text.slice(start + 1).search(/\n {2}[\w-]+:\n/);
+    return next === -1 ? text.slice(start) : text.slice(start, start + 1 + next);
+  };
+
+  it("release.yml publishes the guide last, and only when the release check says so", () => {
     const release = workflow("release.yml");
     expect(release).toMatch(/publish_wiki: \$\{\{ steps\.tag\.outputs\.publish_wiki \}\}/);
     expect(release).toContain('--release-check "$GITHUB_EVENT_NAME" "$TAG"');
-    const job = release.slice(release.indexOf("\n  wiki:"));
-    expect(job).toContain("needs: [check, docker]");
-    expect(job).toContain("if: needs.check.outputs.publish_wiki == 'true'");
-    expect(job).toContain("contents: write");
-    expect(job).toContain("uses: ./.github/workflows/wiki.yml");
+    const wiki = job(release, "wiki");
+    expect(wiki).toContain("needs: [check, docker]");
+    expect(wiki).toContain("if: needs.check.outputs.publish_wiki == 'true'");
+    // A called workflow gets no more than its caller grants: the wiki push and the Pages deploy.
+    for (const p of ["contents: write", "pages: write", "id-token: write"])
+      expect(wiki).toContain(p);
+    expect(wiki).toContain("uses: ./.github/workflows/wiki.yml");
   });
 
-  it("wiki.yml grants write access to the publish job only", () => {
+  it("wiki.yml checks and builds the site before anything publishes", () => {
     const wiki = workflow("wiki.yml");
     expect(wiki).toContain("workflow_dispatch:");
     expect(wiki).toContain("workflow_call:");
+    const build = job(wiki, "build");
+    const steps = ["wiki-check.mjs --strict", "pnpm docs:build", "upload-pages-artifact"];
+    const at = steps.map((s) => build.indexOf(s));
+    expect(at.every((i) => i > -1)).toBe(true);
+    expect(at).toEqual([...at].sort((a, b) => a - b));
+    expect(job(wiki, "site")).toContain("needs: build");
+    expect(job(wiki, "publish")).toContain("needs: build");
+  });
+
+  it("wiki.yml grants each job only what it needs", () => {
+    const wiki = workflow("wiki.yml");
     expect(wiki).toMatch(/^permissions: \{\}$/m);
+    expect(job(wiki, "build")).toContain("contents: read");
+    expect(job(wiki, "build")).not.toMatch(/: write/);
+    const site = job(wiki, "site");
+    expect(site).toContain("pages: write");
+    expect(site).toContain("id-token: write");
+    expect(site).toContain("name: github-pages");
+    expect(site).not.toContain("contents: write");
+    const publish = job(wiki, "publish");
+    expect(publish).toContain("contents: write");
+    expect(publish).not.toMatch(/pages: write|id-token: write/);
     expect(wiki.match(/contents: write/g)).toHaveLength(1);
-    expect(wiki.indexOf("contents: write")).toBeGreaterThan(wiki.indexOf("  publish:"));
+    expect(wiki.match(/pages: write/g)).toHaveLength(1);
+    expect(wiki.match(/id-token: write/g)).toHaveLength(1);
   });
 });

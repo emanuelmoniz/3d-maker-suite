@@ -1,11 +1,50 @@
 name: Wiki
-# Publishes `wiki/` to the GitHub wiki: by hand, and from release.yml after a stable release.
+# Publishes the guide in `wiki/`: the documentation site on GitHub Pages, and the GitHub wiki as its
+# mirror. By hand, and from release.yml after a stable release. Neither publishes unless the check
+# and the site build pass.
 on:
   workflow_dispatch:
   workflow_call:
 permissions: {}
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: node scripts/wiki-check.mjs --strict
+      # The site needs only the root's dev tools (VitePress), not the apps.
+      - run: pnpm install --frozen-lockfile --filter .
+      - run: pnpm docs:build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+  site:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: site-publish
+      cancel-in-progress: false
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
   publish:
+    # The GitHub wiki, a mirror of the site.
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,7 +58,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node scripts/wiki-check.mjs --strict
       - uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}.wiki

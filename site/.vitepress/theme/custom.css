@@ -1,0 +1,22 @@
+/* The app's accent (apps/web/src/styles.css, hue 185) in place of VitePress's indigo. */
+:root {
+  --vp-c-brand-1: oklch(0.52 0.11 185);
+  --vp-c-brand-2: oklch(0.47 0.11 185);
+  --vp-c-brand-3: oklch(0.52 0.11 185);
+  --vp-c-brand-soft: oklch(0.52 0.11 185 / 0.14);
+}
+
+.dark {
+  --vp-c-brand-1: oklch(0.76 0.11 185);
+  --vp-c-brand-2: oklch(0.7 0.11 185);
+  --vp-c-brand-3: oklch(0.52 0.11 185);
+  --vp-c-brand-soft: oklch(0.76 0.11 185 / 0.16);
+}
+
+/* The home page's title is the logo (scripts/docs-site.mjs, homeLogo). */
+.home-logo {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}

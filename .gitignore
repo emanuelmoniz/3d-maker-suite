@@ -13,5 +13,7 @@ playwright-report/
 .playwright-mcp/
 .update/
 packaging/out/
+# Documentation site build cache (its output, site/dist, is covered by dist/)
+site/.vitepress/cache/
 # Real install test evidence (screenshots, results), not published
 test-runs/

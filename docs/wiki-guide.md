@@ -1,6 +1,11 @@
 # Writing the wiki
 
-`wiki/` in this repo is the source of the GitHub wiki. A workflow publishes it, so never edit the wiki on GitHub: the next publish overwrites the change.
+`wiki/` in this repo is the only source of the user guide. A workflow publishes it in two places:
+
+- **The documentation site**, <https://emanuelmoniz.github.io/3d-maker-suite/>, where users read the guide. It has search, and search engines index it. The app's Help links go there.
+- **The GitHub wiki**, a mirror, so older links keep working.
+
+Never edit the wiki on GitHub: the next publish overwrites the change.
 
 ## Pages
 
@@ -13,9 +18,11 @@
 
 Run `pnpm wiki:check` after any change in `wiki/`. It fails on a broken page link, a missing heading anchor, a missing image, a page that isn't in the sidebar, a sidebar entry with no page, and a route map entry that points at a heading that doesn't exist. A map entry whose page isn't written yet is listed as pending, not an error. `pnpm wiki:check --strict` makes pending an error. CI and the publish run it with `--strict`, so every screen in the map needs its section before it can merge.
 
+To see the pages as the site shows them, run `pnpm docs:dev` and open <http://localhost:5173/3d-maker-suite/>. A page reloads as you save it. `pnpm docs:build` builds the whole site into `site/dist` and fails on a broken page link; CI runs it too.
+
 ## Links and images
 
-Write links and images so they also work when browsing the repo. The publish step converts them for the wiki.
+Write links and images so they also work when browsing the repo. The site and the wiki publish both convert them.
 
 | What | Write it as |
 |---|---|
@@ -26,16 +33,33 @@ Write links and images so they also work when browsing the repo. The publish ste
 
 ## Publishing
 
-The **Wiki** workflow (`.github/workflows/wiki.yml`) publishes `wiki/` to the GitHub wiki. It runs after every stable release, and never for `-alpha`, `-rc` or `-build` versions. To run it by hand, open **Actions**, choose **Wiki**, then **Run workflow**, or run `gh workflow run wiki.yml --ref dev`.
+The **Wiki** workflow (`.github/workflows/wiki.yml`) publishes `wiki/` to the documentation site and to the GitHub wiki, in the same run. It runs after every stable release, and never for `-alpha`, `-rc` or `-build` versions. To run it by hand, open **Actions**, choose **Wiki**, then **Run workflow**, or run `gh workflow run wiki.yml --ref dev`.
 
 Each publish:
 
-- Runs `pnpm wiki:check --strict` first, and stops if it fails.
-- Converts page links and images, and copies only the images the pages use.
+- Runs `pnpm wiki:check --strict` first, then builds the site. If either fails, neither the site nor the wiki changes.
+- Deploys the site to GitHub Pages.
+- Converts the wiki's page links and images, and copies only the images the pages use.
 - Makes the wiki an exact copy of `wiki/`, so a page removed here also leaves the wiki.
-- Commits nothing when the wiki is already up to date.
+- Commits nothing to the wiki when it is already up to date.
 
-A link to anything else in the repo, such as `../README.md`, stops the publish because it wouldn't work on the wiki. Use a full `https://` address instead.
+A link to anything else in the repo, such as `../README.md`, stops the publish because it wouldn't work on the site or the wiki. Use a full `https://` address instead.
+
+### The documentation site
+
+`site/.vitepress/config.mjs` builds the site with VitePress straight from `wiki/`, which stays as written:
+
+- **Addresses** keep the wiki's page names: `Printers.md#printer-details` is `/3d-maker-suite/Printers#printer-details`. `Home.md` is the site's root.
+- **Anchors** follow GitHub's rules, the same ones `pnpm wiki:check` checks, so the route map works on both.
+- **The sidebar** comes from `_Sidebar.md`, and `_Footer.md` ends every page.
+- **The home page** shows the logo from `docs/brand` in place of its title.
+- **Each page's description** for search results is its first paragraph, the one or two sentences on what the page is for. Keep that paragraph first.
+- **Search** runs in the browser, over every page's text.
+- A `sitemap.xml` lists every page, and each page names its canonical address.
+
+The site's helpers are in `scripts/docs-site.mjs`, tested in `scripts/docs-site.test.mjs`.
+
+The repo needs, once: **Settings → Pages → Source: GitHub Actions**, and under **Settings → Environments → github-pages**, the `dev` branch and `v*` tags allowed to deploy, besides `main`.
 
 ## Standard page layout
 

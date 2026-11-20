@@ -44,7 +44,7 @@ flowchart LR
 - **Display:** all formatting goes through `Intl` (see ADR-0004).
 - **Imported rows:** any row that can come from an integration has `origin: 'manual' | 'integration'`, `integrationId?` and `externalId?`, with a unique constraint on `(integrationId, externalId)`. That makes sync an idempotent upsert.
 - **Catalog:** brands, printer models and printer presets are hard-deleted, and only while nothing points at them (the API answers 409 `in_use` with the dependents). Imported printers keep sending brand/model strings; sync finds or creates the catalog rows.
-- **Archive and delete:** the 16 archivable entities have `archivedAt`; delete is real and refused while something depends on the item (ADR-0018, [the wiki](https://github.com/emanuelmoniz/3d-maker-suite/wiki/Archive-and-Delete)). History rows keep `ON DELETE RESTRICT` as a backstop.
+- **Archive and delete:** the 16 archivable entities have `archivedAt`; delete is real and refused while something depends on the item (ADR-0018, [the guide](https://emanuelmoniz.github.io/3d-maker-suite/Archive-and-Delete)). History rows keep `ON DELETE RESTRICT` as a backstop.
 - **Dates in queries:** stored as `toISOString()` text, so range filters compare as strings and use the date indexes (`prints.startedAt`).
 
 ## Domain glossary

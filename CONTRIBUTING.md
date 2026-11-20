@@ -13,6 +13,8 @@ pnpm lint           # Biome
 pnpm typecheck
 pnpm i18n:check     # missing or unused translation keys
 pnpm wiki:check     # wiki links, anchors, images, sidebar and route map
+pnpm docs:dev       # the documentation site from wiki/, live at http://localhost:5173/3d-maker-suite/
+pnpm docs:build     # the same site, built into site/dist
 ```
 
 A slow or busy machine (a laptop on battery, say) can make the heavier tests (files, git, SQLite, the mock slicer) miss Vitest's 5 s default timeout. Run `pnpm speed:check` to see CPU load, memory and power, then set `TEST_TIMEOUT=<ms>` for longer timeouts or `TEST_TIMEOUT=0` for none (PowerShell: `$env:TEST_TIMEOUT=0; pnpm test`). It sets the test, hook and `expect.poll` timeouts and skips wall-clock speed checks. It reaches `pnpm test:e2e` too (Playwright's test and `expect` timeouts) and a test's own limit, via `testTimeout(ms)` from `test-timeout.ts`; use that helper for any limit you hard-code. `pnpm test` without it stays the strict run that CI does, so run that before you push. Guard a speed check of your own with `if (!process.env.TEST_TIMEOUT)`; a polling helper with its own deadline should wait `Number(process.env.TEST_TIMEOUT) || Infinity` when it is set.
@@ -35,7 +37,7 @@ Without `REAL_DB`, `release.test.ts` runs on made-up rows (as in CI) and `real-d
 - Zod schemas in `packages/core/src/schemas` are the only type source.
 - Secrets are encrypted at rest and never logged or returned by the API.
 - Commit messages follow Conventional Commits, for example `feat(printers): add comment pinning`.
-- **User docs live only in `wiki/`**, the source of the GitHub wiki, and follow [the wiki guide](docs/wiki-guide.md). Never edit the wiki on GitHub, and don't add a user guide to `docs/`: the files there are short pointers to the wiki, kept for the Help links of installed versions. A change users see updates its wiki page (and screenshots) in the same commit; run `pnpm wiki:check` after it.
+- **User docs live only in `wiki/`**, and follow [the wiki guide](docs/wiki-guide.md). It is the source of the [documentation site](https://emanuelmoniz.github.io/3d-maker-suite/), where users read the guide, and of the GitHub wiki, its mirror. Never edit the wiki on GitHub, and don't add a user guide to `docs/`: the files there are short pointers to the wiki, kept for the Help links of installed versions. A change users see updates its wiki page (and screenshots) in the same commit; run `pnpm wiki:check` after it.
 
 ## How to add an adapter
 

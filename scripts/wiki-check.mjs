@@ -11,18 +11,23 @@ const SPECIAL = new Set(["_Sidebar", "_Footer"]);
 const stripFences = (text) => text.replace(/^(```|~~~)[\s\S]*?^\1.*$/gm, "");
 const stripCode = (text) => stripFences(text).replace(/`[^`\n]*`/g, "");
 
+/**
+ * GitHub's slug for a heading's plain text, before repeats get -1, -2, ... The documentation site
+ * (site/.vitepress/config.mjs) uses it too, so its anchors are the wiki's.
+ */
+export const githubSlug = (text) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
+    .trim()
+    .replace(/\s/g, "-");
+
 /** The anchor GitHub makes from a heading; repeated headings get -1, -2, ... */
 export function headingAnchors(text) {
   const seen = new Map();
   const anchors = new Set();
   for (const m of stripFences(text).matchAll(/^ {0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/gm)) {
-    const base = m[1]
-      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-      .replace(/[*~`]/g, "")
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
-      .trim()
-      .replace(/\s/g, "-");
+    const base = githubSlug(m[1].replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*~`]/g, ""));
     const n = seen.get(base) ?? 0;
     seen.set(base, n + 1);
     anchors.add(n === 0 ? base : `${base}-${n}`);

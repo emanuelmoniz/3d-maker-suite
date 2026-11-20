@@ -266,8 +266,11 @@ jobs:
           tags: ${{ steps.tags.outputs.slicer }}
   wiki:
     # A job here because a release created with GITHUB_TOKEN doesn't trigger other workflows.
+    # Publishes the documentation site and the wiki; a called workflow gets no more than these.
     needs: [check, docker]
     if: needs.check.outputs.publish_wiki == 'true'
     permissions:
       contents: write
+      pages: write
+      id-token: write
     uses: ./.github/workflows/wiki.yml
