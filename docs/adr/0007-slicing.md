@@ -7,7 +7,7 @@
 A project's cost estimate needs print time and grams per plate. Bambu Studio drops slice results when it saves a project (`parse3mf` sees `slicedOnSave` but no `slice_info`), so the numbers have to come from slicing. The estimate is only useful if it matches what the user's slicer and printer show.
 
 ## Decision
-- **Slice with the CLI of the slicer installed on the server's PC.** Bambu Studio is first. The program is the integration's `slicerPath`, the presets come from its `slicerConfigDir`, and both are already stored per integration.
+- **Slice with the CLI of the slicer installed on the server's PC.** Bambu Studio is first. The program is the integration's `slicerPath` (with `slicerArgs` after it when it starts through a command, such as a Linux Flatpak's `flatpak run <id>`; 6.2.0 Step 3h), the presets come from its `slicerConfigDir`, and both are already stored per integration.
 - Core gets a brand-agnostic capability in `packages/core/src/integrations`, next to `library`:
   ```ts
   interface SliceRequest {

@@ -7,16 +7,21 @@ import { eq } from "drizzle-orm";
 const { integrations } = schema;
 type Row = typeof integrations.$inferSelect;
 
-/** Whether a local slicer's program is there to run: the row's path exists on this computer. */
-export const programExists = (row: Pick<Row, "slicerPath">) => {
+/**
+ * Whether a local slicer's program is there to run: the row's path exists on this computer. A
+ * command with arguments (`flatpak run <id>`) was found by the finder, which looks again at each
+ * start (`createSlicerProgram`).
+ */
+export const programExists = (row: Pick<Row, "slicerPath" | "slicerArgs">) => {
   const program = row.slicerPath?.trim();
-  return !!program && existsSync(program);
+  return !!program && (!!row.slicerArgs?.length || existsSync(program));
 };
 
 /**
  * Finds the program of the slicers installed on this server's computer (6.2.0 Step 3g), so
  * **Slicer program** needs no typing: a slicer is looked up when it is added and at each start when
- * its path is empty or gone (an update moved it). A path that exists, typed or found, is kept.
+ * its path is empty or gone (an update moved it). A path that exists, typed or found, is kept. A
+ * Flatpak install is found as a command (`flatpak run <id>`, Step 3h).
  * Without `find` (tests) nothing is looked up.
  */
 export function createSlicerProgram(
@@ -29,14 +34,27 @@ export function createSlicerProgram(
     const adapter = adapters.find((a) => a.id === row.adapterId);
     const lib = adapter?.library?.id;
     if (!find || adapter?.kind !== "local" || !adapter.desktop || !lib) return false;
-    if (programExists(row)) return true;
+    // A path that exists stays; a found command (Flatpak) is looked up again, as it may be gone.
+    if (programExists(row) && !row.slicerArgs?.length) return true;
     const [found] = await find([{ ...adapter.desktop, id: adapter.id, library: lib }]).catch(
       () => [],
     );
-    // A Flatpak runs through `flatpak run`: no program path to store.
-    if (!found || found.cli.args.length > 0 || !existsSync(found.cli.cmd)) return false;
+    // A Flatpak runs as `flatpak run <id>`: `slicerPath` is `flatpak`, the rest its arguments.
+    const args = found?.cli.args ?? [];
+    if (!found || (!args.length && !existsSync(found.cli.cmd))) {
+      if (row.slicerArgs?.length)
+        db.update(integrations)
+          .set({ slicerPath: null, slicerArgs: null, updatedAt: new Date().toISOString() })
+          .where(eq(integrations.id, row.id))
+          .run();
+      return false;
+    }
     db.update(integrations)
-      .set({ slicerPath: found.cli.cmd, updatedAt: new Date().toISOString() })
+      .set({
+        slicerPath: found.cli.cmd,
+        slicerArgs: args.length ? args : null,
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(integrations.id, row.id))
       .run();
     return true;

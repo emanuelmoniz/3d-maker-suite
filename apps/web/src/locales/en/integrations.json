@@ -465,7 +465,7 @@
     "configDir": "Config folder",
     "configDirHint": "Where the slicer keeps its presets. Leave empty to use the detected one: {{dir}}",
     "path": "Slicer program",
-    "pathHint": "Found automatically. Type it only when the slicer is somewhere else, such as an AppImage or a portable copy.",
+    "pathHint": "Found automatically, also a Flatpak install. Type it only when the slicer is somewhere else, such as an AppImage or a portable copy.",
     "isDefault": "Default slicer",
     "makeDefault": "Make default slicer"
   },

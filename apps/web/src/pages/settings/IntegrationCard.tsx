@@ -505,33 +505,42 @@ function SlicerFields({
     label: string,
     hint: string,
     placeholder = "",
-  ) => (
-    <FormField label={label} hint={hint}>
-      {(p) => (
-        <div className="flex gap-2">
-          <input
-            {...p}
-            className={inputClass}
-            key={`${field}-${i[field] ?? ""}`}
-            defaultValue={i[field] ?? ""}
-            placeholder={placeholder}
-            onBlur={(e) => {
-              const v = e.target.value.trim();
-              if (v !== (i[field] ?? "")) patch.mutate({ [field]: v });
-            }}
-          />
-          <PathPicker
-            label={label}
-            mode={field === "slicerPath" ? "file" : "folder"}
-            // Only Windows marks programs by extension.
-            ext={field === "slicerPath" ? (sep) => (sep === "\\" ? ".exe" : undefined) : undefined}
-            initial={i[field] || placeholder}
-            onPick={(v) => v !== i[field] && patch.mutate({ [field]: v })}
-          />
-        </div>
-      )}
-    </FormField>
-  );
+  ) => {
+    // A found command (`flatpak run <id>`) isn't a path to edit: it shows as the placeholder.
+    const command = field === "slicerPath" && i.slicerArgs?.length;
+    const value = command ? "" : (i[field] ?? "");
+    return (
+      <FormField label={label} hint={hint}>
+        {(p) => (
+          <div className="flex gap-2">
+            <input
+              {...p}
+              className={inputClass}
+              key={`${field}-${i[field] ?? ""}`}
+              defaultValue={value}
+              placeholder={
+                command ? [i.slicerPath, ...(i.slicerArgs ?? [])].join(" ") : placeholder
+              }
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v !== value) patch.mutate({ [field]: v });
+              }}
+            />
+            <PathPicker
+              label={label}
+              mode={field === "slicerPath" ? "file" : "folder"}
+              // Only Windows marks programs by extension.
+              ext={
+                field === "slicerPath" ? (sep) => (sep === "\\" ? ".exe" : undefined) : undefined
+              }
+              initial={(command ? "" : i[field]) || placeholder}
+              onPick={(v) => v !== i[field] && patch.mutate({ [field]: v })}
+            />
+          </div>
+        )}
+      </FormField>
+    );
+  };
   return (
     <div className="grid gap-3">
       {path(

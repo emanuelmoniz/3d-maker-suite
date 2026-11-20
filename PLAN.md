@@ -4852,7 +4852,7 @@ Do Step 3f of the 6.2.0 plan in PLAN.md.
 Do Step 3g of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3h - Slice with a Flatpak slicer on this computer
+### [x] Step 3h - Slice with a Flatpak slicer on this computer
 **Model:** Sonnet · **Effort:** Medium
 **Why:** Step 3g finds a slicer's program on this server's computer, but a Linux Flatpak install runs through `flatpak run <id>`, not a program path. `findSlicers` finds it, yet `slicerPath` holds one path, so 3g skips it and the card says the program wasn't found, with nothing to type that works (found while doing Step 3g; agreed with the user).
 **Scope (to confirm with the user before starting):**

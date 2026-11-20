@@ -203,7 +203,8 @@ export const integrationsRoutes =
     // The encrypted column never leaves the server (ADR-0005); the setup fields only go to an
     // admin (ADR-0012): the others get what the task rows and "Open in slicer" need.
     const toApi = (full: typeof integrations.$inferSelect, admin = true) => {
-      const { secrets, config, slicerConfigDir, slicerPath, slicerVersion, ...rest } = full;
+      const { secrets, config, slicerConfigDir, slicerPath, slicerArgs, slicerVersion, ...rest } =
+        full;
       const { catalogFingerprint: _, presetState: __, ...row } = rest;
       const adapter = syncer.adapters.find((a) => a.id === row.adapterId);
       const profile = accountConfigOf(config);
@@ -218,6 +219,7 @@ export const integrationsRoutes =
           config,
           slicerConfigDir,
           slicerPath,
+          slicerArgs,
           slicerVersion,
           // This computer's slicer without a program that exists: slicing is off, and says why.
           ...(adapter?.kind === "local" && { slicerProgramMissing: !programExists(full) }),
@@ -689,7 +691,8 @@ export const integrationsRoutes =
               ...fields,
               // An empty path means "none" (or "the detected folder").
               ...(slicerConfigDir !== undefined && { slicerConfigDir: slicerConfigDir || null }),
-              ...(slicerPath !== undefined && { slicerPath: slicerPath || null }),
+              // A typed path is the program itself: it replaces a found `flatpak run <id>`.
+              ...(slicerPath !== undefined && { slicerPath: slicerPath || null, slicerArgs: null }),
               ...(nextConfig && { config: nextConfig }),
               // Another device or source: its slicer is picked again.
               ...(config &&

@@ -1002,6 +1002,13 @@
       "when": 1795185965339,
       "tag": "0142_collections_become_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "6",
+      "when": 1795193378488,
+      "tag": "0143_gifted_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

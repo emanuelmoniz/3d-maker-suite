@@ -1021,10 +1021,21 @@ describe("capabilities", () => {
     writeFileSync(exe, "");
     writeFileSync(moved, "");
     let at: string | null = exe;
+    let flatpak = false;
     const find = vi.fn(async () =>
-      at
-        ? [{ id: "slicer", name: "Slicer", version: "1", path: at, cli: { cmd: at, args: [] } }]
-        : [],
+      flatpak
+        ? [
+            {
+              id: "slicer",
+              name: "Slicer",
+              version: "1",
+              path: "x.Slicer",
+              cli: { cmd: "flatpak", args: ["run", "x.Slicer"] },
+            },
+          ]
+        : at
+          ? [{ id: "slicer", name: "Slicer", version: "1", path: at, cli: { cmd: at, args: [] } }]
+          : [],
     );
     const start = async () => {
       await app?.close();
@@ -1054,12 +1065,39 @@ describe("capabilities", () => {
     await send("PATCH", `/api/integrations/${id}`, { slicerPath: typed });
     await start();
     expect(await path(id)).toBe(typed);
+    const typed2 = join(dataDir, "typed2.exe");
+    writeFileSync(typed2, "");
     // Not found: the card says so, and slicing stays off.
     rmSync(typed);
     at = null;
     await start();
     const row = await get(`/api/integrations/${id}`);
     expect(row).toMatchObject({ slicerProgramMissing: true, capabilities: [] });
+    // A Flatpak install is found as a command (Step 3h) and slices with no path typed.
+    flatpak = true;
+    await start();
+    expect(await get(`/api/integrations/${id}`)).toMatchObject({
+      slicerPath: "flatpak",
+      slicerArgs: ["run", "x.Slicer"],
+      slicerProgramMissing: false,
+    });
+    // A typed path that exists wins over it, and drops its arguments.
+    await send("PATCH", `/api/integrations/${id}`, { slicerPath: typed2 });
+    await start();
+    expect(await get(`/api/integrations/${id}`)).toMatchObject({
+      slicerPath: typed2,
+      slicerArgs: null,
+    });
+    // Uninstalled: it is dropped at the next start and the card says so.
+    await send("PATCH", `/api/integrations/${id}`, { slicerPath: "" });
+    await start();
+    flatpak = false;
+    await start();
+    expect(await get(`/api/integrations/${id}`)).toMatchObject({
+      slicerPath: null,
+      slicerArgs: null,
+      slicerProgramMissing: true,
+    });
   });
 
   it("a local source is ok when its folder is on this server, else unavailable; only its own types run", async () => {

@@ -16,6 +16,7 @@ import { type Db, schema } from "@3d-maker-suite/db";
 import { and, asc, eq } from "drizzle-orm";
 import { HttpError } from "../errors.ts";
 import { readPreferences } from "../lib/preferences.ts";
+import { programExists } from "./slicerProgram.ts";
 
 const { syncPolicies } = schema;
 type Row = typeof schema.integrations.$inferSelect;
@@ -138,7 +139,7 @@ function available(db: Db, row: Row, adapter?: IntegrationAdapter): Capability[]
   // it still counts: its slices wait for it.
   const slicerApp =
     !!program &&
-    (adapter.kind === "worker" ? !!workerDevice(db, row)?.sliceWorker : existsSync(program));
+    (adapter.kind === "worker" ? !!workerDevice(db, row)?.sliceWorker : programExists(row));
   return syncTypes(adapter).filter(
     (c) =>
       lineOn(db, row.id, c) &&

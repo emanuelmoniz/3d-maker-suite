@@ -179,6 +179,8 @@ export const integrationSchema = z.object({
   slicerConfigDir: z.string().nullable().optional(),
   /** Slicer program used by "Open in slicer". */
   slicerPath: z.string().nullable().optional(),
+  /** Arguments after `slicerPath` (a Flatpak install: `flatpak run <id>`); null = it is the program. */
+  slicerArgs: z.array(z.string()).nullable().optional(),
   /** A server integration's installed slicer version; null = none. */
   slicerVersion: z.string().nullable().optional(),
   /** A local slicer whose program isn't on this computer (none set, or the file is gone). */

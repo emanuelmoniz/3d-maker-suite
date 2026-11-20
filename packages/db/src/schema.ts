@@ -98,6 +98,11 @@ export const integrations = sqliteTable("integrations", {
   slicerConfigDir: text(),
   /** Slicer program for "Open in slicer". */
   slicerPath: text(),
+  /**
+   * Arguments that go between `slicerPath` and the slicer's own: a Flatpak install runs as
+   * `flatpak run <id>` (6.2.0 Step 3h). Null = `slicerPath` is the program itself.
+   */
+  slicerArgs: text({ mode: "json" }).$type<string[]>(),
   /** A server integration's installed slicer version (ADR-0013); null = none installed. */
   slicerVersion: text(),
   /** What the catalog check last saw of a slicer's system presets (ADR-0019); null = not yet. */

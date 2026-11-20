@@ -11,6 +11,7 @@ import {
   type SliceRun,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
+import { runCommand } from "@3d-maker-suite/host";
 import { and, eq, inArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import { capableRows, presetLibrary, slicerConfigDir } from "../integrations/capabilities.ts";
@@ -181,7 +182,8 @@ export async function slicePlate(
   const found = sliceIntegration(db, adapters, p.slicers);
   const slicer = found?.adapter.slicer;
   if (!found || !slicer) return fail("no_slicer");
-  const run = found.adapter.kind === "worker" ? workerRuns.get(db)?.(found.row.id) : undefined;
+  const command = found.row.slicerArgs?.length ? runCommand(found.row.slicerArgs) : undefined;
+  const run = found.adapter.kind === "worker" ? workerRuns.get(db)?.(found.row.id) : command;
   if (found.adapter.kind === "worker" && !run) return fail("no_slicer");
   // Presets are named `<library>:<preset id>`; only this slicer's own can be passed to it.
   const prefix = `${presetLibrary(found.adapter)}:`;
