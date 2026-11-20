@@ -2,6 +2,12 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [6.2.0] - 2026-11-20
+
+Stable release. Everything in 6.2.0-alpha.1 is included; the only change after alpha.1 is a test fix, so nothing a user sees changed. Three migrations (0141 to 0143). Back up before updating. Updating keeps all data. Connectors update to the hub's version. This release publishes the wiki and the documentation site.
+
+Changes are listed under [6.2.0-alpha.1](#620-alpha1---2026-11-20) below.
+
 ## [6.2.0-alpha.1] - 2026-11-20
 
 Pre-release, first of 6.2.0. Lists everything since 6.1.0. Back up before updating. Three migrations (0141 to 0143). Updating keeps all data. Connectors update to the hub's version. This pre-release does not publish the wiki or the documentation site.

@@ -128,7 +128,7 @@ The user guide is at [emanuelmoniz.github.io/3d-maker-suite](https://emanuelmoni
 
 ## Status
 
-Version 6.2.0-alpha.1. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Version 6.2.0. English only for now; the code is ready for more languages (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 

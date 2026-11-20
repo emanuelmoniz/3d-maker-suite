@@ -4881,7 +4881,7 @@ Do Step 3h of the 6.2.0 plan in PLAN.md.
 Do Step 4 of the 6.2.0 plan in PLAN.md. Guide me through each scenario, then fix what we find.
 ```
 
-### [ ] Step 5 - Docs, push & v6.2.0 release
+### [x] Step 5 - Docs, push & v6.2.0 release
 **Model:** Haiku · **Effort:** Low
 **Scope:**
 - `pnpm screenshots` (the icon appears on nearly every page), README, CHANGELOG, version `6.2.0`.
