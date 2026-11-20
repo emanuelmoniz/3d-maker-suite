@@ -62,15 +62,3 @@ describe("tags", () => {
     ).toBe(400);
   });
 });
-
-describe("collections", () => {
-  it("keeps projects in the order given", async () => {
-    const c = (await send("POST", "/api/collections", { name: "Gifts" })).json();
-    expect(c.projectIds).toEqual([]);
-    const none = "00000000-0000-4000-8000-000000000000";
-    expect(
-      (await send("PUT", `/api/collections/${c.id}/projects`, { projectIds: [none] })).statusCode,
-    ).toBe(400);
-    expect((await send("DELETE", `/api/collections/${c.id}`)).statusCode).toBe(204);
-  });
-});

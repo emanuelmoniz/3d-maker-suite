@@ -592,17 +592,6 @@ export const taggingSchema = z.object({
   entityType: z.enum(TAGGABLE_TYPES),
   entityId: id,
 });
-export const collectionSchema = z.object({
-  id,
-  name: z.string().min(1),
-  description: z.string().nullable(),
-  ...timestamps,
-});
-export const collectionProjectSchema = z.object({
-  collectionId: id,
-  projectId: id,
-  position: z.number().int().nonnegative(),
-});
 
 export const alertSchema = z.object({
   id,
@@ -649,8 +638,6 @@ export type Print = z.infer<typeof printSchema>;
 export type PrintFilamentUsage = z.infer<typeof printFilamentUsageSchema>;
 export type Tag = z.infer<typeof tagSchema>;
 export type Tagging = z.infer<typeof taggingSchema>;
-export type Collection = z.infer<typeof collectionSchema>;
-export type CollectionProject = z.infer<typeof collectionProjectSchema>;
 export type Alert = z.infer<typeof alertSchema>;
 
 export const clientSchema = z.object({

@@ -1065,27 +1065,6 @@ export const taggings = sqliteTable(
   ],
 );
 
-export const collections = sqliteTable("collections", {
-  id: id(),
-  name: text().notNull(),
-  description: text(),
-  ...timestamps,
-});
-
-export const collectionProjects = sqliteTable(
-  "collection_projects",
-  {
-    collectionId: text()
-      .notNull()
-      .references(() => collections.id, { onDelete: "cascade" }),
-    projectId: text()
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    position: integer().notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.collectionId, t.projectId] })],
-);
-
 export const alerts = sqliteTable(
   "alerts",
   {

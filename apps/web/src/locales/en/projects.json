@@ -146,8 +146,6 @@
   },
   "filters": {
     "search": "Search projects",
-    "collection": "Filter by collection",
-    "allCollections": "All collections",
     "material": "Filter by material",
     "allMaterials": "All materials",
     "none": "No projects match these filters.",

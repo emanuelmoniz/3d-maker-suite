@@ -914,11 +914,11 @@ describe("project files and filters", () => {
     expect((await file({ path: "benchy.3mf", entry: "Metadata/other.png" })).statusCode).toBe(404);
   });
 
-  it("filters the list by tag and collection", async () => {
+  it("filters the list by tag", async () => {
     await sampleTree();
     await setRoots();
     await scan();
-    const [benchy, vase] = [await byName("Benchy"), await byName("Vase")];
+    const benchy = await byName("Benchy");
     const tag = (
       await app.inject({
         method: "POST",
@@ -931,17 +931,8 @@ describe("project files and filters", () => {
       url: `/api/tags/taggings/project/${benchy.id}`,
       payload: { tagIds: [tag.id] },
     });
-    const col = (
-      await app.inject({ method: "POST", url: "/api/collections", payload: { name: "Boats" } })
-    ).json();
-    await app.inject({
-      method: "PUT",
-      url: `/api/collections/${col.id}/projects`,
-      payload: { projectIds: [vase.id] },
-    });
     const names = async (q: string) =>
       (await app.inject(`/api/projects?${q}`)).json().items.map((p: { name: string }) => p.name);
     expect(await names(`tagId=${tag.id}`)).toEqual(["Benchy"]);
-    expect(await names(`collectionId=${col.id}`)).toEqual(["Vase"]);
   });
 });

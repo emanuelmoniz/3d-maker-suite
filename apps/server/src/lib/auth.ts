@@ -139,8 +139,8 @@ const RULES: [RegExp, string, Need][] = [
   [p("filament"), "W", at("filament", "write")],
   // Changing the root of many projects; each project and the root are checked by the route too.
   [/^\/api\/projects\/(folders|relink)$/, "*", at("projects", "manage")],
-  [p("projects|collections|roots"), "R", at("projects", "read")],
-  [p("projects|collections"), "W", at("projects", "write")],
+  [p("projects|roots"), "R", at("projects", "read")],
+  [p("projects"), "W", at("projects", "write")],
   [p("roots"), "W", at("projects", "manage")],
   // "Add folder" in Projects browses the disk; the route confines it to the project roots.
   [/^\/api\/fs\/list$/, "GET", ROOTS_OR_SLICERS],

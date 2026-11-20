@@ -94,7 +94,7 @@ import { serverConfigRoutes } from "./routes/serverConfig.ts";
 import { serverSystemRoutes } from "./routes/serverSystem.ts";
 import { slicerZipRoutes } from "./routes/slicerZip.ts";
 import { statsRoutes } from "./routes/stats.ts";
-import { collectionsRoutes, tagsRoutes } from "./routes/tags.ts";
+import { tagsRoutes } from "./routes/tags.ts";
 import { updatesRoutes } from "./routes/updates.ts";
 import { usersRoutes } from "./routes/users.ts";
 import { createUpdater } from "./updates/updates.ts";
@@ -547,7 +547,6 @@ export async function buildApp(
   });
   if (opts.watchProjects) app.addHook("onReady", async () => scanner.boot());
   await app.register(tagsRoutes(db), { prefix: "/api/tags" });
-  await app.register(collectionsRoutes(db), { prefix: "/api/collections" });
   await app.register(bulkRoutes, { prefix: "/api/bulk" });
 
   await app.register(backupsRoutes(db, dataDir), { prefix: "/api/backups" });

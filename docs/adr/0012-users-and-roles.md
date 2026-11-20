@@ -57,7 +57,7 @@ R = GET/HEAD, W = POST/PUT/PATCH/DELETE, - = 403.
 | `/api/costs` (files, slice, quotes) | R | R W | R W | the calculator uses POST, so viewers see saved quotes only |
 | `/api/orders`, `/api/clients` | R | R W | R W | |
 | `/api/stats` | R | R | R | read-only already |
-| `/api/tags`, `/api/collections` | R | R W | R W | |
+| `/api/tags` | R | R W | R W | |
 | `/api/alerts` (list, history, dismiss, evaluate) | R, W `PATCH /:id` (read, unread, snooze, dismiss) | R W | R W | the PATCH writes the caller's own state, see "Alerts per user" |
 | `/api/alerts/channels` | - | - | R W | channels hold webhook and SMTP secrets |
 | `/api/preferences` | R, W own display keys | R, W own display keys | R W | see below |

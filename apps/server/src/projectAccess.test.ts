@@ -512,7 +512,6 @@ describe("project access over HTTP", () => {
     });
     expect(quote.statusCode).toBe(201);
 
-    const [desk] = (await asAdmin("GET", "/api/collections")).json();
     for (const url of [
       "/api/prints?pageSize=100&sort=project",
       `/api/prints/${p1.id}`,
@@ -521,7 +520,6 @@ describe("project access over HTTP", () => {
       "/api/costs/quotes?sort=project",
       "/api/stats",
       "/api/tags",
-      `/api/collections/${desk.id}`,
     ]) {
       const res = await asSolo("GET", url);
       expect(res.statusCode, url).toBe(200);
@@ -547,17 +545,6 @@ describe("project access over HTTP", () => {
     expect(
       (await asSolo("PUT", `/api/tags/taggings/project/${secret.id}`, { tagIds: [] })).statusCode,
     ).toBe(404);
-    // A collection: solo sees and sets only theirs; the hidden members stay, after them.
-    expect((await asSolo("GET", `/api/collections/${desk.id}`)).json().projectIds).toEqual([]);
-    const before = (await asAdmin("GET", `/api/collections/${desk.id}`)).json().projectIds;
-    const set = (ids: string[]) =>
-      asSolo("PUT", `/api/collections/${desk.id}/projects`, { projectIds: ids });
-    expect((await set([secret.id])).statusCode).toBe(400);
-    expect((await set([own.id])).json().projectIds).toEqual([own.id]);
-    expect((await asAdmin("GET", `/api/collections/${desk.id}`)).json().projectIds).toEqual([
-      own.id,
-      ...before,
-    ]);
 
     // The trash: only roots solo may edit count, and only those are emptied.
     const trash = join(dir, PROJECT_TRASH_DIR, "x_Secret");

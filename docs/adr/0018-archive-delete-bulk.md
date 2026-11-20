@@ -60,7 +60,6 @@ Every FK to one of the 16, plus the references that have no FK. **Enforced by** 
 | | `quotes.project_id` | **SET NULL** | Blocks | helper only: the FK would unlink |
 | | its folder still having files | no FK | Blocks | `folder_has_files`, see "Imported rows" |
 | | `project_slice_plates.project_id` | CASCADE | Goes | FK |
-| | `collection_projects.project_id` | CASCADE | Goes | FK |
 | | `device_projects.project_id` | CASCADE | Goes | FK |
 | Print | `print_filament_usages.print_id` | CASCADE | Goes | FK, after `syncUsages` returns the filament to its spools |
 | Order | `prints.order_id` | **SET NULL** | Blocks | helper only: the FK would unlink |
@@ -94,7 +93,6 @@ Why a client's quotes block: a project is blocked by its quotes, and a quote tha
 | `slicer_presets` | `slicer_preset_versions.preset_id` |
 | `alerts` | `alert_states.alert_id` |
 | `tags` | `taggings.tag_id` |
-| `collections` | `collection_projects.collection_id` |
 
 Step 10 adds a guard test: it reads `pragma foreign_key_list` and fails on any FK to one of the 16 that the helper's map doesn't cover, so a new table can't skip this.
 

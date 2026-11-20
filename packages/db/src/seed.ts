@@ -299,17 +299,5 @@ export function seed(db: Db, now = new Date(), { prints: printCount = 40 } = {})
               .map((p) => ({ tagId: functional.id, entityType: "print" as const, entityId: p.id })),
           )
           .run();
-
-    const desk = tx
-      .insert(s.collections)
-      .values({ name: "Desk upgrades", description: "Things for the office desk" })
-      .returning()
-      .get();
-    tx.insert(s.collectionProjects)
-      .values([
-        { collectionId: desk.id, projectId: at(projects, 2).id, position: 0 },
-        { collectionId: desk.id, projectId: at(projects, 1).id, position: 1 },
-      ])
-      .run();
   });
 }

@@ -2,6 +2,11 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Removed
+- **Collections**: the `/api/collections` endpoints and the **Filter by collection** list on Projects are gone; no screen could create a collection. Tags replace them: the update turns each existing collection into a tag of the same name (an existing tag of that name is reused) on the same projects, and turns tags on if they were off, so nothing disappears. Descriptions are dropped. Scripts that call `/api/collections` use `/api/tags` instead ([wiki/Projects.md](wiki/Projects.md))
+
 ## [6.1.0] - 2026-11-18
 
 Stable release. Everything in 6.1.0-alpha.1 to alpha.3 is included; the only change after alpha.3 is the logo below. No migration. Back up before updating. Updating keeps all data. Connectors update to the hub's version.

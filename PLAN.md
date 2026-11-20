@@ -4786,7 +4786,7 @@ Do Step 3b of the 6.2.0 plan in PLAN.md.
 Do Step 3c of the 6.2.0 plan in PLAN.md.
 ```
 
-### [ ] Step 3d - Collections become tags
+### [x] Step 3d - Collections become tags
 **Model:** Sonnet · **Effort:** Medium
 **Why:** **Filter by collection** on **Projects** shows only when a collection exists, but only the API (`/api/collections`, in `apps/server/src/routes/tags.ts`) creates or fills one. Tags already group projects (name, color, set from the project form, **Filter by tag**, managed in Settings), so a second way to group is not worth a screen.
 **Scope (agreed with the user):**

@@ -67,13 +67,12 @@ Above the grid:
 |---|---|
 | **Search projects** | Finds projects by name |
 | **Filter by tag** | Only projects with that tag. Shown when tags are on |
-| **Filter by collection** | Only projects in that collection. Shown only when a collection exists |
 | **Filter by material** | Only projects that use that material. Shown when any project has a material |
 | **Filter by slicing** | **Sliced or not**, **Needs slicing** or **Sliced** |
 | **Sort by** | **Name (A–Z)**, **Name (Z–A)**, **Last printed (newest)** or **Last printed (oldest)**. It starts at **Name (Z–A)**, so the highest number comes first |
 | **Show archived** | Adds archived projects to the list |
 
-**Clear filters** resets them. When nothing matches, the page says **No projects match these filters.** In the list view, the filters sit in the column headers, and only the collection filter stays above the table.
+**Clear filters** resets them. When nothing matches, the page says **No projects match these filters.** In the list view, the filters sit in the column headers.
 
 The filters are kept in the address, so you can bookmark a filtered list.
 

@@ -37,7 +37,7 @@ import {
   useProjectMaterials,
   useScan,
 } from "../../lib/projects.ts";
-import { useCollections, useTagColumn } from "../../lib/tags.ts";
+import { useTagColumn } from "../../lib/tags.ts";
 
 type View = "grid" | "list";
 const VIEW_KEY = "projects.view";
@@ -266,7 +266,6 @@ export function ProjectsPage() {
     query,
   );
   const hasArchived = useHasArchived(["projects", "list"], "/api/projects");
-  const collections = useCollections().data ?? [];
   const materials = useProjectMaterials().data ?? [];
   const set = (patch: ListQuery, keepPage = false) => {
     const next: ListQuery = { ...query, ...patch };
@@ -274,15 +273,8 @@ export function ProjectsPage() {
     for (const k of Object.keys(next)) if (!next[k]?.trim()) delete next[k];
     setQuery(next);
   };
-  const {
-    name = "",
-    tagId = "",
-    collectionId = "",
-    material = "",
-    multicolor = "",
-    slicing = "",
-  } = query;
-  const filtered = !!(name || tagId || collectionId || material || multicolor || slicing);
+  const { name = "", tagId = "", material = "", multicolor = "", slicing = "" } = query;
+  const filtered = !!(name || tagId || material || multicolor || slicing);
   const rows = data?.items ?? [];
   const pick = (v: View) => {
     setView(v);
@@ -337,7 +329,7 @@ export function ProjectsPage() {
         data && (
           <>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              {view === "grid" ? (
+              {view === "grid" && (
                 <FilterBar
                   className="flex-1"
                   search={name}
@@ -349,7 +341,6 @@ export function ProjectsPage() {
                           set({
                             name: "",
                             tagId: "",
-                            collectionId: "",
                             material: "",
                             multicolor: "",
                             slicing: "",
@@ -358,18 +349,6 @@ export function ProjectsPage() {
                   }
                 >
                   <TagFilter value={tagId} onChange={(v) => set({ tagId: v })} />
-                  {collections.length > 0 && (
-                    <Combobox
-                      aria-label={t("projects:filters.collection")}
-                      className={`${inputClass} w-auto!`}
-                      value={collectionId}
-                      onChange={(v) => set({ collectionId: v })}
-                      options={[
-                        { value: "", label: t("projects:filters.allCollections") },
-                        ...collections.map((c) => ({ value: c.id, label: c.name })),
-                      ]}
-                    />
-                  )}
                   {materials.length > 0 && (
                     <Combobox
                       aria-label={t("projects:filters.material")}
@@ -412,21 +391,6 @@ export function ProjectsPage() {
                     onChange={(on) => set({ archived: on ? "all" : "" })}
                   />
                 </FilterBar>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  {collections.length > 0 && (
-                    <Combobox
-                      aria-label={t("projects:filters.collection")}
-                      className={`${inputClass} w-auto!`}
-                      value={collectionId}
-                      onChange={(v) => set({ collectionId: v })}
-                      options={[
-                        { value: "", label: t("projects:filters.allCollections") },
-                        ...collections.map((c) => ({ value: c.id, label: c.name })),
-                      ]}
-                    />
-                  )}
-                </div>
               )}
               <fieldset className="m-0 flex gap-1 border-0 p-0">
                 <legend className="sr-only">{t("projects:view.label")}</legend>

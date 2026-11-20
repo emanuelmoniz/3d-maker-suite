@@ -1641,7 +1641,8 @@ describe("migration 0074", () => {
     });
     // Nothing that points at a project went with the column change.
     expect(now.select().from(s.projectSlicePlates).all()).toHaveLength(1);
-    expect(now.select().from(s.collectionProjects).all()).toHaveLength(1);
+    // The collection it was filled with has become a tag since (migration 0142).
+    expect(now.select().from(s.taggings).all()).toHaveLength(1);
   });
 });
 
@@ -2635,5 +2636,69 @@ describe("migration 0139", () => {
     expect(now.select().from(s.syncPolicies).all()).toMatchObject([
       { integrationId: "p", type: "printerStatus", recordPrints: true },
     ]);
+  });
+});
+describe("migration 0142", () => {
+  const setup = `
+    insert into projects (id, number, name, created_at, updated_at) values
+      ('p1', 1, 'A', 'x', 'x'), ('p2', 2, 'B', 'x', 'x');
+  `;
+  const tagged = (now: ReturnType<typeof migrateAcross>) =>
+    now
+      .select({ name: s.tags.name, color: s.tags.color, entityId: s.taggings.entityId })
+      .from(s.taggings)
+      .innerJoin(s.tags, eq(s.tags.id, s.taggings.tagId))
+      .all()
+      .sort((a, b) => a.entityId.localeCompare(b.entityId));
+  const enabled = (now: ReturnType<typeof migrateAcross>) =>
+    now.select().from(s.settings).where(eq(s.settings.key, "tagsEnabled")).get()?.value;
+
+  it("makes a new tag of a collection, on the same projects, and turns tags on", () => {
+    const now = migrateAcross(141, (sqlite) => {
+      sqlite.exec(`${setup}
+        insert into settings (key, value) values ('tagsEnabled', 'false');
+        insert into collections (id, name, description, created_at, updated_at) values ('c', 'Gifts', 'd', 'x', 'x');
+        insert into collection_projects (collection_id, project_id, position) values ('c', 'p1', 0), ('c', 'p2', 1);
+      `);
+    });
+    expect(tagged(now)).toEqual([
+      { name: "Gifts", color: "#3b82f6", entityId: "p1" },
+      { name: "Gifts", color: "#3b82f6", entityId: "p2" },
+    ]);
+    expect(enabled(now)).toBe(true);
+  });
+
+  it("reuses a tag of the same name, whatever the case, and keeps its color", () => {
+    const now = migrateAcross(141, (sqlite) => {
+      sqlite.exec(`${setup}
+        insert into tags (id, name, color, created_at, updated_at) values ('t', 'gifts', '#ff0000', 'x', 'x');
+        insert into taggings (tag_id, entity_type, entity_id) values ('t', 'project', 'p1');
+        insert into collections (id, name, created_at, updated_at) values ('c', 'Gifts', 'x', 'x');
+        insert into collection_projects (collection_id, project_id, position) values ('c', 'p1', 0), ('c', 'p2', 1);
+      `);
+    });
+    expect(now.select().from(s.tags).all()).toHaveLength(1);
+    expect(tagged(now)).toEqual([
+      { name: "gifts", color: "#ff0000", entityId: "p1" },
+      { name: "gifts", color: "#ff0000", entityId: "p2" },
+    ]);
+  });
+
+  it("turns tags on when none is stored and a collection exists", () => {
+    const now = migrateAcross(141, (sqlite) => {
+      sqlite.exec(
+        "insert into collections (id, name, created_at, updated_at) values ('c', 'Empty', 'x', 'x')",
+      );
+    });
+    expect(enabled(now)).toBe(true);
+    expect(now.select().from(s.tags).all()).toMatchObject([{ name: "Empty" }]);
+  });
+
+  it("leaves tags off when there was no collection", () => {
+    const now = migrateAcross(141, (sqlite) => {
+      sqlite.exec("insert into settings (key, value) values ('tagsEnabled', 'false')");
+    });
+    expect(enabled(now)).toBe(false);
+    expect(now.select().from(s.tags).all()).toHaveLength(0);
   });
 });

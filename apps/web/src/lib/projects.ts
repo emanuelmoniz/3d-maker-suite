@@ -24,7 +24,7 @@ import type { TFunction } from "i18next";
 import { api } from "./api.ts";
 
 // ponytail: one page of 100 projects, add pagination controls if libraries get bigger.
-// Tag and collection filter on the server; material, multicolor and search on the page.
+// Tag filter on the server; material, multicolor and search on the page.
 // Every project, for pickers (page by page, the API's limit); the projects page pages on the server.
 /** Every active project; archived too to name what a row points at. */
 export const useProjects = (withArchived = false) =>

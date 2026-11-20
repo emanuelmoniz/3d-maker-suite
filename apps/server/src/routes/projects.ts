@@ -68,7 +68,6 @@ import { fsError } from "./fs.ts";
 
 const {
   projects,
-  collectionProjects,
   deviceRootFolders,
   integrations,
   printFilamentUsages,
@@ -438,14 +437,6 @@ export const projectsRoutes =
                   .from(prints)
                   .innerJoin(printFilamentUsages, eq(printFilamentUsages.printId, prints.id))
                   .where(inArray(printFilamentUsages.spoolId, req.query.spoolId)),
-              ),
-            req.query.collectionId &&
-              inArray(
-                projects.id,
-                db
-                  .select({ id: collectionProjects.projectId })
-                  .from(collectionProjects)
-                  .where(inArray(collectionProjects.collectionId, req.query.collectionId)),
               ),
           ],
         });

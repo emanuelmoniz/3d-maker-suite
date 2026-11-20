@@ -66,8 +66,7 @@ flowchart LR
 | **PrintFilamentUsage** | Filament used by one print, one row per slot (AMS) | printId, spoolId?, grams, slot?, material?, colorHex? |
 | **PrintOutcome** | Value type on Print, no table of its own | `'success' \| 'failed' \| 'cancelled'`, plus an optional failureReason |
 | **Project** | A printable model, usually a 3MF file | name, filePath?, sourceUrl?, thumbnailPath?, meta (plates, estimated time and grams per plate) |
-| **Tag** | Free-form label | name, color. Many-to-many with Project, Print and Spool |
-| **Collection** | Manual, ordered group of Projects | name, description?. Membership: CollectionProject(collectionId, projectId, position) |
+| **Tag** | Free-form label | name, color. Many-to-many with Project, Print, Spool, Printer and Accessory (since 6.2.0 Step 3d it also replaces the removed collections) |
 | **Integration** | A configured adapter instance | adapterId (e.g. `bambu-cloud`), name, enabled, config (JSON, not secret), secrets (encrypted), status, lastSyncAt?, lastError? |
 | **Alert** | A persisted notice raised by a job | kind, entityType, entityId, createdAt, readAt?, resolvedAt? |
 
@@ -95,8 +94,6 @@ erDiagram
   Spool |o--o{ PrintFilamentUsage : "consumed from"
   FilamentMaterial ||--o{ Spool : "is made of"
   FilamentMaterial ||--o{ FilamentPreset : "is set up for"
-  Collection ||--o{ CollectionProject : "contains"
-  Project ||--o{ CollectionProject : "member of"
   Tag }o--o{ Project : "labels"
   Tag }o--o{ Print : "labels"
   Tag }o--o{ Spool : "labels"

@@ -34,7 +34,6 @@ const {
   accessoryInstalls: installs,
   brands,
   clients,
-  collectionProjects,
   deletedSources,
 
   filamentBrands,
@@ -290,7 +289,7 @@ export const ITEMS = {
       through(ORDER, orderProjects.projectId, orderProjects.orderId),
       on(QUOTE, quotes.projectId),
     ],
-    goes: [plates.projectId, collectionProjects.projectId],
+    goes: [plates.projectId],
     tag: "project",
     alerts: alertTasks.project,
     image: "thumbnailPath",

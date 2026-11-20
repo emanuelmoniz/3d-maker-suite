@@ -1,4 +1,4 @@
-import type { Collection, Tag, TaggableType, Tagging, TagInput } from "@3d-maker-suite/core";
+import type { Tag, TaggableType, Tagging, TagInput } from "@3d-maker-suite/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createElement, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,12 +21,6 @@ export const useTags = () =>
     queryKey: ["tags", "list"],
     queryFn: () => api<Tag[]>("GET", "/api/tags"),
     enabled: useTagsLoaded(),
-  });
-
-export const useCollections = () =>
-  useQuery({
-    queryKey: ["tags", "collections"],
-    queryFn: () => api<Collection[]>("GET", "/api/collections"),
   });
 
 export const useTaggings = (type: TaggableType) =>

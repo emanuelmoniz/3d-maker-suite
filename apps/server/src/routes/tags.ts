@@ -1,13 +1,6 @@
 import {
   apiErrorSchema,
-  type Collection,
-  type CollectionDetail,
-  collectionDetailSchema,
-  collectionInputSchema,
-  collectionPatchSchema,
-  collectionSchema,
   entityParams,
-  setCollectionProjectsSchema,
   setTagsSchema,
   type Tag,
   type Tagging,
@@ -22,19 +15,9 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { HttpError } from "../errors.ts";
-import { projectAccessOf, type Rights, visibleProjects } from "../lib/auth.ts";
+import { projectAccessOf, visibleProjects } from "../lib/auth.ts";
 
-const {
-  tags,
-  taggings,
-  collections,
-  collectionProjects,
-  projects,
-  prints,
-  spools,
-  printers,
-  accessories,
-} = schema;
+const { tags, taggings, projects, prints, spools, printers, accessories } = schema;
 const params = z.object({ id: z.uuid() });
 const notFound = { 404: apiErrorSchema };
 const tables = {
@@ -166,122 +149,6 @@ export const tagsRoutes =
               .run();
           return tx.select().from(taggings).where(where).all() as Tagging[];
         });
-      },
-    );
-  };
-
-export const collectionsRoutes =
-  (db: Db): FastifyPluginAsyncZod =>
-  async (app) => {
-    const get = (id: string) => {
-      const row = db.select().from(collections).where(eq(collections.id, id)).get();
-      if (!row) throw new HttpError(404, "not_found", "Collection not found");
-      return row;
-    };
-    /** A collection's projects in order; with `user`, only those they see (ADR-0014). */
-    const members = (id: string, user?: Rights) =>
-      db
-        .select({ id: collectionProjects.projectId })
-        .from(collectionProjects)
-        .innerJoin(projects, eq(projects.id, collectionProjects.projectId))
-        .where(and(eq(collectionProjects.collectionId, id), visibleProjects(user)))
-        .orderBy(asc(collectionProjects.position))
-        .all()
-        .map((r) => r.id);
-    const detail = (id: string, user: Rights | undefined): CollectionDetail => ({
-      ...get(id),
-      projectIds: members(id, user),
-    });
-
-    app.get(
-      "/",
-      { schema: { response: { 200: z.array(collectionSchema) } } },
-      async () =>
-        db.select().from(collections).orderBy(asc(collections.name)).all() as Collection[],
-    );
-
-    app.post(
-      "/",
-      { schema: { body: collectionInputSchema, response: { 201: collectionDetailSchema } } },
-      async (req, reply) =>
-        reply
-          .status(201)
-          .send(detail(db.insert(collections).values(req.body).returning().get().id, req.user)),
-    );
-
-    app.get(
-      "/:id",
-      { schema: { params, response: { 200: collectionDetailSchema, ...notFound } } },
-      async (req) => detail(req.params.id, req.user),
-    );
-
-    app.patch(
-      "/:id",
-      {
-        schema: {
-          params,
-          body: collectionPatchSchema,
-          response: { 200: collectionDetailSchema, ...notFound },
-        },
-      },
-      async (req) => {
-        get(req.params.id);
-        db.update(collections).set(req.body).where(eq(collections.id, req.params.id)).run();
-        return detail(req.params.id, req.user);
-      },
-    );
-
-    app.delete(
-      "/:id",
-      { schema: { params, response: { 204: z.null(), ...notFound } } },
-      async (req, reply) => {
-        get(req.params.id);
-        db.delete(collections).where(eq(collections.id, req.params.id)).run();
-        return reply.status(204).send(null);
-      },
-    );
-
-    // Membership and manual order in one call: the array order is the position.
-    app.put(
-      "/:id/projects",
-      {
-        schema: {
-          params,
-          body: setCollectionProjectsSchema,
-          response: { 200: collectionDetailSchema, 400: apiErrorSchema, ...notFound },
-        },
-      },
-      async (req) => {
-        get(req.params.id);
-        const given = [...new Set(req.body.projectIds)];
-        if (
-          given.length &&
-          db
-            .select()
-            .from(projects)
-            .where(and(inArray(projects.id, given), visibleProjects(req.user)))
-            .all().length !== given.length
-        )
-          throw new HttpError(400, "invalid_project", "Project not found");
-        // Projects the caller can't see stay in it, after theirs.
-        const seen = new Set(members(req.params.id, req.user));
-        const ids = [...given, ...members(req.params.id).filter((id) => !seen.has(id))];
-        db.transaction((tx) => {
-          tx.delete(collectionProjects)
-            .where(eq(collectionProjects.collectionId, req.params.id))
-            .run();
-          if (ids.length)
-            tx.insert(collectionProjects)
-              .values(
-                ids.map((projectId, position) => ({
-                  collectionId: req.params.id,
-                  projectId,
-                  position,
-                })),
-              )
-              .run();
-        });
-        return detail(req.params.id, req.user);
       },
     );
   };
