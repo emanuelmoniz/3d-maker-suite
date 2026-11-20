@@ -28,9 +28,20 @@ docker run --rm -e PUID="$U" -e PGID="$G" -e PICK="$pick" -v slicerdata:/data \
   timeout 60 ./squashfs-root/AppRun --help > /tmp/help.txt 2>&1
   echo "RESULT --help exit $?: $(head -1 /tmp/help.txt)"
   mkdir -p /data/out
+  # The fixture is a Bambu Studio file; Orca refuses its raft_first_layer_expansion of -1 (first run).
+  python3 -c "
+import zipfile, re
+src, dst = \"/fixtures/single_color.3mf\", \"/data/model.3mf\"
+with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, \"w\", zipfile.ZIP_DEFLATED) as zo:
+    for i in zi.infolist():
+        b = zi.read(i.filename)
+        if i.filename == \"Metadata/project_settings.config\":
+            b = re.sub(rb\"(\\\"raft_first_layer_expansion\\\": )\\\"-1\\\"\", rb\"\\1\\\"0\\\"\", b)
+        zo.writestr(i, b)
+"
   s=$(date +%s)
   timeout 300 ./squashfs-root/AppRun --slice 1 --outputdir /data/out --export-3mf out.3mf --allow-newer-file \
-    --logfile /data/out/log.txt /fixtures/single_color.3mf > /tmp/slice.txt 2>&1
+    --logfile /data/out/log.txt /data/model.3mf > /tmp/slice.txt 2>&1
   e=$?
   echo "RESULT slice exit $e in $(( $(date +%s) - s )) s, out.3mf $(stat -c %s /data/out/out.3mf 2>/dev/null || echo missing) bytes"
   tail -5 /tmp/slice.txt
