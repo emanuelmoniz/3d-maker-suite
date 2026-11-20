@@ -36,6 +36,7 @@ Linux shows no warning.
 1. Open **3D Maker Suite** from your application menu. Or run the command the script printed at the end.
 2. Your browser opens on a **Starting 3D Maker Suite…** page. When the app is ready, it goes to <http://127.0.0.1:4300>.
 3. The first screen of the app appears. There is no window to keep open.
+4. Create the admin account. See [First run](First-Run.md).
 
 ## Stop the app
 
@@ -68,4 +69,5 @@ Open **Settings → About & updates**. The app also shows a banner when a new ve
 ## Related pages
 
 - [Choose how to run](Choose-How-to-Run.md)
+- [First run](First-Run.md)
 - [Install from source](Install-from-Source.md)

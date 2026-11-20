@@ -35,7 +35,8 @@ The app prints the token in its console each time it starts, until the first acc
 |---|---|
 | `pnpm start` or the installed app on a console | The window or terminal that started it |
 | Docker | `docker compose logs app` |
-| NAS | The container's **Log** tab in the NAS's Docker app |
+| Docker on a NAS | The container's **Log** tab in the NAS's Docker app |
+| Source on a NAS, over SSH | The terminal that runs `pnpm start`, or the log of the task that starts it |
 
 The line reads `No users yet. To create the first admin from another device, use this setup token: ...`.
 

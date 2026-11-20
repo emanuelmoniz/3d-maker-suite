@@ -60,7 +60,7 @@ docker compose ps
 docker compose logs app
 ```
 
-4. Create the first admin. Open <http://localhost:4300> **on the server itself**. The setup page opens directly, with no token.
+4. Create the first admin, see [First run](First-Run.md). Open <http://localhost:4300> **on the server itself**. The setup page opens directly, with no token.
 
 To open the app from another device, tell it that address first. Add it under `environment:`, with the address you type in the browser, and run `docker compose up -d` again:
 
@@ -207,6 +207,7 @@ docker compose exec app pnpm user:reset-password you@example.com
 ## Related pages
 
 - [Choose how to run](Choose-How-to-Run.md)
+- [First run](First-Run.md)
 - [Install from source](Install-from-Source.md)
 - [Project folders](Project-Folders.md)
 - [Public access](Public-Access.md)

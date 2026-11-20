@@ -27,7 +27,7 @@ pnpm install
 pnpm start
 ```
 
-`pnpm start` builds the web app, applies the database migrations and starts the server. Open <http://127.0.0.1:4300>.
+`pnpm start` builds the web app, applies the database migrations and starts the server. Open <http://127.0.0.1:4300>, then create the admin account, see [First run](First-Run.md).
 
 Keep the terminal open while you use the app. Updates and restarts from **Settings** happen in it. Stop the app with `Ctrl+C`. Run `pnpm start` again to start it later.
 
@@ -95,6 +95,7 @@ pnpm start
 ## Related pages
 
 - [Choose how to run](Choose-How-to-Run.md)
+- [First run](First-Run.md)
 - [Install on Windows](Install-on-Windows.md)
 - [Install on macOS](Install-on-macOS.md)
 - [Install on Linux](Install-on-Linux.md)
