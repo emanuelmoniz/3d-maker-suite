@@ -4852,6 +4852,19 @@ Do Step 3f of the 6.2.0 plan in PLAN.md.
 Do Step 3g of the 6.2.0 plan in PLAN.md.
 ```
 
+### [ ] Step 3h - Slice with a Flatpak slicer on this computer
+**Model:** Sonnet · **Effort:** Medium
+**Why:** Step 3g finds a slicer's program on this server's computer, but a Linux Flatpak install runs through `flatpak run <id>`, not a program path. `findSlicers` finds it, yet `slicerPath` holds one path, so 3g skips it and the card says the program wasn't found, with nothing to type that works (found while doing Step 3g; agreed with the user).
+**Scope (to confirm with the user before starting):**
+- Let a local slicer run through a command with arguments (`flatpak run <id>`), so a Flatpak install is found and slices with no path typed; the slice queue (`apps/server/src/projects/sliceQueue.ts`) and `available()` in `capabilities.ts` read it.
+- A typed path still wins while it exists. Texts through i18n; tests with a mocked finder; Wiki: `Slicers` (**Slicer program** row). Needs a Drizzle migration if a column is added.
+
+**Done when:** a Flatpak slicer on this computer slices with no path typed; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Prompt:**
+```
+Do Step 3h of the 6.2.0 plan in PLAN.md.
+```
+
 ## Phase 65 - Release
 
 ### [ ] Step 4 - Real test, docs, push & v6.2.0-alpha.1
