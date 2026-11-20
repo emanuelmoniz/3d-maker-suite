@@ -4673,7 +4673,7 @@ Every app page gets a Help icon that opens the matching section of the guide. Th
 
 ## Phase 64 - Help links
 
-### [ ] Step 0 - Documentation site  **[plan mode]**
+### [x] Step 0 - Documentation site  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Why:** GitHub lets search engines index a wiki only from 500 stars, and the wiki's own search is weak. Agreed with the user: build a site from the same `wiki/` folder, and point the Help links at the site.
 **Scope:**
