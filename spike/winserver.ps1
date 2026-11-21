@@ -53,7 +53,7 @@ catch { Invoke-RestMethod "$Hub/api/auth/login" -Method Post -WebSession $web -C
 Invoke-RestMethod "$Hub/api/preferences" -Method Patch -WebSession $web -ContentType application/json -Body '{"hubEnabled":true}' | Out-Null
 $me = (Invoke-RestMethod "$Hub/api/auth/me" -WebSession $web).user
 $code = (Invoke-RestMethod "$Hub/api/hub/pairing-codes" -Method Post -WebSession $web -ContentType application/json -Body (@{ userId = $me.id; kind = 'headless' } | ConvertTo-Json)).code
-function Mine { Invoke-RestMethod "$Hub/api/hub/devices" -WebSession $web | Where-Object { $_.name -eq $Device } }
+function Mine { $all = Invoke-RestMethod "$Hub/api/hub/devices" -WebSession $web; $all | Where-Object { $_.name -eq $Device } | Select-Object -First 1 }
 
 # Register.
 $node = "$Install\node\nodew.exe"
@@ -67,7 +67,7 @@ switch ($Variant) {
     $a = New-ScheduledTaskAction -Execute $node -Argument $launcherArgs -WorkingDirectory $Install
     $t = New-ScheduledTaskTrigger -AtStartup
     $s = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
-      -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew
+      -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -Priority 5
     if ($Variant -eq 'task-s4u') {
       $p = New-ScheduledTaskPrincipal -UserId $user -LogonType S4U -RunLevel Limited
       Register-ScheduledTask -TaskName $TaskName -Action $a -Trigger $t -Principal $p -Settings $s | Out-Null

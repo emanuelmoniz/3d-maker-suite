@@ -52,8 +52,8 @@ jobs:
           $ok = $false
           for ($n = 0; $n -lt 120 -and -not $ok; $n++) { try { $ok = (Invoke-WebRequest http://127.0.0.1:4310/api/health -TimeoutSec 1).StatusCode -eq 200 } catch { Start-Sleep 1 } }
           if (-not $ok) { Get-Content "$env:RUNNER_TEMP\hub.log"; throw 'no hub' }
-          $variants = 'task-s4u', 'task-pwd', 'winsw'
-          if (Test-Path "$env:RUNNER_TEMP\nssm.exe") { $variants += 'nssm' }
+          # Run 4: the chosen start, the S4U task with the launcher restarting a crashed program.
+          $variants = 'task-s4u'
           foreach ($v in $variants) {
             pwsh -NoProfile -File spike/winserver.ps1 -Variant $v
             if ($LASTEXITCODE) { "::warning::$v ended with $LASTEXITCODE" }

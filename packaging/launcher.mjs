@@ -358,6 +358,12 @@ async function main() {
       const code = await exited;
       closeSync(log);
       say(`exited with ${code}`);
+      // SPIKE (Step 3b): headless, a crash starts the program again; a clean stop (0) ends.
+      if (code !== RESTART && args.includes("--headless") && code !== 0 && !stopped) {
+        say("headless: starting it again in 5 s");
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
       if (code !== RESTART) process.exit(code);
     }
   } catch (e) {
