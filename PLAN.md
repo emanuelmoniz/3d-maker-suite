@@ -5014,7 +5014,7 @@ Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not 
 Do Step 3b of the 6.3.0 plan in PLAN.md. Show me the spike results for the task and the service before you pick one. Use a workflow_dispatch test build, not a tag.
 ```
 
-### [ ] Step 4 - Container images for x64 and ARM64
+### [x] Step 4 - Container images for x64 and ARM64
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - A `Dockerfile` target (or a second file) for the connector, `ghcr.io/emanuelmoniz/3d-maker-suite-connector`:
@@ -5032,6 +5032,8 @@ Do Step 3b of the 6.3.0 plan in PLAN.md. Show me the spike results for the task 
   - **Host networking** (agreed with the user): discovery hears broadcast and multicast, and there are no ports to publish. A commented bridge variant for typed printer addresses.
   - The pairing variables, `PUID`/`PGID`, the data volume, and a shared folder mounted with `bind-propagation: rslave`. In Step 1 a share mounted on the host after the container started was invisible without it.
 - A CI job that starts the connector image against a hub and pairs it (`scripts/pair-test.mjs`), on both native runners.
+
+**Done (2026-11-21):** `images.yml` (run 44863463921) built both images on both native runners and `scripts/image-test.sh` passed on each: PUID 1234 owns `/data` and what the app writes in a mounted folder, the connector pairs from its variables and keeps the pairing across a restart and a new container, a slicer install is refused on ARM (409 `slicing_unsupported`). The test build (run 44865556041, `6.2.0-build.91`) pushed the app, connector and slicer images, merged one tag per image (linux/amd64 and linux/arm64), ran the same script on the pulled images on both runners, and `docker-cleanup` deleted them (the app's versions, and the connector's package, which GitHub won't empty one version at a time). Agreed deviations: the compose example's pairing text says "make a pairing code" until Step 7 adds the NAS/server kind; greying out the slice worker switch on ARM stays in Step 5b; a managed slicer run as the PUID user in the image isn't tested in CI (needs a ~500 MB download).
 
 **Done when:** a test build pushes the app and connector images for both architectures (the `-slicer` image for x64); the image pairs in CI on both; a slicer install is refused on the ARM runner; tests, lint and `pnpm typecheck` pass.
 **Prompt:**
