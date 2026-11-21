@@ -386,12 +386,22 @@ jobs:
       - name: Delete the versions of this run
         run: |
           V="${VERSION#v}"
+          OWNER="/users/${GITHUB_REPOSITORY_OWNER}/packages/container"
           for package in 3d-maker-suite 3d-maker-suite-connector; do
-            gh api --paginate "/users/${GITHUB_REPOSITORY_OWNER}/packages/container/$package/versions" \
-              --jq ".[] | select((.created_at >= \"$RUN_STARTED\" and (.metadata.container.tags | length) == 0) or (.metadata.container.tags | any(. == \"$V\" or . == \"$V-slicer\"))) | .id" |
+            all=$(gh api --paginate "$OWNER/$package/versions" | jq -s 'add // []') || continue
+            # GitHub refuses to delete a package's last tagged version. A package with nothing but test
+            # builds in it (the connector's, before its first release) goes whole.
+            real=$(jq '[.[].metadata.container.tags[] | select(contains("-build.") | not)] | length' <<< "$all")
+            if [ "$real" = 0 ]; then
+              echo "deleting package $package (only test builds in it)"
+              gh api -X DELETE "$OWNER/$package"
+              continue
+            fi
+            jq -r --arg start "$RUN_STARTED" --arg v "$V" \
+              '.[] | select((.created_at >= $start and (.metadata.container.tags | length) == 0) or (.metadata.container.tags | any(. == $v or . == ($v + "-slicer")))) | .id' <<< "$all" |
             while read -r id; do
               echo "deleting $package version $id"
-              gh api -X DELETE "/users/${GITHUB_REPOSITORY_OWNER}/packages/container/$package/versions/$id"
+              gh api -X DELETE "$OWNER/$package/versions/$id"
             done
           done
   wiki:
