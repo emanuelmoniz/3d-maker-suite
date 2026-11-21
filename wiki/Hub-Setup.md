@@ -57,7 +57,7 @@ If you put the hub behind a proxy, set `APP_TRUST_PROXY` too. Without it the hub
 
 ## Pair the first computer
 
-Go on to [Connector setup](Connector-Setup.md). It covers installing the connector and pairing it with a code from **Hub management**.
+Go on to [Connector setup](Connector-Setup.md). It covers installing the connector and pairing it with a code from **Hub management**. A machine nobody signs in at (a Raspberry Pi, a Linux server, a Windows Server) takes the hub's address and the code at install time instead: see [Linux with no desktop](Connector-Setup.md#linux-with-no-desktop) and [Windows Server](Connector-Setup.md#windows-server).
 
 ## Hub settings
 

@@ -4993,7 +4993,7 @@ Do Step 2 of the 6.3.0 plan in PLAN.md.
 Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not a tag.
 ```
 
-### [ ] Step 3b - Windows Server: headless install  **[plan mode]**
+### [x] Step 3b - Windows Server: headless install  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Why (added with the user after Step 2):** on Windows the connector only starts when a user signs in (start at login), and it pairs on its local page in a browser there. A Windows Server without a desktop (Server Core), or one that should run the connector at boot with nobody signed in, has no supported setup. Docker isn't a route there either: the connector image is a Linux image, and Windows Server doesn't normally run Linux containers.
 **Scope:**
@@ -5003,7 +5003,7 @@ Do Step 3 of the 6.3.0 plan in PLAN.md. Use a workflow_dispatch test build, not 
 
   For each: it starts at boot with no sign-in, comes back after a crash or a kill, stops for good on **Stop connector** (exit 0), survives a self-update (the launcher's exit 75), and which user owns its data folder and the files it writes. Not `LocalSystem`: its data folder would land in the system profile and it would write as SYSTEM. Recommended unless the spike says otherwise: the scheduled task, as the installing user or an account the admin names.
 - **The install:** the Windows installer (`packaging/setup.iss`) gains a headless choice, also as a silent install for Server Core (`/VERYSILENT` with the hub URL, code and name). It registers the start chosen above with the launcher's `--background --headless` and the Step 2 variables or flags, and writes no start-at-login entry. The uninstaller removes it (keep in step with Step 7c).
-- The launcher exits non-zero when its program dies from a signal or is killed (as in Step 3), so the task or service sees a crash.
+- The launcher exits non-zero when its program dies from a signal or is killed (as in Step 3), so the task or service sees a crash. **Decided after the spike (ADR-0024 S8):** the task's restart on failure doesn't react to an exit code, so a headless launcher starts a crashed program again itself (5 s, doubling to 5 min); a killed launcher stays down until the task runs again (agreed with the user). The task: S4U as the installing administrator, no stored password, priority 5, no time limit.
 - The connector reports `headless`, so the hub's change user without a code (Step 2) and Step 7's buttons work for it. Self-update keeps working, as for any bundle install.
 - **CI:** GitHub's Windows runners are Windows Server. `connector.yml` runs a silent headless install there that pairs from the variables, is killed and comes back, and survives a restart of the task or service; a second run checks an update to a newer test build.
 - Wiki: `Connector-Setup` (Windows Server, with and without a desktop; the silent install line), `Choose-How-to-Run`, `Hub-Setup`. README support matrix: Windows Server x64 for the connector. ADR-0024's "Where each install fits" gains a Windows Server row. Windows on ARM stays as it is.
@@ -5061,6 +5061,22 @@ Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag a
 **Prompt:**
 ```
 Do Step 5 of the 6.3.0 plan in PLAN.md.
+```
+
+### [ ] Step 5b - Windows headless: a named account for network shares  **[plan mode]**
+**Model:** Opus · **Effort:** High
+**Why (found in Step 3b):** the Windows Server headless task runs S4U, with no stored password, so Windows gives it no network credentials: a sync folder or project root on an SMB share (`\\nas\share`) isn't reached. A named account with a password was measured in the Step 3b spike and never ran, because the account lacked the batch logon right (`0x80070569`), which Windows doesn't grant by itself.
+**Scope:**
+- Silent `/ACCOUNT=DOMAIN\name` with its password (read from a file or a prompt, never left in a log or the command history), and the same on the installer's hub page: `headless-task.mjs` registers the task with a stored password (LogonType Password) and grants the account `SeBatchLogonRight` (secedit or the LSA API, no new dependency if it can be helped). The files go where that account can run them and its data in its own profile.
+- A password change on the account stops the task: the connector can't tell, so the wiki says to run setup again with the new one, and Hub management shows the machine offline.
+- Spike first: a share mapped by UNC as that account (read, write, change events or rescan only), and a domain account with a gMSA instead of a password.
+- CI on `windows-2025`: a local account, a share on the runner itself, the root indexed through it.
+- Wiki `Connector-Setup` (Windows Server: network shares), ADR-0024 amend.
+
+**Done when:** a headless Windows connector running as a named account indexes and syncs a folder on an SMB share with nobody signed in; tests, lint and `pnpm typecheck` pass.
+**Prompt:**
+```
+Do Step 5b of the 6.3.0 plan in PLAN.md.
 ```
 
 ### [ ] Step 6 - Printers through a container or NAS connector

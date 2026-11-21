@@ -130,3 +130,7 @@ Nothing is code-signed: that would take a Windows certificate (a few hundred eur
 - `packaging/build.mjs --arch arm64` on an arm64 Linux machine: the arm64 Node tarball, and for the app better-sqlite3's `linux-arm64` prebuild. A cross build is not supported: the install script runs the archive's own Node.
 - **One asset name for every updater.** `bundleAsset()` in `packages/host` names the zip (`<id>-<tag>-app-<os>-<arch>.zip`) for the app's in-app update and the connector's self-update, both from `process.platform` and `process.arch`, so an ARM64 machine takes the `linux-arm64` file.
 - **The launcher exits non-zero when its program dies from a signal** (128 plus the signal's number, like a shell), not 0. A supervisor (systemd) then sees a crash. A SIGTERM that follows the launcher's own SIGTERM is a stop, and exits 0.
+
+## Amendment (2026-11-21): Windows Server headless connector (6.3.0 Step 3b, ADR-0024)
+- **One elevated step, for the connector's headless choice only.** The installer stays per-user (`PrivilegesRequired=lowest`) and the files stay in `%LOCALAPPDATA%`. Choosing headless (`/HEADLESS` when silent) runs `headless-task.mjs` with `runas` to add a scheduled task, which needs an administrator; the uninstaller removes it the same way. Desktop installs of the app and the connector are unchanged.
+- **A headless launcher starts its own program again** after a crash (5 s, doubling to 5 minutes), because the task can't. It still exits 0 on a clean stop, so a stop asked for stays a stop. A desktop launcher keeps exiting with the program's code.

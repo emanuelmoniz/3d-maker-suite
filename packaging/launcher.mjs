@@ -3,7 +3,8 @@
 // recreating its links first, logs to <install dir>/logs/server.log, opens the browser on a loader
 // page (loader.html) that goes to the app once it answers (not with --background, Start at login)
 // and starts it again when it exits with RESTART. It exits with its program's code, and non-zero
-// (128 + signal) when the program was killed, so a supervisor sees a crash. After an update or rollback
+// (128 + signal) when the program was killed, so a supervisor sees a crash; headless (ADR-0024), it
+// starts a crashed program again itself, and exits only on a clean stop (0). After an update or rollback
 // (.update/pending.json) the new version gets TRIAL_MS to answer, or the launcher goes back.
 // Node stdlib only. It ships with the installer and doesn't change with updates, so keep it small.
 // node launcher.mjs [--background] [server args, e.g. --port 4400]
@@ -39,8 +40,9 @@ const KEEP = 2;
 
 /**
  * The launcher's exit code for a program that ended with `code` or, killed, by `signal`: a signal
- * is a crash, so it reports 128 + the signal's number like a shell (a supervisor such as systemd
- * restarts on it; 0 would look like a clean stop). `stopped`: the launcher itself was asked to stop
+ * is a crash, so it reports 128 + the signal's number like a shell (0 would look like a clean stop).
+ * A headless launcher starts a crashed program again itself (crashDelay); a supervisor such as
+ * systemd sees the code when the launcher ends. `stopped`: the launcher itself was asked to stop
  * (SIGTERM), so the program's SIGTERM is the clean end of that.
  */
 export function exitCode(code, signal, stopped = false) {
@@ -164,6 +166,18 @@ export async function waitHealthy(url, ms) {
   return false;
 }
 
+/** True once `url` stops answering, false while it still answers after `ms`. */
+export async function waitGone(url, ms, check = healthy) {
+  for (const end = Date.now() + ms; ; ) {
+    if (!(await check(url))) return true;
+    if (Date.now() >= end) return false;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+/** How long a headless start waits for a program that still answers to go (a task stopped and run again). */
+export const GONE_MS = 15_000;
+
 /**
  * The server's hand-over (.update/pending.json), or null. A rollback hides the running version
  * (`<v>.old`), so the one it goes back to is the newest. Safe to repeat after a crash.
@@ -231,6 +245,28 @@ export function openBrowser(url) {
 /** Start at login passes it: start the server without opening the browser. */
 export const BACKGROUND = "--background";
 
+/**
+ * A headless connector (ADR-0024): `--headless` or CONNECTOR_HEADLESS, the same rule as
+ * apps/connector/src/start.ts. Its launcher starts a crashed program again, since nobody is there to.
+ */
+export function isHeadless(argv, env = process.env) {
+  const v = env.CONNECTOR_HEADLESS;
+  return (
+    argv.includes("--headless") || (!!v && !["0", "false", "no", "off"].includes(v.toLowerCase()))
+  );
+}
+
+/** A program that ran this long before it crashed starts the backoff over. */
+export const CRASH_RESET_MS = 10 * 60_000;
+
+/** The crash count after a program that ran `ranMs` crashed. */
+export const nextFailures = (failures, ranMs) => (ranMs >= CRASH_RESET_MS ? 1 : failures + 1);
+
+/** How long a headless launcher waits before starting a crashed program again: 5 s, doubling to 5 min. */
+export function crashDelay(failures) {
+  return Math.min(5_000 * 2 ** Math.max(0, failures - 1), 5 * 60_000);
+}
+
 /** Splits the launcher's own flag from the args it passes on to the server. */
 export function launchArgs(argv) {
   return { background: argv.includes(BACKGROUND), args: argv.filter((a) => a !== BACKGROUND) };
@@ -269,13 +305,21 @@ async function main() {
   // Single instance: a second double-click only opens the browser.
   const dir = dataDir(process.env, process.platform, p.id);
   const url = serverUrl(dir, process.env, args, p.port);
-  if (await healthy(url)) return background || openBrowser(url);
+  const headless = isHeadless(args);
+  // Headless, an answer here is usually the program of a task that was just stopped: Windows ends
+  // it a moment after the launcher, and a task run again at once would find it and exit (Step 3b).
+  const running = (await healthy(url)) && !(headless && (await waitGone(url, GONE_MS)));
+  if (running && !headless) return background || openBrowser(url);
 
   mkdirSync(join(install, "logs"), { recursive: true });
   // Appended (rotated like server.log) so the first start after an install isn't overwritten by the next.
   rotate(join(install, "logs", "launcher.log"));
   const launcherLog = openSync(join(install, "logs", "launcher.log"), "a");
   const say = (s) => writeSync(launcherLog, `${new Date().toISOString()} ${s}\n`);
+  if (running) {
+    say(`already running at ${url}`);
+    return background || openBrowser(url);
+  }
   // No terminal (nodew.exe, .app, .desktop): the server's output goes here, next to launcher.log.
   // ponytail: rotated each time the launcher starts the server; a log that outgrows the limit
   // within one run is cut at the next restart.
@@ -306,8 +350,10 @@ async function main() {
     stopped = true;
     server?.kill("SIGTERM");
   });
+  let failures = 0;
   try {
     for (;;) {
+      const startedAt = Date.now();
       const pending = beginPending(install);
       const run = newest(install, shipped || undefined);
       if (!run) throw new Error(`No version in ${join(install, "versions")}`);
@@ -358,6 +404,15 @@ async function main() {
       const code = await exited;
       closeSync(log);
       say(`exited with ${code}`);
+      // Headless, a crash is started again: on Windows the scheduled task can't do it (Step 3b).
+      if (headless && code !== 0 && code !== RESTART && !stopped) {
+        failures = nextFailures(failures, Date.now() - startedAt);
+        const wait = crashDelay(failures);
+        say(`headless: starting it again in ${wait / 1000} s`);
+        await new Promise((r) => setTimeout(r, wait));
+        if (!stopped) continue;
+        process.exit(0);
+      }
       if (code !== RESTART) process.exit(code);
     }
   } catch (e) {

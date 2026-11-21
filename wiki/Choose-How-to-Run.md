@@ -37,7 +37,7 @@ These add to any install:
 
 - **Reach it from your phone or another computer.** [Use from another device](Use-From-Another-Device.md).
 - **Reach it from outside my home.** Put it behind HTTPS: [Public access](Public-Access.md).
-- **My project files are spread over several computers.** Run a hub, and put a connector on each computer: [Hub setup](Hub-Setup.md) and [Connector setup](Connector-Setup.md).
+- **My project files are spread over several computers.** Run a hub, and put a connector on each computer: [Hub setup](Hub-Setup.md) and [Connector setup](Connector-Setup.md). A Raspberry Pi, a Linux server or a Windows Server with nobody signed in runs it too: [Linux with no desktop](Connector-Setup.md#linux-with-no-desktop) and [Windows Server](Connector-Setup.md#windows-server).
 
 ## What stays the same
 

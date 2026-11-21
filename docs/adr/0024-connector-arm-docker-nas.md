@@ -15,6 +15,7 @@ Plan 6.3.0 brings the connector there without changing its protocol: pairing, th
 |---|---|
 | NAS (Synology, QNAP, Asustor), any server with Docker, private servers included | the connector image: isolated, runs as a chosen user, sees only its mounts, listens on nothing outside the container |
 | Raspberry Pi or Linux server without Docker | the Linux archive with `install.sh --headless` (a systemd user service) |
+| Windows Server x64, with or without a desktop (Server Core) | the Windows installer's headless choice (`/HEADLESS` when silent): a scheduled task at boot, as the installing administrator, S4U (6.3.0 Step 3b) |
 | Desktop (Windows, macOS, Linux with a desktop) | the installer, as today |
 
 NAS systems don't let users add services, so they use the image. A connector in Docker joins a hub that runs elsewhere, or in another container; it is never a hub.
@@ -141,3 +142,27 @@ The app image for arm64 under QEMU on x64: 421 s. Two native connector images me
 - **`Restart=on-failure`, not `always`.** Step 3 makes the launcher exit with 128 plus the signal's number when its program dies from a signal (it was 0), so `on-failure` restarts a kill, which was the only reason for `always` (S7). `always` would also restart the connector after **Stop connector** (exit 0), so a stop asked for on the hub would undo itself within seconds. A SIGTERM that follows the launcher's own SIGTERM (`systemctl stop`) is a clean stop, exit 0. `RestartSec=5`, so a crash loop is slow and systemd's start limit never trips.
 - **`install.sh --headless`** takes `--hub-url`, `--pairing-code` and `--name` (or `CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE`, `CONNECTOR_NAME`) and writes them as `Environment=` lines, quoted for systemd, in a unit only its user can read. Run again without them, it keeps the lines it has. It writes no `.desktop` file, runs `loginctl enable-linger` and prints the `sudo` line when that is refused, then enables and restarts the service. The app's archive refuses `--headless`: the app has no headless install, Docker is its route.
 - **Tests on both architectures** (`connector.yml`, `scripts/headless-test.mjs`, on `ubuntu-24.04` and `ubuntu-24.04-arm`): pairing from the service's `Environment=`; SIGKILL of the program and then of the launcher (the same device comes back); **Stop connector** and `systemctl --user stop` stay stopped; and an update: the hub restarts on a higher version, and the connector downloads that version's `linux-<arch>` zip from a local stand-in for the release folder (`APP_DOWNLOAD_URL`) and follows it.
+
+## Amendment (2026-11-21): Windows Server headless install (6.3.0 Step 3b)
+On Windows the connector starts at sign-in and pairs on its page in a browser, so a Windows Server with nobody signed in, or Server Core, had no setup. Docker isn't a route there: the image is Linux.
+
+**Spike S8** (a workflow_dispatch test build on GitHub's Windows Server 2022 and 2025 runners, the same results on both). Each start was made by the Task Scheduler or the service manager in session 0, with nobody signed in as its account. A real reboot can't run on a hosted runner; the real test in Step 9 does one.
+
+| | Task, installing admin, S4U | Task, named account + password | WinSW 2.12 service | NSSM 2.24 service |
+|---|---|---|---|---|
+| Starts, pairs | yes, 1 s | never ran: the account lacks the batch logon right (0x80070569), which Windows doesn't grant | yes | yes |
+| Exit 75 (self-update) | yes, inside the launcher | – | yes | yes |
+| Program or launcher killed | **not restarted**: "restart on failure" doesn't react to an exit code | – | back in 5–8 s | back in 0.5–2.5 s |
+| **Stop connector** (exit 0) | stays down | – | **stuck "Running" with no process**: as a non-admin WinSW can't report the stop | stays down |
+| Its own stop | nothing left running | – | nothing left | nothing left |
+| Data folder, files | the account's `%APPDATA%` | – | the account's, owned by it | the same |
+| Password, dependency | none, none | password, none | password, a .NET exe | password, an exe unmaintained since 2014–2017 |
+
+The task's default priority 7 runs it BelowNormal, and its default limit of 72 hours would end it. A second run with the launcher restarting its program: a killed program was back after 5 s in the same task instance; exit 75, **Stop connector** (result 0) and the task's stop worked; with priority 5 it runs Normal; a killed launcher stayed down.
+
+**Decision (with the user):** the **scheduled task, as the installing administrator, S4U**, and **a headless launcher starts its own program again after a crash**. No new dependency, no stored password.
+- **The launcher** (`packaging/launcher.mjs`), when headless (`--headless` or `CONNECTOR_HEADLESS`, the connector's own rule), starts a program that exited with anything but 0 or 75 again: after 5 s, doubling up to 5 minutes, starting over once a run lasted 10 minutes. On Linux too: systemd still restarts a killed launcher (`Restart=on-failure`), so the amendment above holds for the launcher's own exit. On Windows a killed launcher stays down until `Start-ScheduledTask` or the next boot, which the user accepted. A stopped task's program ends a moment after its launcher, so a task run again at once found it still answering, took it for a running connector and exited, leaving none (found in Step 3b's CI): a headless start that finds one answering waits up to 15 s for it to go, then starts, or logs `already running` and exits.
+- **The task** (`packaging/headless-task.mjs`, run by the installer elevated with the bundled Node): `3D Maker Suite Connector`, a boot trigger, S4U as the installing account, `LeastPrivilege`, priority 5, no time limit, one instance, `launcher.mjs --background --headless` with the hub address, code and name as arguments (the task is readable by administrators only). Run again without them, it keeps the ones the task has. It refuses an install elevated as another account: the files would be in one profile and the task would run as another.
+- **The installer** (`setup.iss`): an unchecked headless task and a hub page; silent, `/HEADLESS /HUBURL= /PAIRINGCODE= [/NAME=]`, exit code 8 when the task couldn't be added. Headless means no Run value, no shortcuts and no launch at the end. A marker file keeps a later setup and the uninstaller on the headless path; the uninstaller ends and deletes the task before the files go (Step 7c adds the unpairing).
+- **Limits.** The installing account must be an administrator (S4U needs the batch logon right). An S4U task has no network credentials, so a sync folder on an SMB share isn't reached; a named account with its password is Plan 6.3.0 Step 5b. Windows on ARM has no headless install.
+- **Tests:** `connector.yml` `headless-windows` on `windows-2025`: the silent install pairs from the task's arguments; the program killed comes back; the launcher killed stays down until the task runs again; **Stop connector** and the task's stop stay down; a newer test build is followed (`APP_DOWNLOAD_URL` in the user's environment); the uninstaller removes the task.

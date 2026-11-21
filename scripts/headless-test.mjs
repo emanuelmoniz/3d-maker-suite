@@ -1,15 +1,19 @@
-// Checks a connector installed with `install.sh --headless` (ADR-0024, Plan 6.3.0 Step 3) against a
-// running hub: it paired from the service's Environment=, comes back after a crash, stays down for
-// a stop it was asked for, and follows the hub to a newer version. Linux with systemd; Node stdlib only.
+// Checks a headless connector (ADR-0024) against a running hub: it paired from what its start was
+// given, comes back after a crash, stays down for a stop it was asked for, and follows the hub to a
+// newer version. Linux: `install.sh --headless`, a systemd user service (Plan 6.3.0 Step 3). Windows:
+// the installer's `/HEADLESS`, a scheduled task (Step 3b), where a killed launcher stays down until
+// the task is run again (the task can't restart it). Node stdlib only.
 // The hub needs no users yet (this makes the first admin) or the admin below. Steps, in order:
 //   node scripts/headless-test.mjs code   [--hub http://127.0.0.1:4310]
-//     prints a 24-hour pairing code for a headless connector, for `install.sh --headless --pairing-code`
+//     prints a 24-hour pairing code for a headless connector
 //   node scripts/headless-test.mjs check  [--hub ...] [--name ci-headless]
-//     it is online as a headless connector; killed (the program, then the launcher) it comes back as
-//     the same device; Stop connector and `systemctl --user stop` keep it down; it starts again
+//     it is online as a headless connector; its program killed, it comes back as the same device; its
+//     launcher killed, systemd brings it back (Windows: it stays down, then the task starts it); Stop
+//     connector and the service's or task's own stop keep it down; it starts again
 //   node scripts/headless-test.mjs update --version 6.2.100 [--hub ...] [--name ...]
 //     it is on that version (the hub's), online, still the same device
-// Also --connector http://127.0.0.1:4301, --service 3d-maker-suite-connector, --email, --password.
+// Also --connector http://127.0.0.1:4301, --service 3d-maker-suite-connector (Windows: the task,
+// "3D Maker Suite Connector"), --email, --password.
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -24,17 +28,17 @@ const {
     hub: { type: "string", default: "http://127.0.0.1:4310" },
     connector: { type: "string", default: "http://127.0.0.1:4301" },
     name: { type: "string", default: "ci-headless" },
-    service: { type: "string", default: "3d-maker-suite-connector" },
+    service: { type: "string" },
     version: { type: "string" },
     email: { type: "string", default: "admin@example.com" },
     password: { type: "string", default: "pair-test-password" },
   },
 });
-const install = join(
-  process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"),
-  a.service,
-  "install",
-);
+const windows = process.platform === "win32";
+a.service ??= windows ? "3D Maker Suite Connector" : "3d-maker-suite-connector";
+const install = windows
+  ? join(process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"), "Programs", a.service)
+  : join(process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"), a.service, "install");
 const step = (s) => console.error(`- ${s}`);
 const fail = (s) => {
   console.error(`FAILED: ${s}`);
@@ -91,20 +95,46 @@ const connectorDown = async (what, ms = 20_000) =>
   until(what, async () => !(await connectorUp()), ms);
 const connectorUpAgain = async (what, ms = 60_000) => until(what, connectorUp, ms);
 const sh = (cmd, ...args) => execFileSync(cmd, args, { encoding: "utf8" }).trim();
-const kill = (pattern) => {
+const ps = (command) => sh("powershell.exe", "-NoProfile", "-Command", command);
+const quotePs = (s) => `'${s.replaceAll("'", "''")}'`;
+/** Kills the program (`src/main.ts`) or the launcher (`launcher.mjs`) with SIGKILL or Stop-Process -Force. */
+const kill = (what) => {
   try {
-    sh("pkill", "-9", "-f", pattern);
+    if (windows) {
+      const n = ps(
+        `$p = @(Get-CimInstance Win32_Process -Filter "Name='nodew.exe'" | Where-Object { $_.ExecutablePath -like ${quotePs(`${install}\\*`)} -and $_.CommandLine -like ${quotePs(`*${what}*`)} }); $p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; $p.Count`,
+      );
+      if (n === "0") throw new Error("none");
+    } else
+      sh(
+        "pkill",
+        "-9",
+        "-f",
+        what === "src/main.ts" ? `^${install}/node/bin/node src/main.ts` : `${install}/${what}`,
+      );
   } catch {
-    fail(`nothing to kill matching ${pattern}`);
+    fail(`nothing to kill matching ${what}`);
   }
 };
+/** systemd's state, or the task's (Running, Ready). */
 const active = () => {
   try {
-    return sh("systemctl", "--user", "is-active", a.service);
+    return windows
+      ? ps(`(Get-ScheduledTask -TaskPath '\\' -TaskName ${quotePs(a.service)}).State`)
+      : sh("systemctl", "--user", "is-active", a.service);
   } catch (e) {
     return String(e.stdout ?? "").trim() || "failed";
   }
 };
+const running = () => (windows ? active() === "Running" : active() === "active");
+/** The service's or the task's own start, stop and restart. */
+const supervisor = (verb) => {
+  if (!windows) return sh("systemctl", "--user", verb, a.service);
+  const task = `-TaskPath '\\' -TaskName ${quotePs(a.service)}`;
+  if (verb !== "start") ps(`Stop-ScheduledTask ${task}`);
+  if (verb !== "stop") ps(`Start-ScheduledTask ${task}`);
+};
+const supervisorName = windows ? "the task" : "systemctl --user";
 /** The page's Stop connector, as its form does: a POST from its own origin. */
 const stopFromPage = async () => {
   const res = await fetch(`${a.connector}/stop`, {
@@ -135,37 +165,46 @@ if (command === "code") {
     if (d.id !== first.id) fail(`${what}: a new device ${d.id}, not ${first.id}`);
     if ((await devices()).length !== 1) fail(`${what}: more than one device listed`);
   };
-  const program = `^${install}/node/bin/node src/main.ts`;
-
-  // A crash: the program killed by a signal (the launcher then exits non-zero), and the launcher itself.
-  kill(program);
+  // A crash: the program killed (the headless launcher starts it again), and the launcher itself.
+  kill("src/main.ts");
   await connectorDown("the connector to go down after its program was killed");
   await connectorUpAgain("the connector back after its program was killed");
   await same("online again after its program was killed");
-  step("killed with SIGKILL: back, same device");
-  kill(`${install}/launcher.mjs`);
+  step("program killed: back, same device");
+  kill("launcher.mjs");
   await connectorDown("the connector to go down after its launcher was killed");
+  if (windows) {
+    // The task's restart on failure doesn't react to an exit code (Step 3b's spike): it stays down.
+    await sleep(15_000);
+    if (await connectorUp()) fail("something started it again after its launcher was killed");
+    if (running()) fail("the task still runs after its launcher was killed");
+    supervisor("start");
+  }
   await connectorUpAgain("the connector back after its launcher was killed");
   await same("online again after its launcher was killed");
-  step("launcher killed with SIGKILL: back, same device");
+  step(
+    windows
+      ? "launcher killed: down until the task runs again"
+      : "launcher killed: back, same device",
+  );
 
   // Stops that were asked for stay stopped.
   await stopFromPage();
   await connectorDown("the connector to stop on Stop connector");
   await sleep(15_000);
-  if (await connectorUp()) fail("the service started it again after Stop connector");
-  if (active() === "active") fail("systemd still lists the service as active after a clean stop");
+  if (await connectorUp()) fail(`${supervisorName} started it again after Stop connector`);
+  if (running()) fail(`${supervisorName} still lists it as running after a clean stop`);
   step("Stop connector: stays stopped");
-  sh("systemctl", "--user", "restart", a.service);
-  await connectorUpAgain("the connector after systemctl restart");
-  sh("systemctl", "--user", "stop", a.service);
-  await connectorDown("the connector to stop on systemctl stop");
+  supervisor("restart");
+  await connectorUpAgain(`the connector after a restart of ${supervisorName}`);
+  supervisor("stop");
+  await connectorDown(`the connector to stop when ${supervisorName} stops`);
   await sleep(10_000);
-  if (await connectorUp()) fail("it came back after systemctl --user stop");
-  step("systemctl --user stop: stays stopped");
-  sh("systemctl", "--user", "start", a.service);
-  await connectorUpAgain("the connector after systemctl start");
-  await same("online after systemctl start");
+  if (await connectorUp()) fail(`it came back after ${supervisorName} stopped`);
+  step(`${supervisorName} stop: stays stopped`);
+  supervisor("start");
+  await connectorUpAgain(`the connector after ${supervisorName} started`);
+  await same(`online after ${supervisorName} started`);
   console.log("Headless install works.");
 } else if (command === "update") {
   if (!a.version) fail("--version is needed");

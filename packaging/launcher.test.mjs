@@ -12,18 +12,37 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   beginPending,
+  CRASH_RESET_MS,
   compareVersions,
+  crashDelay,
   dataDir,
   exitCode,
+  isHeadless,
   launchArgs,
   newest,
+  nextFailures,
   product,
   relink,
   rotate,
   serverUrl,
   settle,
+  waitGone,
   writeLoader,
 } from "./launcher.mjs";
+
+describe("waitGone", () => {
+  it("is true at once when nothing answers", async () => {
+    expect(await waitGone("http://x/", 0, async () => false)).toBe(true);
+  });
+  it("is true once a program that still answers goes", async () => {
+    let answers = 2;
+    expect(await waitGone("http://x/", 5_000, async () => answers-- > 0)).toBe(true);
+    expect(answers).toBe(-1);
+  });
+  it("is false while it still answers after the wait", async () => {
+    expect(await waitGone("http://x/", 0, async () => true)).toBe(false);
+  });
+});
 
 const install = (...versions) => {
   const dir = mkdtempSync(join(tmpdir(), "launcher-"));
@@ -225,5 +244,29 @@ describe("exitCode", () => {
   it("calls the SIGTERM that follows the launcher's own SIGTERM a clean stop", () => {
     expect(exitCode(null, "SIGTERM", true)).toBe(0);
     expect(exitCode(null, "SIGKILL", true)).toBe(137);
+  });
+});
+
+describe("headless restarts", () => {
+  it("is headless with --headless or CONNECTOR_HEADLESS, as the connector reads it", () => {
+    expect(isHeadless([], {})).toBe(false);
+    expect(isHeadless(["--hub-url", "x", "--headless"], {})).toBe(true);
+    expect(isHeadless([], { CONNECTOR_HEADLESS: "1" })).toBe(true);
+    expect(isHeadless([], { CONNECTOR_HEADLESS: "TRUE" })).toBe(true);
+    expect(isHeadless([], { CONNECTOR_HEADLESS: "off" })).toBe(false);
+    expect(isHeadless([], { CONNECTOR_HEADLESS: "" })).toBe(false);
+  });
+
+  it("waits 5 s after a crash, doubling up to 5 min", () => {
+    expect([1, 2, 3, 4, 5, 6, 7].map(crashDelay)).toEqual([
+      5_000, 10_000, 20_000, 40_000, 80_000, 160_000, 300_000,
+    ]);
+    expect(crashDelay(50)).toBe(300_000);
+  });
+
+  it("starts over after a program that ran 10 minutes", () => {
+    expect(nextFailures(0, 1_000)).toBe(1);
+    expect(nextFailures(4, 1_000)).toBe(5);
+    expect(nextFailures(4, CRASH_RESET_MS)).toBe(1);
   });
 });

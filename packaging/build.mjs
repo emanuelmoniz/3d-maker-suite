@@ -60,6 +60,8 @@ const PRODUCTS = {
     adapters: ["bambu", "moonraker", "octoprint", "prusalink", "spoolman"],
     // It only helps while it runs: the installer always registers it.
     alwaysStart: true,
+    // Windows Server with nobody signed in (ADR-0024): the installer's headless choice, a scheduled task.
+    headless: true,
   },
 };
 if (!["x64", "arm64"].includes(a.arch)) throw new Error("--arch: x64 or arm64");
@@ -77,6 +79,12 @@ const app = join(stage, "versions", version);
 rmSync(work, { recursive: true, force: true });
 mkdirSync(app, { recursive: true });
 const sh = (cmd, cwd = root) => execSync(cmd, { cwd, stdio: "inherit" });
+// Windows' own tar (bsdtar) reads a zip and takes D:\ paths; Git Bash's GNU tar, first on its
+// PATH, does neither.
+const tar =
+  process.platform === "win32"
+    ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
+    : "tar";
 const walk = (dir, fn) => {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
@@ -105,7 +113,7 @@ if (createHash("sha256").update(buf).digest("hex") !== want)
 const tmp = join(work, "_node");
 mkdirSync(tmp);
 writeFileSync(join(tmp, file), buf);
-execFileSync("tar", ["-xf", file], { cwd: tmp });
+execFileSync(tar, ["-xf", file], { cwd: tmp });
 const from = join(tmp, file.replace(/\.(zip|tar\.gz)$/, ""));
 const node = join(stage, "node");
 mkdirSync(platform === "win32" ? node : join(node, "bin"), { recursive: true });
@@ -115,6 +123,9 @@ if (platform === "win32") {
 cpSync(join(from, "LICENSE"), join(node, "LICENSE"));
 rmSync(tmp, { recursive: true, force: true });
 for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(here, f), join(stage, f));
+// What the Windows installer's headless choice runs to register the scheduled task.
+if (p.headless && platform === "win32")
+  cpSync(join(here, "headless-task.mjs"), join(stage, "headless-task.mjs"));
 // The logo as each OS wants it (made by make-icons.mjs): setup and shortcuts, the .app, the menu entry.
 const icon = { win32: "icon.ico", darwin: "icon.icns", linux: "icon.png" }[process.platform];
 cpSync(join(here, icon), join(stage, icon));
@@ -128,7 +139,7 @@ writeFileSync(
 // 2. The app: the commit, the product's prod deps (hoisted: only workspace packages are links), and
 // for the server the built web app. --filter-prod: the connector's tests use the server, its bundle
 // doesn't. better-sqlite3 has N-API prebuilds for every platform and no install script.
-sh(`git archive --format=tar HEAD | tar -x -C "${app}"`);
+sh(`git archive --format=tar HEAD | "${tar}" -x -C "${app}"`);
 // The guide that ships with the app (/guide/, Step 0b of Plan 6.2.0): built from the working tree's
 // wiki/ into apps/web/dist/guide, after the web build that empties apps/web/dist.
 if (server) sh("pnpm guide:build");
@@ -209,6 +220,7 @@ if (platform === "win32") {
       `/DName=${p.name}`,
       `/DAppId=${p.id}`,
       ...(p.alwaysStart ? ["/DAlwaysStart"] : []),
+      ...(p.headless ? ["/DHeadless"] : []),
       `/DSrc=${stage}`,
       `/DOutDir=${out}`,
       `/DOutName=${name("")}-setup`,
@@ -261,7 +273,7 @@ if (platform === "win32") {
 } else {
   cpSync(join(here, "install.sh"), join(stage, "install.sh"));
   const tgz = join(out, `${name("")}.tar.gz`);
-  execFileSync("tar", ["-czf", tgz, "-C", work, p.id]);
+  execFileSync(tar, ["-czf", tgz, "-C", work, p.id]);
   outputs.push(tgz);
 }
 for (const f of outputs) console.log(`${f}: ${Math.round(statSync(f).size / 1e5) / 10} MB`);

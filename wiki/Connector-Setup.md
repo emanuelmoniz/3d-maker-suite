@@ -1,6 +1,6 @@
 # Connector setup
 
-The connector is a small program that joins a computer to your [hub](Hub-Setup.md). This page shows how to install it on Windows, macOS and Linux (also a Raspberry Pi or a server with no desktop), pair it, keep it up to date and remove it.
+The connector is a small program that joins a computer to your [hub](Hub-Setup.md). This page shows how to install it on Windows, macOS and Linux (also a Raspberry Pi, a Linux server or a Windows Server with nobody signed in), pair it, keep it up to date and remove it.
 
 ## Who can use it
 
@@ -22,7 +22,7 @@ It also reports its name, system, version, disk use and slicers, so the hub can 
 
 - **The hub is on,** and you have its address, see [Hub setup](Hub-Setup.md).
 - **An admin** makes you a pairing code, or you are the admin.
-- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit Linux computer: x64, or ARM64 such as a Raspberry Pi 4 or 5 with a 64-bit system. With a desktop you pair on the connector's page in a browser on the same computer. With no desktop, see [Linux with no desktop](#linux-with-no-desktop). There is no connector for a NAS's own system yet. To use a NAS's folders, run the hub on the NAS with [Docker](Docker.md#on-a-nas) and mount the NAS folders into it as hub folders. The hub then reads them directly.
+- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit Linux computer: x64, or ARM64 such as a Raspberry Pi 4 or 5 with a 64-bit system. With a desktop you pair on the connector's page in a browser on the same computer. With no desktop, see [Linux with no desktop](#linux-with-no-desktop) and [Windows Server](#windows-server). There is no connector for a NAS's own system yet. To use a NAS's folders, run the hub on the NAS with [Docker](Docker.md#on-a-nas) and mount the NAS folders into it as hub folders. The hub then reads them directly.
 - **The same version as the hub.** Download the connector from the same release as the hub. If it is older, it updates itself when it pairs.
 - **No hub on the same computer.** The connector doesn't start where a hub is running.
 
@@ -112,7 +112,45 @@ systemctl --user status 3d-maker-suite-connector
 journalctl --user -u 3d-maker-suite-connector
 ```
 
-The connector's own log is `logs/server.log` in its install folder. **Stop connector** in the hub, or `systemctl --user stop 3d-maker-suite-connector`, keeps it stopped until you run `systemctl --user start 3d-maker-suite-connector` or the machine restarts. A crash or a killed process is restarted after 5 seconds. Running a newer `install.sh --headless` without the address and code updates the install and keeps the ones the service has.
+The connector's own log is `logs/server.log` in its install folder. **Stop connector** in the hub, or `systemctl --user stop 3d-maker-suite-connector`, keeps it stopped until you run `systemctl --user start 3d-maker-suite-connector` or the machine restarts. If the connector crashes or is killed, it starts again after 5 seconds, then waits longer after each new crash, up to 5 minutes. systemd starts it again if its launcher is killed. Running a newer `install.sh --headless` without the address and code updates the install and keeps the ones the service has.
+
+### Windows Server
+
+Use this on a Windows Server where the connector should run from boot, with nobody signed in, also on Server Core with no desktop. The connector runs as a scheduled task, `3D Maker Suite Connector`, which starts it at boot as the account that installed it. That account must be an administrator: the connector runs as it, without its administrator rights, and no password is stored. Windows Server x64 only.
+
+1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before you run the setup.
+2. Download the Windows connector file (see [Download](#download)) to the server.
+3. Install it in one of these two ways.
+
+**With a desktop.** Sign in as the administrator the connector should run as, and double-click the setup file. Tick **Start at boot with nobody signed in (headless)**, then fill in the hub address, the code and the name on the next page. Windows asks for administrator rights once, to add the task.
+
+**Server Core, or any server from the command line.** In an administrator PowerShell, run the setup with the hub address and the code:
+
+```powershell
+.\3d-maker-suite-connector-<version>-windows-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /HEADLESS /HUBURL=https://maker.example.com /PAIRINGCODE=AB12-CD34 /NAME="Workshop server"
+```
+
+`/NAME` is optional. It starts as the server's name. The setup ends with exit code 8 if the task couldn't be added, and writes the reason in `logs\headless-task.log` in the install folder.
+
+4. In **Hub management** the server shows **Online**.
+
+What the setup does:
+
+- It installs the connector in the same folder as on a desktop, `%LOCALAPPDATA%\Programs\3D Maker Suite Connector` of the installing account, and adds the task. It adds no Start-menu entry, no desktop icon and no start at sign-in.
+- The address and the code are kept in the task, which only administrators can read. The first start pairs with them. After that the code is ignored. A code the hub refused is never sent twice, as on Linux.
+- It runs as the installing account, so the files it creates belong to that account. Its data is in that account's `%APPDATA%\3d-maker-suite-connector`.
+
+To look at it, and to stop and start it:
+
+```powershell
+Get-ScheduledTask -TaskName "3D Maker Suite Connector" | Get-ScheduledTaskInfo
+Stop-ScheduledTask -TaskName "3D Maker Suite Connector"
+Start-ScheduledTask -TaskName "3D Maker Suite Connector"
+```
+
+The connector's own log is `logs\server.log` in its install folder. **Stop connector** in the hub, or `Stop-ScheduledTask`, keeps it stopped until you run `Start-ScheduledTask` or the server restarts. If the connector crashes or is killed, it starts again after 5 seconds, then waits longer after each new crash, up to 5 minutes. If its launcher (the `nodew.exe` that runs `launcher.mjs`) is killed, it stays stopped until `Start-ScheduledTask` or the next boot: the task can't restart it. `Start-ScheduledTask` right after `Stop-ScheduledTask` is fine: the new start waits up to 15 seconds for the old one to end. Running a newer setup with `/HEADLESS` but without `/HUBURL` and `/PAIRINGCODE` updates the install and keeps the ones the task has.
+
+A sync folder on a network share (`\\nas\share`) can't be reached this way yet. The task runs without the account's password, so Windows gives it no network credentials. Use a folder on the server's own disks for now. Running it as a named account with its password, which reaches shares, is planned.
 
 ## Warnings you will see
 
@@ -215,7 +253,7 @@ In **Hub management** a computer that isn't on the hub's version shows **Outdate
 - On the computer's page in the web app: **Restart connector** and **Stop connector**. The computer has to be online.
 - On the connector's page: **Restart server** and **Stop server**.
 
-A stopped connector keeps the computer offline for the hub until you start it again from the Start menu, Applications or the application menu, or until the next sign-in.
+A stopped connector keeps the computer offline for the hub until you start it again from the Start menu, Applications or the application menu, or until the next sign-in. A headless one stays stopped until its service ([Linux](#linux-with-no-desktop)) or task ([Windows Server](#windows-server)) is started again, or the machine restarts.
 
 ## Unpair or remove it
 
@@ -231,6 +269,7 @@ A stopped connector keeps the computer offline for the hub until you start it ag
 | macOS | Drag **3D Maker Suite Connector** from Applications to the Bin, then delete `~/Library/LaunchAgents/com.3dmakersuite.connector.login.plist` |
 | Linux | Delete `~/.local/share/3d-maker-suite-connector/install`, `~/.local/share/applications/3d-maker-suite-connector.desktop` and `~/.config/autostart/3d-maker-suite-connector.desktop` |
 | Linux, with no desktop | Run `systemctl --user disable --now 3d-maker-suite-connector`, then delete `~/.config/systemd/user/3d-maker-suite-connector.service` and `~/.local/share/3d-maker-suite-connector/install` |
+| Windows Server, headless | **Settings → Apps → Installed apps → 3D Maker Suite Connector → Uninstall**, or `& "$env:LOCALAPPDATA\Programs\3D Maker Suite Connector\unins000.exe" /VERYSILENT` in an administrator PowerShell. It stops the connector and removes the task |
 
 To remove everything, also delete the data folder (see the table below) and the `3D Maker Suite` folder in your home folder. The data folder holds the pairing, so the computer is unpaired once it is gone.
 
@@ -242,16 +281,18 @@ To remove everything, also delete the data folder (see the table below) and the 
 | macOS | `/Applications/3D Maker Suite Connector.app` | `~/Library/Application Support/3d-maker-suite-connector`, logs in `install/logs/` |
 | Linux | `~/.local/share/3d-maker-suite-connector/install`, logs in `logs/` | `~/.local/share/3d-maker-suite-connector` |
 | Linux, with no desktop | the same, run by the user's systemd through `~/.config/systemd/user/3d-maker-suite-connector.service` (with linger) | the same |
+| Windows Server, headless | the same as Windows, of the installing administrator, run at boot by the scheduled task `3D Maker Suite Connector` (S4U: no stored password, no elevation) | the same as Windows |
 
 - **Allow by hash.** Every release file is in `SHA256SUMS`. You can also verify one with `gh attestation verify <file> -R emanuelmoniz/3d-maker-suite`.
 - **Network.** The connector connects out to the hub (HTTPS, or HTTP on a LAN) and to GitHub releases for updates. It also reaches the printers and the spool library the hub gives it, on their web or MQTT port. Its own page listens on `127.0.0.1:4301` only.
-- **No admin rights.** The installers write only in the user's folders.
+- **No admin rights.** The installers write only in the user's folders. The one exception is the Windows Server headless choice, which needs an administrator once, to add its scheduled task.
 - **Secrets.** The computer's token and the printers' keys are stored encrypted and are never logged.
 - **More.** What a connector can and can't do is on [Hub setup](Hub-Setup.md#for-company-it).
 
 ## Limits and tips
 
-- **No connector for a NAS's own system yet.** Windows, macOS, Linux x64 and Linux ARM64 are covered. A NAS that can't add services needs a container, which comes later.
+- **No connector for a NAS's own system yet.** Windows (Windows Server too), macOS, Linux x64 and Linux ARM64 are covered. A NAS that can't add services needs a container, which comes later.
+- **Windows Server, headless: no network shares yet.** Its task has no network credentials, so a sync folder on `\\nas\share` isn't reached. Windows on ARM has no headless install.
 - **ARM can't slice.** A connector on ARM can't be a slice worker.
 - **One hub per computer,** and one pairing per computer.
 - **Starts at login.** The connector has no tray icon and no window. Its Start-menu or application-menu entry opens the hub's page for the computer, or the pair page before it is paired. When the hub can't be reached, it opens the connector's own page.
