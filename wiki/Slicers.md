@@ -151,7 +151,7 @@ See [Presets](Presets.md) for what a preset is, and [Projects](Projects.md#print
 
 ### Slice on a NAS
 
-1. Use the `-slicer` Docker image. See [Docker](Docker.md#slicing-in-docker).
+1. Use the `-slicer` Docker image, on an x64 NAS. See [Docker](Docker.md#slicing-in-docker).
 2. **Add integration**, pick **Bambu Studio** or **OrcaSlicer**, and **This server**.
 3. On its row, press **Install slicer**, pick a version, and press **Install slicer** again.
 4. Upload your presets as a zip, see [Presets](#presets).
@@ -177,7 +177,7 @@ See [Presets](Presets.md) for what a preset is, and [Projects](Projects.md#print
 ## Limits and tips
 
 - A slicer needs no display, only its shared libraries.
-- Only x64 is supported for the downloaded Linux slicer: Bambu Lab has no Linux ARM build. Bambu Studio on Windows ARM isn't offered either.
+- Only x64 is supported for the downloaded Linux slicer: Bambu Lab has no Linux ARM build. On a Linux ARM server (a Raspberry Pi, an ARM NAS), **This server** under **Where** is greyed out for both slicers, with the reason, and the app refuses to install one there: slice on an x64 computer or a Mac that is a slice worker. Bambu Studio on Windows ARM isn't offered either.
 - In OrcaSlicer, a process preset can't be applied to a project made in Bambu Studio: OrcaSlicer rejects a setting saved in the file, with error `-18`. Open and save the project in OrcaSlicer first.
 - Only a changed preset marks a slice outdated. Changing a plate's spool only changes its price.
 - A database from before version 5.5.0 with both an installed and a downloaded copy keeps both working. The card says **Installed twice on this server: the copy found installed here and a download. Both keep working; delete one.**

@@ -12,7 +12,7 @@ Only admins turn the hub on and pair computers. The hub needs **user accounts**,
 
 People still work only in the web app. The hub adds these things:
 
-- **Project files on other computers.** A workstation, a NAS or a file server shares a folder. The hub lists its projects as if they were on the server.
+- **Project files on other computers.** A workstation, a NAS or a file server shares a folder. The hub lists its projects as if they were on the server. A NAS runs the connector in Docker, see [Connector setup](Connector-Setup.md#docker-a-nas-or-a-server).
 - **A copy of the server's projects on each computer.** Save in your slicer as usual and the hub gets the change. A change made on the hub or on another computer arrives by itself.
 - **Printers and spool libraries on a private network.** A hub on a server in another city can't reach a printer in your workshop. A computer in the workshop reads the printer for it.
 - **Slicing on another computer.** A hub on a small server, or on an ARM NAS, can let a workstation do the slicing.

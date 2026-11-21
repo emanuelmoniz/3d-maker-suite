@@ -51,6 +51,8 @@ export function ManagedSlicer({
   const update =
     installed && newest && compareVersions(newest.tag, installed) > 0 ? newest : undefined;
   const running = job?.state === "running";
+  // This server runs no slicer (Linux on ARM, ADR-0024); a worker's device is checked by the hub.
+  const unsupported = !onDevice && !managed.supported;
 
   return (
     <div className="grid gap-3">
@@ -94,6 +96,11 @@ export function ManagedSlicer({
           )}
         </p>
       )}
+      {unsupported && (
+        <p role="status" className="text-warn">
+          {t("integrations:managed.unsupported")}
+        </p>
+      )}
       {(install.isError || remove.isError) && (
         <p role="alert" className="text-bad">
           {t("integrations:card.actionError")}
@@ -101,7 +108,7 @@ export function ManagedSlicer({
       )}
       {!running && (
         <div className="flex flex-wrap gap-2">
-          {update && (
+          {!unsupported && update && (
             <Button
               variant="primary"
               busy={install.isPending}
@@ -110,14 +117,18 @@ export function ManagedSlicer({
               {t("integrations:managed.update", { version: version(update.tag) })}
             </Button>
           )}
-          {job?.state === "failed" && job.tag && (
+          {!unsupported && job?.state === "failed" && job.tag && (
             <Button busy={install.isPending} onClick={() => install.mutate(job.tag ?? "")}>
               {t("integrations:managed.retry")}
             </Button>
           )}
-          <Button variant={installed ? "secondary" : "primary"} onClick={() => setPicking(true)}>
-            {installed ? t("integrations:managed.otherVersion") : t("integrations:managed.install")}
-          </Button>
+          {!unsupported && (
+            <Button variant={installed ? "secondary" : "primary"} onClick={() => setPicking(true)}>
+              {installed
+                ? t("integrations:managed.otherVersion")
+                : t("integrations:managed.install")}
+            </Button>
+          )}
           {installed && (
             <Button busy={remove.isPending} onClick={() => setConfirming(true)}>
               {t("integrations:managed.remove")}

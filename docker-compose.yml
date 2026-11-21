@@ -1,12 +1,17 @@
 # Copy this file, then run: docker compose up -d (create the first admin: docs/users.md)
 services:
   app:
-    image: ghcr.io/emanuelmoniz/3d-maker-suite:latest # or :dev for pre-releases; :latest-slicer to slice (docs/slicing.md); or `build: .`
+    image: ghcr.io/emanuelmoniz/3d-maker-suite:latest # or :dev for pre-releases; :latest-slicer to slice, x64 only (docs/slicing.md); or `build: .`
     restart: unless-stopped
     ports:
       - "4300:4300"
     environment:
       HOST: 0.0.0.0
+      # Who owns /data and the files the app creates in your project folders. Without these the app runs as
+      # root, so those files belong to root on a NAS. Find your numbers: run `id` over SSH, or see the NAS's
+      # user page. Ownership of /data changes once, at the next start; your project folders are never touched.
+      # PUID: 1000
+      # PGID: 1000
     volumes:
       - app-data:/data # database, key file, thumbnails, backups
       # Project folders: mount read-only and add them in Settings → Projects as /projects/...

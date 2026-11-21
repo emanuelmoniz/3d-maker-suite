@@ -89,7 +89,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const start = (used = adapter) =>
+const start = (used = adapter, system = { platform: "win32", arch: "x64" }) =>
   buildApp(db, false, dir, {
     adapters: [used],
     slicerInstaller: {
@@ -103,7 +103,7 @@ const start = (used = adapter) =>
         if (!existsSync(exe)) throw new Error(`no ${exe}`);
         if (smokeFails) throw new Error("exit -1");
       },
-      system: { platform: "win32", arch: "x64" },
+      system,
     },
   });
 
@@ -115,8 +115,8 @@ const send = (
   payload?: object,
 ) => app.inject({ method, url, payload });
 
-async function setup(used = adapter) {
-  const app = await start(used);
+async function setup(used = adapter, system?: { platform: string; arch: string }) {
+  const app = await start(used, system);
   const { id } = (await send(app, "POST", "/api/integrations", { adapterId: "srv" })).json();
   return { app, id: id as string, base: `/api/integrations/${id}` };
 }
@@ -145,7 +145,34 @@ describe("managed slicer", () => {
       capabilities: [],
     });
     const adapters = (await send(app, "GET", "/api/integrations/adapters")).json();
-    expect(adapters[0].managed).toEqual({ repo: "vendor/slicer", licenceUrl: "https://licence" });
+    expect(adapters[0].managed).toEqual({
+      repo: "vendor/slicer",
+      licenceUrl: "https://licence",
+      supported: true,
+    });
+  });
+
+  it("refuses an install on Linux ARM, where no slicer runs (ADR-0024)", async () => {
+    const { app, base } = await setup(adapter, { platform: "linux", arch: "arm64" });
+    expect((await send(app, "GET", "/api/integrations/adapters")).json()[0].managed).toMatchObject({
+      supported: false,
+    });
+    expect((await send(app, "GET", `${base}/slicer/releases`)).json()).toEqual([]);
+    const res = await send(app, "POST", `${base}/slicer/install`, { tag: "v1.1.0" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("slicing_unsupported");
+    expect((await send(app, "GET", `${base}/slicer/install`)).json()).toMatchObject({
+      state: "idle",
+    });
+    expect(existsSync(join(dir, "slicers", base.split("/").pop() as string))).toBe(false);
+  });
+
+  it.each([
+    { platform: "darwin", arch: "arm64" },
+    { platform: "win32", arch: "arm64" },
+  ])("$platform on ARM can still install", async (system) => {
+    const { app, base } = await setup(adapter, system);
+    expect(await install(app, base, "v1.0.0")).toMatchObject({ state: "done" });
   });
 
   it("downloads, checks, unpacks without .pdb, tests, then points the integration at it", async () => {

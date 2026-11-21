@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ManagedSlicer } from "../integrations/index.ts";
-import { glibcAtLeast, installable } from "./managedSlicer.ts";
+import { glibcAtLeast, installable, slicingSupported } from "./managedSlicer.ts";
 
 const slicer: ManagedSlicer = {
   repo: "a/b",
@@ -40,6 +40,26 @@ describe("installable", () => {
   it("skips a release with no asset for this system", () => {
     expect(installable([{ ...rel("v2.0.0"), assets: [] }], slicer, sys, true)).toEqual([]);
   });
+});
+
+it("slicingSupported: Linux on ARM runs no slicer, the other ARM systems do (ADR-0024)", () => {
+  expect(slicingSupported({ platform: "linux", arch: "arm64" })).toBe(false);
+  expect(slicingSupported({ platform: "linux", arch: "x64" })).toBe(true);
+  expect(slicingSupported({ platform: "darwin", arch: "arm64" })).toBe(true);
+  expect(slicingSupported({ platform: "win32", arch: "arm64" })).toBe(true);
+  // Even an asset that matches isn't offered there.
+  expect(
+    installable(
+      [rel("v2.0.0")],
+      { ...slicer, asset: (_t, names) => names[0] },
+      {
+        platform: "linux",
+        arch: "arm64",
+        glibc: "2.41",
+      },
+      true,
+    ),
+  ).toEqual([]);
 });
 
 it("glibcAtLeast", () => {

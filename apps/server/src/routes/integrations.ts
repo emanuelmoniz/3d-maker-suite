@@ -295,7 +295,13 @@ export const integrationsRoutes =
         capabilities: [...a.capabilities],
         detectedConfigDir: detectedDir(a.library),
         libraryId: a.library?.id ?? null,
-        managed: a.managed ? { repo: a.managed.repo, licenceUrl: a.managed.licenceUrl } : null,
+        managed: a.managed
+          ? {
+              repo: a.managed.repo,
+              licenceUrl: a.managed.licenceUrl,
+              supported: installer.supported,
+            }
+          : null,
       })),
     );
 

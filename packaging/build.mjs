@@ -5,6 +5,9 @@
 // <id> is 3d-maker-suite (the app) or 3d-maker-suite-connector. The app needs apps/web/dist built
 // first (the guide is built here, into it); Windows needs Inno Setup 6. Node stdlib + system tools only.
 // node packaging/build.mjs [--product server|connector] [--arch x64|arm64] [--tag v4.1.0]
+// node packaging/build.mjs --product connector --image <dir>: the connector's container image
+// (Dockerfile, ADR-0024). Only its pruned tree, made from the working tree and into <dir> with its
+// links in place: no Node, launcher, zip or installer, and no git. The image's own Node runs it.
 // Linux arm64 (Raspberry Pi, ARM NAS, ADR-0024) builds on an arm64 machine: install.sh runs its Node.
 import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -35,6 +38,7 @@ const { values: a } = parseArgs({
     arch: { type: "string", default: process.arch },
     tag: { type: "string", default: `v${version}` },
     product: { type: "string", default: "server" },
+    image: { type: "string" },
   },
 });
 /**
@@ -68,14 +72,17 @@ if (!["x64", "arm64"].includes(a.arch)) throw new Error("--arch: x64 or arm64");
 const p = PRODUCTS[a.product];
 if (!p) throw new Error(`--product: ${Object.keys(PRODUCTS).join(" or ")}`);
 const server = a.product === "server";
+const image = a.image && resolve(a.image);
+if (image && server)
+  throw new Error("--image: connector only (the app's image is built from source)");
 const platform = process.platform;
 const os = { win32: "windows", darwin: "macos", linux: "linux" }[platform];
 const name = (kind) => `${p.id}-${a.tag}-${kind}${os}-${a.arch}`;
 const out = join(here, "out");
-const work = join(out, `${a.product}-${platform}-${a.arch}`);
+const work = image ?? join(out, `${a.product}-${platform}-${a.arch}`);
 // Linux ships this folder as is, so it carries the product's name.
 const stage = join(work, p.id);
-const app = join(stage, "versions", version);
+const app = image ?? join(stage, "versions", version);
 rmSync(work, { recursive: true, force: true });
 mkdirSync(app, { recursive: true });
 const sh = (cmd, cwd = root) => execSync(cmd, { cwd, stdio: "inherit" });
@@ -92,54 +99,79 @@ const walk = (dir, fn) => {
   }
 };
 
-// 1. Node 22 (>= 22.18 for type stripping), checked against SHASUMS256.txt. Only the binary.
-const get = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: ${res.status}`);
-  return res;
-};
-const index = await (await get("https://nodejs.org/dist/index.json")).json();
-const v = index.find((r) => r.version.startsWith("v22.")).version;
-if (Number(v.split(".")[1]) < 18) throw new Error(`Node ${v} has no type stripping`);
-const file = `node-${v}-${platform === "win32" ? "win" : platform}-${a.arch}.${platform === "win32" ? "zip" : "tar.gz"}`;
-const sums = await (await get(`https://nodejs.org/dist/${v}/SHASUMS256.txt`)).text();
-const want = sums
-  .split("\n")
-  .find((l) => l.endsWith(`  ${file}`))
-  ?.split(" ")[0];
-const buf = Buffer.from(await (await get(`https://nodejs.org/dist/${v}/${file}`)).arrayBuffer());
-if (createHash("sha256").update(buf).digest("hex") !== want)
-  throw new Error(`${file}: bad checksum`);
-const tmp = join(work, "_node");
-mkdirSync(tmp);
-writeFileSync(join(tmp, file), buf);
-execFileSync(tar, ["-xf", file], { cwd: tmp });
-const from = join(tmp, file.replace(/\.(zip|tar\.gz)$/, ""));
-const node = join(stage, "node");
-mkdirSync(platform === "win32" ? node : join(node, "bin"), { recursive: true });
-if (platform === "win32") {
-  writeFileSync(join(node, "nodew.exe"), nodew(readFileSync(join(from, "node.exe"))));
-} else cpSync(join(from, "bin", "node"), join(node, "bin", "node"));
-cpSync(join(from, "LICENSE"), join(node, "LICENSE"));
-rmSync(tmp, { recursive: true, force: true });
-for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(here, f), join(stage, f));
-// What the Windows installer's headless choice runs to register the scheduled task.
-if (p.headless && platform === "win32")
-  cpSync(join(here, "headless-task.mjs"), join(stage, "headless-task.mjs"));
-// The logo as each OS wants it (made by make-icons.mjs): setup and shortcuts, the .app, the menu entry.
-const icon = { win32: "icon.ico", darwin: "icon.icns", linux: "icon.png" }[process.platform];
-cpSync(join(here, icon), join(stage, icon));
-// What the launcher runs; the mac .app copies these three next to Node.
-const top = ["launcher.mjs", "loader.html", "product.json"];
-writeFileSync(
-  join(stage, "product.json"),
-  JSON.stringify({ id: p.id, name: p.name, app: p.app, port: p.port }),
-);
+let v = process.version; // the image's own Node
+// What the installers and the macOS .app take from step 1 (an image has none of it).
+let node;
+let icon;
+let top;
+if (!image) {
+  // 1. Node 22 (>= 22.18 for type stripping), checked against SHASUMS256.txt. Only the binary.
+  const get = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${url}: ${res.status}`);
+    return res;
+  };
+  const index = await (await get("https://nodejs.org/dist/index.json")).json();
+  v = index.find((r) => r.version.startsWith("v22.")).version;
+  if (Number(v.split(".")[1]) < 18) throw new Error(`Node ${v} has no type stripping`);
+  const file = `node-${v}-${platform === "win32" ? "win" : platform}-${a.arch}.${platform === "win32" ? "zip" : "tar.gz"}`;
+  const sums = await (await get(`https://nodejs.org/dist/${v}/SHASUMS256.txt`)).text();
+  const want = sums
+    .split("\n")
+    .find((l) => l.endsWith(`  ${file}`))
+    ?.split(" ")[0];
+  const buf = Buffer.from(await (await get(`https://nodejs.org/dist/${v}/${file}`)).arrayBuffer());
+  if (createHash("sha256").update(buf).digest("hex") !== want)
+    throw new Error(`${file}: bad checksum`);
+  const tmp = join(work, "_node");
+  mkdirSync(tmp);
+  writeFileSync(join(tmp, file), buf);
+  execFileSync(tar, ["-xf", file], { cwd: tmp });
+  const from = join(tmp, file.replace(/\.(zip|tar\.gz)$/, ""));
+  node = join(stage, "node");
+  mkdirSync(platform === "win32" ? node : join(node, "bin"), { recursive: true });
+  if (platform === "win32") {
+    writeFileSync(join(node, "nodew.exe"), nodew(readFileSync(join(from, "node.exe"))));
+  } else cpSync(join(from, "bin", "node"), join(node, "bin", "node"));
+  cpSync(join(from, "LICENSE"), join(node, "LICENSE"));
+  rmSync(tmp, { recursive: true, force: true });
+  for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(here, f), join(stage, f));
+  // What the Windows installer's headless choice runs to register the scheduled task.
+  if (p.headless && platform === "win32")
+    cpSync(join(here, "headless-task.mjs"), join(stage, "headless-task.mjs"));
+  // The logo as each OS wants it (made by make-icons.mjs): setup and shortcuts, the .app, the menu entry.
+  icon = { win32: "icon.ico", darwin: "icon.icns", linux: "icon.png" }[process.platform];
+  cpSync(join(here, icon), join(stage, icon));
+  // What the launcher runs; the mac .app copies these three next to Node.
+  top = ["launcher.mjs", "loader.html", "product.json"];
+  writeFileSync(
+    join(stage, "product.json"),
+    JSON.stringify({ id: p.id, name: p.name, app: p.app, port: p.port }),
+  );
+}
 
-// 2. The app: the commit, the product's prod deps (hoisted: only workspace packages are links), and
-// for the server the built web app. --filter-prod: the connector's tests use the server, its bundle
+// 2. The app: the commit (an image: the working tree, as the Dockerfile copied it), the product's
+// prod deps (hoisted: only workspace packages are links), and for the server the built web app. --filter-prod: the connector's tests use the server, its bundle
 // doesn't. better-sqlite3 has N-API prebuilds for every platform and no install script.
-sh(`git archive --format=tar HEAD | "${tar}" -x -C "${app}"`);
+if (image) {
+  // What the install needs, and no node_modules or build output from a developer's tree.
+  const wanted = new Set([
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ".npmrc",
+    "LICENSE",
+    "apps",
+    "packages",
+  ]);
+  cpSync(root, app, {
+    recursive: true,
+    filter: (p) => {
+      const parts = relative(root, p).split(/[\\/]/).filter(Boolean);
+      return !parts.length || (wanted.has(parts[0]) && !parts.includes("node_modules"));
+    },
+  });
+} else sh(`git archive --format=tar HEAD | "${tar}" -x -C "${app}"`);
 // The guide that ships with the app (/guide/, Step 0b of Plan 6.2.0): built from the working tree's
 // wiki/ into apps/web/dist/guide, after the web build that empties apps/web/dist.
 if (server) sh("pnpm guide:build");
@@ -150,15 +182,19 @@ sh(
 );
 
 // 3. Links: recorded with relative targets, then removed; the launcher recreates them (Inno Setup
-// follows links and packs their targets twice).
+// follows links and packs their targets twice). An image keeps them.
 const links = [];
 walk(app, (p, e) => {
-  if (!e.isSymbolicLink()) return;
+  if (image || !e.isSymbolicLink()) return;
   links.push([relative(app, p), relative(dirname(p), resolve(dirname(p), readlinkSync(p)))]);
 });
 for (const [p] of links) (platform === "win32" ? rmdirSync : unlinkSync)(join(app, p));
 const slash = (p) => p.replaceAll("\\", "/");
-writeFileSync(join(app, "links.json"), JSON.stringify(links.map(([p, t]) => [slash(p), slash(t)])));
+if (!image)
+  writeFileSync(
+    join(app, "links.json"),
+    JSON.stringify(links.map(([p, t]) => [slash(p), slash(t)])),
+  );
 
 // 4. Keep only what runs: no dev files, sources of the web app, tests, maps, types or docs.
 const keep = new Set(["package.json", "LICENSE", "apps", "packages", "node_modules", "links.json"]);
@@ -191,6 +227,7 @@ if (server) {
     if (n !== `${platform}-${a.arch}.node`) rmSync(join(sqlite, "prebuilds", n));
 }
 console.log(`node ${v}, ${a.product} ${version}, ${links.length} links`);
+if (image) process.exit(0); // the Dockerfile copies the tree
 
 // 5. The app-only zip for the updater (Windows' tar.exe crashes on a @fastify/send fixture).
 const zip = (dir, to) =>

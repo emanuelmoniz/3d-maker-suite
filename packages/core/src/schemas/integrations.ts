@@ -329,8 +329,13 @@ export const adapterInfoSchema = z.object({
   detectedConfigDir: z.string().nullable(),
   /** The slicer library's id (a slicer-zip source), shared by a slicer's local and server adapters. */
   libraryId: z.string().nullable(),
-  /** `server` adapters: the vendor's repo and licence, for the install dialog. */
-  managed: z.object({ repo: z.string(), licenceUrl: z.string() }).nullable(),
+  /**
+   * `server` adapters: the vendor's repo and licence, for the install dialog, and whether this
+   * server can run the slicer at all (not on Linux ARM, ADR-0024).
+   */
+  managed: z
+    .object({ repo: z.string(), licenceUrl: z.string(), supported: z.boolean() })
+    .nullable(),
 });
 
 /** A slicer release this server can install (ADR-0013). */

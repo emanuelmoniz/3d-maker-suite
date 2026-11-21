@@ -1,6 +1,6 @@
 # Connector setup
 
-The connector is a small program that joins a computer to your [hub](Hub-Setup.md). This page shows how to install it on Windows, macOS and Linux (also a Raspberry Pi, a Linux server or a Windows Server with nobody signed in), pair it, keep it up to date and remove it.
+The connector is a small program that joins a computer to your [hub](Hub-Setup.md). This page shows how to install it on Windows, macOS and Linux (also a Raspberry Pi, a Linux server or a Windows Server with nobody signed in), or in Docker on a NAS or a server, pair it, keep it up to date and remove it.
 
 ## Who can use it
 
@@ -22,7 +22,7 @@ It also reports its name, system, version, disk use and slicers, so the hub can 
 
 - **The hub is on,** and you have its address, see [Hub setup](Hub-Setup.md).
 - **An admin** makes you a pairing code, or you are the admin.
-- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit Linux computer: x64, or ARM64 such as a Raspberry Pi 4 or 5 with a 64-bit system. With a desktop you pair on the connector's page in a browser on the same computer. With no desktop, see [Linux with no desktop](#linux-with-no-desktop) and [Windows Server](#windows-server). There is no connector for a NAS's own system yet. To use a NAS's folders, run the hub on the NAS with [Docker](Docker.md#on-a-nas) and mount the NAS folders into it as hub folders. The hub then reads them directly.
+- **The right computer.** Windows 64-bit, a Mac (Apple silicon or Intel), or a 64-bit Linux computer: x64, or ARM64 such as a Raspberry Pi 4 or 5 with a 64-bit system. With a desktop you pair on the connector's page in a browser on the same computer. With no desktop, see [Linux with no desktop](#linux-with-no-desktop) and [Windows Server](#windows-server). A NAS, or a server with Docker, runs the connector as a container, see [Docker: a NAS or a server](#docker-a-nas-or-a-server). If the hub itself runs on the NAS, you don't need a connector there: mount the NAS folders into the hub as hub folders, see [Docker](Docker.md#on-a-nas).
 - **The same version as the hub.** Download the connector from the same release as the hub. If it is older, it updates itself when it pairs.
 - **No hub on the same computer.** The connector doesn't start where a hub is running.
 
@@ -113,6 +113,65 @@ journalctl --user -u 3d-maker-suite-connector
 ```
 
 The connector's own log is `logs/server.log` in its install folder. **Stop connector** in the hub, or `systemctl --user stop 3d-maker-suite-connector`, keeps it stopped until you run `systemctl --user start 3d-maker-suite-connector` or the machine restarts. If the connector crashes or is killed, it starts again after 5 seconds, then waits longer after each new crash, up to 5 minutes. systemd starts it again if its launcher is killed. Running a newer `install.sh --headless` without the address and code updates the install and keeps the ones the service has.
+
+### Docker: a NAS or a server
+
+Use this on a NAS (Synology, QNAP, Asustor) or any server with Docker, x64 or ARM64. It is the way for a NAS, because a NAS doesn't let you add services. The connector runs isolated in its container: it sees only the folders you mount, runs as the user you choose, and listens on nothing outside the container. It joins a hub that runs somewhere else. It is never a hub itself.
+
+1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before step 3.
+2. Save this as `docker-compose.connector.yml` on the NAS or server, and put in your hub's address and the code:
+
+```yaml
+services:
+  connector:
+    image: ghcr.io/emanuelmoniz/3d-maker-suite-connector:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      CONNECTOR_HUB_URL: http://your-hub:4300
+      CONNECTOR_PAIRING_CODE: AB12-CD34
+      # CONNECTOR_NAME: My NAS
+      # PUID: 1000
+      # PGID: 1000
+    volumes:
+      - connector-data:/data
+      # - type: bind
+      #   source: /volume1/3d-files
+      #   target: /projects/files
+      #   bind:
+      #     propagation: rslave
+volumes:
+  connector-data:
+```
+
+3. Start it:
+
+```bash
+docker compose -f docker-compose.connector.yml up -d
+```
+
+4. In **Hub management** the machine shows **Online**.
+
+What the lines do:
+
+| Line | What it does |
+|---|---|
+| `image` | The connector's image, for x64 and ARM64. `:latest` is the newest stable release, `:X.Y.Z` one exact release and `:dev` the newest pre-release. Use the same version as the hub |
+| `network_mode: host` | The connector finds a Bambu printer by the printer's announcement on your network, which a container with its own network can't hear. It also has no ports to publish. Its page listens on the machine's own loopback only, so nothing is reachable from the network |
+| `CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE` | The hub's address and the code. The first start pairs with them |
+| `CONNECTOR_NAME` | The name in Hub management. It starts as the machine's name |
+| `PUID`, `PGID` | Optional. The user the connector runs as, so the files it creates in your folders belong to you and not to `root`. Find the numbers with `id` over SSH, or on the NAS's user page. Set only one and the other takes the same number. Without them it runs as `root` |
+| `connector-data:/data` | A volume that keeps the pairing and the connector's own files. It stays when you update the image |
+| the bind mount | A folder of 3D files, which the connector shares with the hub. The path inside the container, `/projects/files`, is what you add in the hub. `rslave` makes a share that the machine mounts later show up inside the container too. Some NAS apps have no setting for it: there, restart the container after mounting a share |
+
+What to know:
+
+- **The pairing stays.** It is kept in the volume, so a restart, an update of the image and a container made again on the same volume all stay paired. The code is ignored after the first start. You can leave it in the file or delete it.
+- **A wrong, used or expired code.** The connector keeps running, unpaired, and writes one line about it in its log (`docker compose -f docker-compose.connector.yml logs`). Make a new code, put it in the file and run `up -d` again. A code that was refused is never sent twice.
+- **A printer you type an address for.** Bridge networking works for that: take out `network_mode: host`. A hub on the same machine is then reached at the machine's address on your network, not `localhost`.
+- **Not next to a hub.** The connector doesn't start in host networking on a machine where a hub runs, because there is one hub per machine. A hub that runs on the NAS reads its folders itself.
+- **Updates.** The connector in a container doesn't update itself. When the hub is newer, the machine shows **Outdated** in Hub management. In the folder with your compose file, run `docker compose -f docker-compose.connector.yml pull` and then `up -d` again.
+- **Shares.** A folder on the NAS's own disk, which is where a NAS keeps its shared folders, sends change events to the connector. A share that the machine mounts from another computer sends events only for changes made through that mount, so the hub's scheduled rescan finds the rest, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates).
 
 ### Windows Server
 
@@ -291,7 +350,7 @@ To remove everything, also delete the data folder (see the table below) and the 
 
 ## Limits and tips
 
-- **No connector for a NAS's own system yet.** Windows (Windows Server too), macOS, Linux x64 and Linux ARM64 are covered. A NAS that can't add services needs a container, which comes later.
+- **A NAS runs the connector in Docker.** A NAS can't add services, so it uses the container, see [Docker: a NAS or a server](#docker-a-nas-or-a-server). Windows (Windows Server too), macOS, Linux x64 and Linux ARM64 have installers or archives.
 - **Windows Server, headless: no network shares yet.** Its task has no network credentials, so a sync folder on `\\nas\share` isn't reached. Windows on ARM has no headless install.
 - **ARM can't slice.** A connector on ARM can't be a slice worker.
 - **One hub per computer,** and one pairing per computer.

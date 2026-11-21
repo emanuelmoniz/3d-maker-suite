@@ -1,0 +1,47 @@
+name: Container images
+# The app and connector images, each built on its own architecture's native runner (ADR-0024) and run
+# with scripts/image-test.sh: PUID and PGID, the program started with node, a connector pairing from its
+# variables and keeping the pairing, and a slicer install refused on Linux ARM. The release build
+# (release.yml) pushes the same Dockerfile's images and runs the same script on what it pushed.
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker/**"
+      - "docker-compose*.yml"
+      - "packaging/build.mjs"
+      - "apps/connector/**"
+      - "apps/server/src/integrations/managedSlicer.ts"
+      - "packages/core/src/services/managedSlicer.ts"
+      - "packages/host/**"
+      - "scripts/image-test.*"
+      - ".github/workflows/images.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  images:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: images (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: The compose examples are valid
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.connector.yml config --quiet
+      - name: Build the connector image
+        run: docker build --target connector -t connector:test .
+      - name: Build the app image
+        run: docker build -t app:test .
+      - name: Run them
+        run: scripts/image-test.sh app:test connector:test

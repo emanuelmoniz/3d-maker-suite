@@ -9,6 +9,7 @@ import {
   type SlicerInstallStatus,
   type SlicerRelease,
   type SlicerSystem,
+  slicingSupported,
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
@@ -321,9 +322,19 @@ export function createSlicerInstaller(
       return owner === id ? s : idle();
     },
 
+    /** This server can run a managed slicer (not Linux ARM, ADR-0024). */
+    supported: slicingSupported(system),
+
     /** Starts the job and returns at once; poll `status`. */
     install: async (id: string, tag: string) => {
       busy();
+      const { adapter } = managedRow(id);
+      if (adapter.kind !== "worker" && !slicingSupported(system))
+        throw new HttpError(
+          409,
+          "slicing_unsupported",
+          "This server can't slice: Bambu Studio and OrcaSlicer have no build for Linux on ARM",
+        );
       const rel = (await list(id, true)).find((r) => r.tag === tag);
       if (!rel) throw new HttpError(404, "unknown_release", "No such release for this system");
       busy(); // the list may have taken a while

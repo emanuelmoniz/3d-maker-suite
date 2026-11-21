@@ -396,7 +396,7 @@ function TestLine({ tryOut }: { tryOut: ReturnType<typeof useTryIntegration> }) 
 /**
  * Where a slicer goes (6.1.0 Step 9): this server, or a machine with Use slicer as server worker on
  * (ADR-0022). A taken place is disabled with its reason; a machine with the switch off links to its
- * page.
+ * page. This server is disabled too where it can't run a slicer (Linux on ARM, ADR-0024).
  */
 function WhereField({
   name,
@@ -408,7 +408,7 @@ function WhereField({
   name: string;
   value: string;
   onChange: (v: string) => void;
-  server: { text: string; taken: boolean };
+  server: { text: string; taken: boolean; unsupported: boolean };
   machines: {
     id: string;
     name: string;
@@ -443,8 +443,12 @@ function WhereField({
         {tile(
           "server",
           t("integrations:locations.server"),
-          server.taken ? t("integrations:form.taken") : server.text,
-          server.taken,
+          server.unsupported
+            ? t("integrations:form.whereUnsupported")
+            : server.taken
+              ? t("integrations:form.taken")
+              : server.text,
+          server.taken || server.unsupported,
         )}
         {machines.map((m) =>
           tile(
@@ -502,6 +506,9 @@ export function IntegrationCreatePage() {
   const taken = existing.some(
     (i) => libraryOf(i) === product && (i.kind === "local" || i.kind === "server"),
   );
+  // Linux on ARM runs no slicer (ADR-0024): this server isn't a place for one.
+  const unsupported = !!server && server.managed?.supported === false;
+  const serverFree = !taken && !unsupported;
   // A source that takes usage back is set up once (its spools are keyed by the adapter).
   const once = !slicer && sourceTaken(adapter, existing);
   const form = useSourceForm(adapter);
@@ -538,15 +545,15 @@ export function IntegrationCreatePage() {
   const fallback =
     search.via && free.includes(search.via)
       ? search.via
-      : !taken
+      : serverFree
         ? "server"
         : (free[0] ?? "server");
   const where =
-    pickedWhere && (pickedWhere === "server" ? !taken : free.includes(pickedWhere))
+    pickedWhere && (pickedWhere === "server" ? serverFree : free.includes(pickedWhere))
       ? pickedWhere
       : fallback;
   const toMachine = slicer && where !== "server";
-  const blocked = slicer && (toMachine ? !free.includes(where) : taken);
+  const blocked = slicer && (toMachine ? !free.includes(where) : !serverFree);
   const failed = toMachine ? onMachine.create : create;
   const failedCode =
     toMachine && failed.error instanceof ApiError && failed.error.code
@@ -642,6 +649,7 @@ export function IntegrationCreatePage() {
             onChange={setWhere}
             server={{
               taken,
+              unsupported,
               text: t(
                 adapter.kind === "local"
                   ? "integrations:form.installedHere"

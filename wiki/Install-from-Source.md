@@ -37,7 +37,7 @@ Turn on **Start at login** in the **General** card of **Settings**. It runs `pnp
 
 ## On a NAS or a machine with no desktop
 
-Use this when a NAS has Node 22 but no Docker, or when a server has no desktop. If the NAS has Docker on an Intel or AMD processor, [Docker](Docker.md#on-a-nas) is easier. An ARM64 computer with a desktop, such as a Raspberry Pi, doesn't need this: use [Install on Linux](Install-on-Linux.md).
+Use this when a NAS has Node 22 but no Docker, or when a server has no desktop. If the NAS has Docker, on an Intel, AMD or ARM processor, [Docker](Docker.md#on-a-nas) is easier. An ARM64 computer with a desktop, such as a Raspberry Pi, doesn't need this: use [Install on Linux](Install-on-Linux.md).
 
 1. Install Node 22 on the machine, with its own package tool or from <https://nodejs.org>. `node -v` must print `v22.x`.
 2. Follow [Install and start](#install-and-start) over SSH. You need Git and a terminal.

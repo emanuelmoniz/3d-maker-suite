@@ -4,7 +4,7 @@ Run 3D Maker Suite in a container. Use this on a home server or NAS that is alwa
 
 ## Who can use it
 
-Anyone with Docker on a 64-bit Intel or AMD (x64) machine. The published image does not run on ARM processors yet, see [Which processors work](#which-processors-work).
+Anyone with Docker on a 64-bit machine: Intel or AMD (x64), or ARM64 such as a Raspberry Pi 4 or 5 or an ARM NAS. An ARM server can't slice, see [Which processors work](#which-processors-work).
 
 ## Before you start
 
@@ -25,6 +25,8 @@ services:
       - "4300:4300"
     environment:
       HOST: 0.0.0.0
+      # PUID: 1000
+      # PGID: 1000
     volumes:
       - app-data:/data
       # - /path/to/your/3d-files:/projects/files
@@ -38,6 +40,7 @@ volumes:
 | `restart: unless-stopped` | Starts the app again after a crash or a server reboot. **Restart server** in the app relies on it |
 | `ports: "4300:4300"` | The left number is the port on your server, the right one is inside the container. Change only the left one |
 | `HOST: 0.0.0.0` | Makes the app answer on the container's network. The image already sets it |
+| `PUID`, `PGID` | Optional. The user and group the app runs as, so the files it makes belong to you and not to `root`. See [Folder permissions](#folder-permissions) |
 | `app-data:/data` | A Docker volume that keeps your data. See [Where your data is](#where-your-data-is) |
 
 ## Start it
@@ -76,7 +79,7 @@ Without this, other devices get `403 forbidden_host` until the first admin exist
 
 ## Image tags
 
-Images are published at `ghcr.io/emanuelmoniz/3d-maker-suite`.
+Images are published at `ghcr.io/emanuelmoniz/3d-maker-suite`, for x64 and ARM64 under the same tag: `docker pull` picks the one for your machine. The connector has its own image, see [the connector in Docker](Connector-Setup.md#docker-a-nas-or-a-server).
 
 | Tag | Gets you |
 |---|---|
@@ -84,7 +87,7 @@ Images are published at `ghcr.io/emanuelmoniz/3d-maker-suite`.
 | `X.Y.Z`, for example `6.1.0` | That exact release. Use it to stay on a version |
 | `dev` | The newest pre-release, for testers |
 | `X.Y.Z-alpha.N` | One exact pre-release |
-| `latest-slicer`, `X.Y.Z-slicer`, `dev-slicer` | The same app with the libraries a server slicer needs. See [Slicing in Docker](#slicing-in-docker) |
+| `latest-slicer`, `X.Y.Z-slicer`, `dev-slicer` | The same app with the libraries a server slicer needs, for x64 only. See [Slicing in Docker](#slicing-in-docker) |
 
 ## Where your data is
 
@@ -99,7 +102,7 @@ Everything the app saves is in the `/data` folder of the container, which is the
 
 Back up this volume. Anyone who holds `secret.key` and the database can read your saved logins, so keep copies private.
 
-To keep the data in a normal folder of the server instead, replace the volume line with a path, for example `- /volume1/docker/3d-maker-suite:/data`. The container runs as `root`, so it can write to a folder you create yourself.
+To keep the data in a normal folder of the server instead, replace the volume line with a path, for example `- /volume1/docker/3d-maker-suite:/data`. The container runs as `root` unless you set `PUID` and `PGID`, see [Folder permissions](#folder-permissions). Either way it can write to a folder you create yourself, as long as that user may.
 
 ## Project folders
 
@@ -120,12 +123,34 @@ In the app, add `/projects/files` as a project folder. The path on your server (
 
 ### Folder permissions
 
-- The image runs the app as `root`. It can read every folder you mount, and write to it unless you add `:ro`.
-- Files and folders that the app creates in a mounted folder belong to `root` on the server. This happens when you upload a file, create a project folder or move a project.
+By default the image runs the app as `root`. It can read every folder you mount, and write to it unless you add `:ro`. The files and folders it creates in a mounted folder then belong to `root` on the server. This happens when you upload a file, create a project folder or move a project.
+
+To have them belong to you, tell the app which user to run as:
+
+1. Find your numbers. Over SSH, run `id`: `uid` is your `PUID` and `gid` is your `PGID`. On a NAS the user's page often shows them too.
+2. Add them under `environment:` and run `docker compose up -d` again:
+
+```yaml
+    environment:
+      HOST: 0.0.0.0
+      PUID: 1000
+      PGID: 1000
+```
+
+3. Make sure that user may write to each folder you mount. The app can't write where that user can't.
+
+What happens at the start:
+
+- The app's own `/data` folder is given to that user, once. The next starts change nothing, so they stay fast.
+- Your mounted project folders are never changed, only what the app creates in them from then on.
+- Without `PUID` and `PGID` nothing changes: the app runs as `root`, as in earlier versions. An existing install keeps working.
+- Set only one of the two and the other takes the same number.
+- A slicer you installed from the app keeps working: it lives in `/data/slicers`.
+- To run the app as a user in a data folder you made yourself, you can instead use `user: "1000:1000"` in the compose file. Then you give that user the folder yourself.
 
 ## On a NAS
 
-A NAS is on all day, so the app is always there for your phone and other computers. If your NAS has Docker and an Intel or AMD (x64) processor, this page is all you need. With an ARM processor or no Docker, see [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
+A NAS is on all day, so the app is always there for your phone and other computers. If your NAS has Docker, this page is all you need, with an Intel or AMD (x64) processor or an ARM one. With no Docker, see [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
 
 1. Open your NAS's Docker app. Synology Container Manager and QNAP Container Station can both run a Compose file as a project. Or use SSH and the command line.
 2. Create a folder for the app on a normal NAS volume, for example `/volume1/docker/3d-maker-suite`.
@@ -134,7 +159,7 @@ A NAS is on all day, so the app is always there for your phone and other compute
 5. Mount your 3D files folder, for example `/volume1/3d-files:/projects/files`, see [Project folders](#project-folders).
 6. Start it as shown in [Start it](#start-it), create the first admin and add `/projects/files` in **Projects settings** (the gear on **Projects**).
 
-Keep the data folder on the NAS's own disk, never on a share the NAS mounts from somewhere else. A NAS firewall must allow port 4300 for your home network only, see [Use from another device](Use-From-Another-Device.md#allow-the-port-in-the-firewall). A NAS can't run a connector, so to use its folders with a hub, mount them into the hub as above, see [Connector setup](Connector-Setup.md).
+Keep the data folder on the NAS's own disk, never on a share the NAS mounts from somewhere else. A NAS firewall must allow port 4300 for your home network only, see [Use from another device](Use-From-Another-Device.md#allow-the-port-in-the-firewall). A NAS can also join a hub that runs elsewhere, to keep project files for it and reach the printers on its network. It runs the connector's image for that, see [the connector in Docker](Connector-Setup.md#docker-a-nas-or-a-server). A hub that runs on the NAS itself reads the NAS folders you mount into it as above, and needs no connector.
 
 ## Updating
 
@@ -163,7 +188,7 @@ The default image has no slicer libraries, so it stays small. To slice projects 
 2. Run `docker compose up -d`.
 3. In **Settings → Integrations**, add **Bambu Studio** or **OrcaSlicer** with **This server** under **Where**, then press **Install slicer** on its row.
 
-The slicer is downloaded into the `app-data` volume once, so it survives image updates. No display is needed. Only x64 is supported, because Bambu Lab has no Linux ARM build.
+The slicer is downloaded into the `app-data` volume once, so it survives image updates. No display is needed. Only x64 is supported, because Bambu Lab has no Linux ARM build, so there is no `-slicer` image for ARM.
 
 Your own slicer presets live on your PC, not in the container. Upload them as a zip instead, or mount the slicer's config folder into the container.
 
@@ -172,6 +197,7 @@ Your own slicer presets live on your PC, not in the container. Upload them as a 
 | Feature | Why | What to do |
 |---|---|---|
 | Slicing | The default image has no slicer | Use the `-slicer` image, or slice on your PC |
+| Slicing on an ARM server | The slicers have no Linux ARM build | Slice on an x64 computer or a Mac that is a slice worker, see [Hub setup](Hub-Setup.md) |
 | Live folder watching on network shares | Change events don't arrive over SMB or NFS | Use **Scan folders**, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates) |
 | **Start at login** | The container starts with Docker | Use `restart: unless-stopped` |
 | The app's own **Update** button | The container can't replace its image | Pull the new image |
@@ -180,11 +206,9 @@ Your own slicer presets live on your PC, not in the container. Upload them as a 
 
 ## Which processors work
 
-The published image is built for x64 only. A Raspberry Pi, an ARM NAS and other ARM machines can't pull it. Apple silicon runs it through emulation. If you don't know your NAS's processor, look in its system information or look up its model.
+The app image is published for x64 (Intel and AMD) and for ARM64 (a Raspberry Pi 4 or 5, an ARM NAS, Apple silicon). `docker pull` takes the right one by itself. If you don't know your NAS's processor, look in its system information or look up its model.
 
-Slicing needs x64 too, because Bambu Lab has no Linux ARM slicer. On an ARM machine another computer does the slicing, through a hub, see [Hub setup](Hub-Setup.md).
-
-Building the image on an ARM machine with `build: .` is not tested. To run on ARM, use the [source install](Install-from-Source.md) with Node 22.
+Slicing needs x64, because Bambu Lab has no Linux ARM slicer. On an ARM server, **This server** under **Where** is greyed out for Bambu Studio and OrcaSlicer, with the reason, and the app refuses to install one there. Another computer does the slicing, an x64 one or a Mac, through a hub, see [Hub setup](Hub-Setup.md). The `-slicer` image is for x64 only.
 
 ## Reset a password
 
@@ -197,7 +221,8 @@ docker compose exec app pnpm user:reset-password you@example.com
 ## Problems and fixes
 
 - **`403 forbidden_host` from another device.** The app only answers to addresses it knows until the first admin exists. Add the address with `APP_ALLOWED_HOSTS`, as shown in [Start it](#start-it).
-- **The image can't be pulled, or says `no matching manifest`.** The machine has an ARM processor, and the image is x64 only. Use the [source install](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop) instead.
+- **The image says `no matching manifest`.** You asked for a `-slicer` tag on an ARM machine. Those are x64 only: use the tag without `-slicer`.
+- **The app can't write to a mounted folder, or `/data` is refused.** The user from `PUID` and `PGID` may not write there. Give that user the folder, or leave the two out to run as `root`, see [Folder permissions](#folder-permissions).
 - **The port is already in use.** Change the left number in `ports:`, for example `"4400:4300"`, and run `docker compose up -d`.
 - **The container keeps restarting.** Run `docker compose logs app` and read the last lines.
 - **The slicer says it can't start.** Check that the image is a `-slicer` one.

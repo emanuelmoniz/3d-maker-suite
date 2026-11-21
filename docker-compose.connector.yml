@@ -1,0 +1,36 @@
+# The connector in Docker (ADR-0024): a NAS or server that keeps project files for a hub and reaches the
+# printers on its own network. It joins a hub that runs elsewhere, and is never a hub itself.
+# 1. In the hub, as an admin: Hub management → make a pairing code for this machine and copy it.
+# 2. Fill in CONNECTOR_HUB_URL and CONNECTOR_PAIRING_CODE below, then: docker compose -f docker-compose.connector.yml up -d
+# The first start pairs. The pairing stays in the volume, so the code is ignored from then on (leave it or delete it).
+# Updates: the hub shows "Outdated" when it is ahead; run `docker compose -f docker-compose.connector.yml pull`
+# and `up -d` again. A connector in Docker doesn't update itself.
+services:
+  connector:
+    image: ghcr.io/emanuelmoniz/3d-maker-suite-connector:latest # or :dev for pre-releases; or `build: { context: ., target: connector }`
+    restart: unless-stopped
+    # Host networking: finding a Bambu printer by its announcement (broadcast and multicast) works, and there are
+    # no ports to publish. The connector's page listens on the host's loopback only, so nothing is reachable
+    # from the network. Not for a machine that also runs the hub (one hub per machine).
+    network_mode: host
+    # For a printer you reach by typing its address, bridge networking works too: remove network_mode above,
+    # and a hub on this machine is then reached at its LAN address, not localhost.
+    environment:
+      CONNECTOR_HUB_URL: http://your-hub:4300
+      CONNECTOR_PAIRING_CODE: XXXX-XXXX
+      # CONNECTOR_NAME: My NAS # the name in Hub management; the host name when empty
+      # Who owns /data and the files the connector writes in your shared folders (see docker-compose.yml).
+      # Find your numbers: `id` over SSH, or the NAS's user page.
+      # PUID: 1000
+      # PGID: 1000
+    volumes:
+      - connector-data:/data # the pairing, its key and the connector's own files
+      # The folders this machine shares with the hub, under the same path in the hub's Settings → Projects.
+      # rslave: a share mounted on the host after the container started shows up inside it too.
+      # - type: bind
+      #   source: /path/to/your/3d-files
+      #   target: /projects/files
+      #   bind:
+      #     propagation: rslave
+volumes:
+  connector-data:

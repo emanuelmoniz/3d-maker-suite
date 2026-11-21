@@ -13,6 +13,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       publish_wiki: ${{ steps.tag.outputs.publish_wiki }}
+      started: ${{ steps.tag.outputs.started }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,6 +43,8 @@ jobs:
             TAG="v$(node -p 'require("./package.json").version')-build.$GITHUB_RUN_NUMBER"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # A test build's images made after this are its own (docker-cleanup).
+          echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           echo "publish_wiki=$(node scripts/wiki-publish.mjs --release-check "$GITHUB_EVENT_NAME" "$TAG")" >> "$GITHUB_OUTPUT"
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -233,10 +236,18 @@ jobs:
           node scripts/release-notes.mjs "$TAG" > notes.md
           gh release create "$TAG" assets/* --title "$TAG" --notes-file notes.md --generate-notes $PRERELEASE
   docker:
-    # Checks and the tag/branch guard already ran in `check`.
-    needs: release
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    # Checks and the tag/branch guard already ran in `check`. Each architecture is built on its own native
+    # runner (a build under QEMU took 8 times as long, ADR-0024) and pushed by digest; `docker-merge` joins
+    # the two into one tag, so `docker pull` picks the right one. A test build (workflow_dispatch) pushes
+    # the same images under a throwaway tag and deletes them in `docker-cleanup`.
+    needs: [check, release]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
@@ -245,31 +256,148 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Image tags
-        id: tags
-        run: |
-          # Stable: :X.Y.Z + :latest. Pre-release: :X.Y.Z-alpha.N + :dev.
-          VERSION="${GITHUB_REF_NAME#v}"
-          EXTRA=latest
-          if [[ "$VERSION" == *-* ]]; then EXTRA=dev; fi
-          IMAGE=ghcr.io/emanuelmoniz/3d-maker-suite
-          echo "list=$IMAGE:$VERSION,$IMAGE:$EXTRA" >> "$GITHUB_OUTPUT"
-          echo "slicer=$IMAGE:$VERSION-slicer,$IMAGE:$EXTRA-slicer" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v7
+      - name: The app image
+        id: app
+        uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
-          tags: ${{ steps.tags.outputs.list }}
-      - uses: docker/build-push-action@v7
+          provenance: false
+          sbom: false
+          outputs: type=image,name=ghcr.io/emanuelmoniz/3d-maker-suite,push-by-digest=true,name-canonical=true,push=true
+      - name: The connector image
+        id: connector
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: connector
+          provenance: false
+          sbom: false
+          outputs: type=image,name=ghcr.io/emanuelmoniz/3d-maker-suite-connector,push-by-digest=true,name-canonical=true,push=true
+      # Bambu Studio has no Linux ARM build, so the slicer image is x64 only.
+      - name: The slicer image
+        id: slicer
+        if: matrix.arch == 'amd64'
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: slicer
-          push: true
-          tags: ${{ steps.tags.outputs.slicer }}
+          provenance: false
+          sbom: false
+          outputs: type=image,name=ghcr.io/emanuelmoniz/3d-maker-suite,push-by-digest=true,name-canonical=true,push=true
+      - name: Digests
+        env:
+          APP: ${{ steps.app.outputs.digest }}
+          CONNECTOR: ${{ steps.connector.outputs.digest }}
+          SLICER: ${{ steps.slicer.outputs.digest }}
+        run: |
+          mkdir -p digests/app digests/connector digests/slicer
+          # A file name can't hold "sha256:".
+          touch "digests/app/${APP#sha256:}" "digests/connector/${CONNECTOR#sha256:}"
+          if [ -n "$SLICER" ]; then touch "digests/slicer/${SLICER#sha256:}"; fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: digests/
+          if-no-files-found: error
+          retention-days: 1
+  docker-merge:
+    needs: [check, docker]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tags.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: digests-*
+          merge-multiple: true
+          path: digests
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: One tag for both architectures
+        id: tags
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          # Stable: :X.Y.Z + :latest. Pre-release: :X.Y.Z-alpha.N + :dev. A test build: only its throwaway tag.
+          VERSION="${TAG#v}"
+          EXTRA=latest
+          if [[ "$VERSION" == *-* ]]; then EXTRA=dev; fi
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then EXTRA=; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          merge() { # <digests folder> <image> <tag suffix>
+            local tags=(-t "$2:$VERSION$3")
+            if [ -n "$EXTRA" ]; then tags+=(-t "$2:$EXTRA$3"); fi
+            local sources=()
+            for d in digests/$1/*; do sources+=("$2@sha256:$(basename "$d")"); done
+            docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+          }
+          merge app ghcr.io/emanuelmoniz/3d-maker-suite ""
+          merge slicer ghcr.io/emanuelmoniz/3d-maker-suite -slicer
+          merge connector ghcr.io/emanuelmoniz/3d-maker-suite-connector ""
+      - name: What was pushed
+        env:
+          VERSION: ${{ steps.tags.outputs.version }}
+        run: |
+          for image in 3d-maker-suite 3d-maker-suite-connector; do
+            docker buildx imagetools inspect "ghcr.io/emanuelmoniz/$image:$VERSION"
+          done
+  docker-verify:
+    # A test build only: the pushed images, pulled on each architecture, pass the same checks as images.yml.
+    needs: docker-merge
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - env:
+          VERSION: ${{ needs.docker-merge.outputs.version }}
+        run: |
+          docker pull "ghcr.io/emanuelmoniz/3d-maker-suite:$VERSION"
+          docker pull "ghcr.io/emanuelmoniz/3d-maker-suite-connector:$VERSION"
+          scripts/image-test.sh "ghcr.io/emanuelmoniz/3d-maker-suite:$VERSION" "ghcr.io/emanuelmoniz/3d-maker-suite-connector:$VERSION"
+  docker-cleanup:
+    # Deletes the throwaway images: the tags of this run, and the untagged per-architecture images it pushed
+    # (also when a job failed half way).
+    needs: [check, docker, docker-merge, docker-verify]
+    if: always() && github.event_name == 'workflow_dispatch' && needs.docker.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.check.outputs.tag }}
+      RUN_STARTED: ${{ needs.check.outputs.started }}
+    steps:
+      - name: Delete the versions of this run
+        run: |
+          V="${VERSION#v}"
+          for package in 3d-maker-suite 3d-maker-suite-connector; do
+            gh api --paginate "/users/${GITHUB_REPOSITORY_OWNER}/packages/container/$package/versions" \
+              --jq ".[] | select((.created_at >= \"$RUN_STARTED\" and (.metadata.container.tags | length) == 0) or (.metadata.container.tags | any(. == \"$V\" or . == \"$V-slicer\"))) | .id" |
+            while read -r id; do
+              echo "deleting $package version $id"
+              gh api -X DELETE "/users/${GITHUB_REPOSITORY_OWNER}/packages/container/$package/versions/$id"
+            done
+          done
   wiki:
     # A job here because a release created with GITHUB_TOKEN doesn't trigger other workflows.
     # Publishes the documentation site and the wiki; a called workflow gets no more than these.
-    needs: [check, docker]
+    needs: [check, docker-merge]
     if: needs.check.outputs.publish_wiki == 'true'
     permissions:
       contents: write

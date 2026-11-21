@@ -128,6 +128,7 @@
     "whereOff": "Use slicer as server worker is off on this machine.",
     "whereOpenMachine": "Open its machine page",
     "taken": "Already on this server. Find it on the slicer's card.",
+    "whereUnsupported": "This server has an ARM processor and can't slice: the slicers have no build for Linux on ARM. Use a machine with an x64 processor or a Mac.",
     "takenSource": "Already set up: find its card on the Integrations page.",
     "secretHint": "Stored encrypted on this computer.",
     "reach": "Reached from",
@@ -501,6 +502,7 @@
   },
   "managed": {
     "notInstalled": "Not installed.",
+    "unsupported": "This server has an ARM processor and can't slice: the slicers have no build for Linux on ARM. Slice on a machine with an x64 processor or a Mac that is a slice worker.",
     "installed": "Version {{version}} installed.",
     "install": "Install slicer",
     "otherVersion": "Install another version",

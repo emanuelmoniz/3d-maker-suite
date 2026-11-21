@@ -13,7 +13,7 @@ Anyone who installs the app. You don't need an account to start. Accounts are on
 | [**Windows**](Install-on-Windows.md) | One person on a Windows PC | No. It runs while your PC is on | Nothing else. The installer brings what it needs |
 | [**macOS**](Install-on-macOS.md) | One person on a Mac | No. It runs while your Mac is on | Nothing else. The installer brings what it needs |
 | [**Linux**](Install-on-Linux.md) | A Linux computer with a desktop | No, unless the computer stays on | A 64-bit computer, x64 or ARM64 (a Raspberry Pi). The archive brings what it needs |
-| [**Docker**](Docker.md) | A home server or NAS you already run | Yes | Docker with Compose, on an Intel or AMD (x64) processor |
+| [**Docker**](Docker.md) | A home server or NAS you already run | Yes | Docker with Compose, on an Intel or AMD (x64) or an ARM64 processor |
 | [**From source**](Install-from-Source.md) | Changing the code, or a machine the other installs don't fit | As long as you keep it running | Node 22, Git and a terminal |
 
 ## Which one should I choose?
@@ -26,7 +26,7 @@ Anyone who installs the app. You don't need an account to start. Accounts are on
 
 A NAS is a machine, not a way to install. Follow the page for what it runs:
 
-- **It has Docker and an Intel or AMD processor:** [Docker](Docker.md#on-a-nas). This is the easy way.
+- **It has Docker, on an Intel, AMD or ARM processor:** [Docker](Docker.md#on-a-nas). This is the easy way. To keep project files on the NAS for a hub that runs elsewhere, run the connector's container: [Connector setup](Connector-Setup.md#docker-a-nas-or-a-server).
 - **It runs Windows:** [Install on Windows](Install-on-Windows.md).
 - **It has a Linux desktop, on an ARM processor too:** [Install on Linux](Install-on-Linux.md).
 - **It has no Docker and no desktop:** [Install from source](Install-from-Source.md#on-a-nas-or-a-machine-with-no-desktop).
@@ -41,7 +41,7 @@ These add to any install:
 
 ## What stays the same
 
-All installs run the same app and keep your data on your own machine. Bambu Cloud, the printer connections and the pages work the same way. A few things differ in Docker, such as slicing and watching folders on network shares.
+All installs run the same app and keep your data on your own machine. Bambu Cloud, the printer connections and the pages work the same way. A few things differ in Docker, such as slicing, which an ARM server can't do, and watching folders on network shares.
 
 ## Limits and tips
 

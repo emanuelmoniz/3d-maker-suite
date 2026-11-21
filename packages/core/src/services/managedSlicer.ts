@@ -8,6 +8,13 @@ export function glibcAtLeast(sys: SlicerSystem, want: string) {
   return !!sys.glibc && (a !== x ? a > x : b >= y);
 }
 
+/**
+ * A system that can run a managed slicer (ADR-0024). Linux on ARM can't in 6.3.0: Bambu Studio has no
+ * build for it, and OrcaSlicer's was left out of the plan. Apple silicon and Windows on ARM are unchanged.
+ */
+export const slicingSupported = (sys: SlicerSystem) =>
+  !(sys.platform === "linux" && sys.arch === "arm64");
+
 /** `v2.5.0-alpha` → `2\.5\.0-alpha`, for asset name patterns. */
 export const tagPattern = (tag: string) =>
   tag.replace(/^v/i, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,6 +37,7 @@ export function installable(
   pre: boolean,
 ): InstallableRelease[] {
   const out: InstallableRelease[] = [];
+  if (!slicingSupported(sys)) return out;
   for (const { assets = [], ...r } of releases) {
     if (!isVersion(r.tag) || (r.prerelease && !pre)) continue;
     if (slicer.minVersion && compareVersions(r.tag, slicer.minVersion) < 0) continue;

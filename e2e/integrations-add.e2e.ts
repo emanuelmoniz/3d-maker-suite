@@ -57,3 +57,27 @@ for (const width of [375, 1440])
     await expect(slicer.getByRole("heading", { name: "Bambu Studio", level: 4 })).toBeVisible();
     await expect(slicer.getByText("Server's slicer", { exact: true })).toBeVisible();
   });
+
+// Linux on ARM runs no slicer (ADR-0024): the server says so, and This server can't be picked. The
+// ARM answer is made up here; the server's own refusal is tested on a real ARM runner (images.yml).
+test("an ARM server can't be picked for a slicer", async ({ page }) => {
+  await page.route("**/api/integrations/adapters", async (route) => {
+    const response = await route.fetch();
+    const adapters: { managed: object | null }[] = await response.json();
+    await route.fulfill({
+      response,
+      json: adapters.map((a) =>
+        a.managed ? { ...a, managed: { ...a.managed, supported: false } } : a,
+      ),
+    });
+  });
+  await page.goto("/integrations/new");
+  await page.getByRole("radio", { name: "Bambu Studio" }).check();
+  const server = page.getByRole("group", { name: "Where" }).getByRole("radio");
+  await expect(server).toHaveCount(1);
+  await expect(server).toBeDisabled();
+  await expect(
+    page.getByText("can't slice: the slicers have no build for Linux on ARM"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add", exact: true })).toBeDisabled();
+});
