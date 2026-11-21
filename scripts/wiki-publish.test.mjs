@@ -162,7 +162,7 @@ describe("workflows", () => {
     expect(release).toMatch(/publish_wiki: \$\{\{ steps\.tag\.outputs\.publish_wiki \}\}/);
     expect(release).toContain('--release-check "$GITHUB_EVENT_NAME" "$TAG"');
     const wiki = job(release, "wiki");
-    expect(wiki).toContain("needs: [check, docker]");
+    expect(wiki).toContain("needs: [check, docker-merge]");
     expect(wiki).toContain("if: needs.check.outputs.publish_wiki == 'true'");
     // A called workflow gets no more than its caller grants: the wiki push and the Pages deploy.
     for (const p of ["contents: write", "pages: write", "id-token: write"])
