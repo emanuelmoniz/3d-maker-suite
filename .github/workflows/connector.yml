@@ -1,174 +1,20 @@
 name: Connector pairing
-# The installed connector against a hub run from source, on Linux (x64 and ARM64) and macOS (ADR-0014):
-# pair through the status page, online in Hub management, a rename over the event stream, a revoke.
-# Windows: run scripts/pair-test.mjs by hand (docs in the script).
-# `headless`: the Linux archive installed with `install.sh --headless` (a systemd user service) on both
-# architectures (ADR-0024): pairs from its Environment=, comes back after a kill, stays down for a stop
-# it was asked for, and follows a newer hub (scripts/headless-test.mjs).
-# `headless-windows`: the same on Windows Server (Plan 6.3.0 Step 3b), the installer's silent
-# `/HEADLESS` (a scheduled task at boot, S4U), then its uninstaller.
+# Throwaway spike on spike/winshare (Plan 6.3.0 Step 5b, S9): run with
+#   gh workflow run connector.yml --ref spike/winshare
+# A headless connector on Windows Server as a named account with its password, for SMB shares.
 on:
-  push:
-    branches: [dev]
-    paths:
-      - "apps/connector/**"
-      - "apps/server/src/routes/hub.ts"
-      - "apps/server/src/lib/auth.ts"
-      - "packages/core/src/schemas/hub.ts"
-      - "packages/host/**"
-      - "packaging/**"
-      - "scripts/pair-test.mjs"
-      - "scripts/headless-test.mjs"
-      - ".github/workflows/connector.yml"
   workflow_dispatch:
 jobs:
-  pair:
+  spike:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
-    name: pair (${{ matrix.os }})
+        os: [windows-2022, windows-2025]
+    name: spike (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # The hub serves the web app, so it needs the build to start.
-      - run: pnpm --filter @3d-maker-suite/web build
-      - run: node packaging/build.mjs --product connector
-      # Not 4300: the connector refuses to start beside a hub on this machine's hub port.
-      - name: Start a hub (fresh data, port 4310)
-        run: |
-          mkdir -p "$RUNNER_TEMP/hub"
-          cd apps/server
-          PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
-      - name: Install and start the connector (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          tar -xzf packaging/out/3d-maker-suite-connector-*.tar.gz -C "$RUNNER_TEMP"
-          "$RUNNER_TEMP/3d-maker-suite-connector/install.sh"
-          # The way the app menu starts it.
-          eval "$(grep '^Exec=' "$HOME/.local/share/applications/3d-maker-suite-connector.desktop" | cut -d= -f2-)" &
-      - name: Install and start the connector (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          hdiutil attach -nobrowse -mountpoint /tmp/cdmg packaging/out/3d-maker-suite-connector-*.dmg
-          cp -R "/tmp/cdmg/3D Maker Suite Connector.app" /tmp/
-          hdiutil detach /tmp/cdmg
-          open -n "/tmp/3D Maker Suite Connector.app"
-      - run: node scripts/pair-test.mjs --hub http://127.0.0.1:4310
-      - name: Logs
-        if: failure()
-        run: |
-          cat "$RUNNER_TEMP/hub.log" || true
-          for d in "$HOME/.local/share/3d-maker-suite-connector/install/logs" \
-                   "$HOME/Library/Application Support/3d-maker-suite-connector/install/logs"; do
-            [ -d "$d" ] && tail -n 50 "$d"/*.log
-          done
-          true
-  headless:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm]
-    name: headless (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       HUB: http://127.0.0.1:4310
-      DOWNLOADS: http://127.0.0.1:4320
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @3d-maker-suite/web build
-      - run: node packaging/build.mjs --product connector
-      - name: User services without a login session (linger)
-        run: |
-          sudo loginctl enable-linger "$USER"
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
-          for _ in $(seq 40); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done
-          uname -m
-      - name: Start a hub (fresh data, port 4310)
-        run: |
-          mkdir -p "$RUNNER_TEMP/hub"
-          cd apps/server
-          # Its own process group, to stop it again for the update test.
-          PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" setsid nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/hub.pid"
-      - name: Pairing code for a headless connector
-        run: |
-          CODE=$(node scripts/headless-test.mjs code --hub "$HUB")
-          echo "::add-mask::$CODE"
-          echo "CODE=$CODE" >> "$GITHUB_ENV"
-      - name: Install headless (pairs from the service's Environment=)
-        run: |
-          tar -xzf packaging/out/3d-maker-suite-connector-*.tar.gz -C "$RUNNER_TEMP"
-          "$RUNNER_TEMP/3d-maker-suite-connector/install.sh" --headless --hub-url "$HUB" --pairing-code "$CODE" --name ci-headless
-          # No app menu entry and no start at login of its own: systemd starts it.
-          test ! -e "$HOME/.local/share/applications/3d-maker-suite-connector.desktop"
-          systemctl --user is-enabled 3d-maker-suite-connector
-          loginctl show-user "$USER" -p Linger | grep -q yes
-      - name: Online, comes back after a kill, stays down for a stop
-        run: node scripts/headless-test.mjs check --hub "$HUB"
-      - name: A newer hub (a test build of this commit with a higher version)
-        run: |
-          # Stop the hub, bump every version, commit it (the build packs HEAD) and build that connector.
-          kill -- "-$(cat "$RUNNER_TEMP/hub.pid")"
-          NEW=$(node -e '
-            const fs = require("fs");
-            const [major, minor, patch] = JSON.parse(fs.readFileSync("package.json", "utf8")).version.split("-")[0].split(".").map(Number);
-            const next = `${major}.${minor}.${patch + 100}`;
-            const files = ["package.json", ...["apps", "packages", "packages/adapters"].flatMap((d) => fs.existsSync(d) ? fs.readdirSync(d).map((n) => `${d}/${n}/package.json`) : [])];
-            for (const f of files.filter((f) => fs.existsSync(f))) {
-              const json = JSON.parse(fs.readFileSync(f, "utf8"));
-              if (json.version === undefined) continue;
-              json.version = next;
-              fs.writeFileSync(f, JSON.stringify(json, null, 2) + "\n");
-            }
-            console.log(next);
-          ')
-          echo "NEW=$NEW" >> "$GITHUB_ENV"
-          git -c user.name=ci -c user.email=ci@example.invalid commit -qam "test: version $NEW"
-          node packaging/build.mjs --product connector --tag "v$NEW"
-          cd packaging/out
-          sha256sum *-app-*.zip > SHA256SUMS
-          nohup python3 -m http.server 4320 --bind 127.0.0.1 > "$RUNNER_TEMP/downloads.log" 2>&1 &
-          cd ../../apps/server
-          PORT=4310 APP_DATA_DIR="$RUNNER_TEMP/hub" setsid nohup pnpm exec tsx src/main.ts > "$RUNNER_TEMP/hub2.log" 2>&1 &
-          # The connector downloads from here instead of GitHub (APP_DOWNLOAD_URL) and meets the new hub.
-          systemctl --user set-environment "APP_DOWNLOAD_URL=$DOWNLOADS"
-          systemctl --user restart 3d-maker-suite-connector
-      - name: Follows the hub to the newer version
-        run: |
-          node scripts/headless-test.mjs update --hub "$HUB" --version "$NEW"
-          # The name the release's zip has for this machine.
-          ls packaging/out/*-app-linux-"$(node -p process.arch)".zip
-      - name: Logs
-        if: failure()
-        run: |
-          cat "$RUNNER_TEMP/hub.log" "$RUNNER_TEMP/hub2.log" "$RUNNER_TEMP/downloads.log" || true
-          journalctl --user -u 3d-maker-suite-connector --no-pager | tail -n 60 || true
-          tail -n 60 "$HOME"/.local/share/3d-maker-suite-connector/install/logs/*.log || true
-  headless-windows:
-    # GitHub's Windows runners are Windows Server; the runner's account is an administrator, as the
-    # one installing a headless connector must be (an S4U task needs the batch logon right).
-    name: headless (windows-2025)
-    runs-on: windows-2025
-    timeout-minutes: 40
-    env:
-      HUB: http://127.0.0.1:4310
-      DOWNLOADS: http://127.0.0.1:4320
       TASK: 3D Maker Suite Connector
     defaults:
       run:
@@ -183,104 +29,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @3d-maker-suite/web build
       - run: node packaging/build.mjs --product connector
-      - name: Start a hub (fresh data, port 4310)
+      - name: Hub, headless install (S4U, as Step 3b), the spike
         run: |
+          wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\hub" | Out-Null
           $env:PORT = '4310'; $env:APP_DATA_DIR = "$env:RUNNER_TEMP\hub"
-          $p = Start-Process pwsh -ArgumentList '-NoProfile', '-Command', "pnpm exec tsx src/main.ts *> '$env:RUNNER_TEMP\hub.log'" -WorkingDirectory apps/server -WindowStyle Hidden -PassThru
-          $p.Id | Set-Content "$env:RUNNER_TEMP\hub.pid"
-      - name: Pairing code for a headless connector
-        run: |
+          Start-Process node -ArgumentList '--import', 'tsx', 'src/main.ts' -WorkingDirectory apps/server -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\hub.log" -RedirectStandardError "$env:RUNNER_TEMP\hub.err.log"
+          Remove-Item Env:PORT, Env:APP_DATA_DIR
           $code = node scripts/headless-test.mjs code --hub $env:HUB
-          if ($LASTEXITCODE) { throw "no pairing code" }
+          if ($LASTEXITCODE) { Get-Content "$env:RUNNER_TEMP\hub.log"; throw "no pairing code" }
           "::add-mask::$code"
-          "CODE=$code" >> $env:GITHUB_ENV
-      - name: Install headless, silent (pairs from the task's arguments)
-        run: |
           $setup = (Get-Item packaging/out/3d-maker-suite-connector-*-setup.exe).FullName
-          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/HUBURL=$env:HUB", "/PAIRINGCODE=$env:CODE", '/NAME=ci-headless', "/LOG=$env:RUNNER_TEMP\setup.log" -Wait -PassThru
-          $dir = "$env:LOCALAPPDATA\Programs\$env:TASK"
-          Get-Content "$dir\logs\headless-task.log" -ErrorAction SilentlyContinue
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/HUBURL=$env:HUB", "/PAIRINGCODE=$code", '/NAME=ci-headless' -Wait -PassThru
           if ($p.ExitCode) { throw "setup exited with $($p.ExitCode)" }
-          $x = [xml](Export-ScheduledTask -TaskPath '\' -TaskName $env:TASK)
-          $s = $x.Task.Settings
-          "logon $($x.Task.Principals.Principal.LogonType), priority $($s.Priority), limit $($s.ExecutionTimeLimit)"
-          if ($x.Task.Principals.Principal.LogonType -ne 'S4U' -or $s.Priority -ne '5' -or $s.ExecutionTimeLimit -ne 'PT0S') { throw "the task isn't set up as Step 3b decided" }
-          # The export drops a default <Enabled>true</Enabled>, and an empty <BootTrigger /> reads as "" (false).
-          $boot = (Get-ScheduledTask -TaskPath '\' -TaskName $env:TASK).Triggers | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_TaskBootTrigger' -and $_.Enabled }
-          if (-not $boot) { throw "the task doesn't start at boot" }
-          # No start at login and no shortcuts of its own: the task starts it.
-          # A fresh runner has no Run key at all: no entry either.
-          if ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).$env:TASK) { throw "a start at login entry" }
-          if (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\$env:TASK.lnk") { throw "a Start-menu shortcut" }
-          if (-not (Test-Path "$dir\headless")) { throw "no headless marker" }
-      - name: Online, comes back after a kill, stays down for a stop
-        run: node scripts/headless-test.mjs check --hub $env:HUB
-      - name: Bump every version and build that connector (a test build of this commit)
-        shell: bash
-        run: |
-          NEW=$(node -e '
-            const fs = require("fs");
-            const [major, minor, patch] = JSON.parse(fs.readFileSync("package.json", "utf8")).version.split("-")[0].split(".").map(Number);
-            const next = `${major}.${minor}.${patch + 100}`;
-            const files = ["package.json", ...["apps", "packages", "packages/adapters"].flatMap((d) => fs.existsSync(d) ? fs.readdirSync(d).map((n) => `${d}/${n}/package.json`) : [])];
-            for (const f of files.filter((f) => fs.existsSync(f))) {
-              const json = JSON.parse(fs.readFileSync(f, "utf8"));
-              if (json.version === undefined) continue;
-              json.version = next;
-              fs.writeFileSync(f, JSON.stringify(json, null, 2) + "\n");
-            }
-            console.log(next);
-          ')
-          echo "NEW=$NEW" >> "$GITHUB_ENV"
-          git -c user.name=ci -c user.email=ci@example.invalid commit -qam "test: version $NEW"
-          # The new versions in the manifests: installed here, not by the hub's `pnpm exec` below.
-          pnpm install --frozen-lockfile
-          node packaging/build.mjs --product connector --tag "v$NEW"
-      - name: A newer hub, the downloads served here, and the connector follows it
-        # One step: a hub started in this step was gone at the next one (Step 3b, CI run 44847710029).
-        run: |
-          taskkill /T /F /PID (Get-Content "$env:RUNNER_TEMP\hub.pid") | Out-Null
-          Push-Location packaging/out
-          Get-ChildItem *-app-*.zip | ForEach-Object { "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content SHA256SUMS
-          Start-Process python -ArgumentList '-m', 'http.server', '4320', '--bind', '127.0.0.1' -WindowStyle Hidden -RedirectStandardError "$env:RUNNER_TEMP\downloads.log"
-          Pop-Location
-          $env:PORT = '4310'; $env:APP_DATA_DIR = "$env:RUNNER_TEMP\hub"
-          # Node itself, not through pnpm and a pwsh pipe: its own log files.
-          $h = Start-Process node -ArgumentList '--import', 'tsx', 'src/main.ts' -WorkingDirectory apps/server -WindowStyle Hidden -RedirectStandardOutput "$env:RUNNER_TEMP\hub2.log" -RedirectStandardError "$env:RUNNER_TEMP\hub2.err.log" -PassThru
-          # The task is run again once the hub answers: it's the connector following it that's tested.
-          $t = [Diagnostics.Stopwatch]::StartNew()
-          $up = { try { [bool](Invoke-RestMethod "$env:HUB/api/health" -TimeoutSec 2) } catch { $false } }
-          while (-not (& $up)) {
-            if ($t.Elapsed.TotalSeconds -gt 180) { Get-Content "$env:RUNNER_TEMP\hub2.log" -ErrorAction SilentlyContinue; throw "the newer hub didn't answer within 180 s" }
-            Start-Sleep 1
-          }
-          "newer hub up in $([int]$t.Elapsed.TotalSeconds) s"
-          # The connector downloads from here instead of GitHub: the user's environment, which the S4U
-          # task loads when it starts.
-          [Environment]::SetEnvironmentVariable('APP_DOWNLOAD_URL', $env:DOWNLOADS, 'User')
-          Stop-ScheduledTask -TaskPath '\' -TaskName $env:TASK
-          Start-ScheduledTask -TaskPath '\' -TaskName $env:TASK
-          node scripts/headless-test.mjs update --hub $env:HUB --version $env:NEW
-          if ($LASTEXITCODE) {
-            if ($h.HasExited) { "the newer hub exited with $($h.ExitCode) at $($h.ExitTime.ToUniversalTime().ToString('o'))" }
-            exit 1
-          }
-          Get-Item "packaging/out/*-app-windows-x64.zip"
-      - name: The uninstaller removes the task
-        run: |
-          $dir = "$env:LOCALAPPDATA\Programs\$env:TASK"
-          Start-Process "$dir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
-          for ($n = 0; $n -lt 60 -and (Test-Path "$dir\versions"); $n++) { Start-Sleep 1 }
-          if (Get-ScheduledTask -TaskPath '\' -TaskName $env:TASK -ErrorAction SilentlyContinue) { throw "the uninstaller left the task" }
-          if (Get-CimInstance Win32_Process -Filter "Name='nodew.exe'" | Where-Object { $_.ExecutablePath -like "$dir\*" }) { throw "a connector still runs" }
-          if (Test-Path "$dir\versions") { throw "the uninstaller left $dir\versions" }
-      - name: Logs
-        if: failure()
-        run: |
-          $dir = "$env:LOCALAPPDATA\Programs\$env:TASK"
-          foreach ($f in 'hub.log', 'hub2.log', 'hub2.err.log', 'downloads.log', 'setup.log') {
-            "== $f"; Get-Content "$env:RUNNER_TEMP\$f" -Tail 60 -ErrorAction SilentlyContinue
-          }
-          Get-ChildItem "$dir\logs" -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_ -Tail 60 }
-          Get-ScheduledTask -TaskPath '\' -TaskName $env:TASK -ErrorAction SilentlyContinue | Get-ScheduledTaskInfo
+          $ok = $false
+          for ($n = 0; $n -lt 90 -and -not $ok; $n++) { try { $ok = (Invoke-WebRequest http://127.0.0.1:4301/api/health -TimeoutSec 1).StatusCode -eq 200 } catch { Start-Sleep 1 } }
+          if (-not $ok) { throw 'connector not up' }
+          Start-Sleep 10
+          pwsh -NoProfile -File spike/winshare.ps1 -Hub $env:HUB
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: spike-${{ matrix.os }}
+          path: ${{ runner.temp }}/spike-*.json
