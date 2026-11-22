@@ -179,29 +179,50 @@ What to know:
 
 ### Windows Server
 
-Use this on a Windows Server where the connector should run from boot, with nobody signed in, also on Server Core with no desktop. The connector runs as a scheduled task, `3D Maker Suite Connector`, which starts it at boot as the account that installed it. That account must be an administrator: the connector runs as it, without its administrator rights, and no password is stored. Windows Server x64 only.
+Use this on a Windows Server where the connector should run from boot, with nobody signed in, also on Server Core with no desktop. The connector runs as a scheduled task, `3D Maker Suite Connector`, which starts it at boot. It runs as one of these two accounts:
+
+- **The administrator who installs it.** No password is stored. The connector runs without its administrator rights. It can't reach network shares, because Windows gives a task without a password no network credentials.
+- **An account you name, with its password.** Use this when a project folder is on a network share (`\\nas\share`), see [Network shares](#network-shares). The account doesn't need to be an administrator.
+
+Windows Server x64 only. The setup installs for all users, so it needs an administrator and the `/ALLUSERS` switch.
 
 1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before you run the setup.
 2. Download the Windows connector file (see [Download](#download)) to the server.
-3. Install it in one of these two ways.
+3. In an administrator PowerShell, in the folder with the file, run the setup in one of these two ways.
 
-**With a desktop.** Sign in as the administrator the connector should run as, and double-click the setup file. Tick **Start at boot with nobody signed in (headless)**, then fill in the hub address, the code and the name on the next page. Windows asks for administrator rights once, to add the task.
-
-**Server Core, or any server from the command line.** In an administrator PowerShell, run the setup with the hub address and the code:
+**With a desktop.** Run it with `/ALLUSERS` and follow the pages. On **Pair with the hub**, fill in the hub address, the code and the name. **Run as** starts as your own account. Change it and fill in **Its password** to run as another account.
 
 ```powershell
-.\3d-maker-suite-connector-<version>-windows-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /HEADLESS /HUBURL=https://maker.example.com /PAIRINGCODE=AB12-CD34 /NAME="Workshop server"
+.\3d-maker-suite-connector-<version>-windows-x64-setup.exe /ALLUSERS
 ```
 
-`/NAME` is optional. It starts as the server's name. The setup ends with exit code 8 if the task couldn't be added, and writes the reason in `logs\headless-task.log` in the install folder.
+**Server Core, or any server from the command line.** Run it silently, with the hub address and the code:
+
+```powershell
+.\3d-maker-suite-connector-<version>-windows-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS /HEADLESS /HUBURL=https://maker.example.com /PAIRINGCODE=AB12-CD34 /NAME="Workshop server"
+```
+
+`/NAME` is optional. It starts as the server's name. To run as another account, add `/ACCOUNT` and `/PASSWORDFILE`, see [Network shares](#network-shares).
 
 4. In **Hub management** the server shows **Online**.
 
+If you double-click the setup file without `/ALLUSERS`, it installs a desktop connector for you only. Ticking **Start at boot with nobody signed in (headless)** there only tells you to run it again with `/ALLUSERS`. A silent `/HEADLESS` without `/ALLUSERS` stops with exit code 1. If this account already has a desktop connector, uninstall it first. Two connectors on one computer would get in each other's way.
+
 What the setup does:
 
-- It installs the connector in the same folder as on a desktop, `%LOCALAPPDATA%\Programs\3D Maker Suite Connector` of the installing account, and adds the task. It adds no Start-menu entry, no desktop icon and no start at sign-in.
+- It installs the connector for all users in `C:\Program Files\3D Maker Suite Connector` and adds the task. It adds no Start-menu entry, no desktop icon and no start at sign-in. The account the task runs as gets the right to change that folder, which updates need.
 - The address and the code are kept in the task, which only administrators can read. The first start pairs with them. After that the code is ignored. A code the hub refused is never sent twice, as on Linux.
-- It runs as the installing account, so the files it creates belong to that account. Its data is in that account's `%APPDATA%\3d-maker-suite-connector`.
+- The files the connector creates belong to the account it runs as. Its data is in that account's `%APPDATA%\3d-maker-suite-connector`, for example `C:\Users\svc-maker\AppData\Roaming\3d-maker-suite-connector`.
+
+If the task couldn't be added, the setup ends with exit code 8. The reason is in `logs\headless-task.log` in the install folder:
+
+| Message in the setup | What to do |
+|---|---|
+| **can't sign in with that password** | The password is wrong, or the account is disabled, locked or expired. Run the setup again with the right password |
+| **There is no account** | Check the name: `DOMAIN\name`, or `.\name` for an account on this server |
+| **managed service account (gMSA)** | A gMSA isn't supported yet. Use an account with a password |
+| **Run setup again with the password** | The task runs as a named account. Changing the hub address, the code or the name needs its password again |
+| **A policy doesn't let … run as a batch job** | On a domain, the group policy sets **Log on as a batch job**. Add the account there, then run the setup again |
 
 To look at it, and to stop and start it:
 
@@ -211,9 +232,29 @@ Stop-ScheduledTask -TaskName "3D Maker Suite Connector"
 Start-ScheduledTask -TaskName "3D Maker Suite Connector"
 ```
 
-The connector's own log is `logs\server.log` in its install folder. **Stop connector** in the hub, or `Stop-ScheduledTask`, keeps it stopped until you run `Start-ScheduledTask` or the server restarts. If the connector crashes or is killed, it starts again after 5 seconds, then waits longer after each new crash, up to 5 minutes. If its launcher (the `nodew.exe` that runs `launcher.mjs`) is killed, it stays stopped until `Start-ScheduledTask` or the next boot: the task can't restart it. `Start-ScheduledTask` right after `Stop-ScheduledTask` is fine: the new start waits up to 15 seconds for the old one to end. Running a newer setup with `/HEADLESS` but without `/HUBURL` and `/PAIRINGCODE` updates the install and keeps the ones the task has.
+The connector's own log is `logs\server.log` in its install folder. **Stop connector** in the hub, or `Stop-ScheduledTask`, keeps it stopped until you run `Start-ScheduledTask` or the server restarts. If the connector crashes or is killed, it starts again after 5 seconds, then waits longer after each new crash, up to 5 minutes. If its launcher (the `nodew.exe` that runs `launcher.mjs`) is killed, it stays stopped until `Start-ScheduledTask` or the next boot: the task can't restart it. `Start-ScheduledTask` right after `Stop-ScheduledTask` is fine: the new start waits up to 15 seconds for the old one to end. Running a newer setup with `/ALLUSERS /HEADLESS` but without `/HUBURL` and `/PAIRINGCODE` updates the install. It keeps the address, the code, the name and the account the task has, and doesn't need the password.
 
-A sync folder on a network share (`\\nas\share`) can't be reached this way yet. The task runs without the account's password, so Windows gives it no network credentials. Use a folder on the server's own disks for now. Running it as a named account with its password, which reaches shares, is planned.
+#### Network shares
+
+A project folder on a network share (`\\nas\share\Models`) needs the connector to run as an account with its password. A task without a password has no network credentials, so the share isn't reached. Use an account that can open the share. On a domain, that is a domain account with rights on the share and its folders. With a NAS, it is a local account on the server whose name and password match a user on the NAS.
+
+On a server with a desktop, enter the account in **Run as** and its password in **Its password**. From the command line, write the password to a file first, so it isn't left in the command history, and pass the file. The setup reads the file and deletes it:
+
+```powershell
+$p = Read-Host "Password of CORP\svc-maker" -AsSecureString
+$f = New-TemporaryFile
+[IO.File]::WriteAllText($f, [Net.NetworkCredential]::new("", $p).Password)
+.\3d-maker-suite-connector-<version>-windows-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS /HEADLESS /HUBURL=https://maker.example.com /PAIRINGCODE=AB12-CD34 /ACCOUNT=CORP\svc-maker /PASSWORDFILE=$f
+```
+
+`/ACCOUNT` is `DOMAIN\name`, or `.\name` for an account on this server. On a server that already runs the connector, leave out `/HUBURL` and `/PAIRINGCODE`.
+
+- **What the setup changes.** Windows stores the password with the task, as it does for any task that runs with a password. It never appears in a log or in the task. The account gets the right **Log on as a batch job**, which a task needs, and the right to change the install folder. The uninstaller takes the right back if the setup granted it.
+- **Switching account.** Run the setup again with the new account. The connector stays the same machine on the hub: the setup hands its data over to the new account, and its project folders and settings stay. The sync folder starts empty in the new account's home folder and fills again. To go back to the administrator, give your own account and no password.
+- **A password change stops it.** If the account's password changes or expires, Windows can't start the task, and **Hub management** shows the machine offline. Run the setup again with `/PASSWORDFILE` and the new password. Nothing else is needed.
+- **On a domain,** a group policy that sets **Log on as a batch job** replaces the right the setup grants. Add the account to that policy.
+- **Not supported yet:** a group managed service account (gMSA), which has no password to give.
+- **Change events.** The connector watches a folder on a share as any other. The folder shows **Rescanned only**, because changes made on the NAS by another computer may not arrive, and the scheduled rescan finds them, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates).
 
 ## Warnings you will see
 
@@ -332,7 +373,7 @@ A stopped connector keeps the computer offline for the hub until you start it ag
 | macOS | Drag **3D Maker Suite Connector** from Applications to the Bin, then delete `~/Library/LaunchAgents/com.3dmakersuite.connector.login.plist` |
 | Linux | Delete `~/.local/share/3d-maker-suite-connector/install`, `~/.local/share/applications/3d-maker-suite-connector.desktop` and `~/.config/autostart/3d-maker-suite-connector.desktop` |
 | Linux, with no desktop | Run `systemctl --user disable --now 3d-maker-suite-connector`, then delete `~/.config/systemd/user/3d-maker-suite-connector.service` and `~/.local/share/3d-maker-suite-connector/install` |
-| Windows Server, headless | **Settings → Apps → Installed apps → 3D Maker Suite Connector → Uninstall**, or `& "$env:LOCALAPPDATA\Programs\3D Maker Suite Connector\unins000.exe" /VERYSILENT` in an administrator PowerShell. It stops the connector and removes the task |
+| Windows Server, headless | **Settings → Apps → Installed apps → 3D Maker Suite Connector → Uninstall**, or `& "$env:ProgramFiles\3D Maker Suite Connector\unins000.exe" /VERYSILENT` in an administrator PowerShell. It stops the connector, removes the task and takes back the **Log on as a batch job** right if the setup granted it |
 
 To remove everything, also delete the data folder (see the table below) and the `3D Maker Suite` folder in your home folder. The data folder holds the pairing, so the computer is unpaired once it is gone.
 
@@ -344,18 +385,18 @@ To remove everything, also delete the data folder (see the table below) and the 
 | macOS | `/Applications/3D Maker Suite Connector.app` | `~/Library/Application Support/3d-maker-suite-connector`, logs in `install/logs/` |
 | Linux | `~/.local/share/3d-maker-suite-connector/install`, logs in `logs/` | `~/.local/share/3d-maker-suite-connector` |
 | Linux, with no desktop | the same, run by the user's systemd through `~/.config/systemd/user/3d-maker-suite-connector.service` (with linger) | the same |
-| Windows Server, headless | the same as Windows, of the installing administrator, run at boot by the scheduled task `3D Maker Suite Connector` (S4U: no stored password, no elevation) | the same as Windows |
+| Windows Server, headless | `C:\Program Files\3D Maker Suite Connector` (all users), logs in `logs\`, run at boot by the scheduled task `3D Maker Suite Connector` without elevation: as the installing administrator with no stored password (S4U), or as a named account with its password stored by Windows | `%APPDATA%\3d-maker-suite-connector` of the account it runs as |
 
 - **Allow by hash.** Every release file is in `SHA256SUMS`. You can also verify one with `gh attestation verify <file> -R emanuelmoniz/3d-maker-suite`.
 - **Network.** The connector connects out to the hub (HTTPS, or HTTP on a LAN) and to GitHub releases for updates. It also reaches the printers and the spool library the hub gives it, on their web or MQTT port. Its own page listens on `127.0.0.1:4301` only.
-- **No admin rights.** The installers write only in the user's folders. The one exception is the Windows Server headless choice, which needs an administrator once, to add its scheduled task.
+- **No admin rights.** The installers write only in the user's folders. The one exception is the Windows Server headless install, which an administrator runs for all users (`/ALLUSERS`). It adds the scheduled task, and for a named account the **Log on as a batch job** right and the right to change the install folder.
 - **Secrets.** The computer's token and the printers' keys are stored encrypted and are never logged.
 - **More.** What a connector can and can't do is on [Hub setup](Hub-Setup.md#for-company-it).
 
 ## Limits and tips
 
 - **A NAS runs the connector in Docker.** A NAS can't add services, so it uses the container, see [Docker: a NAS or a server](#docker-a-nas-or-a-server). Windows (Windows Server too), macOS, Linux x64 and Linux ARM64 have installers or archives.
-- **Windows Server, headless: no network shares yet.** Its task has no network credentials, so a sync folder on `\\nas\share` isn't reached. Windows on ARM has no headless install.
+- **Windows Server, headless: network shares need a named account.** As the installing administrator the task has no network credentials, so a folder on `\\nas\share` isn't reached. Run it as an account with its password, see [Network shares](#network-shares). A gMSA isn't supported yet. Windows on ARM has no headless install.
 - **ARM can't slice.** A connector on ARM can't be a slice worker.
 - **One hub per computer,** and one pairing per computer.
 - **Starts at login.** The connector has no tray icon and no window. Its Start-menu or application-menu entry opens the hub's page for the computer, or the pair page before it is paired. When the hub can't be reached, it opens the connector's own page.

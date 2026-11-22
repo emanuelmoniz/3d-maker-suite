@@ -12,9 +12,14 @@
 //     connector and the service's or task's own stop keep it down; it starts again
 //   node scripts/headless-test.mjs update --version 6.2.100 [--hub ...] [--name ...]
 //     it is on that version (the hub's), online, still the same device
+//   node scripts/headless-test.mjs share --path \\localhost\ci --local C:\cishare [--hub ...]
+//     a folder on an SMB share (Windows, as a named account: Step 5b): shared and added as a
+//     project root, it is indexed as a share; the project folder in it is found, one the hub makes
+//     lands on the share, and one added on the share shows up
 // Also --connector http://127.0.0.1:4301, --service 3d-maker-suite-connector (Windows: the task,
 // "3D Maker Suite Connector"), --email, --password.
 import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -30,14 +35,17 @@ const {
     name: { type: "string", default: "ci-headless" },
     service: { type: "string" },
     version: { type: "string" },
+    path: { type: "string" },
+    local: { type: "string" },
     email: { type: "string", default: "admin@example.com" },
     password: { type: "string", default: "pair-test-password" },
   },
 });
 const windows = process.platform === "win32";
 a.service ??= windows ? "3D Maker Suite Connector" : "3d-maker-suite-connector";
+// Windows: an all-users install in Program Files (Step 5b).
 const install = windows
-  ? join(process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"), "Programs", a.service)
+  ? join(process.env.ProgramFiles ?? "C:\\Program Files", a.service)
   : join(process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"), a.service, "install");
 const step = (s) => console.error(`- ${s}`);
 const fail = (s) => {
@@ -226,7 +234,58 @@ if (command === "code") {
   if (now.id !== device.id) fail("the update made a new device");
   step(`connector ${on.version}, online, outdated: ${now.outdated}, same device`);
   console.log("The connector followed the hub.");
+} else if (command === "share") {
+  if (!a.path || !a.local) fail("--path (the share) and --local (its folder on disk) are needed");
+  await signIn();
+  const device = await until(`${a.name} online`, async () => {
+    const d = await mine();
+    return d?.online && d;
+  });
+  const ok = (r, what) => {
+    if (r.status >= 300) fail(`${what}: ${r.status} ${JSON.stringify(r.json)}`);
+    return r.json;
+  };
+  ok(
+    await hub("POST", `/api/hub/devices/${device.id}/folders`, { path: a.path }),
+    "share the folder",
+  );
+  const root = ok(
+    await hub("POST", "/api/roots", { path: a.path, location: device.id }),
+    "add it as a project root",
+  );
+  const indexed = await until(`${a.path} indexed by the connector`, async () => {
+    const r = (await hub("GET", "/api/roots")).json.find((x) => x.id === root.id);
+    return r?.state === "ok" && r.mount && r;
+  });
+  if (!indexed.mount.share)
+    fail(`the root isn't seen as a share: ${JSON.stringify(indexed.mount)}`);
+  step(`indexed: ${a.path}, ${indexed.mount.type}, share`);
+  const projects = async () =>
+    (await hub("GET", "/api/projects?pageSize=100")).json.items.filter((p) => p.rootId === root.id);
+  const found = (folder) => async () => (await projects()).find((p) => p.folder === folder);
+  // Read: the project folder that was there before.
+  await until("the project folder on the share found", found("Benchy"));
+  step("read: Benchy found");
+  // Write: a project the hub makes gets its folder on the share, through the connector.
+  const made = ok(
+    await hub("POST", "/api/projects", {
+      name: "From the hub",
+      createFolder: true,
+      rootId: root.id,
+    }),
+    "make a project in it",
+  );
+  await until(`${made.folder} on the share`, async () => existsSync(join(a.local, made.folder)));
+  step(`write: ${made.folder} made on the share`);
+  // A change made on the share: an event or the rescan brings it.
+  mkdirSync(join(a.local, "Added"));
+  writeFileSync(join(a.local, "Added", "part.stl"), "solid part\nendsolid part\n");
+  await until("a folder added on the share found", found("Added"), 120_000);
+  step("change: Added found");
+  console.log("The share works.");
 } else {
-  console.error("usage: headless-test.mjs code | check | update --version X");
+  console.error(
+    "usage: headless-test.mjs code | check | update --version X | share --path P --local L",
+  );
   process.exit(2);
 }

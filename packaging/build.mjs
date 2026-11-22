@@ -136,9 +136,11 @@ if (!image) {
   cpSync(join(from, "LICENSE"), join(node, "LICENSE"));
   rmSync(tmp, { recursive: true, force: true });
   for (const f of ["launcher.mjs", "loader.html"]) cpSync(join(here, f), join(stage, f));
-  // What the Windows installer's headless choice runs to register the scheduled task.
+  // What the Windows installer's headless choice runs to register the scheduled task, and the
+  // Windows calls it makes for a named account (Plan 6.3.0 Step 5b).
   if (p.headless && platform === "win32")
-    cpSync(join(here, "headless-task.mjs"), join(stage, "headless-task.mjs"));
+    for (const f of ["headless-task.mjs", "headless-account.ps1"])
+      cpSync(join(here, f), join(stage, f));
   // The logo as each OS wants it (made by make-icons.mjs): setup and shortcuts, the .app, the menu entry.
   icon = { win32: "icon.ico", darwin: "icon.icns", linux: "icon.png" }[process.platform];
   cpSync(join(here, icon), join(stage, icon));

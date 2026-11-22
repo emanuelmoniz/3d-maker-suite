@@ -5067,7 +5067,7 @@ Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag a
 Do Step 5 of the 6.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 5b - Windows headless: a named account for network shares  **[plan mode]**
+### [x] Step 5b - Windows headless: a named account for network shares  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Why (found in Step 3b):** the Windows Server headless task runs S4U, with no stored password, so Windows gives it no network credentials: a sync folder or project root on an SMB share (`\\nas\share`) isn't reached. A named account with a password was measured in the Step 3b spike and never ran, because the account lacked the batch logon right (`0x80070569`), which Windows doesn't grant by itself.
 **Scope:**
@@ -5076,6 +5076,21 @@ Do Step 5 of the 6.3.0 plan in PLAN.md.
 - Spike first: a share mapped by UNC as that account (read, write, change events or rescan only), and a domain account with a gMSA instead of a password.
 - CI on `windows-2025`: a local account, a share on the runner itself, the root indexed through it.
 - Wiki `Connector-Setup` (Windows Server: network shares), ADR-0024 amend.
+
+**Done (2026-11-22):** Spike S9 (branch `spike/winshare`, ADR-0024):
+- Node can't run as another account from the admin's profile: it `lstat`s each parent folder and gets EPERM. Agreed with the user: every headless install is per-machine, `setup.exe /ALLUSERS`, in `C:\Program Files\3D Maker Suite Connector`.
+- `/ACCOUNT=` with `/PASSWORDFILE=`, or the hub page's **Run as** and **Its password**, give a Password task.
+- `packaging/headless-account.ps1` grants `SeBatchLogonRight` through LSA after a batch logon check and registers the task. The password reaches it on stdin as base64, so it is never on a command line or in a log.
+- A switch of account hands the data over (`handoff\`, `takeHandoff`), so it stays the same device.
+- An update with nothing changed keeps the task without the password.
+- The uninstaller takes the right back. A gMSA is refused (no domain to test on).
+- CI (`headless-windows`):
+  - `/HEADLESS` without `/ALLUSERS` refused, then the S4U install;
+  - the switch to `.\ciconn`, and the checks again as `ciconn`;
+  - a project root on `\\localhost\ci`: indexed as a share, a folder read, one made from the hub, one added on disk;
+  - a password change, the update, the uninstall.
+
+  Not tested here: a share on another machine (a loopback share also works from S4U) and a domain account, left for Step 9.
 
 **Done when:** a headless Windows connector running as a named account indexes and syncs a folder on an SMB share with nobody signed in; tests, lint and `pnpm typecheck` pass.
 **Prompt:**
@@ -5104,7 +5119,7 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container.
-  - The second makes a code that lasts 24 hours (Step 2). It shows the code and the exact command or compose lines (host networking, `PUID`/`PGID`, `rslave` shares), and the Windows Server silent install line (Step 3b), with the hub's address filled in. Copy buttons; no secret beyond the one-time code.
+  - The second makes a code that lasts 24 hours (Step 2). It shows the code and the exact command or compose lines (host networking, `PUID`/`PGID`, `rslave` shares), and the Windows Server silent install line (Step 3b, with `/ALLUSERS` and the optional `/ACCOUNT` and `/PASSWORDFILE` of Step 5b), with the hub's address filled in. Copy buttons; no secret beyond the one-time code.
 - Unused codes are listed with **Withdraw**: a 24-hour code outlives the admin's visit.
 - The machine page shows how the connector is installed (archive, headless, Docker), its architecture, and for Docker the update command when it is **Outdated**.
 - The slice worker switch is greyed out, with the reason, on ARM.

@@ -26,9 +26,42 @@ import {
   rotate,
   serverUrl,
   settle,
+  takeHandoff,
   waitGone,
   writeLoader,
 } from "./launcher.mjs";
+
+describe("takeHandoff", () => {
+  const at = () => {
+    const root = mkdtempSync(join(tmpdir(), "handoff-"));
+    return { install: join(root, "install"), dir: join(root, "data") };
+  };
+
+  it("moves the previous account's data in, over what this account had, and removes it", () => {
+    const { install, dir } = at();
+    mkdirSync(join(install, "handoff", "presets"), { recursive: true });
+    writeFileSync(join(install, "handoff", "state.json"), '{"device":"d1"}');
+    writeFileSync(join(install, "handoff", "secret.key"), "key");
+    writeFileSync(join(install, "handoff", "presets", "a.json"), "{}");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "state.json"), '{"device":"old"}');
+    writeFileSync(join(dir, "config.json"), '{"port":4301}');
+    expect(takeHandoff(install, dir)).toBe(true);
+    expect(readFileSync(join(dir, "state.json"), "utf8")).toBe('{"device":"d1"}');
+    expect(readFileSync(join(dir, "secret.key"), "utf8")).toBe("key");
+    expect(existsSync(join(dir, "presets", "a.json"))).toBe(true);
+    expect(existsSync(join(dir, "config.json"))).toBe(true);
+    expect(existsSync(join(install, "handoff"))).toBe(false);
+  });
+
+  it("does nothing without a handed over state", () => {
+    const { install, dir } = at();
+    expect(takeHandoff(install, dir)).toBe(false);
+    mkdirSync(join(install, "handoff"), { recursive: true });
+    expect(takeHandoff(install, dir)).toBe(false);
+    expect(existsSync(dir)).toBe(false);
+  });
+});
 
 describe("waitGone", () => {
   it("is true at once when nothing answers", async () => {

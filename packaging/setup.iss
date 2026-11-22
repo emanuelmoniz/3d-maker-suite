@@ -2,10 +2,15 @@
 ; packaging/build.mjs: iscc /DVersion=4.1.0 /DSrc=<folder with node\ launcher.mjs product.json versions\>
 ; /DOutDir=<dir> /DOutName=<name> [/DName=<product name> /DAppId=<product id> /DAlwaysStart /DHeadless] setup.iss
 ; AlwaysStart: start at login without asking (the connector only helps while it runs).
-; Headless (the connector, ADR-0024): a choice to start at boot with nobody signed in instead, as a
-; scheduled task that headless-task.mjs registers elevated. Silent, for Server Core:
-;   setup.exe /VERYSILENT /SUPPRESSMSGBOXES /HEADLESS /HUBURL=https://hub /PAIRINGCODE=AB12-CD34 [/NAME="Server"]
-; Run again without /HUBURL and /PAIRINGCODE, it keeps the task's. Exit code 8: the task wasn't set up.
+; Headless (the connector, ADR-0024): start at boot with nobody signed in instead, as a scheduled
+; task that headless-task.mjs registers. Only for all users (/ALLUSERS, elevated, in Program Files):
+; a named account can't run Node from another user's profile (Plan 6.3.0 Step 5b), and setup run
+; that way is always headless. It runs as this administrator (S4U), or as /ACCOUNT with the password
+; in /PASSWORDFILE (read and deleted), which reaches network shares. Silent, for Server Core:
+;   setup.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS /HEADLESS /HUBURL=https://hub /PAIRINGCODE=AB12-CD34
+;             [/NAME="Server"] [/ACCOUNT=DOMAIN\name /PASSWORDFILE=C:\path\pw.txt]
+; Run again without them, it keeps the task's address, code, name and account. Exit code 8: the task
+; wasn't set up (the reason is in logs\headless-task.log); 1: /HEADLESS without /ALLUSERS.
 #ifndef Name
   #define Name "3D Maker Suite"
 #endif
@@ -19,8 +24,12 @@ AppId={#AppId}
 AppName={#Name}
 AppVersion={#Version}
 AppPublisherURL=https://github.com/emanuelmoniz/3d-maker-suite
-DefaultDirName={localappdata}\Programs\{#Name}
+; {userpf} (%LOCALAPPDATA%\Programs) per user, Program Files for all users (headless only).
+DefaultDirName={autopf}\{#Name}
 PrivilegesRequired=lowest
+#ifdef Headless
+PrivilegesRequiredOverridesAllowed=commandline
+#endif
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 ArchitecturesAllowed=x64compatible
@@ -41,16 +50,25 @@ RedirectionGuard=no
 StartAtLogin=Start {#Name} when I sign in
 #ifdef Headless
 HeadlessGroup=Windows Server:
-Headless=Start at boot with nobody signed in (headless), as this account
+Headless=Start at boot with nobody signed in (headless)
 HubPageCaption=Pair with the hub
 HubPageDescription=Make a pairing code in the hub's Settings → Hub management.
-HubPageNote=The connector pairs when it first starts. Leave both empty to keep the address and code it has.
+HubPageNote=The connector pairs when it first starts. Leave the address and code empty to keep the ones it has. It runs as this administrator, which can't reach network shares; for a share (\\nas\share), enter an account and its password.
 HubUrl=Hub address (for example https://maker.example.com):
 PairingCode=Pairing code:
 DeviceName=Name of this machine on the hub:
+Account=Run as (DOMAIN\name, or .\name for an account on this server):
+Password=Its password (only for another account, or to change it):
 HeadlessNeedsHub=Enter the hub address and the pairing code.
-HeadlessOtherUser=The connector runs as the account that installs it. Sign in as that administrator and run setup again, instead of elevating as another account.
-HeadlessFailed={#Name} couldn't be set to start at boot. Run setup as an administrator, and see logs\headless-task.log in %1.
+HeadlessNeedsAllUsers=Starting at boot with nobody signed in installs {#Name} for all users. In an administrator PowerShell, run the setup again with /ALLUSERS, for example: .\setup.exe /ALLUSERS
+HeadlessDesktopInstalled={#Name} is already installed for this account, as a desktop connector. Uninstall it first, then run this setup again.
+HeadlessNeedsPassword=Enter the password of %1. The connector runs as it, with its password stored by Windows.
+HeadlessGmsa=%1 is a managed service account (gMSA), which isn't supported yet. Enter an account with a password.
+HeadlessBadLogon=%1 can't sign in with that password (wrong, disabled, locked or expired). Run setup again with the right one. The reason is in logs\headless-task.log in %2.
+HeadlessNoAccount=There is no account %1. Run setup again with an existing account.
+HeadlessPasswordAgain=The connector runs as %1 with its password. Run setup again with the password to change the hub address, code or name.
+HeadlessBatchRefused=A policy doesn't let %1 run as a batch job, which the scheduled task needs. On a domain, add it to "Log on as a batch job" in the group policy, then run setup again.
+HeadlessFailed={#Name} couldn't be set to start at boot. See logs\headless-task.log in %1.
 #endif
 
 [Tasks]
@@ -59,7 +77,8 @@ Name: desktopicon; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm
 Name: startatlogin; Description: "{cm:StartAtLogin}"; Flags: unchecked
 #endif
 #ifdef Headless
-Name: headless; Description: "{cm:Headless}"; GroupDescription: "{cm:HeadlessGroup}"; Flags: unchecked
+; Per user it only says how to start setup for all users; for all users it is always headless.
+Name: headless; Description: "{cm:Headless}"; GroupDescription: "{cm:HeadlessGroup}"; Flags: unchecked; Check: not IsAdminInstallMode
 #endif
 
 [Files]
@@ -84,8 +103,9 @@ Filename: "{#Start}"; Parameters: """{app}\launcher.mjs"""; WorkingDir: "{app}";
 
 #ifdef Headless
 [UninstallRun]
-; Before the files go: end and delete the task (elevated, as it was made). Step 7c adds unpairing.
-Filename: "{#Start}"; Parameters: """{app}\headless-task.mjs"" remove"; WorkingDir: "{app}"; Flags: shellexec waituntilterminated runhidden; Verb: "runas"; RunOnceId: "RemoveHeadlessTask"; Check: IsHeadless
+; Before the files go: end and delete the task, take back the batch logon right it granted (the
+; uninstaller of an all-users install runs elevated). Step 7c adds unpairing.
+Filename: "{#Start}"; Parameters: """{app}\headless-task.mjs"" remove"; WorkingDir: "{app}"; Flags: waituntilterminated runhidden; RunOnceId: "RemoveHeadlessTask"; Check: IsHeadless
 #endif
 
 [UninstallDelete]
@@ -93,8 +113,10 @@ Filename: "{#Start}"; Parameters: """{app}\headless-task.mjs"" remove"; WorkingD
 Type: filesandordirs; Name: "{app}\versions"
 Type: filesandordirs; Name: "{app}\.update"
 Type: filesandordirs; Name: "{app}\logs"
+Type: filesandordirs; Name: "{app}\handoff"
 Type: files; Name: "{app}\starting.html"
 Type: files; Name: "{app}\headless"
+Type: files; Name: "{app}\headless-account.json"
 
 [Code]
 #ifdef Headless
@@ -112,22 +134,68 @@ begin
       Result := True;
 end;
 
-{ A headless install marks its folder: setup run again, or the uninstaller, keeps to it. The
-  folder is fixed (DisableDirPage), and the app constant can't be expanded this early in the wizard. }
-function WasHeadless: Boolean;
-begin
-  Result := FileExists(ExpandConstant('{localappdata}\Programs\{#Name}\headless'));
-end;
-
-{ Known before the wizard's task list exists. }
+{ Known before the wizard's task list exists: for all users (/ALLUSERS) it is always headless. }
 function StartsHeadless: Boolean;
 begin
-  Result := CmdHeadless or WasHeadless;
+  Result := IsAdminInstallMode;
 end;
 
 function IsHeadless: Boolean;
 begin
-  Result := StartsHeadless or WizardIsTaskSelected('headless');
+  Result := IsAdminInstallMode;
+end;
+
+{ A headless install marks its folder with the account the task runs as: setup run again keeps to
+  it. The folder is fixed (DisableDirPage), and the app constant can't be expanded this early. }
+function Marker: String;
+begin
+  Result := ExpandConstant('{autopf}\{#Name}\headless');
+end;
+
+function WasHeadless: Boolean;
+begin
+  Result := IsAdminInstallMode and FileExists(Marker);
+end;
+
+function Me: String;
+begin
+  Result := GetEnv('USERDOMAIN') + '\' + GetUserNameString;
+end;
+
+{ .\name and a bare name are accounts on this computer, as headless-task.mjs reads them. }
+function NormAccount(const Value: String): String;
+begin
+  Result := Trim(Value);
+  if Copy(Result, 1, 2) = '.\' then
+    Result := GetComputerNameString + '\' + Copy(Result, 3, Length(Result))
+  else if (Result <> '') and (Pos('\', Result) = 0) and (Pos('@', Result) = 0) then
+    Result := GetComputerNameString + '\' + Result;
+end;
+
+function MarkerAccount: String;
+var
+  S: AnsiString;
+begin
+  Result := '';
+  if WasHeadless and LoadStringFromFile(Marker, S) then
+    Result := Trim(String(S));
+end;
+
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+  { An update run without /ALLUSERS would add a desktop connector beside the headless one. }
+  if (CmdHeadless or FileExists(ExpandConstant('{commonpf}\{#Name}\headless'))) and
+      not IsAdminInstallMode then begin
+    Log('a headless install needs /ALLUSERS');
+    SuppressibleMsgBox(CustomMessage('HeadlessNeedsAllUsers'), mbError, MB_OK, IDOK);
+    Result := False;
+  end else if IsAdminInstallMode and FileExists(ExpandConstant('{userpf}\{#Name}\unins000.exe')) then begin
+    { A desktop connector beside it would start at sign-in on the same port, for the same hub. }
+    Log('a desktop install is in ' + ExpandConstant('{userpf}\{#Name}'));
+    SuppressibleMsgBox(CustomMessage('HeadlessDesktopInstalled'), mbError, MB_OK, IDOK);
+    Result := False;
+  end;
 end;
 
 procedure InitializeWizard;
@@ -137,18 +205,20 @@ begin
   HubPage.Add(CustomMessage('HubUrl'), False);
   HubPage.Add(CustomMessage('PairingCode'), False);
   HubPage.Add(CustomMessage('DeviceName'), False);
+  HubPage.Add(CustomMessage('Account'), False);
+  HubPage.Add(CustomMessage('Password'), True);
   HubPage.Values[0] := ExpandConstant('{param:HUBURL|}');
   HubPage.Values[1] := ExpandConstant('{param:PAIRINGCODE|}');
   HubPage.Values[2] := ExpandConstant('{param:NAME|}');
   { Run again, empty keeps the task's name; the connector names itself after the computer otherwise. }
   if (HubPage.Values[2] = '') and not WasHeadless then
     HubPage.Values[2] := GetComputerNameString;
-end;
-
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  if (CurPageID = wpSelectTasks) and StartsHeadless then
-    WizardSelectTasks('headless');
+  { The account it runs as: the one asked for, the task's, or this administrator. }
+  HubPage.Values[3] := ExpandConstant('{param:ACCOUNT|}');
+  if HubPage.Values[3] = '' then
+    HubPage.Values[3] := MarkerAccount;
+  if HubPage.Values[3] = '' then
+    HubPage.Values[3] := Me;
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
@@ -157,12 +227,31 @@ begin
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Account: String;
 begin
   Result := True;
+  { Per user, the headless choice says how to start setup for all users. }
+  if (CurPageID = wpSelectTasks) and not IsAdminInstallMode and WizardIsTaskSelected('headless') then begin
+    MsgBox(CustomMessage('HeadlessNeedsAllUsers'), mbInformation, MB_OK);
+    Result := False;
+  end;
+  if (CurPageID <> HubPage.ID) or WizardSilent then
+    exit;
   { A first headless install needs both; a later one may keep the task's. }
-  if (CurPageID = HubPage.ID) and not WasHeadless and
-     ((Trim(HubPage.Values[0]) = '') or (Trim(HubPage.Values[1]) = '')) then begin
+  if not WasHeadless and ((Trim(HubPage.Values[0]) = '') or (Trim(HubPage.Values[1]) = '')) then begin
     MsgBox(CustomMessage('HeadlessNeedsHub'), mbError, MB_OK);
+    Result := False;
+    exit;
+  end;
+  { Silent, headless-task.mjs says the same with its exit code. }
+  Account := NormAccount(HubPage.Values[3]);
+  if Copy(Account, Length(Account), 1) = '$' then begin
+    MsgBox(FmtMessage(CustomMessage('HeadlessGmsa'), [Account]), mbError, MB_OK);
+    Result := False;
+  end else if (HubPage.Values[4] = '') and (CompareText(Account, NormAccount(Me)) <> 0) and
+      (CompareText(Account, MarkerAccount) <> 0) then begin
+    MsgBox(FmtMessage(CustomMessage('HeadlessNeedsPassword'), [Account]), mbError, MB_OK);
     Result := False;
   end;
 end;
@@ -182,25 +271,16 @@ begin
     Result := ' ' + Flag + ' "' + V + '"';
 end;
 
-{ headless-task.mjs, elevated (no prompt when setup already is); its exit code, -1 if it didn't run. }
-function RunTask(const Params: String): Integer;
-var
-  Code: Integer;
-  S: AnsiString;
-  ResultFile: String;
+{ headless-task.mjs (setup is elevated for all users); its exit code, -1 if it didn't run. Only the
+  command goes to the log: the arguments hold the pairing code. }
+function RunTask(const Command, Params: String): Integer;
 begin
-  Result := -1;
-  ResultFile := ExpandConstant('{app}\logs\headless-task.result');
-  DeleteFile(ResultFile);
-  if not ShellExec('runas', ExpandConstant('{#Start}'),
-      '"' + ExpandConstant('{app}\headless-task.mjs') + '" ' + Params,
-      ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) then begin
-    Log('headless-task.mjs did not start: ' + SysErrorMessage(Code));
-    exit;
+  if not Exec(ExpandConstant('{#Start}'), '"' + ExpandConstant('{app}\headless-task.mjs') + '" ' +
+      Command + Params, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Result) then begin
+    Log('headless-task.mjs did not start: ' + SysErrorMessage(Result));
+    Result := -1;
   end;
-  if LoadStringFromFile(ResultFile, S) then
-    Result := StrToIntDef(Trim(String(S)), -1);
-  Log('headless-task.mjs ' + Params + ': ' + IntToStr(Result));
+  Log('headless-task.mjs ' + Command + ': ' + IntToStr(Result));
 end;
 
 { A running task holds node\nodew.exe open: stop it before the files are replaced. }
@@ -208,32 +288,50 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
   if WasHeadless and FileExists(ExpandConstant('{#Start}')) then
-    RunTask('stop');
+    RunTask('stop', '');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
+  Account, Params, PasswordFile, Shown: String;
+  Lines: TArrayOfString;
 begin
   if (CurStep <> ssPostInstall) or not IsHeadless then
     exit;
-  { What a desktop install left: its start at login and shortcuts would start a second connector. }
-  RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#Name}');
-  DeleteFile(ExpandConstant('{autoprograms}\{#Name}.lnk'));
-  DeleteFile(ExpandConstant('{autodesktop}\{#Name}.lnk'));
-  Code := RunTask('install' + Arg('--user', GetEnv('USERDOMAIN') + '\' + GetUserNameString) +
-    Arg('--hub-url', HubPage.Values[0]) + Arg('--pairing-code', HubPage.Values[1]) +
-    Arg('--name', HubPage.Values[2]));
-  if Code = 0 then
-    SaveStringToFile(ExpandConstant('{app}\headless'), '', False)
-  else begin
-    HeadlessError := 8;
-    if Code = 2 then
-      SuppressibleMsgBox(CustomMessage('HeadlessOtherUser'), mbError, MB_OK, IDOK)
-    else
-      SuppressibleMsgBox(FmtMessage(CustomMessage('HeadlessFailed'), [ExpandConstant('{app}')]),
-        mbError, MB_OK, IDOK);
+  Account := NormAccount(HubPage.Values[3]);
+  Params := Arg('--hub-url', HubPage.Values[0]) + Arg('--pairing-code', HubPage.Values[1]) +
+    Arg('--name', HubPage.Values[2]) + Arg('--account', Account);
+  { The password as a file, never on a command line; headless-task.mjs deletes it once read. }
+  PasswordFile := ExpandConstant('{param:PASSWORDFILE|}');
+  if HubPage.Values[4] <> '' then begin
+    PasswordFile := ExpandConstant('{tmp}\account.pwd');
+    SetArrayLength(Lines, 1);
+    Lines[0] := HubPage.Values[4];
+    SaveStringsToUTF8File(PasswordFile, Lines, False);
+    HubPage.Values[4] := '';
   end;
+  Params := Params + Arg('--password-file', PasswordFile);
+  Code := RunTask('install', Params);
+  if Code = 0 then begin
+    SaveStringToFile(ExpandConstant('{app}\headless'), Account, False);
+    exit;
+  end;
+  HeadlessError := 8;
+  case Code of
+    3: Shown := FmtMessage(CustomMessage('HeadlessBadLogon'), [Account, ExpandConstant('{app}')]);
+    4: begin
+         if Copy(Account, Length(Account), 1) = '$' then
+           Shown := FmtMessage(CustomMessage('HeadlessGmsa'), [Account])
+         else
+           Shown := FmtMessage(CustomMessage('HeadlessNoAccount'), [Account]);
+       end;
+    5: Shown := FmtMessage(CustomMessage('HeadlessPasswordAgain'), [Account]);
+    6: Shown := FmtMessage(CustomMessage('HeadlessBatchRefused'), [Account]);
+  else
+    Shown := FmtMessage(CustomMessage('HeadlessFailed'), [ExpandConstant('{app}')]);
+  end;
+  SuppressibleMsgBox(Shown, mbError, MB_OK, IDOK);
 end;
 
 function GetCustomSetupExitCode: Integer;

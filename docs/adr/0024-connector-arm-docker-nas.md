@@ -15,7 +15,7 @@ Plan 6.3.0 brings the connector there without changing its protocol: pairing, th
 |---|---|
 | NAS (Synology, QNAP, Asustor), any server with Docker, private servers included | the connector image: isolated, runs as a chosen user, sees only its mounts, listens on nothing outside the container |
 | Raspberry Pi or Linux server without Docker | the Linux archive with `install.sh --headless` (a systemd user service) |
-| Windows Server x64, with or without a desktop (Server Core) | the Windows installer's headless choice (`/HEADLESS` when silent): a scheduled task at boot, as the installing administrator, S4U (6.3.0 Step 3b) |
+| Windows Server x64, with or without a desktop (Server Core) | the Windows installer for all users (`/ALLUSERS`, and `/HEADLESS` when silent): a scheduled task at boot, as the installing administrator (S4U), or as a named account with its password for network shares (6.3.0 Steps 3b and 5b) |
 | Desktop (Windows, macOS, Linux with a desktop) | the installer, as today |
 
 NAS systems don't let users add services, so they use the image. A connector in Docker joins a hub that runs elsewhere, or in another container; it is never a hub.
@@ -164,7 +164,7 @@ The task's default priority 7 runs it BelowNormal, and its default limit of 72 h
 - **The launcher** (`packaging/launcher.mjs`), when headless (`--headless` or `CONNECTOR_HEADLESS`, the connector's own rule), starts a program that exited with anything but 0 or 75 again: after 5 s, doubling up to 5 minutes, starting over once a run lasted 10 minutes. On Linux too: systemd still restarts a killed launcher (`Restart=on-failure`), so the amendment above holds for the launcher's own exit. On Windows a killed launcher stays down until `Start-ScheduledTask` or the next boot, which the user accepted. A stopped task's program ends a moment after its launcher, so a task run again at once found it still answering, took it for a running connector and exited, leaving none (found in Step 3b's CI): a headless start that finds one answering waits up to 15 s for it to go, then starts, or logs `already running` and exits.
 - **The task** (`packaging/headless-task.mjs`, run by the installer elevated with the bundled Node): `3D Maker Suite Connector`, a boot trigger, S4U as the installing account, `LeastPrivilege`, priority 5, no time limit, one instance, `launcher.mjs --background --headless` with the hub address, code and name as arguments (the task is readable by administrators only). Run again without them, it keeps the ones the task has. It refuses an install elevated as another account: the files would be in one profile and the task would run as another.
 - **The installer** (`setup.iss`): an unchecked headless task and a hub page; silent, `/HEADLESS /HUBURL= /PAIRINGCODE= [/NAME=]`, exit code 8 when the task couldn't be added. Headless means no Run value, no shortcuts and no launch at the end. A marker file keeps a later setup and the uninstaller on the headless path; the uninstaller ends and deletes the task before the files go (Step 7c adds the unpairing).
-- **Limits.** The installing account must be an administrator (S4U needs the batch logon right). An S4U task has no network credentials, so a sync folder on an SMB share isn't reached; a named account with its password is Plan 6.3.0 Step 5b. Windows on ARM has no headless install.
+- **Limits.** The installing account must be an administrator (S4U needs the batch logon right). An S4U task has no network credentials, so a sync folder on an SMB share isn't reached; a named account with its password is Plan 6.3.0 Step 5b. Windows on ARM has no headless install. *(Step 5b: the install moved to Program Files and the same-account refusal went, see its amendment below.)*
 - **Tests:** `connector.yml` `headless-windows` on `windows-2025`: the silent install pairs from the task's arguments; the program killed comes back; the launcher killed stays down until the task runs again; **Stop connector** and the task's stop stay down; a newer test build is followed (`APP_DOWNLOAD_URL` in the user's environment); the uninstaller removes the task.
 
 ## Amendment (2026-11-21): Container images for x64 and ARM64 (6.3.0 Step 4)
@@ -182,3 +182,40 @@ The task's default priority 7 runs it BelowNormal, and its default limit of 72 h
 - **Watching again.** `folderIdent` (device and inode) is compared at every look. A bind mount into a container shows the host path's identity, so a share mounted again on the host under `rslave` changes it.
 - **Not covered:** an unmounted share whose empty mount-point folder remains is indexed as an empty root (the folder is there); the connector can't tell it from an emptied folder. The rescan after the share is mounted again brings the projects back.
 - **Tests:** temp folders for read-only (the mount is injected), a missing root that appears, and the share's mount in the index; a POSIX-only test replaces the folder under the watcher; one e2e spec for the labels. Real SMB and NFS shares are for the real-NAS test in Step 9.
+
+## Amendment (2026-11-22): Windows headless as a named account (6.3.0 Step 5b)
+The S4U task of Step 3b has no network credentials, so a project folder on `\\nas\share` wasn't reached. S8's named-account variant never ran, because the account lacked the batch logon right (`0x80070569`).
+
+**Spike S9.** Five workflow_dispatch runs on GitHub's Windows Server 2022 and 2025 runners (branch `spike/winshare`), with the same results on both. A local account `ciconn` was made with `New-LocalUser` (no password on a command line), and a share `\\localhost\ci` on the runner.
+
+| | Result |
+|---|---|
+| A Password task, account without the batch right | registers, never starts (`0x41303`, the scheduler's log: `LogonUserExEx` 0x80070569) |
+| The right through the LSA API (`LsaAddAccountRights`, C# in `Add-Type`) | 11 to 17 ms; `Add-Type` itself 3 to 5 s; adding it twice is fine; `LsaRemoveAccountRights` takes it back |
+| The right through `secedit` export, edit, configure | works too, changes only the `SeBatchLogonRight` line; not used (temp files, the whole area written back) |
+| The password to `Register-ScheduledTask` on stdin | must be base64 of UTF-8: stdin to `powershell.exe` is read in the OEM code page, and a `ü` made every registration fail ("the user name or password is incorrect"); with base64, a password with a space, `"`, `'`, `$` and `ü` registers. A wrong one is refused at registration, and the error doesn't echo it |
+| The connector as the account from the admin's `%LOCALAPPDATA%\Programs` (Modify granted) | **doesn't start**: Node `lstat`s every parent of its main script (`realpathSync`) and gets EPERM on `C:\Users\admin\AppData`; a probe script in `C:\probe` ran from the same Node |
+| The same from `C:\Program Files\3D Maker Suite Connector` | starts in 1 s, launcher and program owned by the account. Its profile is made at the first start, and `%APPDATA%` and `homedir()` point into it. A Machine-scope variable is seen, the admin's User one isn't. With the admin's data folder copied into its profile, it is the same device on the hub |
+| `icacls <dir> /grant acct:(OI)(CI)M /T` | fails on `node_modules` paths over 260 characters; without `/T` the inheritable entry reaches every file |
+| A handoff folder: `/inheritance:r`, then the account, Administrators and SYSTEM | the account reads a file put in after the ACL (written before, the file kept no entry) |
+| `\\localhost\ci` as the account | read, write, `fs.watch` events for changes through the share, on its local folder and by another user, in under 0.5 s. The root is indexed as `smb`, share |
+| `\\localhost\ci` from the S4U task | **also works**: a loopback share reuses the local logon, so CI can't show S4U's limit on a real share |
+| The account's password changed | the task can't log on (`0x8007052E`, logon failure) and nothing starts; registered again with the new one, it is back at once |
+
+**Decision (with the user):**
+- **Every headless install is per-machine**, in `C:\Program Files\3D Maker Suite Connector` (`{autopf}`, HKLM uninstall entry), with `/ALLUSERS` on the command line (`PrivilegesRequiredOverridesAllowed=commandline`). Setup for all users is always headless. `/HEADLESS` without `/ALLUSERS` exits 1, a per-user wizard that ticks headless says how to start it, and an existing desktop connector of the same account is refused. Desktop installs don't change. Headless wasn't in a release yet, so there is nothing to migrate.
+- **Named account:** `/ACCOUNT=DOMAIN\name` (`.\name` is local) with `/PASSWORDFILE=` (read and deleted at once), or the hub page's **Run as** and **Its password**. The task is LogonType `Password`, `LeastPrivilege`, and the account gets `SeBatchLogonRight` through LSA, after a batch logon check. Without `/ACCOUNT` it runs S4U as the installing administrator, as before. The install-account refusal of Step 3b is gone: the files no longer sit in a profile.
+- **Updates without the password:** run again with nothing changed, a Password task is kept and started. Any change to the address, code or name needs the password again (exit 5).
+- **Switching account** keeps the device. `headless-task.mjs` copies the old account's data folder into `handoff\`, which only the new account (and Administrators, SYSTEM) can read, and the launcher moves it into its own data folder at the next start.
+- **Taken back:** the old account's folder grant, and the batch right if setup granted it, on a switch or uninstall. That is recorded in `headless-account.json`.
+- **No gMSA:** there is no domain to test on; it is refused (exit 4).
+- **A password change** stops the task; the connector can't tell. Hub management shows it offline, and the fix is to run setup again with the new password.
+- **Exit codes** of `headless-task.mjs`, which setup turns into messages (setup exits 8): 3 can't sign in, 4 no such account or a gMSA, 5 password needed, 6 a policy refuses the batch logon (a domain GPO that sets it replaces a local grant).
+- **No dependency:** `packaging/headless-account.ps1` (Windows PowerShell 5.1) holds the LSA, LogonUser and `Register-ScheduledTask` calls. Setup runs elevated, so it uses `Exec` and its exit code (the `.result` file went), and it logs only the command, not the arguments with the pairing code.
+- **Tests:** unit tests for the task XML of both logon types, account names, password files in UTF-8, UTF-16 and ANSI, the keep, switch or ask decision, and the handoff. `connector.yml` `headless-windows` on `windows-2025` covers:
+  - `/HEADLESS` without `/ALLUSERS` refused, then the S4U install and its checks;
+  - a switch to `.\ciconn`: the same device, data in its profile, the batch right and the folder grant, no secret in any log;
+  - the checks again as `ciconn`, then `headless-test.mjs share`: a root on `\\localhost\ci`, indexed as a share, a project folder found, one made through the hub, one added on disk;
+  - a password change, and the update (`APP_DOWNLOAD_URL` at Machine scope);
+  - the uninstaller taking the right back.
+- **Not tested here:** a share on another machine, where S4U really fails, and a domain account, left for the real test in Step 9.

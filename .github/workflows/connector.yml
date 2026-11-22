@@ -6,7 +6,9 @@ name: Connector pairing
 # architectures (ADR-0024): pairs from its Environment=, comes back after a kill, stays down for a stop
 # it was asked for, and follows a newer hub (scripts/headless-test.mjs).
 # `headless-windows`: the same on Windows Server (Plan 6.3.0 Step 3b), the installer's silent
-# `/HEADLESS` (a scheduled task at boot, S4U), then its uninstaller.
+# `/ALLUSERS /HEADLESS` (a scheduled task at boot, S4U), then switched to a named account with its
+# password (Step 5b): same device, a project root on an SMB share on the runner, a password change;
+# then its uninstaller.
 on:
   push:
     branches: [dev]
@@ -162,10 +164,12 @@ jobs:
           tail -n 60 "$HOME"/.local/share/3d-maker-suite-connector/install/logs/*.log || true
   headless-windows:
     # GitHub's Windows runners are Windows Server; the runner's account is an administrator, as the
-    # one installing a headless connector must be (an S4U task needs the batch logon right).
+    # one installing a headless connector must be (an all-users install, and an S4U task needs the
+    # batch logon right). The share is on the runner itself (\\localhost): a loopback share also
+    # works from S4U (Step 5b's spike), so this proves the named account's path, not S4U's limit.
     name: headless (windows-2025)
     runs-on: windows-2025
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       HUB: http://127.0.0.1:4310
       DOWNLOADS: http://127.0.0.1:4320
@@ -195,27 +199,103 @@ jobs:
           if ($LASTEXITCODE) { throw "no pairing code" }
           "::add-mask::$code"
           "CODE=$code" >> $env:GITHUB_ENV
-      - name: Install headless, silent (pairs from the task's arguments)
+      - name: Without /ALLUSERS, /HEADLESS is refused
         run: |
           $setup = (Get-Item packaging/out/3d-maker-suite-connector-*-setup.exe).FullName
-          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/HUBURL=$env:HUB", "/PAIRINGCODE=$env:CODE", '/NAME=ci-headless', "/LOG=$env:RUNNER_TEMP\setup.log" -Wait -PassThru
-          $dir = "$env:LOCALAPPDATA\Programs\$env:TASK"
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/LOG=$env:RUNNER_TEMP\setup0.log" -Wait -PassThru
+          if ($p.ExitCode -ne 1) { throw "setup exited with $($p.ExitCode), not 1" }
+          if (Test-Path "$env:LOCALAPPDATA\Programs\$env:TASK") { throw "it installed for this user" }
+      - name: Install headless for all users, silent (pairs from the task's arguments)
+        run: |
+          wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true
+          $setup = (Get-Item packaging/out/3d-maker-suite-connector-*-setup.exe).FullName
+          "SETUP=$setup" >> $env:GITHUB_ENV
+          $dir = "$env:ProgramFiles\$env:TASK"
+          "DIR=$dir" >> $env:GITHUB_ENV
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS', '/HEADLESS', "/HUBURL=$env:HUB", "/PAIRINGCODE=$env:CODE", '/NAME=ci-headless', "/LOG=$env:RUNNER_TEMP\setup.log" -Wait -PassThru
           Get-Content "$dir\logs\headless-task.log" -ErrorAction SilentlyContinue
           if ($p.ExitCode) { throw "setup exited with $($p.ExitCode)" }
           $x = [xml](Export-ScheduledTask -TaskPath '\' -TaskName $env:TASK)
           $s = $x.Task.Settings
           "logon $($x.Task.Principals.Principal.LogonType), priority $($s.Priority), limit $($s.ExecutionTimeLimit)"
           if ($x.Task.Principals.Principal.LogonType -ne 'S4U' -or $s.Priority -ne '5' -or $s.ExecutionTimeLimit -ne 'PT0S') { throw "the task isn't set up as Step 3b decided" }
+          if ($x.Task.Actions.Exec.Command -ne "$dir\node\nodew.exe") { throw "the task runs $($x.Task.Actions.Exec.Command)" }
           # The export drops a default <Enabled>true</Enabled>, and an empty <BootTrigger /> reads as "" (false).
           $boot = (Get-ScheduledTask -TaskPath '\' -TaskName $env:TASK).Triggers | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_TaskBootTrigger' -and $_.Enabled }
           if (-not $boot) { throw "the task doesn't start at boot" }
           # No start at login and no shortcuts of its own: the task starts it.
           # A fresh runner has no Run key at all: no entry either.
           if ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).$env:TASK) { throw "a start at login entry" }
-          if (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\$env:TASK.lnk") { throw "a Start-menu shortcut" }
+          if (Test-Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\$env:TASK.lnk") { throw "a Start-menu shortcut" }
           if (-not (Test-Path "$dir\headless")) { throw "no headless marker" }
       - name: Online, comes back after a kill, stays down for a stop
         run: node scripts/headless-test.mjs check --hub $env:HUB
+      - name: Run as a named account with its password (same device, its own profile)
+        run: |
+          # Characters that break a careless quoting or code page: a space, quotes, $ and ü.
+          $pw = (-join ((48..57) + (65..90) + (97..122) | Get-Random -Count 20 | ForEach-Object { [char]$_ })) + ' "q''$x ü'
+          "::add-mask::$pw"
+          "CIPW=$pw" >> $env:GITHUB_ENV
+          New-LocalUser ciconn -Password (ConvertTo-SecureString $pw -AsPlainText -Force) -PasswordNeverExpires -AccountNeverExpires | Out-Null
+          # A share on this runner with a project folder in it, for the next steps.
+          New-Item -ItemType Directory -Force C:\cishare\Benchy | Out-Null
+          "solid benchy`nendsolid benchy" | Set-Content C:\cishare\Benchy\benchy.stl
+          icacls C:\cishare /grant 'ciconn:(OI)(CI)M' | Out-Null
+          New-SmbShare -Name ci -Path C:\cishare -FullAccess "$env:COMPUTERNAME\ciconn" | Out-Null
+          $file = "$env:RUNNER_TEMP\pw.txt"
+          [IO.File]::WriteAllText($file, $pw)
+          # Run again with no address or code: the task keeps its pairing, and the data goes along.
+          $p = Start-Process $env:SETUP -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS', '/HEADLESS', '/ACCOUNT=.\ciconn', "/PASSWORDFILE=$file", "/LOG=$env:RUNNER_TEMP\setup2.log" -Wait -PassThru
+          Get-Content "$env:DIR\logs\headless-task.log" -Tail 5 -ErrorAction SilentlyContinue
+          if ($p.ExitCode) { throw "setup exited with $($p.ExitCode)" }
+          if (Test-Path $file) { throw "the password file is still there" }
+          $pr = ([xml](Export-ScheduledTask -TaskPath '\' -TaskName $env:TASK)).Task.Principals.Principal
+          $who = if ($pr.UserId -like 'S-1-*') { (New-Object Security.Principal.SecurityIdentifier($pr.UserId)).Translate([Security.Principal.NTAccount]).Value } else { $pr.UserId }
+          "logon $($pr.LogonType) as $who, $($pr.RunLevel)"
+          # The export leaves out RunLevel when it is the default, LeastPrivilege.
+          if ($pr.LogonType -ne 'Password' -or $who -notlike '*\ciconn' -or $pr.RunLevel -eq 'HighestAvailable') { throw "the task doesn't run as ciconn with its password, unelevated" }
+          secedit /export /cfg "$env:RUNNER_TEMP\rights.inf" /areas USER_RIGHTS /quiet | Out-Null
+          if (-not (Select-String "$env:RUNNER_TEMP\rights.inf" -Pattern '^SeBatchLogonRight\b.*\bciconn\b')) { throw "ciconn has no batch logon right" }
+          if (-not ((Get-Acl $env:DIR).Access | Where-Object { $_.IdentityReference -like '*\ciconn' -and $_.FileSystemRights -match 'Modify' })) { throw "ciconn can't write the install folder" }
+          $up = { try { (Invoke-WebRequest http://127.0.0.1:4301/api/health -TimeoutSec 2).StatusCode -eq 200 } catch { $false } }
+          for ($n = 0; $n -lt 90 -and -not (& $up); $n++) { Start-Sleep 1 }
+          if (-not (& $up)) { throw "the connector didn't start as ciconn" }
+          $owners = Get-CimInstance Win32_Process -Filter "Name='nodew.exe'" | Where-Object { $_.ExecutablePath -like "$env:DIR\*" } | ForEach-Object { (Invoke-CimMethod -InputObject $_ -MethodName GetOwner).User }
+          "runs as: $($owners -join ', ')"
+          if (-not $owners -or ($owners | Where-Object { $_ -ne 'ciconn' })) { throw "not everything runs as ciconn" }
+          if (Test-Path "$env:DIR\handoff") { throw "the handed over data is still in the install folder" }
+          if (-not (Test-Path 'C:\Users\ciconn\AppData\Roaming\3d-maker-suite-connector\state.json')) { throw "no data in ciconn's profile" }
+          # The password in no log. The pairing code only where Inno's /LOG repeats the command line
+          # it was given (it is in the shell's history too, and works once); never from our code.
+          foreach ($log in "$env:RUNNER_TEMP\setup.log", "$env:RUNNER_TEMP\setup2.log", "$env:DIR\logs\headless-task.log") {
+            $lines = Get-Content $log -ErrorAction SilentlyContinue
+            if (($lines -join "`n").Contains($pw)) { Write-Error "the password is in $log"; exit 1 }
+            if ((($lines | Where-Object { $_ -notmatch 'Command line:' }) -join "`n").Contains($env:CODE)) { Write-Error "the pairing code is in $log"; exit 1 }
+          }
+      - name: As the named account, the same device comes back after a kill, stays down for a stop
+        # check also fails if the switch made a second device.
+        run: node scripts/headless-test.mjs check --hub $env:HUB
+      - name: A project root on the SMB share (read, write, a change made on it)
+        run: node scripts/headless-test.mjs share --hub $env:HUB --path \\localhost\ci --local C:\cishare
+      - name: A password change stops it; setup with the new password starts it again
+        run: |
+          $new = "new-$env:CIPW"
+          Set-LocalUser ciconn -Password (ConvertTo-SecureString $new -AsPlainText -Force)
+          Stop-ScheduledTask -TaskPath '\' -TaskName $env:TASK
+          Start-ScheduledTask -TaskPath '\' -TaskName $env:TASK
+          Start-Sleep 15
+          $up = { try { (Invoke-WebRequest http://127.0.0.1:4301/api/health -TimeoutSec 2).StatusCode -eq 200 } catch { $false } }
+          $last = '0x{0:X8}' -f (Get-ScheduledTaskInfo -TaskPath '\' -TaskName $env:TASK).LastTaskResult
+          "after the change: up=$(& $up), last result $last"
+          if (& $up) { throw "it started with the old password" }
+          $file = "$env:RUNNER_TEMP\pw.txt"
+          [IO.File]::WriteAllText($file, $new)
+          # No /ACCOUNT: the task keeps ciconn, with the new password.
+          $p = Start-Process $env:SETUP -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/ALLUSERS', '/HEADLESS', "/PASSWORDFILE=$file", "/LOG=$env:RUNNER_TEMP\setup3.log" -Wait -PassThru
+          Get-Content "$env:DIR\logs\headless-task.log" -Tail 3 -ErrorAction SilentlyContinue
+          if ($p.ExitCode) { throw "setup exited with $($p.ExitCode)" }
+          for ($n = 0; $n -lt 90 -and -not (& $up); $n++) { Start-Sleep 1 }
+          if (-not (& $up)) { throw "not back with the new password" }
       - name: Bump every version and build that connector (a test build of this commit)
         shell: bash
         run: |
@@ -256,9 +336,9 @@ jobs:
             Start-Sleep 1
           }
           "newer hub up in $([int]$t.Elapsed.TotalSeconds) s"
-          # The connector downloads from here instead of GitHub: the user's environment, which the S4U
-          # task loads when it starts.
-          [Environment]::SetEnvironmentVariable('APP_DOWNLOAD_URL', $env:DOWNLOADS, 'User')
+          # The connector downloads from here instead of GitHub: the machine's environment, which the
+          # task loads for ciconn when it starts (Step 5b's spike; the runner user's isn't ciconn's).
+          [Environment]::SetEnvironmentVariable('APP_DOWNLOAD_URL', $env:DOWNLOADS, 'Machine')
           Stop-ScheduledTask -TaskPath '\' -TaskName $env:TASK
           Start-ScheduledTask -TaskPath '\' -TaskName $env:TASK
           node scripts/headless-test.mjs update --hub $env:HUB --version $env:NEW
@@ -267,20 +347,21 @@ jobs:
             exit 1
           }
           Get-Item "packaging/out/*-app-windows-x64.zip"
-      - name: The uninstaller removes the task
+      - name: The uninstaller removes the task and the right it granted
         run: |
-          $dir = "$env:LOCALAPPDATA\Programs\$env:TASK"
-          Start-Process "$dir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
-          for ($n = 0; $n -lt 60 -and (Test-Path "$dir\versions"); $n++) { Start-Sleep 1 }
+          Start-Process "$env:DIR\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
+          for ($n = 0; $n -lt 60 -and (Test-Path "$env:DIR\versions"); $n++) { Start-Sleep 1 }
           if (Get-ScheduledTask -TaskPath '\' -TaskName $env:TASK -ErrorAction SilentlyContinue) { throw "the uninstaller left the task" }
-          if (Get-CimInstance Win32_Process -Filter "Name='nodew.exe'" | Where-Object { $_.ExecutablePath -like "$dir\*" }) { throw "a connector still runs" }
-          if (Test-Path "$dir\versions") { throw "the uninstaller left $dir\versions" }
+          if (Get-CimInstance Win32_Process -Filter "Name='nodew.exe'" | Where-Object { $_.ExecutablePath -like "$env:DIR\*" }) { throw "a connector still runs" }
+          if (Test-Path "$env:DIR\versions") { throw "the uninstaller left $env:DIR\versions" }
+          secedit /export /cfg "$env:RUNNER_TEMP\rights.inf" /areas USER_RIGHTS /quiet | Out-Null
+          if (Select-String "$env:RUNNER_TEMP\rights.inf" -Pattern '^SeBatchLogonRight\b.*\bciconn\b') { throw "ciconn still has the batch logon right" }
       - name: Logs
         if: failure()
         run: |
-          $dir = "$env:LOCALAPPDATA\Programs\$env:TASK"
-          foreach ($f in 'hub.log', 'hub2.log', 'hub2.err.log', 'downloads.log', 'setup.log') {
+          foreach ($f in 'hub.log', 'hub2.log', 'hub2.err.log', 'downloads.log', 'setup0.log', 'setup.log', 'setup2.log', 'setup3.log') {
             "== $f"; Get-Content "$env:RUNNER_TEMP\$f" -Tail 60 -ErrorAction SilentlyContinue
           }
-          Get-ChildItem "$dir\logs" -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_ -Tail 60 }
+          Get-ChildItem "$env:DIR\logs" -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_ -Tail 60 }
           Get-ScheduledTask -TaskPath '\' -TaskName $env:TASK -ErrorAction SilentlyContinue | Get-ScheduledTaskInfo
+          Get-WinEvent -LogName Microsoft-Windows-TaskScheduler/Operational -MaxEvents 40 -ErrorAction SilentlyContinue | Where-Object { $_.Message -like "*$env:TASK*" } | Sort-Object TimeCreated | ForEach-Object { "sched $($_.TimeCreated.ToString('HH:mm:ss')) $($_.Id): $(($_.Message -split "`n")[0])" }

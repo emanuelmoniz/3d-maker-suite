@@ -11,6 +11,7 @@
 import { spawn } from "node:child_process";
 import {
   closeSync,
+  cpSync,
   existsSync,
   mkdirSync,
   openSync,
@@ -131,6 +132,20 @@ export function dataDir(env = process.env, platform = process.platform, id = APP
   if (platform === "win32") return join(env.APPDATA ?? join(home, "AppData", "Roaming"), id);
   if (platform === "darwin") return join(home, "Library", "Application Support", id);
   return join(env.XDG_DATA_HOME ?? join(home, ".local", "share"), id);
+}
+
+/**
+ * A Windows headless install that switched account (headless-task.mjs, Plan 6.3.0 Step 5b) left
+ * the old account's data in `<install>/handoff`, readable by this account only: it becomes this
+ * account's data, so the connector stays the same device. True when it was taken.
+ */
+export function takeHandoff(install, dir) {
+  const handoff = join(install, "handoff");
+  if (!existsSync(join(handoff, "state.json"))) return false;
+  mkdirSync(dir, { recursive: true });
+  cpSync(handoff, dir, { recursive: true, force: true });
+  rmSync(handoff, { recursive: true, force: true });
+  return true;
 }
 
 /** Where the app listens: CLI flag > env > saved config.json > default, like loadConfig(). */
@@ -304,8 +319,9 @@ async function main() {
   const { background, args } = launchArgs(process.argv.slice(2));
   // Single instance: a second double-click only opens the browser.
   const dir = dataDir(process.env, process.platform, p.id);
-  const url = serverUrl(dir, process.env, args, p.port);
   const headless = isHeadless(args);
+  const handedOver = headless && takeHandoff(install, dir);
+  const url = serverUrl(dir, process.env, args, p.port);
   // Headless, an answer here is usually the program of a task that was just stopped: Windows ends
   // it a moment after the launcher, and a task run again at once would find it and exit (Step 3b).
   const running = (await healthy(url)) && !(headless && (await waitGone(url, GONE_MS)));
@@ -316,6 +332,7 @@ async function main() {
   rotate(join(install, "logs", "launcher.log"));
   const launcherLog = openSync(join(install, "logs", "launcher.log"), "a");
   const say = (s) => writeSync(launcherLog, `${new Date().toISOString()} ${s}\n`);
+  if (handedOver) say(`took the data the setup handed over from the previous account into ${dir}`);
   if (running) {
     say(`already running at ${url}`);
     return background || openBrowser(url);
