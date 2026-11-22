@@ -61,7 +61,7 @@ try {
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Principals><Principal id="Author"><UserId>$user</UserId><LogonType>$logon</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
   <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><ExecutionTimeLimit>PT0S</ExecutionTimeLimit><Priority>5</Priority></Settings>
-  <Actions Context="Author"><Exec><Command>$node</Command><Arguments>"$probe\probe.mjs" $tag $unc $probe $handoff</Arguments><WorkingDirectory>$probe</WorkingDirectory></Exec></Actions>
+  <Actions Context="Author"><Exec><Command>$node</Command><Arguments>"$probe\probe.mjs" $tag $unc $probe "$handoff"</Arguments><WorkingDirectory>$probe</WorkingDirectory></Exec></Actions>
 </Task>
 "@
     $f = "$probe\$tag.xml"; $xml | Set-Content $f -Encoding Unicode
@@ -103,7 +103,7 @@ try {
 
   # 4. As the account, from the admin's profile: without and with Modify on the install folder.
   Probe 'nogrant' $acct 'Password' "$env:RUNNER_TEMP\pw.txt" '' 20
-  icacls $dir /grant 'ciconn:(OI)(CI)M' /T /Q | Out-Null
+  $g = icacls $dir /grant 'ciconn:(OI)(CI)M' /T /C /Q 2>&1; Note 'icaclsGrant' (($g | Select-Object -Last 3) -join ' | ')
   New-Item -ItemType Directory -Force "$dir\handoff" | Out-Null
   icacls "$dir\handoff" /inheritance:r /grant:r 'ciconn:(OI)(CI)M' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /Q | Out-Null
   'handed over' | Set-Content "$dir\handoff\state.json"
@@ -133,6 +133,16 @@ try {
   Start-ScheduledTask -TaskPath '\' -TaskName $Task
   $t = WaitFor { Up } 90
   Note 'connectorStart' $(if ($t) { "up in $t s" } else { "NOT UP, $(Info $Task)" })
+  if (-not $t) {
+    Note 'logAcl' (((Get-Acl "$dir\logs\launcher.log").Access | ForEach-Object { "$($_.IdentityReference):$($_.FileSystemRights)" }) -join '; ')
+    $args0 = ([xml](Export-ScheduledTask -TaskPath '\' -TaskName $Task)).Task.Actions.Exec.Arguments
+    $diag = (Get-Content "$probe\task.xml" -Raw) -replace '<Command>[^<]*</Command>', '<Command>cmd.exe</Command>' -replace '<Arguments>[^<]*</Arguments>', ('<Arguments>' + [Security.SecurityElement]::Escape("/c `"`"$node`" $args0 > C:\probe\launcher.out 2>&1`"") + '</Arguments>')
+    $diag | Set-Content "$probe\diag.xml" -Encoding Unicode
+    Note 'registerDiag' (node "$PSScriptRoot\register.mjs" "$probe\diag.xml" 'diag' $acct "$env:RUNNER_TEMP\pw.txt")
+    Start-ScheduledTask -TaskPath '\' -TaskName 'diag'; Start-Sleep 20
+    Note 'diag' "$(Info 'diag') out=$((Get-Content C:\probe\launcher.out -Raw -ErrorAction SilentlyContinue) -replace '\s+', ' ')"
+    Stop-ScheduledTask -TaskPath '\' -TaskName 'diag'
+  }
   Note 'connectorOwners' ((Procs | ForEach-Object { "$(Owner $_) $(if ($_.CommandLine -like '*launcher.mjs*') {'launcher'} else {'program'})" }) -join '; ')
   $on = WaitFor { $d = Mine; $d.online -and $d.id -eq $before.id } 60
   Note 'sameDevice' $(if ($on) { "online, same id, in $on s" } else { "NOT: $((Mine) | ConvertTo-Json -Compress)" })
