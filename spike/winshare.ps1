@@ -3,11 +3,11 @@
 # paired. Measures: the batch logon right (LSA vs secedit), a Password task run from the admin's
 # profile, a UNC share as S4U and as the account (read, write, events), Machine env, the connector
 # itself as the account with its data copied over, a root on the share, a wrong and a changed password.
-param([string]$Hub = 'http://127.0.0.1:4310')
+param([string]$Hub = 'http://127.0.0.1:4310', [string]$Dir = "$env:LOCALAPPDATA\Programs\3D Maker Suite Connector")
 $ErrorActionPreference = 'Stop'
 $Task = '3D Maker Suite Connector'
 $Conn = 'http://127.0.0.1:4301'
-$dir = "$env:LOCALAPPDATA\Programs\$Task"
+$dir = $Dir
 $node = "$dir\node\nodew.exe"
 $me = "$env:USERDOMAIN\$env:USERNAME"
 $unc = '\\localhost\ci'

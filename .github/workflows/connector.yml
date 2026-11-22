@@ -40,13 +40,23 @@ jobs:
           if ($LASTEXITCODE) { Get-Content "$env:RUNNER_TEMP\hub.log"; throw "no pairing code" }
           "::add-mask::$code"
           $setup = (Get-Item packaging/out/3d-maker-suite-connector-*-setup.exe).FullName
-          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/HUBURL=$env:HUB", "/PAIRINGCODE=$code", '/NAME=ci-headless' -Wait -PassThru
-          if ($p.ExitCode) { throw "setup exited with $($p.ExitCode)" }
+          # Run 4: outside any profile (Node lstats every parent of its main script, run 3).
+          $dir = "$env:ProgramFiles\$env:TASK"
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/DIR=$dir", "/HUBURL=$env:HUB", "/PAIRINGCODE=$code", '/NAME=ci-headless' -Wait -PassThru
+          "setup exit $($p.ExitCode)"; Get-Content "$dir\logs\headless-task.log" -ErrorAction SilentlyContinue
+          $up = { try { (Invoke-WebRequest http://127.0.0.1:4301/api/health -TimeoutSec 1).StatusCode -eq 200 } catch { $false } }
           $ok = $false
-          for ($n = 0; $n -lt 90 -and -not $ok; $n++) { try { $ok = (Invoke-WebRequest http://127.0.0.1:4301/api/health -TimeoutSec 1).StatusCode -eq 200 } catch { Start-Sleep 1 } }
-          if (-not $ok) { throw 'connector not up' }
+          for ($n = 0; $n -lt 60 -and -not $ok; $n++) { $ok = & $up; if (-not $ok) { Start-Sleep 1 } }
+          "S4U from Program Files without a grant: up=$ok $((Get-ScheduledTaskInfo -TaskName $env:TASK).LastTaskResult)" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
+          if (-not $ok) {
+            icacls $dir /grant "$($env:USERNAME):(OI)(CI)M" /T /C /Q | Select-Object -Last 1
+            Stop-ScheduledTask -TaskName $env:TASK; Start-ScheduledTask -TaskName $env:TASK
+            for ($n = 0; $n -lt 90 -and -not $ok; $n++) { $ok = & $up; if (-not $ok) { Start-Sleep 1 } }
+            "S4U with a grant for the admin: up=$ok" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
+          }
+          if (-not $ok) { Get-Content "$dir\logs\launcher.log" -Tail 20 -ErrorAction SilentlyContinue; throw 'connector not up' }
           Start-Sleep 10
-          pwsh -NoProfile -File spike/winshare.ps1 -Hub $env:HUB
+          pwsh -NoProfile -File spike/winshare.ps1 -Hub $env:HUB -Dir $dir
       - uses: actions/upload-artifact@v7
         if: always()
         with:
