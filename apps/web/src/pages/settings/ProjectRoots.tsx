@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { type Column, DataTable } from "../../components/DataTable.tsx";
-import { RootStateBadge } from "../../components/RootStateBadge.tsx";
+import { RootMountBadges, RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { textLink } from "../../lib/cx.ts";
 import { formatNumber } from "../../lib/format.ts";
 import { useProjectFolders } from "../../lib/projects.ts";
@@ -47,6 +47,7 @@ export function ProjectRoots() {
             {baseName(r.path)}
           </Link>
           <RootStateBadge state={r.state} />
+          <RootMountBadges mount={r.mount} />
         </span>
       ),
     },

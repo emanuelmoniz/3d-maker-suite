@@ -93,7 +93,10 @@ describe("rescan schedule", () => {
     let online = true;
     const tell = vi.fn(() => online);
     const deviceSyncing = vi.fn();
-    const tick = createRescans(db, { rescan, deviceSyncing }, { tell } as unknown as HubChannel);
+    const check = vi.fn(async () => {});
+    const tick = createRescans(db, { rescan, deviceSyncing, check }, {
+      tell,
+    } as unknown as HubChannel);
 
     await tick(start);
     expect(rescan.mock.calls.map(([r]) => r.id)).toEqual([hubOn.id]);
@@ -111,5 +114,39 @@ describe("rescan schedule", () => {
     online = true;
     await tick(start + hour + 60 * 1000);
     expect(tell).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("a root that comes back (Plan 6.3.0 Step 5)", () => {
+  it("scans a hub root that was missing at the next check, and knows what it sits on", async () => {
+    const models = join(dir, "models");
+    addRoot(models);
+    const scanner = createProjectScanner(db, join(dir, "data"), log, { watch: true });
+    await scanner.check(); // a share not mounted yet: reported by the scan, nothing known of it
+    expect(scanner.mountOfRoot(db.select().from(schema.roots).get()?.id ?? "")).toBeNull();
+    await put("models/A/a.stl");
+    await scanner.check();
+    const names = () => db.select({ name: schema.projects.name }).from(schema.projects).all();
+    expect(names()).toEqual([{ name: "A" }]);
+    expect(scanner.mountOfRoot(db.select().from(schema.roots).get()?.id ?? "")).not.toBeNull();
+    // Nothing changed: the next check reads nothing.
+    scanned.length = 0;
+    await scanner.check();
+    expect(scanned).toEqual([]);
+    await scanner.close();
+  });
+
+  it("keeps what a device sent about a root's disk, and forgets it when the root is missing", async () => {
+    const device = crypto.randomUUID();
+    const root = addRoot("/mnt/nas/Models", {}, device);
+    const scanner = createProjectScanner(db, join(dir, "data"), log);
+    const mount = { type: "cifs", share: true, readOnly: false };
+    await scanner.deviceIndex(root, { state: "ok", folders: [], mount });
+    expect(scanner.mountOfRoot(root.id)).toEqual(mount);
+    await scanner.deviceIndex(root, { state: "ok", folders: [] }); // a connector from before
+    expect(scanner.mountOfRoot(root.id)).toBeNull();
+    await scanner.deviceIndex(root, { state: "ok", folders: [], mount });
+    await scanner.deviceIndex(root, { state: "missing" });
+    expect(scanner.mountOfRoot(root.id)).toBeNull();
   });
 });

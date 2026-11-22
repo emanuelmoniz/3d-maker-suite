@@ -16,7 +16,10 @@ import {
   descriptionOf,
   type FolderScan,
   folderDigest,
+  folderIdent,
   isHidden,
+  type MountInfo,
+  mountOf,
   scanFolder,
 } from "@3d-maker-suite/host";
 import { and, eq, notInArray } from "drizzle-orm";
@@ -142,6 +145,10 @@ export function createProjectScanner(
   const missingOnDevice = new Set<string>();
   /** Device roots outside their device's shared folders (resent on every connect). */
   const unsharedOnDevice = new Set<string>();
+  /** What each root sits on, as last seen (a device sends it with its index). */
+  const mounts = new Map<string, MountInfo>();
+  /** Each hub root's folder as the last check saw it (null: missing). */
+  const idents = new Map<string, string | null>();
   const stops: (() => void)[] = [];
   let watching = "";
   let closed = false;
@@ -433,6 +440,8 @@ export function createProjectScanner(
   async function deviceIndex(root: Root, index: DeviceIndex) {
     if (index.state === "missing") missingOnDevice.add(root.id);
     else missingOnDevice.delete(root.id);
+    if (index.state === "ok" && index.mount) mounts.set(root.id, index.mount);
+    else mounts.delete(root.id);
     if (index.state === "unshared") {
       unsharedOnDevice.add(root.id);
       deviceProgress.delete(root.id);
@@ -666,6 +675,28 @@ export function createProjectScanner(
     if (created) linkPrints(db);
   }
 
+  /**
+   * Looks at each hub root's folder (every minute, with the rescans): one that is back after being
+   * missing, or is another folder at the same path (a share mounted again), gets its watcher again
+   * and a rescan, because the old watcher stays silent with no error (Plan 6.3.0 Step 5). Also
+   * keeps what each root sits on.
+   */
+  async function check() {
+    const back: Root[] = [];
+    for (const s of await spots()) {
+      const ident = s.base ? await folderIdent(s.base) : null;
+      const before = idents.get(s.root.id);
+      idents.set(s.root.id, ident);
+      if (s.base && ident) mounts.set(s.root.id, await mountOf(s.base));
+      else mounts.delete(s.root.id);
+      if (ident && before !== undefined && before !== ident) back.push(s.root);
+    }
+    if (!back.length || closed) return;
+    watching = "";
+    await watch();
+    for (const root of back) await rescan(root);
+  }
+
   /** Scans what the watcher saw: the touched project folders, plus a discover for new folders. */
   async function flush() {
     if (state.state === "running") {
@@ -812,11 +843,15 @@ export function createProjectScanner(
     /** A removed device root's previews. */
     dropDevicePreviews: (rootId: string) =>
       rm(previewDir(rootId), { recursive: true, force: true }),
+    check,
+    /** What a root sits on, as last seen; null when not known. */
+    mountOfRoot: (rootId: string) => mounts.get(rootId) ?? null,
     missingOnDevice: (rootId: string) => missingOnDevice.has(rootId),
     unsharedOnDevice: (rootId: string) => unsharedOnDevice.has(rootId),
     /** Begins watching and runs a first scan, so changes made while the app was off are found. */
     boot() {
       void watch();
+      void check();
       if (hubRoots(db).length) start();
     },
     close: async () => {

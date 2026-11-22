@@ -391,6 +391,7 @@ function useErrorText() {
   return (e: unknown) => {
     const code = e instanceof ApiError ? e.code : undefined;
     if (code === "path_exists") return t("projects:files.exists");
+    if (code === "path_read_only") return t("projects:files.readOnly");
     if (code === "file_too_large") return t("projects:files.tooLarge");
     if (code === "device_offline") return t("common:pathPicker.deviceOffline");
     if (code === "device_timeout") return t("common:pathPicker.deviceTimeout");

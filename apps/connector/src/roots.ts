@@ -27,9 +27,13 @@ import {
   conflictName,
   discoverFolders,
   folderDigest,
+  folderIdent,
   inRoot,
   isHidden,
   listFolder,
+  type MountInfo,
+  mountOf,
+  NO_MOUNT,
   readCover,
   readPlatePreviews,
   relParts,
@@ -66,6 +70,10 @@ export const STABLE_MS = 2000;
 /** A 3MF that doesn't open yet (still written, locked) is tried again this often, this many times. */
 const RETRY_MS = 5000;
 const RETRIES = 3;
+/** Roots are looked at this often: one that is back, or mounted again, is watched again. */
+export const CHECK_MS = 30_000;
+/** Project folders whose files are listed at the same time while a root is indexed. */
+const DIGESTS_AT_ONCE = 8;
 
 type Live = {
   root: DeviceRoot;
@@ -77,7 +85,28 @@ type Live = {
   queued: Set<string>;
   timer?: NodeJS.Timeout;
   tries: Map<string, number>;
+  /** What the root sits on: a share is rescanned only, a read-only mount refuses writes. */
+  mount: MountInfo;
+  /** Its folder as the last look saw it (device and inode); null: it wasn't there. */
+  ident: string | null;
+  /** The last look didn't find the folder. */
+  missing: boolean;
+  checking?: boolean;
 };
+
+/** `fn` over `items`, `limit` at a time: a big root doesn't open every folder at once. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>) {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const lane = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  return out;
+}
 
 const isDir = async (p: string) => (await stat(p).catch(() => null))?.isDirectory() ?? false;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -97,12 +126,18 @@ export function createRootSync({
   log,
   store,
   dataDir,
+  mount = mountOf,
+  checkMs = CHECK_MS,
 }: {
   request: Request;
   log: (line: string) => void;
   store: Store;
   /** Where earlier versions of uploaded files are kept; none without one. */
   dataDir?: string;
+  /** What a path sits on (tests replace it). */
+  mount?: (path: string) => Promise<MountInfo>;
+  /** How often the roots are looked at (tests). */
+  checkMs?: number;
 }) {
   let live: Live[] = [];
   const versions = dataDir ? createVersions(join(dataDir, "versions")) : null;
@@ -249,15 +284,19 @@ export function createRootSync({
 
   /** The whole root: its index, then each folder the hub wants. */
   async function sync(l: Live) {
-    if (!(await isDir(l.base)))
+    l.ident = await folderIdent(l.base);
+    l.missing = l.ident === null;
+    if (l.missing)
       return call(`/roots/${l.root.id}/index`, { method: "PUT", body: { state: "missing" } });
+    l.mount = await mount(l.base).catch(() => NO_MOUNT);
     const rels = await discoverFolders(l.base, l.root.projectDepth);
-    const folders = await Promise.all(
-      rels.map(async (rel) => ({ rel, digest: await digestOf(l, rel) })),
-    );
+    const folders = await mapLimit(rels, DIGESTS_AT_ONCE, async (rel) => ({
+      rel,
+      digest: await digestOf(l, rel),
+    }));
     const { want } = await call(
       `/roots/${l.root.id}/index`,
-      { method: "PUT", body: { state: "ok", folders } },
+      { method: "PUT", body: { state: "ok", folders, mount: l.mount } },
       deviceIndexResultSchema,
     );
     l.sent = new Map(folders.map((f) => [f.rel, f.digest]));
@@ -321,8 +360,42 @@ export function createRootSync({
     }
   }
 
+  /**
+   * A root that is back after being missing, or is another folder at its path (a share mounted
+   * again), is watched again: the old watcher stays silent with no error. A rescan (`full`) also
+   * indexes it, and tries to watch a root whose watcher never started.
+   */
+  async function recheck(l: Live, full: boolean) {
+    if (!live.includes(l)) return;
+    const ident = await folderIdent(l.base);
+    if (ident === null) {
+      if (l.missing && !full) return;
+      l.watcher?.close();
+      l.watcher = undefined;
+      return sync(l);
+    }
+    const again = l.missing || (l.ident !== null && ident !== l.ident) || (full && !l.watcher);
+    if (again) {
+      l.watcher?.close();
+      watchRoot(l);
+    }
+    if (again || full) await sync(l);
+  }
+
+  let checker: NodeJS.Timeout | undefined;
+  function checkRoots() {
+    for (const l of live) {
+      if (l.checking) continue;
+      l.checking = true;
+      void serial(() => recheck(l, false)).finally(() => {
+        l.checking = false;
+      });
+    }
+  }
+
   function halt() {
     run++;
+    clearInterval(checker);
     for (const l of live) {
       l.watcher?.close();
       clearTimeout(l.timer);
@@ -367,11 +440,21 @@ export function createRootSync({
           await call(`/roots/${root.id}/index`, { method: "PUT", body: { state: "unshared" } });
           continue;
         }
-        const l: Live = { root, base, sent: new Map(), queued: new Set(), tries: new Map() };
+        const l: Live = {
+          root,
+          base,
+          sent: new Map(),
+          queued: new Set(),
+          tries: new Map(),
+          mount: NO_MOUNT,
+          ident: null,
+          missing: false,
+        };
         live.push(l);
         await sync(l);
         if (mine === run && (await isDir(base))) watchRoot(l);
       }
+      if (mine === run && live.length) checker = setInterval(checkRoots, checkMs).unref();
     });
   }
 
@@ -388,9 +471,11 @@ export function createRootSync({
    * The real path of a root the hub asks about: only a root of this device that is synced now.
    * Every `rel` in it is checked again here (rootPath.ts): no `..`, no absolute path, no link out.
    */
-  function baseOf(rootId: string) {
+  function baseOf(rootId: string, writing = false) {
     const l = live.find((x) => x.root.id === rootId);
     if (!l) throw Object.assign(new Error("Not a root of this device"), { code: "ENOENT" });
+    // A read-only mount says so, instead of failing on the first byte written.
+    if (writing && l.mount.readOnly) throw fail(l.root.path, "EROFS");
     return l.base;
   }
 
@@ -426,7 +511,7 @@ export function createRootSync({
    * becomes a conflict copy beside it, named after `by`. A link out of the root stays out.
    */
   async function write(e: Extract<HubEvent, { type: "fs.write" }>) {
-    const base = baseOf(e.rootId);
+    const base = baseOf(e.rootId, true);
     const parts = relParts(e.rel);
     const name = parts.at(-1) ?? "";
     const parent = parts.slice(0, -1).join("/");
@@ -489,7 +574,7 @@ export function createRootSync({
       // Its scheduled rescan (the hub keeps the schedule): the safety net for lost watcher events.
       else if (event.type === "roots.rescan") {
         const l = live.find((x) => x.root.id === event.rootId);
-        if (l) void serial(() => sync(l));
+        if (l) void serial(() => recheck(l, true));
       }
       // Folders anywhere, names only, to pick the shared ones (ADR-0021); every other file
       // operation stays inside them.
@@ -500,12 +585,12 @@ export function createRootSync({
       else if (event.type === "fs.write") void answer(event.requestId, () => write(event));
       else if (event.type === "fs.mkdir")
         void answer(event.requestId, async () => {
-          await rootMkdir(baseOf(event.rootId), event.rel);
+          await rootMkdir(baseOf(event.rootId, true), event.rel);
           return null;
         });
       else if (event.type === "fs.trash")
         void answer(event.requestId, async () => ({
-          path: await rootTrash(baseOf(event.rootId), event.rel, PROJECT_TRASH_DIR, event.as),
+          path: await rootTrash(baseOf(event.rootId, true), event.rel, PROJECT_TRASH_DIR, event.as),
         }));
     },
     state: () => ({ watching: live.filter((l) => l.watcher).length, error }),

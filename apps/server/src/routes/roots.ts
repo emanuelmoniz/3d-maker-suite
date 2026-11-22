@@ -45,7 +45,8 @@ export const rootsRoutes =
     const out = (r: Row, user: FastifyRequest["user"]): Root => {
       const rule = rootRule(db, r);
       const access = { editorIds: rule.editorIds, canEdit: mayEditRoot(user, rule) };
-      if (!onDevice(r)) return { ...r, ...access, state: "ok", deviceName: null };
+      if (!onDevice(r))
+        return { ...r, ...access, state: "ok", mount: scanner.mountOfRoot(r.id), deviceName: null };
       const device = db
         .select({ name: devices.name })
         .from(devices)
@@ -58,7 +59,9 @@ export const rootsRoutes =
           : scanner.missingOnDevice(r.id)
             ? "missing"
             : "ok";
-      return { ...r, ...access, state, deviceName: device?.name ?? null };
+      // Last known data while offline or not shared: nothing is known of its disk then.
+      const mount = state === "ok" ? scanner.mountOfRoot(r.id) : null;
+      return { ...r, ...access, state, mount, deviceName: device?.name ?? null };
     };
     /** Replaces a root's picked editors: users with projects write only (nobody else edits files). */
     const setEditors = (rootId: string, ids: string[] | undefined) => {

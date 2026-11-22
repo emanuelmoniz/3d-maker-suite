@@ -5,6 +5,7 @@ export * from "./conflict.ts";
 export * from "./findSlicers.ts";
 export * from "./launch.ts";
 export * from "./listFolder.ts";
+export * from "./mounts.ts";
 export * from "./presetInstall.ts";
 export * from "./presets.ts";
 export * from "./processes.ts";

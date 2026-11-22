@@ -22,6 +22,8 @@ const ERRORS: Record<string, [number, string, string]> = {
   ENOTDIR: [400, "not_a_directory", "Not a folder"],
   EACCES: [403, "path_denied", "Access denied"],
   EPERM: [403, "path_denied", "Access denied"],
+  // A mount the connector (or this server) may read but not write (Plan 6.3.0 Step 5).
+  EROFS: [403, "path_read_only", "The folder is read-only"],
   EBUSY: [409, "path_busy", "The file is in use"],
   EEXIST: [409, "path_exists", "A file or folder with this name exists"],
   ENOTEMPTY: [409, "path_exists", "A file or folder with this name exists"],

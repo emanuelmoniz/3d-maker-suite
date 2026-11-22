@@ -335,6 +335,7 @@
     "replaceHint": "{{name}} already exists. Uploading replaces it.",
     "replaceAction": "Replace",
     "exists": "A file or folder with this name already exists.",
+    "readOnly": "This folder is read-only: files can't be added, created or deleted in it.",
     "tooLarge": "The file is over the upload limit (Projects settings).",
     "error": "That didn't work. Check the name and try again.",
     "history": "Versions of {{name}}",

@@ -5043,7 +5043,7 @@ Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag a
 
 ## Phase 67 - Files, printers and the page
 
-### [ ] Step 5 - Files on a NAS
+### [x] Step 5 - Files on a NAS
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - A device root on a mounted folder: browse, index, upload, create folder and move to its trash, with the chosen file owner; read-only mounts say so instead of failing quietly.
@@ -5058,6 +5058,8 @@ Do Step 4 of the 6.3.0 plan in PLAN.md. Push test images under a throwaway tag a
 - Tests against temp folders: read-only, missing, no events, and missing then back (watched again).
 - The e2e spec for a device root.
 - Wiki: the `rslave` mount, and NAS container UIs that can't set it (restart the container after the share is mounted).
+
+**Done (2026-11-22):** `mountOf` and `folderIdent` (`packages/host/src/mounts.ts`); `mount` in the device index and on `Root`; the connector checks its roots every 30 s and at each rescan and watches a returning or remounted root again, the hub's scanner does the same at the rescan tick; read-only mounts answer `EROFS` (403 `path_read_only`); the root list and folder page show **Rescanned only** and **Read-only**; the connector opens 8 project folders at a time. Tests on temp folders and `e2e/device-root.e2e.ts`. Not tested here: real SMB or NFS shares and the POSIX-only remount test (no Linux here), left for CI and the real-NAS test in Step 9. Owner of uploaded files comes from the image's `PUID`/`PGID` (Step 4, tested there).
 
 **Done when:** a connector in a container indexes a mounted folder, keeps it current without change events, watches a root again when it comes back, uploads and trashes files with the right owner; tests, lint and `pnpm typecheck` pass.
 **Prompt:**

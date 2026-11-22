@@ -11,7 +11,7 @@ import type { ProjectScanner } from "./scanner.ts";
  */
 export function createRescans(
   db: Db,
-  scanner: Pick<ProjectScanner, "rescan" | "deviceSyncing">,
+  scanner: Pick<ProjectScanner, "rescan" | "deviceSyncing" | "check">,
   hub: HubChannel,
 ) {
   const lastRun = new Map<string, string>();
@@ -21,6 +21,8 @@ export function createRescans(
     if (busy) return;
     busy = true;
     try {
+      // First: a root that is back (a share mounted again) is watched again and read at once.
+      await scanner.check().catch(() => {});
       for (const root of listRoots(db)) {
         const { enabled, ...schedule } = root.rescan;
         if (!enabled) continue;

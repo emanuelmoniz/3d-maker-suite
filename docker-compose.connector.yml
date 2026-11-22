@@ -27,6 +27,8 @@ services:
       - connector-data:/data # the pairing, its key and the connector's own files
       # The folders this machine shares with the hub, under the same path in the hub's Settings → Projects.
       # rslave: a share mounted on the host after the container started shows up inside it too.
+      # A NAS UI that can't set rslave: restart this container after the share is mounted.
+      # A share (SMB, NFS) is rescanned by the hub on a schedule; add read_only: true to mount it read-only.
       # - type: bind
       #   source: /path/to/your/3d-files
       #   target: /projects/files

@@ -8,7 +8,7 @@ import { FormField, inputClass } from "../../components/FormField.tsx";
 import { ItemMissing } from "../../components/ItemMissing.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { PathPicker, type PickSource } from "../../components/PathPicker.tsx";
-import { RootStateBadge } from "../../components/RootStateBadge.tsx";
+import { RootMountBadges, RootStateBadge } from "../../components/RootStateBadge.tsx";
 import { Switch } from "../../components/Switch.tsx";
 import { useMe } from "../../lib/auth.ts";
 import { cx } from "../../lib/cx.ts";
@@ -291,6 +291,7 @@ function FolderForm({ root }: { root: Root | null }) {
                   value={root.path}
                 />
                 <RootStateBadge state={root.state} />
+                <RootMountBadges mount={root.mount} />
               </div>
             ) : (
               <div className="flex gap-2">
@@ -397,6 +398,23 @@ function FolderForm({ root }: { root: Root | null }) {
             onChange={(e) => set({ rescan: { ...draft.rescan, enabled: e.target.checked } })}
           />
           <p className="text-muted">{t("settings:folder.rescanHint")}</p>
+          {root?.mount?.share && (
+            <p className="mt-2" role="note">
+              {root.mount.type
+                ? t("settings:folder.shareHint", { type: root.mount.type })
+                : t("settings:folder.shareHintUnknown")}
+            </p>
+          )}
+          {root?.mount?.share && !draft.rescan.enabled && (
+            <p className="mt-2 text-warn" role="alert">
+              {t("settings:folder.shareOff")}
+            </p>
+          )}
+          {root?.mount?.readOnly && (
+            <p className="mt-2" role="note">
+              {t("settings:folder.readOnlyHint")}
+            </p>
+          )}
         </div>
         {draft.rescan.enabled && (
           <Schedule

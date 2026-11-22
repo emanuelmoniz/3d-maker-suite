@@ -254,6 +254,10 @@
     "missing": "Missing",
     "unshared": "Not shared on the device"
   },
+  "rootMount": {
+    "share": "Rescanned only",
+    "readOnly": "Read-only"
+  },
   "reviewLevel": {
     "label": "Review of automatic prints",
     "default": "Use the default",

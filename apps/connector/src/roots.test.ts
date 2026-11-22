@@ -7,6 +7,7 @@ import {
   readdir,
   readFile,
   realpath,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -14,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { HubEvent, SharedFolder } from "@3d-maker-suite/core";
+import type { MountInfo } from "@3d-maker-suite/host";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRootSync, type Request, type RootSync } from "./roots.ts";
 import { openStore, type Store } from "./state.ts";
@@ -319,4 +321,103 @@ describe("shared folders", () => {
     await sync.start();
     expect(sent).toMatchObject([{ path: `/roots/${rootId}/index`, body: { state: "unshared" } }]);
   });
+});
+
+describe("a root on a share, a read-only mount, a root that comes back (Plan 6.3.0 Step 5)", () => {
+  /** A connector whose roots sit on `mount`, looked at every `checkMs`. */
+  async function again(mount: MountInfo, checkMs?: number) {
+    sync.stop();
+    sync = createRootSync({
+      request,
+      log: () => {},
+      store,
+      dataDir: data,
+      mount: async () => mount,
+      checkMs,
+    });
+    sent = [];
+    await sync.start();
+  }
+  const indexed = () =>
+    sent.filter((s) => s.path === `/roots/${rootId}/index`).map((s) => s.body as { state: string });
+  const until = async (done: () => boolean) => {
+    for (let i = 0; i < 200 && !done(); i++) await new Promise((r) => setTimeout(r, 25));
+    expect(done()).toBe(true);
+  };
+
+  it("sends what the root sits on with its index", async () => {
+    await again({ type: "cifs", share: true, readOnly: false });
+    expect(indexed()).toMatchObject([
+      { state: "ok", mount: { type: "cifs", share: true, readOnly: false } },
+    ]);
+    // The rescan covers a share: the same index again, still no watcher event needed.
+    sent = [];
+    sync.handle({ type: "roots.rescan", rootId });
+    await sync.idle();
+    expect(indexed()).toMatchObject([{ state: "ok", mount: { share: true } }]);
+  });
+
+  it("refuses writes on a read-only mount with EROFS, and still serves reads", async () => {
+    await again({ type: "ext4", share: false, readOnly: true });
+    expect(await ask({ type: "fs.mkdir", rootId, rel: "002_Cup" })).toMatchObject(failed("EROFS"));
+    expect(await ask({ type: "fs.trash", rootId, rel: "001_Box", as: "x" })).toMatchObject(
+      failed("EROFS"),
+    );
+    upload = Buffer.from("new");
+    expect(
+      await ask({
+        type: "fs.write",
+        rootId,
+        rel: "001_Box/new.txt",
+        sha256: createHash("sha256").update("new").digest("hex"),
+        base: null,
+        keep: 0,
+        by: "Ana",
+      }),
+    ).toMatchObject(failed("EROFS"));
+    expect(await readdir(join(base, "001_Box"))).toEqual(["box.3mf"]);
+    expect(await ask({ type: "fs.upload", rootId, rel: "001_Box/box.3mf" })).toMatchObject({
+      data: Buffer.from("box"),
+    });
+  });
+
+  it("skips a root that isn't there, then watches and indexes it once it is", async () => {
+    const later = join(dir, "later");
+    roots = [{ id: rootId, path: later, projects: 0 }];
+    store.set({ sharedFolders: [{ path: dir, paused: false }] });
+    await again({ type: null, share: false, readOnly: false }, 50);
+    expect(indexed()).toEqual([{ state: "missing" }]);
+    expect(sync.state().watching).toBe(0);
+    // It is mounted: the next look (no rescan asked for) finds it.
+    await mkdir(join(later, "001_Cup"), { recursive: true });
+    await writeFile(join(later, "001_Cup", "cup.3mf"), "cup");
+    await until(() => sync.state().watching === 1);
+    expect(indexed().at(-1)).toMatchObject({ state: "ok", folders: [{ rel: "001_Cup" }] });
+  });
+
+  it("also finds it again on the hub's rescan", async () => {
+    const later = join(dir, "later");
+    roots = [{ id: rootId, path: later, projects: 0 }];
+    store.set({ sharedFolders: [{ path: dir, paused: false }] });
+    await again({ type: null, share: false, readOnly: false });
+    await mkdir(later);
+    sync.handle({ type: "roots.rescan", rootId });
+    await sync.idle();
+    expect(sync.state().watching).toBe(1);
+    expect(indexed().at(-1)).toMatchObject({ state: "ok" });
+  });
+
+  // A root can't be removed or replaced under its watcher on Windows (the watch holds it).
+  it.skipIf(process.platform === "win32")(
+    "watches a root again that is another folder at its path (a share mounted again)",
+    async () => {
+      await again({ type: "cifs", share: true, readOnly: false }, 50);
+      expect(sync.state().watching).toBe(1);
+      sent = [];
+      await rename(base, `${base}.old`);
+      await mkdir(join(base, "001_Box"), { recursive: true });
+      await until(() => indexed().some((i) => i.state === "ok"));
+      expect(sync.state().watching).toBe(1);
+    },
+  );
 });

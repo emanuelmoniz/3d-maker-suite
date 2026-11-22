@@ -25,6 +25,19 @@ export const rootRescanSchema = syncPolicySchema
   .extend({ enabled: z.boolean() });
 export type RootRescan = z.infer<typeof rootRescanSchema>;
 
+/**
+ * What a root's folder sits on (Plan 6.3.0 Step 5): `type` the file system's name when known
+ * (`ext4`, `cifs`, `nfs4`, ...). `share`: SMB, NFS or FUSE, where change events only come for
+ * changes made through this machine's mount, so only the rescan keeps the root current.
+ * `readOnly`: nothing can be written to it.
+ */
+export const rootMountSchema = z.object({
+  type: z.string().max(64).nullable(),
+  share: z.boolean(),
+  readOnly: z.boolean(),
+});
+export type RootMount = z.infer<typeof rootMountSchema>;
+
 /** A folder searched for projects, with its own scan settings. */
 export const rootSchema = z.object({
   id,
@@ -57,6 +70,8 @@ export const rootSchema = z.object({
    * A hub root is "ok" here; its scan reports a missing one.
    */
   state: z.enum(["ok", "offline", "missing", "unshared"]),
+  /** What the folder sits on, as last seen; null when not known (offline, missing, not shared). */
+  mount: rootMountSchema.nullable(),
   /** The device a root lives on; null on the hub or when the device is gone. */
   deviceName: z.string().nullable(),
 });

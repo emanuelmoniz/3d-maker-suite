@@ -81,6 +81,8 @@ With it on, you set when it runs.
 
 The time is in the server's time zone, also for a folder on a computer.
 
+A folder on a network share (SMB, NFS or a user-space file system such as sshfs) shows the label **Rescanned only** next to its path, here and in the list in [Projects settings](Projects-Settings.md), and a note under the switch. It means changes made on the share's own computer, or by someone else, send no event, so only the rescan keeps the folder current. If the rescan is off, the page says so. A folder mounted read-only shows **Read-only**: the app reads and scans it, but can't upload, create or delete files in it, and says so when you try. Both labels are read from the machine the folder is on, so they show for a folder on a computer, a NAS or a container as well as for one on the server.
+
 ### Who can edit
 
 The **Who can edit** card decides who may change the projects in this folder: their files and their data.
@@ -154,7 +156,9 @@ The bar at the bottom has the save button, which turns on once something changed
 This is true for every install: a PC with a mapped drive, a Docker host, a NAS.
 
 - The app watches folders for changes. That works on the machine's own disks.
-- It doesn't work on a share the machine mounts from somewhere else (SMB, NFS), because no change events arrive. Use **Scan folders** on **Projects** after changing files there, or keep **Rescan this folder periodically** on, see [Rescan](#rescan).
+- On a share the machine mounts from somewhere else (SMB, NFS), events arrive only for changes made through that mount. Changes made on the share's own computer, or from another computer, send none, though a listing sees them at once. The folder shows **Rescanned only**: the scheduled rescan, hourly by default, finds those changes. You can also use **Scan folders** on **Projects**, see [Rescan](#rescan).
+- A share that drops and is mounted again is watched again. The app notices it within a minute and reads what changed while it was away. While it is gone the folder shows **Missing**, and its projects keep their last known data.
+- A folder on a computer's own disk, including a NAS's own shared folders and a bind mount into a container, sends events for every change, also in new subfolders.
 - Keep the app's own data folder on the machine's own disk, never on a network share, see [Where your data is kept](Configuration.md#where-your-data-is-kept).
 
 ## Related settings
@@ -179,7 +183,8 @@ This is true for every install: a PC with a mapped drive, a Docker host, a NAS.
 | A folder on a computer can't be picked | It is outside the folders the computer shares. Share it first |
 | No new projects after saving a new layout | For a folder on the server, press **Scan folders** on **Projects** |
 | Projects show as missing after a layout change on a computer | They are no longer at a project level. Change the layout back, or move them |
-| Changes in a folder on a network share aren't noticed | Press **Scan folders** on **Projects**, or switch on **Rescan this folder periodically** |
+| Changes in a folder on a network share aren't noticed | The folder shows **Rescanned only**. Wait for the next rescan, press **Scan folders** on **Projects**, or switch on **Rescan this folder periodically** |
+| **Read-only** next to the path, and uploads fail | The folder is mounted read-only. Mount it with write access, or add a folder you can write to |
 | **Missing** next to the path | The folder is gone or not mounted. Mount it, or add the right one |
 
 ## Related pages

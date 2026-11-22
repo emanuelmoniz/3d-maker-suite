@@ -32,7 +32,7 @@ Once there is a folder, a table appears. Click a column header to sort.
 
 | Column | What it shows |
 |---|---|
-| **Folder** | The last part of the path, as a link to the folder's page. Hover to see the whole path. Next to it, a label if something is wrong: **Missing** (the folder is gone or not mounted), **Offline** (its computer is not connected) or **Not shared on the device** (the computer stopped sharing it) |
+| **Folder** | The last part of the path, as a link to the folder's page. Hover to see the whole path. Next to it, a label if something is wrong: **Missing** (the folder is gone or not mounted), **Offline** (its computer is not connected) or **Not shared on the device** (the computer stopped sharing it). **Rescanned only** marks a folder on a network share, where only the rescan sees changes made elsewhere, and **Read-only** a folder mounted read-only, see [Rescan](Project-Folders.md#rescan) |
 | **Machine** | **This server**, or the name of the computer the folder is on |
 | **Projects** | How many projects live in this folder |
 | **Auto slice** | **On** or **Off**. See [Auto slice](Project-Folders.md#slicing) |

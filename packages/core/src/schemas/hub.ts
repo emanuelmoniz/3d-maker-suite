@@ -12,6 +12,7 @@ import {
   slicerPresetKindSchema,
 } from "./presets.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
+import { rootMountSchema } from "./roots.ts";
 
 /**
  * Why a connector stays on its version (`X-Connector-Update` on the event stream, as JSON):
@@ -654,6 +655,8 @@ export const deviceIndexSchema = z.discriminatedUnion("state", [
   z.object({
     state: z.literal("ok"),
     folders: z.array(z.object({ rel, digest: z.string().max(128) })),
+    /** What the root sits on (a connector from before Plan 6.3.0 Step 5 sends none). */
+    mount: rootMountSchema.optional(),
   }),
   z.object({ state: z.literal("missing") }),
   z.object({ state: z.literal("unshared") }),

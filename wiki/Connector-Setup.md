@@ -171,7 +171,11 @@ What to know:
 - **A printer you type an address for.** Bridge networking works for that: take out `network_mode: host`. A hub on the same machine is then reached at the machine's address on your network, not `localhost`.
 - **Not next to a hub.** The connector doesn't start in host networking on a machine where a hub runs, because there is one hub per machine. A hub that runs on the NAS reads its folders itself.
 - **Updates.** The connector in a container doesn't update itself. When the hub is newer, the machine shows **Outdated** in Hub management. In the folder with your compose file, run `docker compose -f docker-compose.connector.yml pull` and then `up -d` again.
-- **Shares.** A folder on the NAS's own disk, which is where a NAS keeps its shared folders, sends change events to the connector. A share that the machine mounts from another computer sends events only for changes made through that mount, so the hub's scheduled rescan finds the rest, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates).
+- **Shares.** A folder on the NAS's own disk, which is where a NAS keeps its shared folders, sends change events to the connector, also in new subfolders. A share that the machine mounts from another computer sends events only for changes made through that mount. The folder shows **Rescanned only**, and the hub's scheduled rescan finds the rest, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates).
+- **A share that comes back.** If a share drops and is mounted again, the connector notices within a minute, watches it again and reads what changed. While it is gone the folder shows **Missing** and is skipped.
+- **A read-only mount.** Add the bind mount with `read_only: true` (or mount the share read-only) and the folder shows **Read-only**. The hub reads and scans it, and says so when you try to upload, create or delete.
+- **A share mounted after the container started.** Without `rslave` the container doesn't see it. If your NAS app can't set it, restart the container after the share is mounted.
+- **A big folder.** The connector reads project folders a few at a time, so a folder with thousands of projects doesn't stop it answering the hub.
 
 ### Windows Server
 
