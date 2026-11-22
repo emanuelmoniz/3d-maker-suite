@@ -89,7 +89,7 @@ try {
 
   # 3. The batch logon right: LSA for ciconn, secedit for cisec (does it rewrite anything else?).
   $sw = [Diagnostics.Stopwatch]::StartNew(); [SpikeLsa]::Add($sid, 'SeBatchLogonRight')
-  Note 'lsaAdd' "$([math]::Round($sw.Elapsed.TotalMilliseconds)) ms, lsa=[$([SpikeLsa]::Get($sid) -join ',')], inExport=$((BatchLine) -like "*$sid*")"
+  Note 'lsaAdd' "$([math]::Round($sw.Elapsed.TotalMilliseconds)) ms, lsa=[$([SpikeLsa]::Get($sid) -join ',')], export=$(BatchLine)"
   [SpikeLsa]::Add($sid, 'SeBatchLogonRight'); Note 'lsaAddTwice' 'no error'
   secedit /export /cfg "$env:RUNNER_TEMP\before.inf" /areas USER_RIGHTS /quiet | Out-Null
   $inf = Get-Content "$env:RUNNER_TEMP\before.inf" | ForEach-Object { if ($_ -like 'SeBatchLogonRight*') { "$_,*$sidSec" } else { $_ } }
@@ -105,13 +105,15 @@ try {
   Probe 'nogrant' $acct 'Password' "$env:RUNNER_TEMP\pw.txt" '' 20
   icacls $dir /grant 'ciconn:(OI)(CI)M' /T /Q | Out-Null
   New-Item -ItemType Directory -Force "$dir\handoff" | Out-Null
+  icacls "$dir\handoff" /inheritance:r /grant:r 'ciconn:(OI)(CI)M' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /Q | Out-Null
   'handed over' | Set-Content "$dir\handoff\state.json"
-  icacls "$dir\handoff" /inheritance:r /grant:r 'ciconn:(OI)(CI)M' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /T /Q | Out-Null
+  Note 'handoffFileAcl' (((Get-Acl "$dir\handoff\state.json").Access | ForEach-Object { "$($_.IdentityReference):$($_.FileSystemRights)" }) -join '; ')
+  Note 'elevated' ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
   [Environment]::SetEnvironmentVariable('APP_DOWNLOAD_URL', 'http://spike-machine', 'Machine')
   Probe 'pwd' $acct 'Password' "$env:RUNNER_TEMP\pw.txt" "$dir\handoff\state.json"
   Note 'profile' "C:\Users\ciconn exists=$(Test-Path C:\Users\ciconn)"
   Note 'handoffAcl' (((Get-Acl "$dir\handoff").Access | ForEach-Object { "$($_.IdentityReference):$($_.FileSystemRights)" }) -join '; ')
-  Remove-Item "$dir\handoff" -Recurse -Force
+  try { Remove-Item "$dir\handoff" -Recurse -Force } catch { Note 'handoffRemove' "ERR $_" }
 
   # 5. A wrong password at registration.
   Probe 'wrong' $acct 'Password' "$env:RUNNER_TEMP\wrong.txt" '' 10
@@ -161,7 +163,7 @@ try {
 
   # 9. Revoking the right.
   [SpikeLsa]::Remove($sid, 'SeBatchLogonRight')
-  Note 'lsaRemove' "lsa=[$([SpikeLsa]::Get($sid) -join ',')], inExport=$((BatchLine) -like "*$sid*")"
+  Note 'lsaRemove' "lsa=[$([SpikeLsa]::Get($sid) -join ',')], export=$(BatchLine)"
 } catch {
   Note 'error' "$_ at line $($_.InvocationInfo.ScriptLineNumber)"
 } finally {

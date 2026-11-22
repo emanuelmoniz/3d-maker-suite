@@ -8,13 +8,14 @@ const [xml, name, user, pwFile] = process.argv.slice(2);
 const password = readFileSync(pwFile, "utf8");
 const script = [
   "$ErrorActionPreference = 'Stop'",
-  "$p = [Console]::In.ReadLine()",
+  // Base64 of UTF-8: stdin to powershell.exe is read in the OEM code page, which loses a ü.
+  "$p = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([Console]::In.ReadLine()))",
   "Register-ScheduledTask -TaskPath '\\' -TaskName $env:T_NAME -Xml (Get-Content -Raw -LiteralPath $env:T_XML) -User $env:T_USER -Password $p -Force | Out-Null",
 ].join("; ");
 const t0 = Date.now();
 try {
   execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
-    input: `${password}\n`,
+    input: `${Buffer.from(password, "utf8").toString("base64")}\n`,
     env: { ...process.env, T_NAME: name, T_XML: xml, T_USER: user },
     encoding: "utf8",
     windowsHide: true,
