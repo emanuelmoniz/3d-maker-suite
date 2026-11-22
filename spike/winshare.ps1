@@ -146,7 +146,7 @@ try {
   Note 'connectorOwners' ((Procs | ForEach-Object { "$(Owner $_) $(if ($_.CommandLine -like '*launcher.mjs*') {'launcher'} else {'program'})" }) -join '; ')
   $on = WaitFor { $d = Mine; $d.online -and $d.id -eq $before.id } 60
   Note 'sameDevice' $(if ($on) { "online, same id, in $on s" } else { "NOT: $((Mine) | ConvertTo-Json -Compress)" })
-  Note 'logWrite' "launcher.log last=$((Get-Content "$dir\logs\launcher.log" -Tail 1))"
+  Note 'logWrite' "launcher.log last=$((Get-Content "$dir\logs\launcher.log" -Tail 1 -ErrorAction SilentlyContinue))"
 
   # 7. A root on the share: the connector indexes \\localhost\ci.
   try {

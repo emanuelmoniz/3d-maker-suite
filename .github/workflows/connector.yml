@@ -42,8 +42,8 @@ jobs:
           $setup = (Get-Item packaging/out/3d-maker-suite-connector-*-setup.exe).FullName
           # Run 4: outside any profile (Node lstats every parent of its main script, run 3).
           $dir = "$env:ProgramFiles\$env:TASK"
-          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/DIR=$dir", "/HUBURL=$env:HUB", "/PAIRINGCODE=$code", '/NAME=ci-headless' -Wait -PassThru
-          "setup exit $($p.ExitCode)"; Get-Content "$dir\logs\headless-task.log" -ErrorAction SilentlyContinue
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/HEADLESS', "/DIR=`"$dir`"", "/HUBURL=$env:HUB", "/PAIRINGCODE=$code", '/NAME=ci-headless' -Wait -PassThru
+          "setup exit $($p.ExitCode)"; Get-ChildItem $dir | Select-Object -First 5 Name; Get-Content "$dir\logs\headless-task.log" -ErrorAction SilentlyContinue
           $up = { try { (Invoke-WebRequest http://127.0.0.1:4301/api/health -TimeoutSec 1).StatusCode -eq 200 } catch { $false } }
           $ok = $false
           for ($n = 0; $n -lt 60 -and -not $ok; $n++) { $ok = & $up; if (-not $ok) { Start-Sleep 1 } }
