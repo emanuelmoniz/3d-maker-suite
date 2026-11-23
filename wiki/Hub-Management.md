@@ -39,9 +39,23 @@ Computers that couldn't do it stay ticked, and the list names them.
 
 ## Pairing
 
-Press **Pair a device**, pick the **User** the computer will act as, then press **Create code**. The code works once, until the time shown, only for that user, and is shown only once. Press **Copy code**, then **Done**. Only users who aren't disabled are listed.
+Press **Pair a device**, then choose **Where does the connector run?**:
 
-Then enter the code on the connector's own page. The steps are in [Connector setup](Connector-Setup.md#pair-the-computer).
+- **This computer, with a screen.** Pick the **User** the computer will act as, then press **Create code**. The code works once, for 10 minutes, only for that user, and is shown only once. Press **Copy code**, then **Done**. Then enter the code on the connector's own page. The steps are in [Connector setup](Connector-Setup.md#pair-the-computer).
+- **A NAS, server or container.** The code works once, for 24 hours, because setting up a machine with no screen takes longer. The dialog **Pair a NAS or server** shows the code and the exact lines to paste, with the hub's address filled in. Pick how the connector is installed:
+  - **Docker:** a compose file with host networking, the `PUID` and `PGID` lines, and a bind mount with `rslave` for a shared folder, and the command that starts it.
+  - **Linux service:** the `install.sh --headless` command, for a Raspberry Pi or a Linux server without Docker.
+  - **Windows Server:** the silent setup line with `/ALLUSERS /HEADLESS`, and the two switches `/ACCOUNT` and `/PASSWORDFILE` for a named account that reaches network shares.
+
+  ![The dialog for pairing a NAS or server, with the compose file](../docs/images/wiki-hub-pair-nas.png)
+
+  **Hub address** starts as the address you opened this page at. Change it to the address the NAS or server reaches the hub at, because `localhost` means something else on another machine. Each block has a **Copy** button. The only secret in them is the one-time code. It isn't shown again after you close the dialog, so copy what you need first. The steps behind each block are in [Connector setup](Connector-Setup.md).
+
+Only users who aren't disabled are listed.
+
+### Unused pairing codes
+
+A code for a NAS or server outlives your visit, so unused codes are listed under the table as **Unused pairing codes**: who it is for, the kind, and **until** when. The code itself is never shown again. **Withdraw** a code you don't need: it pairs nothing after that. A code leaves the list when a connector pairs with it or it expires.
 
 ## Machine page
 
@@ -53,11 +67,16 @@ A section you can't edit shows its values as text, for example **Get projects fr
 
 ### Identity
 
-The **Name** field, saved with **Save**, and the **User** it acts as. **Change user** opens **Change this connector's user**: pick another user, and the next dialog, **Code for {name}**, shows a one-time code. Enter it on that connector's local page. Nothing changes until you do. The computer then acts with the new user's role.
+The **Name** field, saved with **Save**, and the **User** it acts as. **Change user** opens **Change this connector's user**:
+
+- **A computer with a screen:** pick another user, and the next dialog, **Code for {name}**, shows a one-time code. Enter it on that connector's local page. Nothing changes until you do. The computer then acts with the new user's role.
+- **A connector with no screen** (a Docker container or a headless service): nobody is there to type a code, so the change applies at once. Pick the user, then choose what happens to **Its projects**: **Move them to the new user** or **Leave them with their owners**. The card then says **Now acting as {name}**, with how many projects moved.
 
 ### Software
 
-Its system, the connector version, and when it was last seen. When it is outdated, the card says why: older than the hub, **Could not download version…** or **Version… did not start on the device, so it went back**. **Update now** tells an online connector to update. An offline one gets it when it connects.
+Its system, the connector version, **Installed as** (**Desktop installer**, **Service with no screen** or **Docker container**) and its **Architecture**, such as x64 or arm64. When it is outdated, the card says why: older than the hub, **Could not download version…** or **Version… did not start on the device, so it went back**. **Update now** tells an online connector to update. An offline one gets it when it connects.
+
+A connector in a Docker container doesn't update itself. When it is outdated, the card shows the command to run in the folder with its compose file, with a **Copy command** button, instead of **Update now**.
 
 ### System
 
@@ -74,7 +93,7 @@ These need the connector online. Offline, the card says so. A connector too old 
 
 Lists the slicers found on the computer, each with its version and **installed**. The one the hub uses carries **Server's slicer**.
 
-- **Use slicer as server worker:** lets the hub send slicing to this computer. Turning it off asks **Stop using {name} as a server worker?**, then removes its slicer installs in **Integrations** and uninstalls a slicer the hub installed there. What they imported stays.
+- **Use slicer as server worker:** lets the hub send slicing to this computer. Turning it off asks **Stop using {name} as a server worker?**, then removes its slicer installs in **Integrations** and uninstalls a slicer the hub installed there. What they imported stays. On a Linux computer with an ARM processor, such as a Raspberry Pi, the switch is greyed out and the card says why: Bambu Studio and OrcaSlicer have no build for it. Slicing goes to a worker on x64, or a Mac.
 - With **Set up integrations**, links open **Set up** a slicer on this machine, or the slicer's card in **Integrations**. See [Slicers](Slicers.md).
 
 ### Slicers catalog
@@ -86,7 +105,11 @@ Shows only when the computer has a slicer.
 
 ### Projects
 
-- **Get projects from server:** its folders get copies of the hub's projects. It shows how many **picks** it has, and a line of its sync state, such as **Up to date · 12 files**, **Syncing…**, or **Sync paused: 25 files deleted in … at once**. Confirm or restore those on the connector's local page. Turning it off asks first: **Stop receiving projects on…?** removes its copies from the computer and deletes nothing on the hub.
+- **Get projects from server:** its folders get copies of the hub's projects. It shows how many **picks** it has, and a line of its sync state, such as **Up to date · 12 files**, **Syncing…**, or **Sync paused: 25 files deleted in … at once**. For each folder whose deletes were held, for example because its folder went missing, the card says how many files, with two buttons that work for every connector, also one with no screen:
+  - **Delete on the hub too** asks first. The files move to the hub's trash, and every machine that receives that folder loses them.
+  - **Restore them** downloads the files to the computer again.
+
+  Both need the connector online. The connector's own local page offers the same two choices. Turning it off asks first: **Stop receiving projects on…?** removes its copies from the computer and deletes nothing on the hub.
 - **Send projects to server:** the folders it shares with the hub, shown as a count with **Up to date** once reported.
 
 The links **Projects consumers** and **Projects sources** open the same tabs in [Projects settings](Projects-Settings.md).
@@ -121,9 +144,17 @@ The hub's one library of slicer presets is a tab of Catalog settings, not of Hub
 ### Pair a computer
 
 1. Open **Settings → Hub management** and press **Pair a device**.
-2. Pick the user and press **Create code**, then **Copy code**.
+2. Choose **This computer, with a screen**, pick the user and press **Create code**, then **Copy code**.
 3. Enter the code on the connector's page, see [Connector setup](Connector-Setup.md#pair-the-computer).
 4. The computer shows **Online** in the table.
+
+### Pair a NAS, server or container
+
+1. Open **Settings → Hub management** and press **Pair a device**.
+2. Choose **A NAS, server or container**, pick the user and press **Create code**.
+3. Check **Hub address**, pick **Docker**, **Linux service** or **Windows Server**, and press the **Copy** button of the block you need.
+4. Run it on the NAS or server, see [Connector setup](Connector-Setup.md). The code works once, for 24 hours. **Withdraw** it under **Unused pairing codes** if you don't use it.
+5. The machine shows **Online** in the table.
 
 ### Rename a computer
 
@@ -154,7 +185,7 @@ The hub's one library of slicer presets is a tab of Catalog settings, not of Hub
 
 ## Limits and tips
 
-- A computer acts as one user. To move it to another user, use **Change user**.
+- A computer acts as one user. To move it to another user, use **Change user**: with a code on a computer with a screen, at once on a machine with none.
 - A revoked computer can't be brought back. Pair it again.
 - Most controls need the connector online. Offline ones apply when it reconnects, or say they can't be changed.
 - The hub never runs a command on a computer, and never sends one to a printer.
@@ -167,7 +198,9 @@ The hub's one library of slicer presets is a tab of Catalog settings, not of Hub
 | **Outdated** stays | Press **Update now**, or restart the connector on the computer |
 | **Update failed** | Read the reason in **Software**. Check the computer can reach GitHub releases |
 | **The connector didn't answer. Try again.** | The connector is busy or just restarted. Wait a few seconds |
-| **Sync paused…** | Open the connector's local page and confirm or restore the deletes |
+| **Sync paused…** | Press **Delete on the hub too** or **Restore them** on the machine's page, or on the connector's local page |
+| **Outdated** on a Docker connector | Run the command on its card in the folder with its compose file. It doesn't update itself |
+| The **Use slicer as server worker** switch is greyed out | The machine is Linux on ARM, which can't slice. Use a worker on x64, or a Mac |
 | **This is the hub's slicer…** | Pick another slicer in **Integrations** first |
 | **Turn the hub on to reach printers…** | Switch the hub on in **Settings → General** |
 

@@ -15,6 +15,28 @@ export function glibcAtLeast(sys: SlicerSystem, want: string) {
 export const slicingSupported = (sys: SlicerSystem) =>
   !(sys.platform === "linux" && sys.arch === "arm64");
 
+/**
+ * The system a connector reports as `os` (`Linux 6.1.0 arm64`: `os.type()`, release, `os.arch()`),
+ * or null for text that isn't that (a bare `win32`, nothing). The arch is "" when it isn't there.
+ */
+export function deviceSystem(os: string | null | undefined): SlicerSystem | null {
+  const [type = "", ...rest] = (os ?? "").trim().toLowerCase().split(/\s+/);
+  const platform = type.startsWith("win")
+    ? "win32"
+    : type === "darwin"
+      ? "darwin"
+      : type === "linux"
+        ? "linux"
+        : null;
+  return platform ? { platform, arch: rest.length >= 2 ? (rest.at(-1) ?? "") : "" } : null;
+}
+
+/** A connector's machine can be a slice worker (not Linux on ARM, ADR-0024); unknown = yes. */
+export const deviceCanSlice = (os: string | null | undefined) => {
+  const sys = deviceSystem(os);
+  return !sys || slicingSupported(sys);
+};
+
 /** `v2.5.0-alpha` → `2\.5\.0-alpha`, for asset name patterns. */
 export const tagPattern = (tag: string) =>
   tag.replace(/^v/i, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

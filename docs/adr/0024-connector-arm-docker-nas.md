@@ -231,3 +231,10 @@ The S4U task of Step 3b has no network credentials, so a project folder on `\\na
   - a password change, and the update (`APP_DOWNLOAD_URL` at Machine scope);
   - the uninstaller taking the right back.
 - **Not tested here:** a share on another machine, where S4U really fails, and a domain account, left for the real test in Step 9.
+
+## Amendment: Step 7, Hub management pairs a NAS or container (2026-11-23)
+
+- **Pair a device** asks where the connector runs: a computer with a screen (a 10-minute code, as before) or a NAS, server or container (`kind: headless`, 24 hours). The second shows the code with the Docker compose file (host networking, `PUID`/`PGID`, an `rslave` bind mount), the `install.sh --headless` line and the Windows Server silent line (`/ALLUSERS /HEADLESS`, with the optional `/ACCOUNT` and `/PASSWORDFILE`), the hub address filled in (it starts as the address the admin opened, and can be changed). `apps/web/src/lib/pairCommands.ts` builds the text; the only secret in it is the one-time code. Unused codes are listed with **Withdraw**.
+- **The machine page** shows `install` and the architecture (the last word of the connector's `os`), and for `docker` the update command instead of **Update now** (a container never updates itself).
+- **Slicing on ARM:** `deviceCanSlice(os)` (`packages/core/src/services/managedSlicer.ts`) is false for Linux on ARM. The switch **Use slicer as server worker** is greyed out there, and `PATCH /api/hub/devices/:id` with `useAsWorker: true` answers 409 `slicing_unsupported`, the same code as a managed slicer install on an ARM hub.
+- **A missing sync folder's held deletes** (`Delete on the hub too`, `Restore them`) and **Change user** on a `headless` or `docker` connector use the hub routes of Step 2, from the machine page.

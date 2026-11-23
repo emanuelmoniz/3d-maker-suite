@@ -83,7 +83,7 @@ The script needs no administrator rights. Running a newer `install.sh` updates t
 
 Use this on a Raspberry Pi or a Linux server you reach over SSH, where nobody signs in at a screen and there is no application menu. The connector runs as a service: it starts when the machine boots, and comes back by itself after a crash. It needs a 64-bit Linux with systemd, x64 or ARM64.
 
-1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before step 3.
+1. On the hub, press **Pair a device** in [Hub management](Hub-Management.md#pairing) and choose **A NAS, server or container**. The code works once, for 24 hours, and the dialog shows the commands below with your hub's address and the code filled in, under **Linux service**.
 2. On the machine, download the connector file for its system (see [Download](#download)) and unpack it as above.
 3. Go into the unpacked folder and install it as a service, with the hub's address and the code:
 
@@ -118,7 +118,7 @@ The connector's own log is `logs/server.log` in its install folder. **Stop conne
 
 Use this on a NAS (Synology, QNAP, Asustor) or any server with Docker, x64 or ARM64. It is the way for a NAS, because a NAS doesn't let you add services. The connector runs isolated in its container: it sees only the folders you mount, runs as the user you choose, and listens on nothing outside the container. It joins a hub that runs somewhere else. It is never a hub itself.
 
-1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before step 3.
+1. On the hub, press **Pair a device** in [Hub management](Hub-Management.md#pairing) and choose **A NAS, server or container**. The code works once, for 24 hours. Pick **Docker**: the dialog shows this compose file with your hub's address and the code filled in, and a **Copy compose file** button.
 2. Save this as `docker-compose.connector.yml` on the NAS or server, and put in your hub's address and the code:
 
 ```yaml
@@ -170,7 +170,7 @@ What to know:
 - **A wrong, used or expired code.** The connector keeps running, unpaired, and writes one line about it in its log (`docker compose -f docker-compose.connector.yml logs`). Make a new code, put it in the file and run `up -d` again. A code that was refused is never sent twice.
 - **A printer you type an address for.** Bridge networking works for that: take out `network_mode: host`. A hub on the same machine is then reached at the machine's address on your network, not `localhost`.
 - **Not next to a hub.** The connector doesn't start in host networking on a machine where a hub runs, because there is one hub per machine. A hub that runs on the NAS reads its folders itself.
-- **Updates.** The connector in a container doesn't update itself. When the hub is newer, the machine shows **Outdated** in Hub management. In the folder with your compose file, run `docker compose -f docker-compose.connector.yml pull` and then `up -d` again.
+- **Updates.** The connector in a container doesn't update itself. When the hub is newer, the machine shows **Outdated** in Hub management, and its page shows this command with a **Copy command** button. In the folder with your compose file, run `docker compose -f docker-compose.connector.yml pull` and then `up -d` again.
 - **Shares.** A folder on the NAS's own disk, which is where a NAS keeps its shared folders, sends change events to the connector, also in new subfolders. A share that the machine mounts from another computer sends events only for changes made through that mount. The folder shows **Rescanned only**, and the hub's scheduled rescan finds the rest, see [Network shares and live updates](Project-Folders.md#network-shares-and-live-updates).
 - **A share that comes back.** If a share drops and is mounted again, the connector notices within a minute, watches it again and reads what changed. While it is gone the folder shows **Missing** and is skipped.
 - **A read-only mount.** Add the bind mount with `read_only: true` (or mount the share read-only) and the folder shows **Read-only**. The hub reads and scans it, and says so when you try to upload, create or delete.
@@ -186,7 +186,7 @@ Use this on a Windows Server where the connector should run from boot, with nobo
 
 Windows Server x64 only. The setup installs for all users, so it needs an administrator and the `/ALLUSERS` switch.
 
-1. On the hub, make a pairing code as in [Pair the computer](#pair-the-computer). It works once, for 10 minutes, so make it just before you run the setup.
+1. On the hub, press **Pair a device** in [Hub management](Hub-Management.md#pairing) and choose **A NAS, server or container**. The code works once, for 24 hours. Pick **Windows Server**: the dialog shows the silent setup line below, with your hub's address and the code filled in, and the `/ACCOUNT` and `/PASSWORDFILE` switches for a named account.
 2. Download the Windows connector file (see [Download](#download)) to the server.
 3. In an administrator PowerShell, in the folder with the file, run the setup in one of these two ways.
 
@@ -279,7 +279,7 @@ On the hub:
 2. Click **Pair a device**.
 3. Pick the user the computer will act as. It gets that user's rights.
 4. Click **Create code**.
-5. Click **Copy code**, or write it down. It looks like `AB12-CD34`, works once, for 10 minutes, and is shown only once.
+5. Click **Copy code**, or write it down. It looks like `AB12-CD34`, works once, for 10 minutes, and is shown only once. This is the code for a computer with a screen. For a NAS, server or container, see [Hub management](Hub-Management.md#pairing).
 
 On the computer:
 
@@ -407,7 +407,7 @@ To remove everything, also delete the data folder (see the table below) and the 
 ## Problems and fixes
 
 - **The pair page says it can't reach the hub.** Check the address and that the hub is running. With `APP_ALLOWED_HOSTS` set on the hub, the name you typed must be in the list.
-- **The pair page says the code is wrong, used or expired.** A code works once, for 10 minutes. Make a new one.
+- **The pair page says the code is wrong, used or expired.** A code works once, for 10 minutes (24 hours for a NAS, server or container). Make a new one, or check **Unused pairing codes** in Hub management.
 - **The pair page says the hub is turned off.** Turn **Hub** on in **Settings → General** on the hub.
 - **Too many wrong codes.** Wait 15 minutes, then try again.
 - **The connector doesn't start.** A hub may be running on the same computer, or the connector's data folder is the hub's data folder. The log says which. Find it in the table above.

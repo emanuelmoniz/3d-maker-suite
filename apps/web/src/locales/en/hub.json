@@ -32,8 +32,8 @@
       "idle_other": "Up to date · {{count}} files",
       "syncing_one": "Syncing the hub folders, {{count}} change waiting",
       "syncing_other": "Syncing the hub folders, {{count}} changes waiting",
-      "paused_one": "Sync paused: {{count}} file deleted in {{roots}} at once. Confirm or restore it on the device's local page.",
-      "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Confirm or restore them on the device's local page.",
+      "paused_one": "Sync paused: {{count}} file deleted in {{roots}} at once. Choose what happens to it below.",
+      "paused_other": "Sync paused: {{count}} files deleted in {{roots}} at once. Choose what happens to them below.",
       "error": "Something didn't sync: {{error}}"
     },
     "columns": {
@@ -77,20 +77,65 @@
     "title": "Change this connector's user",
     "hint": "It will act as this user, with their role. Nothing changes until the code is entered on the connector.",
     "codeTitle": "Code for {{name}}",
-    "codeBody": "Enter this code on this connector's local page. It works once, until {{time}}, only on {{name}}, and isn't shown again."
+    "codeBody": "Enter this code on this connector's local page. It works once, until {{time}}, only on {{name}}, and isn't shown again.",
+    "hintHeadless": "It acts as this user at once, with their role. No code is needed, because nobody is at a machine with no screen.",
+    "projects": "Its projects",
+    "move": "Move them to the new user",
+    "stay": "Leave them with their owners",
+    "submitNow": "Change user",
+    "done_one": "Now acting as {{name}}. {{count}} project moved.",
+    "done_other": "Now acting as {{name}}. {{count}} projects moved."
   },
   "pair": {
     "action": "Pair a device",
     "title": "Pair a device",
     "hint": "The device will act as this user, with their role.",
     "user": "User",
-    "submit": "Create code"
+    "submit": "Create code",
+    "kindLegend": "Where does the connector run?",
+    "kind": {
+      "desktop": "This computer, with a screen",
+      "headless": "A NAS, server or container"
+    },
+    "kindHint": {
+      "desktop": "You enter the code on its local page. It works once, for 10 minutes.",
+      "headless": "No screen needed: the code goes in a command or a compose file. It works once, for 24 hours."
+    }
   },
   "code": {
     "title": "Pairing code",
     "body": "Enter this code on the connector's local page. It works once, until {{time}}, and isn't shown again.",
     "copy": "Copy code",
     "done": "Done"
+  },
+  "headless": {
+    "title": "Pair a NAS or server",
+    "body": "Use this code in one of the ways below. It works once, until {{time}}, and isn't shown again, so copy what you need before you close this.",
+    "hubAddress": "Hub address",
+    "hubAddressHint": "The address the NAS or server reaches this hub at. A machine on your network can't use localhost.",
+    "how": "How is the connector installed?",
+    "docker": "Docker",
+    "linux": "Linux service",
+    "windows": "Windows Server",
+    "dockerHint": "Save this as docker-compose.connector.yml, then run the command under it. Host networking lets the connector hear Bambu printers announce themselves. Take the # off PUID and PGID, with your own numbers (run id over SSH, or see the NAS's user page), so the files it creates belong to you. Take it off the bind mount to share a folder; rslave makes a share mounted later show up inside.",
+    "linuxHint": "For a Raspberry Pi or a Linux server without Docker. Download the connector file for this version from the releases page (linux-arm64 on ARM), then run these. It needs systemd, and prints one sudo line if it can't keep running after you sign out.",
+    "windowsHint": "In an administrator PowerShell, in the folder with the setup file. It installs for all users and starts at boot with nobody signed in.",
+    "windowsAccount": "To run as a named account, which a network share needs, add these two. The password goes in the file, never on the command line:",
+    "copyCompose": "Copy compose file",
+    "copyCommand": "Copy command",
+    "copyCommands": "Copy commands",
+    "copyAccount": "Copy account switches"
+  },
+  "pending": {
+    "title": "Unused pairing codes",
+    "hint": "A code for a NAS or server lasts 24 hours, longer than your visit here. Withdraw one you don't need: it pairs nothing after that.",
+    "kind": {
+      "desktop": "Computer with a screen",
+      "headless": "NAS or server"
+    },
+    "line": "{{user}} · {{kind}} · until {{when}}",
+    "withdraw": "Withdraw",
+    "withdrawNamed": "Withdraw the code for {{user}}, until {{when}}"
   },
   "settings": {
     "title": "Sync",
@@ -208,7 +253,29 @@
     "stopped": "Stopped. It shows offline in a few seconds.",
     "errors": {
       "hubSlicer": "This is the hub's slicer: its catalog is the hub's. Pick another in Integrations first.",
-      "hubOff": "Turn the hub on to reach printers or a spool library through a machine."
+      "hubOff": "Turn the hub on to reach printers or a spool library through a machine.",
+      "slicingUnsupported": "This machine can't slice: Bambu Studio and OrcaSlicer have no build for Linux on ARM."
+    },
+    "install": {
+      "bundle": "Desktop installer",
+      "headless": "Service with no screen",
+      "docker": "Docker container"
+    },
+    "installedAs": "Installed as: {{kind}}",
+    "architecture": "Architecture: {{arch}}",
+    "dockerUpdate": "This connector runs in a container, so it doesn't update itself. In the folder with its compose file, run:",
+    "copyUpdate": "Copy command",
+    "cantSlice": "A Linux machine on ARM can't be a slice worker: Bambu Studio and OrcaSlicer have no build for it. Slicing goes to a worker on x64, or a Mac.",
+    "held": {
+      "line_one": "{{name}}: {{count}} file deleted at once, and held",
+      "line_other": "{{name}}: {{count}} files deleted at once, and held",
+      "confirm": "Delete on the hub too",
+      "confirmNamed": "Delete the files held in {{name}} on the hub too",
+      "restore": "Restore them",
+      "restoreNamed": "Restore the files held in {{name}}",
+      "confirmTitle": "Delete the files held in {{name}} on the hub too?",
+      "confirmBody": "They move to the hub's trash, and every machine that receives this folder loses them. Restore keeps them instead.",
+      "restoring": "Asked. The connector downloads them again."
     },
     "setUpSlicer": "Set up {{name}} on this machine",
     "slicerCard": "{{name}} in Integrations",

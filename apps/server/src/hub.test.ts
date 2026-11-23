@@ -1254,6 +1254,16 @@ describe("hub events", () => {
       db.select().from(schema.integrations).where(eq(schema.integrations.id, worker.id)).get(),
     ).toBeUndefined();
     expect(row()?.useAsWorker).toBe(false);
+    // A Linux ARM machine can't slice (ADR-0024): refused, nothing saved. Turning it off still works.
+    db.update(schema.devices)
+      .set({ os: "Linux 6.6.31 arm64" })
+      .where(eq(schema.devices.id, deviceId))
+      .run();
+    const arm = await send("PATCH", device, { useAsWorker: true });
+    expect(arm.statusCode).toBe(409);
+    expect(arm.json().error.code).toBe("slicing_unsupported");
+    expect(row()?.useAsWorker).toBe(false);
+    expect((await send("PATCH", device, { useAsWorker: false })).statusCode).toBe(204);
   });
 
   it("a machine's install is offered as it is; the hub's slicer receives no catalog", async () => {

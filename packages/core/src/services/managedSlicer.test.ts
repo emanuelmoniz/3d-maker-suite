@@ -1,6 +1,29 @@
 import { describe, expect, it } from "vitest";
 import type { ManagedSlicer } from "../integrations/index.ts";
-import { glibcAtLeast, installable, slicingSupported } from "./managedSlicer.ts";
+import {
+  deviceCanSlice,
+  deviceSystem,
+  glibcAtLeast,
+  installable,
+  slicingSupported,
+} from "./managedSlicer.ts";
+
+it("deviceSystem reads what a connector reports as its os", () => {
+  expect(deviceSystem("Linux 6.6.31 arm64")).toEqual({ platform: "linux", arch: "arm64" });
+  expect(deviceSystem("Windows_NT 10.0.26100 x64")).toEqual({ platform: "win32", arch: "x64" });
+  expect(deviceSystem("Darwin 24.1.0 arm64")).toEqual({ platform: "darwin", arch: "arm64" });
+  expect(deviceSystem("win32")).toEqual({ platform: "win32", arch: "" });
+  expect(deviceSystem("Plan 9")).toBeNull();
+  expect(deviceSystem(null)).toBeNull();
+});
+
+it("deviceCanSlice: only Linux on ARM can't; an unknown system may", () => {
+  expect(deviceCanSlice("Linux 6.6.31 arm64")).toBe(false);
+  expect(deviceCanSlice("Linux 6.6.31 x64")).toBe(true);
+  expect(deviceCanSlice("Darwin 24.1.0 arm64")).toBe(true);
+  expect(deviceCanSlice("win32")).toBe(true);
+  expect(deviceCanSlice(null)).toBe(true);
+});
 
 const slicer: ManagedSlicer = {
   repo: "a/b",

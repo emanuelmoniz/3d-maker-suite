@@ -1,5 +1,9 @@
 import {
   type Device,
+  type DeviceUserResult,
+  deviceCanSlice,
+  deviceSystem,
+  isHeadless,
   type MachineSection,
   mayEditMachine,
   type PairingCode,
@@ -38,10 +42,12 @@ import {
   useAdapters,
   useIntegrations,
 } from "../../lib/integrations.ts";
+import { DOCKER_UPDATE } from "../../lib/pairCommands.ts";
 import { usePrinters } from "../../lib/printers.ts";
 import { CONNECTOR_PORT, useConnectorId } from "../../lib/projects.ts";
 import { useUsers } from "../../lib/users.ts";
 import { SourceBadge } from "../settings/Sources.tsx";
+import { CommandBlock } from "./CommandBlock.tsx";
 import { SyncLine } from "./SyncLine.tsx";
 
 // Written out so `pnpm i18n:check` sees the keys.
@@ -51,7 +57,15 @@ const ERRORS: Record<string, string> = {
   device_timeout: "hub:edit.timeout",
   hub_slicer: "hub:machine.errors.hubSlicer",
   hub_off: "hub:machine.errors.hubOff",
+  slicing_unsupported: "hub:machine.errors.slicingUnsupported",
 };
+
+// Literal keys so `pnpm i18n:check` sees them.
+const INSTALLS = {
+  bundle: "hub:machine.install.bundle",
+  headless: "hub:machine.install.headless",
+  docker: "hub:machine.install.docker",
+} as const;
 
 /** A failed save, in words: a connector that is offline, too old or silent says so. */
 function Alert({ error }: { error: unknown }) {
@@ -124,23 +138,70 @@ function ChangeUserDialogs({
   device: d,
   open,
   onClose,
+  onChanged,
 }: {
   device: Device;
   open: boolean;
   onClose: () => void;
+  /** A headless connector's user changed at once. */
+  onChanged: (result: DeviceUserResult) => void;
 }) {
   const { t } = useTranslation();
   const users = useUsers(open);
-  const { userCode } = useDeviceActions();
+  const { userCode, setUser } = useDeviceActions();
   const [made, setMade] = useState<PairingCode | null>(null);
   const close = () => {
     setMade(null);
     userCode.reset();
+    setUser.reset();
     onClose();
   };
   const people = (users.data ?? [])
     .filter((u) => !u.disabled && u.id !== d.userId)
     .map((u) => ({ value: u.id, label: u.displayName }));
+  // No screen at the machine to type a code at: the admin's choice applies at once (ADR-0024).
+  if (isHeadless(d.install))
+    return (
+      <FormDialog
+        open={open}
+        title={t("hub:changeUser.title")}
+        submitLabel={t("hub:changeUser.submitNow")}
+        error={setUser.isError ? t("hub:errors.generic") : undefined}
+        busy={setUser.isPending}
+        onCancel={close}
+        onSubmit={(f) =>
+          setUser.mutate(
+            {
+              id: d.id,
+              userId: String(f.get("userId") ?? ""),
+              projects: f.get("projects") === "stay" ? "stay" : "move",
+            },
+            {
+              onSuccess: (r) => {
+                onChanged(r);
+                close();
+              },
+            },
+          )
+        }
+      >
+        <p className="text-muted">{t("hub:changeUser.hintHeadless")}</p>
+        <FormField label={t("hub:pair.user")}>
+          {(p) => <Combobox {...p} name="userId" options={people} required />}
+        </FormField>
+        <fieldset className="grid gap-2">
+          <legend className="mb-1.5 font-medium">{t("hub:changeUser.projects")}</legend>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="projects" value="move" defaultChecked />
+            {t("hub:changeUser.move")}
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="projects" value="stay" />
+            {t("hub:changeUser.stay")}
+          </label>
+        </fieldset>
+      </FormDialog>
+    );
   return (
     <>
       <FormDialog
@@ -189,6 +250,7 @@ function Identity({ device: d, manage }: { device: Device; manage: boolean }) {
   const { t } = useTranslation();
   const { rename } = useDeviceActions();
   const [changing, setChanging] = useState(false);
+  const [changed, setChanged] = useState<DeviceUserResult | null>(null);
   if (!manage)
     return (
       <Section title={t("hub:edit.identity")}>
@@ -199,7 +261,12 @@ function Identity({ device: d, manage }: { device: Device; manage: boolean }) {
   return (
     <Section title={t("hub:edit.identity")}>
       {/* Outside the form: a dialog's own submit would bubble into it. */}
-      <ChangeUserDialogs device={d} open={changing} onClose={() => setChanging(false)} />
+      <ChangeUserDialogs
+        device={d}
+        open={changing}
+        onClose={() => setChanging(false)}
+        onChanged={setChanged}
+      />
       <form
         className="grid gap-3"
         onSubmit={(e) => {
@@ -226,6 +293,11 @@ function Identity({ device: d, manage }: { device: Device; manage: boolean }) {
           <p className="text-muted wrap-anywhere">{t("hub:devices.user", { name: d.userName })}</p>
           <Button onClick={() => setChanging(true)}>{t("hub:changeUser.action")}</Button>
         </div>
+        {changed && (
+          <p role="status" className="text-muted wrap-anywhere">
+            {t("hub:changeUser.done", { name: changed.userName, count: changed.moved })}
+          </p>
+        )}
         <Alert error={rename.error} />
         <div>
           <Button type="submit" variant="primary" disabled={rename.isPending}>
@@ -275,6 +347,9 @@ function Software({ device: d, manage }: { device: Device; manage: boolean }) {
   const { t } = useTranslation();
   const { update } = useDeviceActions();
   const unknown = t("hub:devices.unknown");
+  const arch = deviceSystem(d.os)?.arch;
+  // A container can't replace its own image (ADR-0009): it shows the command, not an Update now.
+  const docker = d.install === "docker";
   return (
     <Section title={t("hub:edit.software")}>
       <p className="text-muted wrap-anywhere">
@@ -283,6 +358,12 @@ function Software({ device: d, manage }: { device: Device; manage: boolean }) {
           version: d.connectorVersion ?? unknown,
         })}
       </p>
+      {d.install && (
+        <p className="text-muted wrap-anywhere">
+          {t("hub:machine.installedAs", { kind: t(INSTALLS[d.install]) })}
+        </p>
+      )}
+      {arch && <p className="text-muted">{t("hub:machine.architecture", { arch })}</p>}
       {!d.online && (
         <p className="text-muted">
           {d.lastSeenAt
@@ -300,10 +381,20 @@ function Software({ device: d, manage }: { device: Device; manage: boolean }) {
                 })
               : d.updateFailed?.reason === "rollback"
                 ? t("hub:devices.failedRollback", { version: d.updateFailed.version })
-                : t("hub:devices.outdatedHint")}
+                : docker
+                  ? t("hub:machine.dockerUpdate")
+                  : t("hub:devices.outdatedHint")}
           </p>
+          {docker && (
+            <CommandBlock
+              name={t("hub:machine.copyUpdate")}
+              text={DOCKER_UPDATE}
+              copyLabel={t("hub:machine.copyUpdate")}
+            />
+          )}
           {/* An offline device can't get the event now. */}
           {manage &&
+            !docker &&
             (d.online ? (
               <>
                 <Alert error={update.error} />
@@ -469,6 +560,7 @@ function Slicers({ device: d }: { device: Device }) {
   const { slicers } = useDeviceActions();
   const [confirm, setConfirm] = useState(false);
   const libraries = librariesOf(d);
+  const canSlice = deviceCanSlice(d.os);
   return (
     <Section title={t("hub:machine.slicers")}>
       {libraries.length > 0 && (
@@ -483,12 +575,14 @@ function Slicers({ device: d }: { device: Device }) {
         label={t("hub:machine.useAsWorker")}
         name={t("hub:machine.useAsWorker")}
         checked={d.useAsWorker}
-        busy={slicers.isPending}
+        // Linux on ARM can't slice (ADR-0024): it can't be turned on, a stale "on" can still go off.
+        busy={slicers.isPending || (!canSlice && !d.useAsWorker)}
         // Off removes its installs in Integrations: asked first while it has one.
         onChange={(on) =>
           on || !d.sliceWorker ? slicers.mutate({ id: d.id, useAsWorker: on }) : setConfirm(true)
         }
       />
+      {!canSlice && may.manage && <p className="text-muted">{t("hub:machine.cantSlice")}</p>}
       {/* A slicer is set up on a worker machine from Add integration, then managed on its card. */}
       {d.useAsWorker && may.integrations && <SlicerLinks device={d} />}
       <Alert error={slicers.error} />
@@ -584,6 +678,67 @@ function SlicersCatalog({ device: d }: { device: Device }) {
   );
 }
 
+/**
+ * Folders whose deletes the mass delete guard held (a sync folder that went missing): delete them
+ * on the hub too, or restore them, from here, so a machine with no screen can answer (ADR-0024).
+ * The connector does it live, so it needs to be online.
+ */
+function HeldFolders({ device: d, edit }: { device: Device; edit: boolean }) {
+  const { t } = useTranslation();
+  const { held } = useDeviceActions();
+  const [asking, setAsking] = useState<{ rootId: string; name: string } | null>(null);
+  const rows = d.sync?.state === "paused" ? d.sync.held : [];
+  if (!rows.length) return null;
+  const answer = (rootId: string, action: "confirm" | "restore") =>
+    held.mutate({ id: d.id, rootId, action }, { onSettled: () => setAsking(null) });
+  return (
+    <div className="grid gap-2">
+      {rows.map((r) => (
+        <div key={r.rootId} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="wrap-anywhere">
+            {t("hub:machine.held.line", { name: r.name, count: r.files })}
+          </span>
+          {edit && (
+            <>
+              <Button
+                disabled={!d.online || held.isPending}
+                aria-label={t("hub:machine.held.confirmNamed", { name: r.name })}
+                onClick={() => setAsking({ rootId: r.rootId, name: r.name })}
+              >
+                {t("hub:machine.held.confirm")}
+              </Button>
+              <Button
+                disabled={!d.online || held.isPending}
+                aria-label={t("hub:machine.held.restoreNamed", { name: r.name })}
+                onClick={() => answer(r.rootId, "restore")}
+              >
+                {t("hub:machine.held.restore")}
+              </Button>
+            </>
+          )}
+        </div>
+      ))}
+      {edit && !d.online && <OfflineNote />}
+      {held.isSuccess && held.variables?.action === "restore" && (
+        <p role="status" className="text-muted">
+          {t("hub:machine.held.restoring")}
+        </p>
+      )}
+      <Alert error={held.error} />
+      <ConfirmDialog
+        open={!!asking}
+        destructive
+        title={t("hub:machine.held.confirmTitle", { name: asking?.name ?? "" })}
+        description={t("hub:machine.held.confirmBody")}
+        confirmLabel={t("hub:machine.held.confirm")}
+        busy={held.isPending}
+        onCancel={() => setAsking(null)}
+        onConfirm={() => asking && answer(asking.rootId, "confirm")}
+      />
+    </div>
+  );
+}
+
 function Projects({ device: d }: { device: Device }) {
   const { t } = useTranslation();
   const may = useMay(d);
@@ -615,6 +770,7 @@ function Projects({ device: d }: { device: Device }) {
         )}
         {d.receiveProjects && d.sync && <SyncLine sync={d.sync} />}
       </div>
+      {d.receiveProjects && <HeldFolders device={d} edit={edit} />}
       <div className={SWITCH_LINE}>
         <Setting
           edit={edit}

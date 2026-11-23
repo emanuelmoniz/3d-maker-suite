@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { MonitorSmartphone } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AddDialog } from "../../components/AddDialog.tsx";
 import type { BulkRow } from "../../components/ArchiveActions.tsx";
 import { Button } from "../../components/Button.tsx";
 import { Combobox } from "../../components/Combobox.tsx";
@@ -12,17 +13,22 @@ import { CopyButton } from "../../components/CopyButton.tsx";
 import { DataTable } from "../../components/DataTable.tsx";
 import { EmptyState } from "../../components/EmptyState.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
-import { FormField } from "../../components/FormField.tsx";
+import { FormField, inputClass } from "../../components/FormField.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
+import { Section } from "../../components/Section.tsx";
 import { SelectionBar, SelectionResult } from "../../components/SelectionBar.tsx";
 import { SettingsLink } from "../../components/SettingsLink.tsx";
 import { api } from "../../lib/api.ts";
 import { textLink } from "../../lib/cx.ts";
 import { formatDateTime, formatTime } from "../../lib/format.ts";
-import { useDeviceActions, useDevices } from "../../lib/hub.ts";
+import { useDeviceActions, useDevices, usePairingCodes } from "../../lib/hub.ts";
+import { DOCKER_UP, pairCommands, WINDOWS_ACCOUNT_SWITCHES } from "../../lib/pairCommands.ts";
+import { useVersion } from "../../lib/updates.ts";
 import { useUsers } from "../../lib/users.ts";
+import { tileClass } from "../settings/IntegrationFormPage.tsx";
+import { CommandBlock } from "./CommandBlock.tsx";
 
-type Dialog = { kind: "pair" } | { kind: "code"; code: string; expiresAt: string };
+type Dialog = { kind: "pair" } | { kind: "code" | "headless"; code: string; expiresAt: string };
 
 // Literal keys so `pnpm i18n:check` sees them.
 const OS = {
@@ -218,6 +224,159 @@ function DeviceTable({ devices }: { devices: Device[] }) {
   );
 }
 
+const choiceClass = `${tileClass} items-center py-2`;
+
+// Literal keys so `pnpm i18n:check` sees them.
+const KINDS = {
+  desktop: { label: "hub:pair.kind.desktop", hint: "hub:pair.kindHint.desktop" },
+  headless: { label: "hub:pair.kind.headless", hint: "hub:pair.kindHint.headless" },
+} as const;
+const HOWS = {
+  docker: "hub:headless.docker",
+  linux: "hub:headless.linux",
+  windows: "hub:headless.windows",
+} as const;
+const PENDING_KINDS = {
+  desktop: "hub:pending.kind.desktop",
+  headless: "hub:pending.kind.headless",
+} as const;
+
+/** The commands for a NAS, server or container: the code and the hub's address filled in (ADR-0024). */
+function HeadlessDialog({
+  code,
+  expiresAt,
+  onClose,
+}: {
+  code: string;
+  expiresAt: string;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const version = useVersion();
+  const [hubUrl, setHubUrl] = useState(window.location.origin);
+  const [how, setHow] = useState<"docker" | "linux" | "windows">("docker");
+  const commands = pairCommands({ hubUrl: hubUrl.trim().replace(/\/+$/, ""), code, version });
+  return (
+    <AddDialog open title={t("hub:headless.title")} wide onClose={onClose}>
+      <div className="grid gap-4">
+        <p className="text-muted">{t("hub:headless.body", { time: formatDateTime(expiresAt) })}</p>
+        <p className="select-all text-center font-mono text-2xl font-semibold tracking-widest">
+          {code}
+        </p>
+        <FormField label={t("hub:headless.hubAddress")} hint={t("hub:headless.hubAddressHint")}>
+          {(p) => (
+            <input
+              {...p}
+              type="url"
+              value={hubUrl}
+              onChange={(e) => setHubUrl(e.target.value)}
+              className={inputClass}
+            />
+          )}
+        </FormField>
+        <fieldset className="grid gap-2">
+          <legend className="mb-1.5 font-medium">{t("hub:headless.how")}</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(Object.keys(HOWS) as (keyof typeof HOWS)[]).map((k) => (
+              <label key={k} className={choiceClass}>
+                <input type="radio" name="how" checked={how === k} onChange={() => setHow(k)} />
+                <span>{t(HOWS[k])}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {how === "docker" && (
+          <>
+            <p className="text-muted">{t("hub:headless.dockerHint")}</p>
+            <CommandBlock
+              name={t(HOWS.docker)}
+              text={commands.docker}
+              copyLabel={t("hub:headless.copyCompose")}
+            />
+            <CommandBlock
+              name={t("hub:headless.copyCommand")}
+              text={DOCKER_UP}
+              copyLabel={t("hub:headless.copyCommand")}
+            />
+          </>
+        )}
+        {how === "linux" && (
+          <>
+            <p className="text-muted">{t("hub:headless.linuxHint")}</p>
+            <CommandBlock
+              name={t(HOWS.linux)}
+              text={commands.linux}
+              copyLabel={t("hub:headless.copyCommands")}
+            />
+          </>
+        )}
+        {how === "windows" && (
+          <>
+            <p className="text-muted">{t("hub:headless.windowsHint")}</p>
+            <CommandBlock
+              name={t(HOWS.windows)}
+              text={commands.windows}
+              copyLabel={t("hub:headless.copyCommand")}
+            />
+            <p className="text-muted">{t("hub:headless.windowsAccount")}</p>
+            <CommandBlock
+              name={t("hub:headless.copyAccount")}
+              text={WINDOWS_ACCOUNT_SWITCHES}
+              copyLabel={t("hub:headless.copyAccount")}
+            />
+          </>
+        )}
+        <div className="flex justify-end">
+          <Button variant="primary" onClick={onClose}>
+            {t("hub:code.done")}
+          </Button>
+        </div>
+      </div>
+    </AddDialog>
+  );
+}
+
+/** Codes nobody used yet: a 24-hour one outlives the admin's visit, so it can be withdrawn. */
+function PendingCodes() {
+  const { t } = useTranslation();
+  const codes = usePairingCodes();
+  const { withdrawCode } = useDeviceActions();
+  if (!codes.data?.length) return null;
+  return (
+    <Section title={t("hub:pending.title")}>
+      <p className="text-muted">{t("hub:pending.hint")}</p>
+      <ul className="grid gap-2">
+        {codes.data.map((c) => {
+          const when = formatDateTime(c.expiresAt);
+          return (
+            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span className="wrap-anywhere">
+                {t("hub:pending.line", {
+                  user: c.userName,
+                  kind: t(PENDING_KINDS[c.kind]),
+                  when,
+                })}
+              </span>
+              <Button
+                aria-label={t("hub:pending.withdrawNamed", { user: c.userName, when })}
+                disabled={withdrawCode.isPending}
+                onClick={() => withdrawCode.mutate(c.id)}
+              >
+                {t("hub:pending.withdraw")}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+      {withdrawCode.isError && (
+        <p role="alert" className="text-bad">
+          {t("hub:errors.generic")}
+        </p>
+      )}
+    </Section>
+  );
+}
+
 /** Hub management (ADR-0014): admin only, in the menu while the hub is on. */
 export function HubPage() {
   const { t } = useTranslation();
@@ -264,6 +423,7 @@ export function HubPage() {
             description={t("hub:devices.emptyBody")}
           />
         ))}
+      <PendingCodes />
 
       <FormDialog
         open={dialog?.kind === "pair"}
@@ -272,17 +432,37 @@ export function HubPage() {
         error={error}
         busy={pairingCode.isPending}
         onCancel={close}
-        onSubmit={(f) =>
-          pairingCode.mutate(String(f.get("userId") ?? ""), {
-            onSuccess: ({ code, expiresAt }) => setDialog({ kind: "code", code, expiresAt }),
-          })
-        }
+        onSubmit={(f) => {
+          const kind = f.get("kind") === "headless" ? "headless" : "desktop";
+          pairingCode.mutate(
+            { userId: String(f.get("userId") ?? ""), kind },
+            {
+              onSuccess: ({ code, expiresAt }) =>
+                setDialog({ kind: kind === "headless" ? "headless" : "code", code, expiresAt }),
+            },
+          );
+        }}
       >
         <p className="text-muted">{t("hub:pair.hint")}</p>
+        <fieldset className="grid gap-2">
+          <legend className="mb-1.5 font-medium">{t("hub:pair.kindLegend")}</legend>
+          {(Object.keys(KINDS) as (keyof typeof KINDS)[]).map((k) => (
+            <label key={k} className={tileClass}>
+              <input type="radio" name="kind" value={k} defaultChecked={k === "desktop"} />
+              <span className="grid">
+                <span className="font-medium">{t(KINDS[k].label)}</span>
+                <span className="text-muted">{t(KINDS[k].hint)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <FormField label={t("hub:pair.user")}>
           {(p) => <Combobox {...p} name="userId" options={people} required />}
         </FormField>
       </FormDialog>
+      {dialog?.kind === "headless" && (
+        <HeadlessDialog code={dialog.code} expiresAt={dialog.expiresAt} onClose={close} />
+      )}
 
       <ConfirmDialog
         open={dialog?.kind === "code"}

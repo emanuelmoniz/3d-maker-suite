@@ -3,10 +3,15 @@ import {
   type ConnectorSettingsPatch,
   type ConnectorSettingsResult,
   type Device,
+  type DeviceHeldAction,
   type DeviceLibraryUpdate,
   type DeviceSystem,
+  type DeviceUserResult,
+  type DeviceUserSet,
   type HubVersionsUsage,
   type PairingCode,
+  type PairingCodeKind,
+  type PendingPairingCode,
   type Pick,
   type PickLevel,
   type ServerSystem,
@@ -17,6 +22,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api.ts";
 
 const KEY = ["hub", "devices"];
+const CODES_KEY = ["hub", "pairing-codes"];
+
+/** Unused pairing codes (never the code itself), newest first. */
+export const usePairingCodes = () =>
+  useQuery({
+    queryKey: CODES_KEY,
+    queryFn: () => api<PendingPairingCode[]>("GET", "/api/hub/pairing-codes"),
+    refetchInterval: 30_000,
+  });
 
 // Every 30 s, so online and last seen stay fresh while the page is open.
 export const useDevices = (enabled = true) =>
@@ -90,8 +104,30 @@ export function useDeviceActions() {
   const refresh = () => qc.invalidateQueries({ queryKey: KEY });
   return {
     pairingCode: useMutation({
-      mutationFn: (userId: string) =>
-        api<PairingCode>("POST", "/api/hub/pairing-codes", { userId }),
+      mutationFn: (body: { userId: string; kind: PairingCodeKind }) =>
+        api<PairingCode>("POST", "/api/hub/pairing-codes", body),
+      // A 24-hour code is listed until it's used or withdrawn.
+      onSuccess: () => qc.invalidateQueries({ queryKey: CODES_KEY }),
+    }),
+    /** A pairing code nobody used yet, withdrawn: it pairs nothing any more. */
+    withdrawCode: useMutation({
+      mutationFn: (id: string) => api("DELETE", `/api/hub/pairing-codes/${id}`),
+      onSuccess: () => qc.invalidateQueries({ queryKey: CODES_KEY }),
+    }),
+    /** A headless connector's user, changed by an admin at once, with no code (ADR-0024). */
+    setUser: useMutation({
+      mutationFn: ({ id, ...body }: DeviceUserSet & { id: string }) =>
+        api<DeviceUserResult>("POST", `/api/hub/devices/${id}/user`, body),
+      onSuccess: refresh,
+    }),
+    /** A sync folder's held deletes: delete them on the hub too, or restore the files (live). */
+    held: useMutation({
+      mutationFn: ({ id, ...body }: DeviceHeldAction & { id: string }) =>
+        api("POST", `/api/hub/devices/${id}/sync/held`, body),
+      // The connector reports its sync state again a moment later.
+      onSuccess: () => {
+        for (const ms of [500, 2_000, 6_000]) setTimeout(refresh, ms);
+      },
     }),
     userCode: useMutation({
       mutationFn: ({ id, userId }: { id: string; userId: string }) =>

@@ -5117,7 +5117,7 @@ Do Step 5b of the 6.3.0 plan in PLAN.md.
 Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for the real printer test.
 ```
 
-### [ ] Step 7 - Hub management: pair a headless or container device
+### [x] Step 7 - Hub management: pair a headless or container device
 **Model:** Sonnet · **Effort:** Medium
 **Scope:**
 - **Pair a device** gives a choice: this computer with a screen, or a NAS, server or container.
@@ -5127,6 +5127,17 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 - The slice worker switch is greyed out, with the reason, on ARM.
 - The machine page shows a connector's missing sync folders with **Delete on the hub too** and **Restore them** (every connector, desktops too), and **Change user** on a headless connector applies at once, without a code (Step 2).
 - i18n keys, e2e spec, `pnpm screenshots` and the wiki screenshots for Hub management.
+
+**Done (2026-11-23):**
+- **Pair a device** asks where the connector runs. The NAS, server or container choice makes a 24-hour code and shows the compose file, the `install.sh --headless` line and the Windows Server line (`apps/web/src/lib/pairCommands.ts`, tested). The hub address starts as the one the admin opened and can be changed.
+- **Unused pairing codes** are listed with **Withdraw**.
+- **The machine page** shows how the connector is installed and its architecture. A Docker connector shows the update command with a copy button instead of **Update now**.
+- **Linux on ARM can't slice:** the slice worker switch is greyed out with the reason, and `PATCH /api/hub/devices/:id` answers 409 `slicing_unsupported` (`deviceCanSlice` in core). Not in the plan, added because a greyed switch alone can be bypassed.
+- **Held sync folders** get **Delete on the hub too** and **Restore them** on the machine page, for every connector.
+- **Change user** on a headless or Docker connector applies at once (move or leave the projects).
+- Tests: `deviceSystem` and `deviceCanSlice`, the ARM refusal in `hub.test.ts`, `pairCommands`, and `e2e/hub-nas.e2e.ts`.
+- Docs: wiki `Hub-Management` and `Connector-Setup` (24-hour codes), ADR-0024 amendment, `docs/architecture.md`, the compose example, and the `hub`, `wiki-hub-machine` and new `wiki-hub-pair-nas` screenshots.
+- `e2e/hub.e2e.ts` "pair a device, edit it, revoke it" fails at its "Already set up on this machine" line with or without this step (no Bambu Studio on this PC).
 
 **Done when:** an admin can pair a container from the page without reading the docs; every new string goes through i18n; tests, lint, `pnpm typecheck`, `pnpm i18n:check` and the e2e specs for Hub management pass.
 **Prompt:**

@@ -9,6 +9,7 @@ import {
   connectorSettingsResultSchema,
   connectorSettingsSchema,
   connectorUpdateFailureSchema,
+  deviceCanSlice,
   deviceHeldActionSchema,
   deviceLibraryUpdateSchema,
   devicePathIn,
@@ -386,6 +387,12 @@ export const hubRoutes =
           machineGuard(db, req.user, row.id, "projects");
         if (receiveCatalog !== undefined || shareCatalog !== undefined)
           machineGuard(db, req.user, row.id, "catalog");
+        if (useAsWorker && !deviceCanSlice(row.os))
+          throw new HttpError(
+            409,
+            "slicing_unsupported",
+            "This machine can't slice: Bambu Studio and OrcaSlicer have no build for Linux on ARM",
+          );
         // First, so a removal that fails (a sync running) leaves the switch on.
         if (useAsWorker === false) await dropWorkers(row.id);
         if (

@@ -555,7 +555,13 @@ test("wiki screenshots", async ({ page, app }) => {
   const { deviceId, token } = await fetch(`${app.url}/api/hub/pair`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code, name: "Desk PC", os: "win32", connectorVersion: version }),
+    body: JSON.stringify({
+      code,
+      name: "Desk PC",
+      os: "Windows_NT 10.0.26100 x64",
+      connectorVersion: version,
+      install: "bundle",
+    }),
   }).then((r) => r.json() as Promise<{ deviceId: string; token: string }>);
   // Slicer presets in the library, shared the way the connector sends them: the machine has a slicer
   // with User presets Share on.
@@ -591,5 +597,15 @@ test("wiki screenshots", async ({ page, app }) => {
     ["catalog-library", "/catalog/settings/library"],
   ]);
   await shoot([["hub-machine", `/hub/devices/${deviceId}`]], true);
+  // The pairing dialog for a NAS, server or container: the code and the lines to paste.
+  await page.goto("/settings/hub");
+  await page.getByRole("button", { name: "Pair a device" }).click();
+  const pairing = page.getByRole("dialog", { name: "Pair a device" });
+  await pairing.getByRole("radio", { name: /A NAS, server or container/ }).check();
+  await pairing.getByLabel("User").click();
+  await page.getByRole("option").first().click();
+  await pairing.getByRole("button", { name: "Create code" }).click();
+  await expect(page.getByRole("dialog", { name: "Pair a NAS or server" })).toBeVisible();
+  await page.screenshot({ path: `${IMAGES}/wiki-hub-pair-nas.png` });
   await tabs("projects-settings", "/projects/settings", ["consumers"]);
 });
