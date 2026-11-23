@@ -169,7 +169,8 @@
       "integration_exists": "This source is already set up. Find its card on the Integrations page.",
       "printer_required": "Pick the printer this is, or a new printer.",
       "printer_has_source": "Another network source is already that printer. Pick another one.",
-      "no_printer": "The source answered but names no printer."
+      "no_printer": "The source answered but names no printer.",
+      "printer_not_heard": "The printer's announcement wasn't heard, so it can't be found by its serial number. A server or connector in Docker, on another network or behind a firewall doesn't get it. Enter the printer's IP address."
     }
   },
   "adapters": {
@@ -219,7 +220,7 @@
     "bambu-lan": {
       "name": "Bambu Lab printer (LAN)",
       "fields": {
-        "host": "Printer IP (optional when the server is on the same network)",
+        "host": "Printer IP (optional when the printer's announcement reaches the server; needed in Docker without host networking)",
         "serial": "Serial number (optional when the IP is set)",
         "accessCode": "Access code (on the printer's screen)"
       },

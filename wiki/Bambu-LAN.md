@@ -32,7 +32,7 @@ The printer's page then shows where it is read from and whether it answers. See 
 |---|---|---|---|
 | **Printer** | The printer this source is, or **New printer from this source** | Yes | New printer from this source |
 | **Name** | The name of a new printer. A printer you picked keeps its own name, and has **Rename on the printer page** | No | Workshop A1 |
-| **Printer IP (optional when the server is on the same network)** | The printer's address on your network | The IP or the serial | `192.168.1.40` |
+| **Printer IP (optional when the printer's announcement reaches the server; needed in Docker without host networking)** | The printer's address on your network | The IP or the serial | `192.168.1.40` |
 | **Serial number (optional when the IP is set)** | On the printer's screen under the device info, or on Bambu Studio's device page | The IP or the serial | `01P00A000000000` |
 | **Access code (on the printer's screen)** | The code from the screen. Stored encrypted | Yes | |
 | **Reached from** | **This server**, or a computer next to the printer. Only with a hub | No | This server |
@@ -40,7 +40,7 @@ The printer's page then shows where it is read from and whether it answers. See 
 You must give the IP, the serial, or both. If neither is filled in, the form says **Enter the printer's IP or its serial number.**
 
 - With the IP, the app reads the serial from the printer and saves it on the printer.
-- With the serial alone, the app finds the printer by the broadcast it sends every 10 seconds. That needs the server on the same network segment. A server in Docker on a bridged network doesn't hear it, so give it the IP.
+- With the serial alone, the app finds the printer by the announcement it sends every 10 seconds. That needs the server, or the connector, on the same network segment. A container on a bridged network doesn't hear it (use `network_mode: host`, see [Connector setup](Connector-Setup.md)), and neither does another subnet, so give it the IP. If it can't be found, **Test** and **Save** say **The printer's announcement wasn't heard** and ask for the IP.
 - With both, the IP is where it starts, and the app follows the printer by its serial when its IP changes.
 - A printer you picked already has its own serial. The IP is then optional, unless it has none yet. A printer with no serial says **This printer has no serial number yet. Enter its IP.**
 
@@ -111,6 +111,7 @@ The printer says what is in each tray, also when idle, so the app loads the spoo
 |---|---|
 | **Sign-in required. Check the credentials.** | The access code is wrong, or the printer made a new one. It does that when LAN Only mode is switched and on a reset. Copy it again from the screen |
 | **The vendor service can't be reached.** | Check the IP on the printer's screen and that the server's computer reaches it. In Docker, use the IP and a network the printer can be reached from |
+| **The printer's announcement wasn't heard, so it can't be found by its serial number.** | You gave the serial alone, and the server or connector doesn't get the printer's announcement: a container on a bridged network, another subnet, or a firewall. Enter the printer's IP |
 | **Offline** on the dashboard | The printer is off or out of reach. A printer that goes away during a print raises a **Printer offline** alert |
 | No grams on a print | The print's file wasn't on the printer, for example a print started from the SD card, or it couldn't be read in time. The grams come from the project's plate, or the slot waits in [Filament review](Filament-Review.md) |
 | **Enter the printer's IP or its serial number.** | Fill in one of them |

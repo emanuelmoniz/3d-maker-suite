@@ -75,10 +75,22 @@ const FORM_ERRORS: Record<string, string> = {
   printer_has_source: "integrations:form.errors.printer_has_source",
   no_printer: "integrations:form.errors.no_printer",
 };
+/**
+ * A Bambu printer set up by its serial alone is found by its announce, which a connector in a
+ * container on a bridge network, or on another subnet, never hears (ADR-0024). Nothing "can't be
+ * reached" there: there is no address to try, so the text asks for one.
+ */
+const printerNotHeard = (code: string | undefined, adapterId?: string, config?: unknown) =>
+  code === "unreachable" &&
+  adapterId === "bambu-lan" &&
+  !(config as { host?: string } | undefined)?.host;
+
 /** A save's error, or (a printer on the network that didn't answer at save) the test's. */
-const errorKey = (error: unknown) =>
+const errorKey = (error: unknown, adapterId?: string, config?: unknown) =>
   error instanceof ApiError && error.code
-    ? (FORM_ERRORS[error.code] ?? ERRORS[error.code as keyof typeof ERRORS])
+    ? printerNotHeard(error.code, adapterId, config)
+      ? "integrations:form.errors.printer_not_heard"
+      : (FORM_ERRORS[error.code] ?? ERRORS[error.code as keyof typeof ERRORS])
     : undefined;
 
 export const tileClass =
@@ -364,14 +376,21 @@ function TestLine({ tryOut }: { tryOut: ReturnType<typeof useTryIntegration> }) 
   if (tryOut.isError)
     return (
       <p role="status" className="text-bad">
-        {t(errorKey(tryOut.error) ?? "integrations:card.actionError")}
+        {t(
+          errorKey(tryOut.error, tryOut.variables?.adapterId, tryOut.variables?.config) ??
+            "integrations:card.actionError",
+        )}
       </p>
     );
   if (!r) return null;
   if (!r.ok)
     return (
       <p role="status" className="text-bad">
-        {t(ERRORS[r.code])}
+        {t(
+          printerNotHeard(r.code, tryOut.variables?.adapterId, tryOut.variables?.config)
+            ? "integrations:form.errors.printer_not_heard"
+            : ERRORS[r.code],
+        )}
       </p>
     );
   const [one] = r.printers;
@@ -684,7 +703,11 @@ export function IntegrationCreatePage() {
         {testable && <TestLine tryOut={form.tryOut} />}
         {failed.isError && (
           <p role="alert" className="text-bad">
-            {t(failedCode ?? errorKey(failed.error) ?? "integrations:form.error")}
+            {t(
+              failedCode ??
+                errorKey(failed.error, adapter?.id, failed.variables?.config) ??
+                "integrations:form.error",
+            )}
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -767,7 +790,10 @@ export function IntegrationEditPage() {
           <TestLine tryOut={form.tryOut} />
           {patch.isError && (
             <p role="alert" className="text-bad">
-              {t(errorKey(patch.error) ?? "integrations:form.editError")}
+              {t(
+                errorKey(patch.error, saved?.adapterId, patch.variables?.config) ??
+                  "integrations:form.editError",
+              )}
             </p>
           )}
           <div className="flex flex-wrap gap-2">

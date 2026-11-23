@@ -55,7 +55,19 @@ NAS systems don't let users add services, so they use the image. A connector in 
 - **The compose example uses host networking (agreed with the user).** Discovery works whichever of broadcast or multicast the printer uses. There are no ports to publish or keep free, and it doesn't depend on Docker's port forwarder. The connector's page binds the host's loopback, so it is still not reachable from the network. NAS container apps offer host networking as a switch. A commented bridge variant is kept for those who type printer addresses.
 - A connector in host networking on the same machine as a hub refuses to start, as on a desktop (S2 case 8): one hub per machine. A NAS that runs the hub doesn't need a connector to reach its own network.
 - Where discovery hears nothing, the printer setup says so in plain words and asks for the address (Plan 6.3.0 Step 6). Which destination a real Bambu printer uses is checked there on the user's A1.
-- Which adapters work in which mode, per adapter, is recorded here by Plan 6.3.0 Step 6.
+- **Per adapter (Plan 6.3.0 Step 6).** Read from the code: the only code in the adapters that opens a socket for something sent to it is the Bambu LAN announce listener (`packages/adapters/bambu/src/lan/ssdp.ts`); a search for `dgram`, SSDP and mDNS over `packages/adapters` finds nothing else. The rest is checked in S5.
+
+  | Adapter | Host | Bridge | Why |
+  |---|---|---|---|
+  | Bambu LAN, with the printer's IP | works | works | MQTT over TLS (8883) and FTPS go out from the connector |
+  | Bambu LAN, serial only | works | doesn't | found by its announce on UDP 2021 and 1990 (multicast `239.255.255.250`; broadcast too, see the A1 line below). Bridge hears neither multicast ever, and broadcast only with those ports published |
+  | Moonraker | works | works | HTTP and a WebSocket out, typed address |
+  | OctoPrint | works | works | HTTP out, typed address |
+  | PrusaLink | works | works | HTTP out, typed address |
+  | Spoolman | works | works | HTTP out, typed address |
+
+  **Where the announce isn't heard** (a bridge, another subnet, a firewall), a source set up by serial alone has no address to try. **Test**, **Save** and the Edit page say **The printer's announcement wasn't heard** and ask for the IP (`integrations:form.errors.printer_not_heard`), instead of "The vendor service can't be reached".
+- **The A1's announce destination: not measured yet.** The listener on the author's PC heard nothing on 2021 or 1990, in plain or multicast mode (2026-11-23; the A1 isn't heard from that PC at all). The Plan 6.0.0 spike notes (`spike/printers/NOTES.md`) record the A1's NOTIFY going to `239.255.255.250`, so a bridge with published ports would not hear it. Step 6's real test confirms this in a container.
 
 ### Folders on shares
 - A folder on the machine's own disk sends change events into the container, bind mount or volume, including new subfolders and bursts (S6). That is a NAS's usual case: its own shared folders are local disks, and SMB clients write through the NAS's samba.

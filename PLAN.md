@@ -5098,7 +5098,7 @@ Do Step 5 of the 6.3.0 plan in PLAN.md.
 Do Step 5b of the 6.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 6 - Printers through a container or NAS connector
+### [x] Step 6 - Printers through a container or NAS connector
 **Model:** Sonnet · **Effort:** High
 **Scope:**
 - Check every adapter the connector can run (Bambu LAN, Moonraker, OctoPrint, PrusaLink, Spoolman) from a container with host networking (the compose example's default) and with bridge networking.
@@ -5109,7 +5109,9 @@ Do Step 5b of the 6.3.0 plan in PLAN.md.
 - Fix what fails. Where discovery hears nothing (bridge, another subnet), the printer setup says so in plain words and asks for the address (i18n keys), not a workaround in the docs.
 - Bambu LAN on the real printer from a container: the user's A1 on the LAN, tested together.
 
-**Done when:** each adapter is marked works or doesn't in the ADR, with the reason; the A1 reports status and a print through a container connector; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
+**Done (2026-11-23):** every adapter is marked in ADR-0024 (works in host and bridge with a typed address; Bambu LAN by serial alone only in host, from the code and Step 1's S5). A Bambu LAN source set up by serial alone that hears no announce says **The printer's announcement wasn't heard** and asks for the IP, on **Test**, **Add** and **Edit** (`integrations:form.errors.printer_not_heard`, only when no IP was typed); the wiki `Bambu-LAN` page and the field hint follow. Tests: an e2e spec in `e2e/bambu-lan-setup.e2e.ts`. **Not done, agreed with the user (not near the printer): the real test on the A1** and the A1's announce destination (a listener on the author's PC heard nothing on 2021 or 1990). It is Test R1 under "Open real-world tests" at the end of this file; ADR-0024 says "not measured yet" until then.
+
+**Done when:** each adapter is marked works or doesn't in the ADR, with the reason; the A1 reports status and a print through a container connector (moved to R1 below); tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
 **Prompt:**
 ```
 Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for the real printer test.
@@ -5318,6 +5320,7 @@ Do Step 8g of the 6.3.0 plan in PLAN.md.
 **Scope:**
 - Real test, with the user's hardware: an ARM64 machine with the archive, a NAS or server with the container, a hub, a printer on the container's network, a project folder on the NAS shown in the hub, and one update of the hub with the connector following.- Updates and backups (Phase 67b): a Docker update leaves a backup, and a Docker rollback with the app's steps works; a newer backup is refused; a fresh install restores from the first-run screen and restarts by itself, with the public address and slicers back; **Uninstall…** on the user's PC.
 - Hub (Steps 1b, 7b to 7d): the first admin of a fresh container from another device; the hub moved to a new address with its connectors following; a connector replaced by another computer, and one removed.
+- The tests of "Open real-world tests" at the end of this file (R1 to R8) that the user's hardware at that point allows. Any still open go into the CHANGELOG as **Not tested on real hardware**.
 - Fix anything found. Docs and wiki: `docs/hub.md` (its "a NAS joins by running a connector" is now true, with the install steps), ADR-0014 amendment, README feature list and support matrix, the wiki pages named at the top of this plan (and their screenshots), CHANGELOG, version `6.3.0-alpha.1` in root, `apps/*` and `packages/*`, `pnpm version:check`, `pnpm wiki:check`.
 - Commit on `dev`, push, tag `v6.3.0-alpha.1` on `dev`.
 
@@ -5444,3 +5447,198 @@ Then fast-forward main to dev, push, push the v6.3.0 tag and confirm the release
 | printers: Maintenance as a tab | 6.1 · 25 |
 | wiki: full guide for install, deploy and every page | Wiki · 1-27 |
 | help link on every page, opening the wiki | 6.2 · 1-3 |
+
+---
+
+# Open real-world tests
+
+Tests that need hardware or a place the author's PC doesn't have, and that no step has done yet. The code and the automated tests for each are finished; what is missing is the hands-on result. **Nothing here blocks a tag.** Each pre-release's CHANGELOG lists what was **not tested on real hardware** (the pattern of 5.4.0 and 6.0.0-alpha.2), taken from the unchecked boxes below, and a stable release states the same until they are done.
+
+How to use this section:
+- Do one test at a time. Each says what to have ready, the steps, what a pass looks like, and exactly what to write down and where.
+- When a test is done, tick its box here, write the result in the place it names (ADR amendment, wiki page, CHANGELOG line), and commit as `docs(test): R<n> ...`. A failure becomes a fix or a new step; a limit users can hit gets a fix or a plan step, not a docs workaround.
+- To have Claude guide a run: `Run test R<n> from "Open real-world tests" in PLAN.md. Guide me through each step, then write down the result.`
+- Don't point a test at anything that holds real data: use a throwaway Spoolman, a throwaway hub or a copy of the database, and never press **Delete** on a real project.
+
+| | Test | Needs | Status |
+|---|---|---|---|
+| [ ] | **R1** The Bambu A1 through a container connector | A Linux machine with Docker on the printer's LAN, the A1 | Open (6.3.0 Step 6) |
+| [ ] | **R2** The A1 in LAN Only mode, a print started over LAN | The A1 | Open (6.0.0 Step 9) |
+| [ ] | **R3** Printers of other brands: Prusa, OctoPrint, Klipper, and a real Spoolman | A tester's printers | Open (6.0.0) |
+| [ ] | **R4** The connector and the app on a real ARM64 machine | A Raspberry Pi 4 or 5 (64-bit OS), or another ARM64 Linux | Open (6.3.0 Step 3) |
+| [ ] | **R5** A NAS or server with Docker: files on real shares | A NAS (Synology, QNAP, Asustor) or a Linux server with Docker | Open (6.3.0 Steps 4, 5) |
+| [ ] | **R6** Windows Server headless: a real reboot, and a share on another machine | A Windows Server or a Windows PC, a NAS with an SMB share | Open (6.3.0 Steps 3b, 5b) |
+| [ ] | **R7** Images: a managed slicer as the `PUID` user, and the bridge variant | An x64 Linux machine with Docker | Open (6.3.0 Step 4) |
+| [ ] | **R8** Older "not tested on real hardware" items | Two PCs, a VPS | Confirm, then strike or run (5.x) |
+
+The Phase 67b and Hub scenarios of 6.3.0 Step 9 (backups before migrations, restore on a new install, **Uninstall…**, the first admin from another device, the hub moved to a new address, a connector replaced or removed) stay in Step 9: they depend on steps not built yet, and Step 9 lists them. Two additions to Step 9 from this section: the first-admin check in Docker (R5, step 9) and the `PUID` check on a real NAS (R5).
+
+## R1 - The Bambu A1 through a container connector
+**Why open:** 6.3.0 Step 6 couldn't be run next to the printer. The code asks for the printer's IP when its announcement isn't heard; what isn't measured is which way the A1 announces and what a container hears.
+
+**Have ready**
+- A Linux machine **with Docker and Compose v2, on the same LAN and subnet as the A1**: a Raspberry Pi, a NAS with SSH, a mini PC. Not Docker Desktop on Windows or macOS: its "host" network is a virtual machine, not your LAN, so it hears nothing.
+- A hub that machine can reach by URL (`http://hub:4300`), and an admin account on it.
+- The A1 switched on, on the same Wi-Fi/LAN: its **IP**, **serial number** and **access code** (on its screen: Settings → LAN Only Mode on the A1). LAN Only mode itself isn't needed here (R2 covers it).
+- The connector image. After `v6.3.0-alpha.1` is tagged: `ghcr.io/emanuelmoniz/3d-maker-suite-connector:dev`. Before that: on any machine with Docker and the repo, `docker build --target connector -t 3dms-connector .`, and use that name as `image:` in the compose file.
+- `docker-compose.connector.yml` from the repo, copied to the machine. Fill in `CONNECTOR_HUB_URL` and `CONNECTOR_PAIRING_CODE`, and set `CONNECTOR_NAME: test-a1`. Optional `PUID` and `PGID` (`id` over SSH).
+- A pairing code: **Hub management → Pair a device** (until Step 7 it is a 10-minute code: start the container within 10 minutes). The `POST /api/hub/pairing-codes` call with `kind: "headless"` makes a 24-hour one.
+- One short test print (a small cube) and a moment to press **Sync** or **Test**.
+
+**Step 1 - what the A1 sends (no connector yet).** Save this as `listen.mjs` on the Docker machine:
+```js
+import { createSocket } from "node:dgram";
+import { networkInterfaces } from "node:os";
+const mode = process.argv[2]; // "plain": broadcast only. "multicast": also joins 239.255.255.250
+let got = 0;
+for (const port of [2021, 1990]) {
+  const s = createSocket({ type: "udp4", reuseAddr: true });
+  s.on("message", (b, r) => {
+    got++;
+    if (b.toString().includes("bambulab")) console.log(mode, port, "NOTIFY from", r.address);
+  });
+  s.bind(port, () => {
+    if (mode === "multicast")
+      for (const i of Object.values(networkInterfaces()).flat())
+        if (i && i.family === "IPv4" && !i.internal)
+          try { s.addMembership("239.255.255.250", i.address); } catch {}
+  });
+}
+setTimeout(() => { console.log(mode, "packets:", got); process.exit(0); }, 30_000);
+```
+Run each mode on the host network, 30 seconds each:
+```
+docker run --rm --network host -v "$PWD/listen.mjs:/listen.mjs:ro" node:22-trixie-slim node /listen.mjs plain
+docker run --rm --network host -v "$PWD/listen.mjs:/listen.mjs:ro" node:22-trixie-slim node /listen.mjs multicast
+```
+- `plain` prints a NOTIFY from the A1's IP: the A1 **broadcasts** (a bridge with 2021 and 1990 published will hear it).
+- Only `multicast` prints it: the A1 **multicasts** (only host or macvlan hears it).
+- Neither: the printer isn't on this subnet, a switch or access point blocks multicast, or the A1 is asleep. Fix that first; a result of "nothing" says nothing about the code.
+
+**Step 2 - host networking, serial only.** Compose as shipped (`network_mode: host`), then `docker compose -f docker-compose.connector.yml up -d` and `logs -f connector`. The log says it paired. In the hub: **Hub management** shows `test-a1` online. Open **Hub management → test-a1**, turn **Reach printers** on. **Integrations → Add integration → Bambu Lab printer (LAN)**: leave **Printer IP** empty, give the **Serial number** and **Access code**, **Reached from** `test-a1`, **Test**. Pass: it finds the printer ("Connection works. Found …"). Save. The printer's page shows it **Idle** and its AMS slots, within about 15 seconds.
+
+**Step 3 - host networking, IP only.** Edit the source: serial empty, **Printer IP** filled in. **Test** passes and Save keeps the printer's serial.
+
+**Step 4 - a print.** Start the small print (from Bambu Studio, Handy or the screen). Pass: the printer's page shows state, progress and the temperatures, and when it ends **Prints** has one print with grams from the job's 3MF, the plate and the slots. Cancel a second print: it is recorded as failed or cancelled with the estimate the app uses, never as a success.
+
+**Step 5 - bridge, typed address.** In the compose file remove `network_mode: host` (a hub on this same machine is then reached at its LAN address). `up -d`, wait until `test-a1` is online. Source with the **Printer IP**: **Test** passes, status and a print work as in 2 and 4.
+
+**Step 6 - bridge, serial only.** The same source with **Printer IP** empty: **Test** says **The printer's announcement wasn't heard… Enter the printer's IP address.** (not "The vendor service can't be reached"), and so does **Save**. The text is the code's own answer, so this is a pass when it shows.
+
+**Step 7 - bridge with the ports published.** Add under `ports:` `"2021:2021/udp"` and `"1990:1990/udp"`, `up -d`, **Test** the serial-only source again. Expected from step 1: passes if the A1 broadcasts, says "wasn't heard" if it multicasts.
+
+**Write down**
+- ADR-0024, "Printers from a container": replace "**The A1's announce destination: not measured yet**" with the step 1 result (date, firmware version of the A1, broadcast or multicast, and the machine and network). Correct the Bambu LAN serial-only row of the table if the bridge-with-ports result differs from "doesn't". If the A1 broadcasts, say that a bridge with 2021 and 1990 published works for it and the compose example's bridge variant gets the two `ports:` lines (and a note that they must be free on the host).
+- `wiki/Bambu-LAN.md` and `wiki/Connector-Setup.md`: the same one sentence, no more.
+- CHANGELOG (the next pre-release): "Bambu A1 through a container tested: host, bridge, bridge with ports" or what failed.
+- Anything that failed in steps 2 to 7 is a bug: fix it or add a step.
+
+**Pass when** steps 2 to 6 behave as written and step 1 and 7 are written down. Tick R1.
+
+## R2 - The A1 in LAN Only mode, and a print started over LAN
+**Why open:** 6.0.0 Step 9 asked for it and the user skipped the hands-on; the 6.0.0-alpha.2 notes say it is "still to try on a real printer". **First check** whether 6.0.0 Step 19 ("one printer per adapter") already covered it: if the result was written down somewhere, tick this and stop.
+
+**Have ready:** the A1, Bambu Studio on a PC on the same LAN, the app with a Bambu LAN source for the A1 (by IP) as in R1 step 3 (it can be on the hub's own network, no container needed), a small print file.
+
+**Steps**
+1. With the source working and the printer on the cloud, note what the printer's page shows (state, slots).
+2. On the A1: Settings → LAN Only Mode → on. The printer leaves the cloud. In Bambu Studio, add the printer by its IP and access code (device tab → LAN mode).
+3. Within about 30 seconds the source reconnects. Pass: the printer's page shows **Idle** again and the same AMS slots; the access code is the same, or the source says **Sign-in required** if the printer made a new one (then fix the code in **Edit**: that is the documented behaviour).
+4. Send the small print **over LAN** from Bambu Studio and let it finish. Pass: one print is recorded, its grams come from the job's 3MF (read over FTPS from the printer), the slots map to the right spools.
+5. Send a second print and cancel it. Pass: recorded as cancelled or failed, not a success.
+6. A printer that has both Bambu Cloud and Bambu LAN: turn LAN Only mode off, let the cloud come back, print once. Pass: **one** print, not two (the cloud's task id dedupes).
+7. Turn LAN Only mode on or off as you want it left, and say which.
+
+**Write down:** `wiki/Bambu-LAN.md` (a "LAN Only mode" line under Limits and tips, or what failed), the 6.0.0 notes in ADR-0015 ("A1, hands-on"), the next CHANGELOG.
+
+## R3 - Printers of other brands, and a real Spoolman
+**Why open:** only the Bambu A1 exists on the author's LAN. Moonraker and OctoPrint were checked against simulators (`virtual-klipper-printer`, OctoPrint's virtual printer), PrusaLink against published payloads, and Spoolman against a throwaway container. This needs someone who owns the hardware; the README support matrix keeps saying **not tested on a real printer** until then.
+
+**Per adapter, with a real printer** (or a real Spoolman someone agrees to let you point a second, read-only test at; use a copy of its data):
+1. Add the source with the printer's address (Moonraker: the address and the API key only if it asks; OctoPrint: the API key from Settings → API; PrusaLink: user and password, or the API key; Spoolman: the address, with its port).
+2. **Test** passes and names the printer. Save; the printer is made, with its model.
+3. The Printers list shows **Monitoring**: idle, then printing with its percent during a print (progress, time left, temperatures and the tool/slot state).
+4. A full print is recorded once, with grams from the file's totals (Moonraker and PrusaLink: from the job file; OctoPrint: from its job info). A **cancelled** print is recorded as cancelled with grams estimated from what was really extruded where the printer reports it. A failed print is failed.
+5. Restart the app (or the connector) during a print: the print is still recorded once, when it ends.
+6. Unplug or power off the printer during a print: **Printer offline** after the monitoring timeout, and the print is closed when it comes back or after the documented time.
+7. Through a connector: the same source on a machine on that LAN (**Reached from**); take the hub off the network during a print and put it back: the print arrives once.
+8. Spoolman: spools imported through **Filament to review**; a print's usage written back **once**; the used weight in Spoolman matches the print.
+
+**Write down:** one row per adapter in README's support matrix (move it from "not tested" to "tested on <model>, firmware <version>, <date>"), `wiki/<adapter>.md` limits, CHANGELOG. Anything wrong is a fix or a step (the PrusaLink MK4, XL and MINI file metadata and the `.bgcode` totals are the likeliest to differ).
+
+## R4 - The connector and the app on a real ARM64 machine
+**Why open:** CI built, installed and ran both archives on a native ARM runner (`ubuntu-24.04-arm`): pairing, `install.sh --headless`, a killed program, an update. No real board has run them.
+
+**Have ready:** a Raspberry Pi 4 or 5 with a 64-bit Linux (Raspberry Pi OS 64-bit, Ubuntu), systemd, 2 GB free, SSH, and a hub reachable by URL. Check `uname -m` says `aarch64`.
+
+**Steps**
+1. Connector, with a desktop: download `3d-maker-suite-connector-<version>-linux-arm64.tar.gz` of the release (or test build), `./install.sh`, **Pair** on the connector's page (`http://127.0.0.1:4301`). The machine appears online in **Hub management**. (Its architecture and the greyed-out **slice worker** switch come with Step 7; until then, check that the machine page offers no slicer install that could run.)
+2. Connector, headless: `./install.sh --headless --hub-url https://hub --pairing-code AB12-CD34 --name "Pi"`. Online in **Hub management**. `sudo reboot`: it comes back **by itself with nobody logged in** (`loginctl show-user $USER -p Linger` says `yes`). `kill -9` its node process: back within about 10 seconds. **Stop connector** on the machine's hub page stays stopped, and `systemctl --user start 3d-maker-suite-connector` starts it again.
+3. A project folder on the Pi (a USB disk too): shared in **Settings → Projects**, indexed, a file added on the Pi shows in the hub within a minute, a file uploaded in the hub appears on the Pi owned by the Pi's user.
+4. Update: with the hub on a higher version, the connector follows (the ARM archive is picked, no x64 file).
+5. The app on the Pi: `3d-maker-suite-<version>-linux-arm64.tar.gz`, `./install.sh`, first admin, the in-app **Check for updates** picks the arm64 asset. **Bambu Studio** and **OrcaSlicer** under **Where** → **This server** are greyed out with the reason, and an install attempt is refused (409 `slicing_unsupported`).
+6. A Bambu LAN printer through the Pi's connector (as R1, no container).
+
+**Write down:** README's support matrix (Linux ARM64: connector and app, tested on <board>, <OS>, <date>), `wiki/Install-on-Linux.md` (anything the Pi needed that the page doesn't say: linger, a missing package), ADR-0024 (a line under "ARM builds"), CHANGELOG.
+
+## R5 - A NAS or server with Docker: files on real shares
+**Why open:** CI covers a bind mount and a loopback share; real SMB and NFS shares, a remount and a real NAS UI were left for this test (6.3.0 Steps 4 and 5; the POSIX remount test and `mountOf` on `cifs`, `nfs` aren't run on a real share anywhere).
+
+**Have ready:** a NAS with Docker or Container Manager (Synology, QNAP, Asustor) or a Linux server with Docker, a hub, a folder of real project files (copy, not the only copy), a second computer on the same network, and for the share cases a second machine that exports an SMB or NFS share (the NAS itself can be the machine that mounts a share from another NAS).
+
+**Steps**
+1. Install the connector container (`docker-compose.connector.yml`, or the NAS's container UI with the same variables). Host networking on, `PUID` and `PGID` set to the NAS user that owns the files (the NAS user page, or `id` over SSH). It pairs and shows online in **Hub management**.
+2. **The NAS's own folder.** Mount it with `bind-propagation: rslave` at `/projects/files`, share it in **Settings → Projects** (same path). Pass: the projects are indexed with their layout; from the other computer, add a file through the NAS's own SMB share: it appears in the hub within a minute (change events); the folder's row **doesn't** say **Rescanned only**.
+3. **File owner.** Upload a file and make a folder from the hub's file browser: both are owned by the `PUID`/`PGID` user on the NAS (`ls -ln`), and a file deleted from the hub goes to the trash folder, not away.
+4. **Read-only.** Remount with `read_only: true`: the root says **Read-only**, upload and delete answer "This folder is read-only" (403 `path_read_only`), not a silent failure.
+5. **A real SMB or NFS share mounted on the NAS** (the NAS's own mount feature, or `mount -t cifs`/`nfs` on a server) and shared into the container with `rslave`. Pass: indexed; the root says **Rescanned only**; a file added **through the mount** shows within a minute; a file added **on the share's own server** shows at the next scheduled rescan (**Rescan** in the folder page shows it at once), and no error appears meanwhile.
+6. **A share that drops and returns.** Unmount the share on the NAS while the container runs: the root shows **missing**, the others keep working. Mount it again (no container restart with `rslave`; with a NAS UI that can't set `rslave`: restart the container): the projects come back at the next rescan **and a file added afterwards shows by change event or rescan**, not never.
+7. **An update.** `docker compose pull` and `up -d` with a newer image: the pairing stays, no re-pairing, the version rises, and the machine page's **Outdated** note (with the command) shows while the hub is ahead.
+8. **The first admin of a fresh app container from another device** (needs Step 1b built): start the app image on the NAS with no data; from a PC, open `http://nas:4300`, enter the setup token from `docker logs`. Pass: no `APP_ALLOWED_HOSTS` needed. Also open `http://localhost:4300` **on the NAS itself** (the host, through Docker's port mapping): measure whether the token is asked for (Step 1b's open question about `172.17.0.1`) and write it down.
+9. **macOS** (if available): a connector on a Mac with an SMB mount: the root isn't labelled **Rescanned only** (share detection isn't done on macOS, ADR-0024 Step 5): note that the hourly rescan still finds changes.
+
+**Write down:** ADR-0024 (a line under "Folders on shares" with the NAS model, mount type and what each of 2 to 6 showed; if a change event arrives from a real share where the ADR says none, correct it), `wiki/Docker.md` and `wiki/Connector-Setup.md` (what that NAS's UI needed: where its container settings hide host networking, `rslave` and `PUID`), CHANGELOG. A failed 6 is a bug: the share dropping must not need a restart.
+
+## R6 - Windows Server headless: a real reboot, a share on another machine
+**Why open:** CI (`headless-windows` on `windows-2025`) ran the silent install, a kill, **Stop connector**, an update, a named account and a share on `\\localhost\ci`. A hosted runner can't reboot or reach a second machine (ADR-0024 S8, S9).
+
+**Have ready:** Windows Server 2019/2022/2025 (Server Core or with a desktop) or a Windows 10/11 PC, an administrator, the connector installer (`3d-maker-suite-connector-<version>-windows-x64-setup.exe`), a hub, and a NAS or Windows machine with an SMB share (`\\nas\3d`) and a user that can write to it. For the domain case: an Active Directory account and, if you have one, a gMSA.
+
+**Steps**
+1. Silent install as an administrator, from an elevated prompt: `.\3d-maker-suite-connector-<version>-windows-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS /HEADLESS /HUBURL=https://hub /PAIRINGCODE=AB12-CD34 /NAME=win-srv` (no `/ACCOUNT`: the S4U task). It exits 0; **Hub management** shows `win-srv` online, `headless`.
+2. **Reboot** with nobody signed in. Pass: after the boot, with no one logged on (check the hub, not the machine), it's online again within about 2 minutes.
+3. Kill the connector's `node.exe`: back within about 10 seconds. **Stop connector** on the hub's machine page: stays stopped; `Start-ScheduledTask "3D Maker Suite Connector"` starts it.
+4. An update to a newer hub: it downloads and restarts by itself (the launcher's exit 75), still online and still paired, no second device.
+5. **A share on another machine, as the S4U account.** Share `\\nas\3d` into **Settings → Projects**. Expected: **not reached** (an S4U task has no network credentials). The machine page says so in words; if it fails with a raw error, that is a bug.
+6. **A named account** (Step 5b): run setup again with `/ACCOUNT=DOMAIN\svc-3dms /PASSWORDFILE=C:\secure\pw.txt` (the file deleted afterwards), or the installer's hub page **Run as** and **Its password**. Pass: no password in a command line or a log; the task runs as that account; the machine stays the same device (no new pairing); `\\nas\3d` is indexed, labelled as a share, a file added on the NAS shows at the rescan, one made from the hub appears on the NAS.
+7. **A password change** on the account: the connector goes offline in the hub (the documented limit), and setup run again with the new password brings it back.
+8. **Domain account and gMSA**: the domain account works as in 6; a gMSA is **refused** with the documented message (it isn't supported).
+9. The uninstaller removes the task and the files and takes the batch logon right back (`secedit /export` shows it gone for the account).
+
+**Write down:** ADR-0024 (an amendment line with the Windows version, the account type and what 2, 5, 6 and 8 showed), `wiki/Connector-Setup.md` (Windows Server: network shares; correct anything the real share needed, for example an extra firewall or SMB signing setting), CHANGELOG.
+
+## R7 - Images: a managed slicer as the `PUID` user, and the bridge variant
+**Why open:** `scripts/image-test.sh` can't download a slicer (about 500 MB) in CI, and the connector compose example's commented bridge variant was never started. (x64 only: no slicing on ARM.)
+
+**Have ready:** an x64 Linux machine with Docker, 3 GB free, internet.
+
+**Steps**
+1. Start the app image with `PUID=1234 PGID=1234`, a volume on `/data`, `docker compose up -d`; create the first admin; **Integrations → Add integration → OrcaSlicer → Where: This server → Download**. It downloads into `/data/slicers`, passes its smoke test, and **Use as slicer** works. `docker compose exec app ls -ln /data/slicers` shows owner 1234.
+2. Slice a small project's plate with it (**Slice** on a project page). Pass: a result with the print time and grams, files written owned by 1234.
+3. Do the same with the `-slicer` image where the Bambu Studio AppImage needs it, if that is how you run it.
+4. Bridge variant of the connector compose (as R1 step 5, with a **typed** printer address of any Moonraker/OctoPrint/Bambu printer you have, or the A1): works. Note in the compose comments only what you measured.
+
+**Write down:** ADR-0024 Step 4 "Not tested here" (strike what ran), `wiki/Docker.md` if a mount or permission needed saying, CHANGELOG.
+
+## R8 - Older "not tested on real hardware" items
+**Why here:** the CHANGELOG still lists them for 5.2 to 5.5 pre-releases. Later real-test steps (5.5.0 Step 13, 5.5.0 Step 18, 5.6.0 Step 16) may have covered some. **First**, for each line, search PLAN.md and the later real-test notes; if it was done, tick it and write where. Run only what is left.
+
+- [ ] Two PCs on different accounts and on one account: owner and other-user deletes, the held delete; a synced preset reaching a worker and an **Install** device; switching the catalog source between two devices (5.4.0 alpha.2 to alpha.4).
+- [ ] A plate on a second printer (5.4.0-alpha.4: one printer in the test data).
+- [ ] Upgrading a real 5.4.0 database with data (5.5.0-alpha.2). The 6.x line has since been upgraded on real data several times; a "yes" is enough.
+- [ ] The two-machine scenarios of 5.5.0-alpha.2: **Use as slicer**, changing the hub's slicer, an offline machine, preset **Receive** and **Share**, **Restart** and **Stop** from the hub, a user with one machine switch.
+- [ ] Two Bambu Cloud accounts with their own photo and Sources (5.5.0-alpha.2).
+- [ ] The VPS with two workstations: sharing a folder from one and adding it as a project folder, picking `root1` and `root2/project2` for the other with a user at **Read** and one at **Edit**; the connector's real icon or launcher on a paired and an unpaired machine, and with the hub stopped; upgrading a copy with machines in `all` mode (5.5.0-alpha.3).
+- [ ] The machine page and **Unlink folders** on the real VPS (5.5.0).
+
+**Write down:** one line per item in the CHANGELOG's next entry ("Tested by hand: …") or move it to "Not tested" for good with the reason.
