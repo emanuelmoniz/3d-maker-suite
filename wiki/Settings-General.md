@@ -105,6 +105,8 @@ A typed address has the button **Use this address**, which fills in the address 
 
 The line under the choices says what an alert links to, for example **Alerts link to {address}. Applies at once, no restart.** With **Automatic** and no address found, it says **Alerts carry no link.** If the `APP_PUBLIC_URL` variable is set, the choices are locked and the line says **Set by the APP_PUBLIC_URL environment variable**.
 
+With the hub on, paired connectors are told a new Public address, and switch to it once the hub answers there. Without a Public address, a new **Port** is told the same way, with each connector's own address. A line under the choices says so. See [When the address changes](Hub-Setup.md#when-the-address-changes).
+
 **Test** asks the server to open the address, and **Open address** opens it in a new tab. The test says one of:
 
 | Result | What to do |

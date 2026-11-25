@@ -22,6 +22,15 @@ A backup holds your database, photos and saved logins, but not your project file
 
 Check the printers, prints and costs before you remove the old install.
 
+### Connectors, if the hub is on
+
+Connectors keep their pairing when the hub moves, because the backup holds it. Only the address changes. Do one of these:
+
+- **Before the move,** set the new address as **Public address** in **Settings → Network** on the old computer. Every connector is told and tries it first, and switches once the hub answers there. Without a Public address, a new **Port** saved there is told too. See [Hub setup](Hub-Setup.md#give-the-hub-an-address).
+- **After the move,** give each connector the new address: **Change hub address** on its own page, or a new `CONNECTOR_HUB_URL` for a NAS, server or container. See [Change the hub address](Connector-Setup.md#change-the-hub-address).
+
+A connector that was offline during the change still keeps its old address. Give it the new one the same way.
+
 ## Uninstall
 
 First stop the app and turn off **Start at login**, so no entry is left behind. Both are in **Settings**: **Start at login** in the **General** card, **Stop server** at the top right.
@@ -55,7 +64,7 @@ Your project files are never touched. They stay where they are.
 ## Limits and tips
 
 - The saved logins are encrypted with `secret.key` in the data folder. Without that file, a backup or copy of the database can't read them.
-- If the hub is on, connectors on other devices lose their server when it moves to a new address. Pair them again, see [docs/hub.md](https://github.com/emanuelmoniz/3d-maker-suite/blob/main/docs/hub.md).
+- If the hub is on, connectors keep their pairing when it moves, see [Connectors, if the hub is on](#connectors-if-the-hub-is-on). Pair a connector again only if you start the new hub without the old one's backup.
 
 ## Problems and fixes
 

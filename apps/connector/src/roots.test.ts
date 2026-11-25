@@ -388,10 +388,14 @@ describe("a root on a share, a read-only mount, a root that comes back (Plan 6.3
     await again({ type: null, share: false, readOnly: false }, 50);
     expect(indexed()).toEqual([{ state: "missing" }]);
     expect(sync.state().watching).toBe(0);
-    // It is mounted: the next look (no rescan asked for) finds it.
-    await mkdir(join(later, "001_Cup"), { recursive: true });
-    await writeFile(join(later, "001_Cup", "cup.3mf"), "cup");
-    await until(() => sync.state().watching === 1);
+    // It is mounted, all at once (as a share is): the next look (no rescan asked for) finds it.
+    // The watcher starts before the index is sent, so wait for the index itself.
+    const staged = join(dir, "staged");
+    await mkdir(join(staged, "001_Cup"), { recursive: true });
+    await writeFile(join(staged, "001_Cup", "cup.3mf"), "cup");
+    await rename(staged, later);
+    await until(() => indexed().at(-1)?.state === "ok");
+    expect(sync.state().watching).toBe(1);
     expect(indexed().at(-1)).toMatchObject({ state: "ok", folders: [{ rel: "001_Cup" }] });
   });
 

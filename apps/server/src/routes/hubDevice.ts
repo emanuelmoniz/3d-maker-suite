@@ -8,6 +8,7 @@ import {
   deviceFolderSchema,
   deviceIndexResultSchema,
   deviceIndexSchema,
+  deviceMeSchema,
   deviceReplySchema,
   deviceRootSchema,
   deviceSlicerInstallSchema,
@@ -128,6 +129,12 @@ export const hubDeviceRoutes =
       if (!root) throw new HttpError(404, "not_found", "Root not found");
       return root;
     };
+
+    // Which device the token belongs to: a connector checks a new hub address with it (6.3.0 Step
+    // 7b). An unknown token is the auth guard's 401; a hub that is off, the 404 above.
+    app.get("/me", { schema: { response: { 200: deviceMeSchema, ...errors } } }, async (req) => ({
+      id: deviceOf(req),
+    }));
 
     app.get(
       "/roots",

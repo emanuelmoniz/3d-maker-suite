@@ -19,7 +19,7 @@ import {
 } from "fastify-type-provider-zod";
 import { evaluateAlerts } from "./alerts/evaluate.ts";
 import { runAutoBackup } from "./backup/backup.ts";
-import { type Config, linkBase } from "./config.ts";
+import { type Config, connectorAddress, linkBase } from "./config.ts";
 import { HttpError } from "./errors.ts";
 import { createAutoLoad } from "./integrations/autoLoad.ts";
 import { createDeviceCatalog } from "./integrations/deviceCatalog.ts";
@@ -295,6 +295,7 @@ export async function buildApp(
       // Called on a request, once `workers` and `installer` (set up below) exist.
       (deviceId) => removeWorkersOf(db, syncer, installer, workers, deviceId),
       (deviceId) => sourceBridge.tell(deviceId),
+      (used) => (opts.serverConfig ? connectorAddress(opts.serverConfig, used) : undefined),
     ),
     { prefix: "/api/hub" },
   );
@@ -337,7 +338,20 @@ export async function buildApp(
   const logFor = (module: LogModule) => app.log.child({ module });
   if (opts.serverConfig)
     await app.register(
-      serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop, opts.autostart),
+      serverConfigRoutes(opts.serverConfig, opts.restart, opts.stop, opts.autostart, () => {
+        // A new Public address, or a port for the next restart: the connectors online hear it
+        // now, the others when they next connect (`X-Hub-Address`, 6.3.0 Step 7b).
+        const config = opts.serverConfig;
+        if (!config) return;
+        const rows = db
+          .select({ id: schema.devices.id, used: schema.devices.hubUrl })
+          .from(schema.devices)
+          .all();
+        for (const { id, used } of rows) {
+          const url = connectorAddress(config, used ?? undefined);
+          if (url) hub.tell(id, { type: "hub.address", url });
+        }
+      }),
       { prefix: "/api/server-config" },
     );
   await app.register(serverSystemRoutes(db, dataDir, opts.serverConfig?.docker ?? false), {

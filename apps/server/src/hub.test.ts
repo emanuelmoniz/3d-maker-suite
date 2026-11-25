@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { CONNECTOR_UPDATE_GRACE_MS, evaluateAlerts } from "./alerts/evaluate.ts";
 import { buildApp } from "./app.ts";
+import { loadConfig } from "./config.ts";
 import { adapters } from "./integrations/registry.ts";
 import { hashPassword } from "./lib/password.ts";
 import { unzip } from "./testZip.ts";
@@ -1496,6 +1497,57 @@ describe("hub events", () => {
       connectorVersion: VERSION,
     });
     await t.cancel();
+  });
+
+  it("records the hub address a connector used, and tells a token's device (6.3.0 Step 7b)", async () => {
+    const { send, open, deviceId, bearer, token } = await live();
+    expect((await send("GET", "/api/hub/devices")).json()[0].hubUrl).toBeNull();
+    const s = await open({ "x-connector-hub": "http://nas.lan:4300/" });
+    await s.until(": open");
+    // No network settings here: nothing to move to.
+    expect(s.res.headers.get("x-hub-address")).toBeNull();
+    expect((await send("GET", "/api/hub/devices")).json()[0].hubUrl).toBe("http://nas.lan:4300");
+    await s.cancel();
+    // Not an address: left out, the last one kept.
+    const t = await open({ "x-connector-hub": "javascript:alert(1)" });
+    await t.until(": open");
+    expect((await send("GET", "/api/hub/devices")).json()[0].hubUrl).toBe("http://nas.lan:4300");
+    await t.cancel();
+
+    const me = await bearer(token, "/api/hub/device/me");
+    expect(me.statusCode).toBe(200);
+    expect(me.json()).toEqual({ id: deviceId });
+    expect((await bearer("not-a-token", "/api/hub/device/me")).statusCode).toBe(401);
+    expect((await send("GET", "/api/hub/device/me")).statusCode).toBe(403); // a user, not a device
+    await send("PATCH", "/api/preferences", { hubEnabled: false });
+    expect((await bearer(token, "/api/hub/device/me")).statusCode).toBe(404);
+  });
+
+  it("announces a new Public address or port to every connector, live and on connect", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "hub-net-"));
+    onTestFinished(() => rmSync(dataDir, { recursive: true, force: true }));
+    const { send, open } = await live({
+      // Runs on 4300 as far as Settings knows; the test listens elsewhere.
+      serverConfig: loadConfig({ APP_DATA_DIR: dataDir }, []),
+    });
+    const used = "http://192.168.1.10:4300";
+    const s = await open({ "x-connector-hub": used });
+    await s.until(": open");
+    expect(s.res.headers.get("x-hub-address")).toBeNull();
+
+    // A port for the next restart, no Public address: its own address with that port.
+    await send("PATCH", "/api/server-config", { port: 4400 });
+    expect(await s.until('"url":"http://192.168.1.10:4400"')).toContain('"type":"hub.address"');
+    await send("PATCH", "/api/server-config", { publicUrl: "https://maker.example.com" });
+    expect(await s.until('"url":"https://maker.example.com"')).toBeTruthy();
+    await s.cancel();
+    const t = await open({ "x-connector-hub": used });
+    expect(t.res.headers.get("x-hub-address")).toBe("https://maker.example.com");
+    await t.cancel();
+    // Opened there already: nothing to say.
+    const u = await open({ "x-connector-hub": "https://maker.example.com" });
+    expect(u.res.headers.get("x-hub-address")).toBeNull();
+    await u.cancel();
   });
 
   it("pulls a listed file from its device and keeps it only when its hash matches", async () => {

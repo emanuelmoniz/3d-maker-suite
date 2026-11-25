@@ -165,6 +165,30 @@ export function publicUrlOf(config: Config) {
 }
 
 /**
+ * The address a connector that reaches the hub at `used` should move to (6.3.0 Step 7b); undefined
+ * = stay. The Public address for every connector; without one, a port saved in Settings that applies
+ * at the next restart, put into `used` when `used` names the port the hub runs on now. Not in Docker,
+ * where the port inside the container isn't the one connectors reach. A flag or env port wins over
+ * the saved one, so then nothing changes.
+ */
+export function connectorAddress(config: Config, used?: string): string | undefined {
+  const pub = publicUrlOf(config);
+  if (pub) return pub === used ? undefined : pub;
+  if (!used || config.docker || config.portSource === "cli" || config.portSource === "env")
+    return undefined;
+  const next = readSavedConfig(config.dataDir).port ?? DEFAULT_PORT;
+  if (next === config.port) return undefined;
+  try {
+    const url = new URL(used);
+    if (url.port !== String(config.port)) return undefined;
+    url.port = String(next);
+    return parsePublicUrl(url.href);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * The app's address for links in notifications; undefined = no link. Read each time, no restart.
  * `ips`: the machine's addresses (`detectedIps` in the host package; this file can't import it).
  */

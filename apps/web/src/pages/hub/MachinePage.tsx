@@ -421,6 +421,12 @@ function Connection({ device: d, edit }: { device: Device; edit: boolean }) {
   const current = settings.data;
   return (
     <Section title={t("hub:edit.connection")}>
+      {/* The address it reached the hub at last (6.3.0 Step 7b), offline too. */}
+      <p className="wrap-anywhere">
+        {d.hubUrl
+          ? t("hub:machine.hubAddressIs", { address: d.hubUrl })
+          : t("hub:machine.hubAddressUnknown")}
+      </p>
       {!d.online ? (
         <OfflineNote />
       ) : settings.isError ? (

@@ -8,7 +8,15 @@ import {
 import { hostname } from "node:os";
 import type { DeviceSyncState, DeviceUserPreview } from "@3d-maker-suite/core";
 import { openFolder } from "@3d-maker-suite/host";
-import { type Link, type LinkStatus, PairError, type PairErrorCode } from "./hub.ts";
+import {
+  HubAddressError,
+  type HubAddressErrorCode,
+  type Link,
+  type LinkStatus,
+  PairError,
+  type PairErrorCode,
+} from "./hub.ts";
+import { hubOrigins } from "./hubUrls.ts";
 import { ICON_SVG } from "./icon.ts";
 import { LOGO_SVG } from "./logo.ts";
 import type { Store } from "./state.ts";
@@ -64,6 +72,13 @@ const USER_ERRORS: Record<PairErrorCode, string> = {
   invalidCode: "connector:user.errors.invalidCode",
   tooManyAttempts: "connector:user.errors.tooManyAttempts",
   hubOff: "connector:user.errors.hubOff",
+};
+
+const HUB_ERRORS: Record<HubAddressErrorCode, string> = {
+  badUrl: "connector:hub.errors.badUrl",
+  unreachable: "connector:hub.errors.unreachable",
+  hubOff: "connector:hub.errors.hubOff",
+  unknownDevice: "connector:hub.errors.unknownDevice",
 };
 
 /**
@@ -214,7 +229,7 @@ ${controls(false)}
     const note = (html: string) => `<p class="muted" role="status">${html}</p>`;
     return `<section>
 <dl>
-<dt>${t("connector:status.hub")}</dt><dd><a href="${esc(state.hubUrl ?? "")}">${esc(state.hubUrl ?? "")}</a></dd>
+<dt>${t("connector:status.hub")}</dt><dd><a href="${esc(state.hubUrl ?? "")}">${esc(state.hubUrl ?? "")}</a><br><a href="/hub">${t("connector:hub.change")}</a></dd>
 <dt>${t("connector:status.device")}</dt><dd>${esc(state.deviceName ?? "")}</dd>
 ${link.userName() ? `<dt>${t("connector:status.user")}</dt><dd>${esc(link.userName() ?? "")}<br><a href="/user">${t("connector:user.change")}</a></dd>` : ""}
 <dt>${t("connector:status.state")}</dt><dd><span class="pill ${status}">${t(STATES[status])}</span></dd>
@@ -312,6 +327,31 @@ ${error ? `<p class="error" role="alert">${t(USER_ERRORS[error])}</p>` : ""}
 </section>`;
   };
 
+  // The hub moved before this connector heard its new address (6.3.0 Step 7b). Its own page, like
+  // Change user: the status view's refresh would wipe an address being typed.
+  const hubForm = (error?: HubAddressErrorCode, typed?: string) => {
+    const value = esc(typed ?? store.get().hubUrl ?? "");
+    const unknown =
+      error === "unknownDevice"
+        ? `<form method="post" action="/hub/pair"><input type="hidden" name="hub" value="${value}"><button type="submit" class="secondary">${t("connector:hub.pairAgain")}</button></form>`
+        : "";
+    return `<section aria-labelledby="change-hub">
+<h2 id="change-hub">${t("connector:hub.change")}</h2>
+<p class="muted">${t("connector:hub.intro")}</p>
+${error ? `<p class="error" role="alert">${t(HUB_ERRORS[error])}</p>` : ""}
+${unknown}
+<form method="post" action="/hub">
+<label for="hub">${t("connector:pair.hubUrl")}</label>
+<input id="hub" name="hub" type="url" required aria-describedby="hub-hint" value="${value}">
+<small id="hub-hint">${t("connector:pair.hubUrlHint")}</small>
+<div class="actions">
+<button type="submit">${t("connector:hub.submit")}</button>
+<a href="${HOME}">${t("connector:hub.cancel")}</a>
+</div>
+</form>
+</section>`;
+  };
+
   // Stop takes the device offline for the hub, so it asks first.
   const stopForm = `<section aria-labelledby="stop">
 <h2 id="stop">${t("connector:stop.title")}</h2>
@@ -397,16 +437,12 @@ ${body}
    * nothing, and the hub still checks the device is the user's.
    */
   const answerWhoami = (req: IncomingMessage, res: ServerResponse) => {
-    const { hubUrl, deviceId } = store.get();
-    const hub = (() => {
-      try {
-        return hubUrl ? new URL(hubUrl).origin : undefined;
-      } catch {
-        return undefined;
-      }
-    })();
+    const { deviceId } = store.get();
+    // The address in use, and the ones the hub announced (it may be opened at its new one already).
+    const origin = req.headers.origin;
+    const hub = origin && hubOrigins(store.get()).includes(origin) ? origin : undefined;
     const headers: Record<string, string> = { vary: "origin", "cache-control": "no-store" };
-    if (hub && req.headers.origin === hub)
+    if (hub)
       Object.assign(headers, {
         "access-control-allow-origin": hub,
         "access-control-allow-methods": "GET",
@@ -464,6 +500,27 @@ ${body}
       if (req.method === "POST" && path === "/unpair") {
         link.unpair();
         return back();
+      }
+      if (path === "/hub" || path === "/hub/pair") {
+        if (!store.token()) return back();
+        if (req.method === "GET" && path === "/hub") return send(200, html, page(hubForm(), false));
+        if (req.method === "POST") {
+          const typed = (await readForm(req)).get("hub") ?? "";
+          // The hub there doesn't know this device: pair with it, its address already filled in.
+          if (path === "/hub/pair") {
+            link.unpair();
+            store.set({ hubUrl: typed.trim() });
+            return back();
+          }
+          try {
+            await link.changeHub(typed);
+          } catch (e) {
+            if (e instanceof HubAddressError)
+              return send(400, html, page(hubForm(e.code, typed), false));
+            throw e;
+          }
+          return back();
+        }
       }
       if (path === "/user" || path === "/user/confirm") {
         if (!store.token()) return back();

@@ -102,6 +102,7 @@ What the script does:
 - It installs the connector in the same folder as on a desktop and adds a user service, `~/.config/systemd/user/3d-maker-suite-connector.service`, that starts at boot. It adds no application menu entry and no start-at-login file.
 - It needs no administrator rights, except for the `loginctl` line above.
 - The address and the code are kept in the service file, which only your user can read. The first start pairs with them. The pairing stays in the connector's data folder, so after that the code is ignored.
+- If the hub moves, run `./install.sh --headless --hub-url <new address>` with the new address only. The connector keeps its pairing, see [Change the hub address](#change-the-hub-address).
 - If the hub is off or can't be reached yet, the connector tries again. If the hub refuses the code (wrong, used or expired), the connector keeps running, unpaired, and writes one line about it in the log. Make a new code and run `install.sh --headless` again with it. A code that was refused is never sent twice.
 - It runs as your user, so the files it creates in your folders belong to you.
 
@@ -158,7 +159,7 @@ What the lines do:
 |---|---|
 | `image` | The connector's image, for x64 and ARM64. `:latest` is the newest stable release, `:X.Y.Z` one exact release and `:dev` the newest pre-release. Use the same version as the hub |
 | `network_mode: host` | The connector finds a Bambu printer by the printer's announcement on your network, which a container with its own network can't hear. It also has no ports to publish. Its page listens on the machine's own loopback only, so nothing is reachable from the network |
-| `CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE` | The hub's address and the code. The first start pairs with them |
+| `CONNECTOR_HUB_URL`, `CONNECTOR_PAIRING_CODE` | The hub's address and the code. The first start pairs with them. A new address later moves the paired connector there |
 | `CONNECTOR_NAME` | The name in Hub management. It starts as the machine's name |
 | `PUID`, `PGID` | Optional. The user the connector runs as, so the files it creates in your folders belong to you and not to `root`. Find the numbers with `id` over SSH, or on the NAS's user page. Set only one and the other takes the same number. Without them it runs as `root` |
 | `connector-data:/data` | A volume that keeps the pairing and the connector's own files. It stays when you update the image |
@@ -167,6 +168,7 @@ What the lines do:
 What to know:
 
 - **The pairing stays.** It is kept in the volume, so a restart, an update of the image and a container made again on the same volume all stay paired. The code is ignored after the first start. You can leave it in the file or delete it.
+- **The hub moved.** Put the new address in `CONNECTOR_HUB_URL` and run `up -d` again. The connector keeps its pairing, see [Change the hub address](#change-the-hub-address). An address you leave unchanged never undoes one the hub told the connector since.
 - **A wrong, used or expired code.** The connector keeps running, unpaired, and writes one line about it in its log (`docker compose -f docker-compose.connector.yml logs`). Make a new code, put it in the file and run `up -d` again. A code that was refused is never sent twice.
 - **A printer you type an address for.** Bridge networking works for that: take out `network_mode: host`. A hub on the same machine is then reached at the machine's address on your network, not `localhost`.
 - **Not next to a hub.** The connector doesn't start in host networking on a machine where a hub runs, because there is one hub per machine. A hub that runs on the NAS reads its folders itself.
@@ -212,6 +214,7 @@ What the setup does:
 
 - It installs the connector for all users in `C:\Program Files\3D Maker Suite Connector` and adds the task. It adds no Start-menu entry, no desktop icon and no start at sign-in. The account the task runs as gets the right to change that folder, which updates need.
 - The address and the code are kept in the task, which only administrators can read. The first start pairs with them. After that the code is ignored. A code the hub refused is never sent twice, as on Linux.
+- If the hub moves, run the setup again with `/ALLUSERS /HEADLESS /HUBURL=<new address>` only. The connector keeps its pairing, see [Change the hub address](#change-the-hub-address). A task with a named account needs its `/PASSWORDFILE` again.
 - The files the connector creates belong to the account it runs as. Its data is in that account's `%APPDATA%\3d-maker-suite-connector`, for example `C:\Users\svc-maker\AppData\Roaming\3d-maker-suite-connector`.
 
 If the task couldn't be added, the setup ends with exit code 8. The reason is in `logs\headless-task.log` in the install folder:
@@ -301,7 +304,7 @@ Open it from <http://127.0.0.1:4301/local>. It only opens on the computer itself
 
 | Item | What it tells you |
 |---|---|
-| **Hub** | The hub's address |
+| **Hub** | The address it reaches the hub at |
 | **Device** | The name the hub knows it by |
 | **User** | The user the computer acts as |
 | **State** | **Online**, **Connecting…**, **Offline, retrying** or **The hub is turned off on this server** |
@@ -315,6 +318,7 @@ The buttons are:
 - **Open on the hub.** Opens the computer's page in the web app.
 - **Open sync folder.** Opens the sync folder.
 - **Delete on the hub too** and **Restore them.** They show only when the sync is paused, see [Deleted files](#deleted-files).
+- **Change hub address.** See [Change the hub address](#change-the-hub-address).
 - **Change user.** See [Change the computer's user](#change-the-computers-user).
 - **Restart server** and **Stop server.**
 - **Unpair.** See [Unpair or remove it](#unpair-or-remove-it).
@@ -335,6 +339,35 @@ If a computer deletes a lot of files from one hub folder at once, the connector 
 - **Restore them.** The hub's files come back to the computer.
 
 Nothing is deleted for good. The limit is set in the hub's **Settings** in **Hub management**.
+
+## Change the hub address
+
+A connector keeps its pairing when the hub gets a new address. Usually there is nothing to do: when an admin sets a new **Public address** in **Settings → Network**, the hub tells every connector, and each one switches once the hub answers there, see [Hub setup](Hub-Setup.md#when-the-address-changes).
+
+Give it the address yourself when the hub moved before the connector heard it, for example to a new computer:
+
+1. On the connector's page, click **Change hub address**.
+2. Enter the address you now open the web app at, and click **Change address**.
+
+The connector checks that a hub answers there and knows this computer, then reconnects. Its name, user, folders and settings stay. It knows the computer if it is the same hub, or a hub restored from its backup.
+
+On a computer with no screen, give the new address the way you gave the first one, and the connector moves at its next start:
+
+| Install | How |
+|---|---|
+| Linux with no desktop | `./install.sh --headless --hub-url <new address>` |
+| Docker | The new address in `CONNECTOR_HUB_URL`, then `docker compose -f docker-compose.connector.yml up -d` |
+| Windows Server | The setup again with `/ALLUSERS /HEADLESS /HUBURL=<new address>` (and `/PASSWORDFILE` for a named account) |
+
+If the hub there can't be reached yet, the connector tries again, and keeps trying the old address meanwhile.
+
+What the page can say:
+
+| Message | What to do |
+|---|---|
+| **Could not reach a hub at this address.** | Check the address and that the hub is running |
+| **This server has the hub turned off.** | Turn **Hub** on in **Settings → General** on the hub |
+| **The hub at this address doesn't know this connector** | It is another hub, started without the old one's backup. Click **Pair with this hub** and pair with a new code from its **Hub management**. A connector with no screen unpairs by itself and pairs with a new `CONNECTOR_PAIRING_CODE` |
 
 ## Change the computer's user
 
@@ -412,6 +445,7 @@ To remove everything, also delete the data folder (see the table below) and the 
 - **Too many wrong codes.** Wait 15 minutes, then try again.
 - **The connector doesn't start.** A hub may be running on the same computer, or the connector's data folder is the hub's data folder. The log says which. Find it in the table above.
 - **The computer shows Offline in Hub management.** The connector is stopped, the computer is asleep, or it can't reach the hub. Start it from the menu, and check the network.
+- **The hub moved and the connector shows Offline, retrying.** Give it the new address, see [Change the hub address](#change-the-hub-address).
 - **Update failed.** Read the reason on the computer's page. Click **Update now** when the cause is fixed. The connector stays on the old version until then.
 - **A project shows twice.** Two connectors index the same shared folder. Keep only one.
 

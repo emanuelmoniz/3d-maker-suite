@@ -1360,6 +1360,8 @@ export const devices = sqliteTable(
     connectorVersion: text(),
     /** How the connector is installed (ADR-0024, `X-Connector-Install`); null = not reported. */
     install: text({ enum: CONNECTOR_INSTALLS }),
+    /** The hub address the connector used when its stream last opened (`X-Connector-Hub`, 6.3.0 Step 7b). */
+    hubUrl: text(),
     /** What the connector reported when its stream last opened (`X-Connector-Update`). */
     updateFailed: text({ mode: "json" }).$type<ConnectorUpdateFailure>(),
     /**

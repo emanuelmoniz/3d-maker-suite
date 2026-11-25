@@ -1016,6 +1016,13 @@
       "when": 1795213065907,
       "tag": "0144_pairing_code_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "6",
+      "when": 1795614829462,
+      "tag": "0145_device_hub_url",
+      "breakpoints": true
     }
   ]
 }

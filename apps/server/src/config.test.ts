@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { openDb } from "@3d-maker-suite/db";
 import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "./app.ts";
-import { dataDir, linkBase, loadConfig, writeSavedConfig } from "./config.ts";
+import { connectorAddress, dataDir, linkBase, loadConfig, writeSavedConfig } from "./config.ts";
 
 describe("config", () => {
   it("binds to loopback on 4300 by default", () => {
@@ -139,6 +139,49 @@ describe("config", () => {
     const app = await buildApp(openDb(":memory:"), false, d, { serverConfig: config, stop });
     expect((await post(app)).statusCode).toBe(202);
     await vi.waitFor(() => expect(stop).toHaveBeenCalled());
+  });
+
+  describe("the address connectors move to (6.3.0 Step 7b)", () => {
+    const d = () => mkdtempSync(join(tmpdir(), "cfg-"));
+    it("is the Public address for every connector, unless it uses that already", () => {
+      const dir = d();
+      const config = loadConfig({ APP_DATA_DIR: dir }, []);
+      expect(connectorAddress(config, "http://192.168.1.10:4300")).toBeUndefined();
+      writeSavedConfig(dir, { publicUrl: "https://maker.example.com" });
+      expect(connectorAddress(config, "http://192.168.1.10:4300")).toBe(
+        "https://maker.example.com",
+      );
+      expect(connectorAddress(config, undefined)).toBe("https://maker.example.com");
+      expect(connectorAddress(config, "https://maker.example.com")).toBeUndefined();
+      const env = loadConfig({ APP_DATA_DIR: dir, APP_PUBLIC_URL: "http://nas.lan/" }, []);
+      expect(connectorAddress(env, "https://maker.example.com")).toBe("http://nas.lan");
+    });
+    it("without one, a saved port for the next restart, only for an address on the port in use", () => {
+      const dir = d();
+      const config = loadConfig({ APP_DATA_DIR: dir }, []);
+      writeSavedConfig(dir, { port: 4400 });
+      expect(connectorAddress(config, "http://192.168.1.10:4300")).toBe("http://192.168.1.10:4400");
+      expect(connectorAddress(config, "http://[fe80::1]:4300/maker")).toBe(
+        "http://[fe80::1]:4400/maker",
+      );
+      // Behind a reverse proxy, or on another port: not this port's address.
+      expect(connectorAddress(config, "https://maker.example.com")).toBeUndefined();
+      expect(connectorAddress(config, "http://192.168.1.10:8080")).toBeUndefined();
+      expect(connectorAddress(config, undefined)).toBeUndefined();
+      // Saved back to the port in use: nothing changes.
+      writeSavedConfig(dir, { port: 4300 });
+      expect(connectorAddress(config, "http://192.168.1.10:4300")).toBeUndefined();
+      writeSavedConfig(dir, { port: 4400 });
+      // A flag or env port wins at the restart; Docker maps its own port.
+      expect(
+        connectorAddress(loadConfig({ APP_DATA_DIR: dir }, ["--port", "4300"]), "http://h:4300"),
+      ).toBeUndefined();
+      expect(
+        connectorAddress(loadConfig({ APP_DATA_DIR: dir, PORT: "4300" }, []), "http://h:4300"),
+      ).toBeUndefined();
+      const docker = loadConfig({ APP_DATA_DIR: dir, APP_INSTALL: "docker" }, []);
+      expect(connectorAddress(docker, "http://h:4400")).toBeUndefined();
+    });
   });
 
   describe("link address", () => {

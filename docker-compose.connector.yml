@@ -4,6 +4,7 @@
 #    for 24 hours, and the dialog shows this file with your hub's address and the code filled in.
 # 2. Fill in CONNECTOR_HUB_URL and CONNECTOR_PAIRING_CODE below, then: docker compose -f docker-compose.connector.yml up -d
 # The first start pairs. The pairing stays in the volume, so the code is ignored from then on (leave it or delete it).
+# If the hub moves, put its new address in CONNECTOR_HUB_URL and run up -d again: it stays paired.
 # Updates: the hub shows "Outdated" when it is ahead; run `docker compose -f docker-compose.connector.yml pull`
 # and `up -d` again. A connector in Docker doesn't update itself.
 services:

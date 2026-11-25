@@ -26,6 +26,7 @@ import {
   type HubEvent,
   type HubVersionsUsage,
   hasLevel,
+  hubAddressSchema,
   hubVersionsUsageSchema,
   type IntegrationAdapter,
   isHeadless,
@@ -46,7 +47,7 @@ import {
   workerConfigSchema,
 } from "@3d-maker-suite/core";
 import { type Db, schema } from "@3d-maker-suite/db";
-import { and, asc, count, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -131,6 +132,11 @@ export const hubRoutes =
     dropWorkers: (deviceId: string) => Promise<void> = async () => {},
     /** A Reach switch changed (and paused its sources): the connector fetches them again. */
     sourcesChanged: (deviceId: string) => void = () => {},
+    /**
+     * The address a connector that reached the hub at `used` should move to (`connectorAddress`,
+     * 6.3.0 Step 7b), sent as `X-Hub-Address`; none without network settings (tests).
+     */
+    addressFor: (used: string | undefined) => string | undefined = () => undefined,
   ): FastifyPluginAsyncZod =>
   async (app) => {
     app.addHook("onRequest", async () => {
@@ -175,6 +181,7 @@ export const hubRoutes =
           os: devices.os,
           connectorVersion: devices.connectorVersion,
           install: devices.install,
+          hubUrl: devices.hubUrl,
           updateFailed: devices.updateFailed,
           sync: devices.syncState,
           slicers: devices.slicers,
@@ -702,6 +709,8 @@ export const hubRoutes =
         failed = JSON.parse(String(req.headers["x-connector-update"] ?? "null"));
       } catch {}
       const update = connectorUpdateFailureSchema.safeParse(failed);
+      // The address it reached the hub at (6.3.0 Step 7b): shown on its machine page.
+      const used = hubAddressSchema.safeParse(req.headers["x-connector-hub"]).data;
       const seen = info.success ? info.data.connectorVersion : undefined;
       const known = db
         .select({ outdated: devices.outdatedSince })
@@ -716,6 +725,7 @@ export const hubRoutes =
         .set({
           ...(info.success && info.data),
           updateFailed: update.success ? update.data : null,
+          ...(used && { hubUrl: used }),
           ...(seen === VERSION && { outdatedSince: null }),
           ...(firstOutdated && { outdatedSince: { hubVersion: VERSION, since: now } }),
           lastSeenAt: now,
@@ -744,6 +754,7 @@ export const hubRoutes =
         .where(eq(devices.id, deviceId))
         .get();
       const { libraries: sources, dirs } = await catalogs.connected(deviceId);
+      const moveTo = addressFor(used);
       const installs = await catalogs.connectedInstall(deviceId);
       reply.hijack();
       const res = reply.raw;
@@ -768,16 +779,27 @@ export const hubRoutes =
         "x-catalog-install": JSON.stringify(installs),
         // Share to the hub (ADR-0021); a connector before 5.5.0 shares its folders anyway.
         "x-share-projects": switches?.share === false ? "0" : "1",
+        // Where to reach the hub from now on (6.3.0 Step 7b): it tries that first next time.
+        ...(moveTo && { "x-hub-address": moveTo }),
         // Once the hub ends a stream (revoke, shutdown) the socket goes too, instead of idling in
         // keep-alive, which held up the server's close.
         connection: "close",
       });
       res.write(": open\n\n");
       // Synchronous from here to the registration (better-sqlite3), so no event falls in between.
-      if (Number.isSafeInteger(cursor) && cursor > 0)
+      if (Number.isSafeInteger(cursor) && cursor > 0) {
         db.delete(hubEvents)
           .where(and(mine, lte(hubEvents.seq, cursor)))
           .run();
+        // A database restored from a backup (or a hub moved with one) can be behind the device's
+        // cursor: its next events would come with ids the connector takes as seen. Move past it.
+        db.run(
+          sql`UPDATE sqlite_sequence SET seq = ${cursor} WHERE name = 'hub_events' AND seq < ${cursor}`,
+        );
+        db.run(
+          sql`INSERT INTO sqlite_sequence (name, seq) SELECT 'hub_events', ${cursor} WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'hub_events')`,
+        );
+      }
       for (const e of db.select().from(hubEvents).where(mine).orderBy(asc(hubEvents.seq)).all())
         res.write(channel.frame(e.seq, e.data as HubEvent));
 

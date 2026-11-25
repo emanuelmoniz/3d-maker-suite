@@ -596,6 +596,26 @@ test("wiki screenshots", async ({ page, app }) => {
     ["hub-settings", "/hub/settings"],
     ["catalog-library", "/catalog/settings/library"],
   ]);
+  // Connected once, at a LAN address: the machine page shows the address it reaches the hub at.
+  const once = new AbortController();
+  const stream = await fetch(`${app.url}/api/hub/events`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "x-connector-version": version,
+      "x-connector-hub": "http://192.168.1.20:4300",
+    },
+    signal: once.signal,
+  });
+  await stream.body?.getReader().read();
+  once.abort();
+  await expect
+    .poll(async () => {
+      const list = (await (await page.request.get("/api/hub/devices")).json()) as {
+        online: boolean;
+      }[];
+      return list.some((d) => d.online);
+    })
+    .toBe(false);
   await shoot([["hub-machine", `/hub/devices/${deviceId}`]], true);
   // The pairing dialog for a NAS, server or container: the code and the lines to paste.
   await page.goto("/settings/hub");

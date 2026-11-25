@@ -26,6 +26,8 @@ export const serverConfigRoutes =
     restart?: () => void,
     stop?: () => void,
     autostart?: Autostart,
+    /** Saved: the connectors may have to move to a new address (6.3.0 Step 7b). */
+    onSaved: () => void = () => {},
   ): FastifyPluginAsyncZod =>
   async (app) => {
     const view = () => ({
@@ -63,6 +65,7 @@ export const serverConfigRoutes =
           else Object.assign(next, { [key]: value });
         }
         writeSavedConfig(config.dataDir, next);
+        onSaved();
         return view();
       },
     );

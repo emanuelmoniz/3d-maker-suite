@@ -9,7 +9,8 @@
 #   The hub address, code and name can also come from CONNECTOR_HUB_URL, CONNECTOR_PAIRING_CODE and
 #   CONNECTOR_NAME. They go in the service's Environment=; the first start pairs, and the pairing
 #   stays in the data folder, so the code is ignored from then on. Without them, an existing
-#   service keeps the ones it has.
+#   service keeps the ones it has. A new --hub-url alone moves a paired connector to a hub that
+#   moved (6.3.0 Step 7b): it keeps its pairing.
 set -eu
 src=$(cd "$(dirname "$0")" && pwd)
 usage() {

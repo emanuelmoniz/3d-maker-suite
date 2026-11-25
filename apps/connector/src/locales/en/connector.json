@@ -46,6 +46,19 @@
     "stop": "Stop server",
     "unpair": "Unpair"
   },
+  "hub": {
+    "change": "Change hub address",
+    "intro": "Use this when the hub moved to a new address and this connector can't reach it. The pairing stays: the hub at the new address must be the same one, or one restored from its backup.",
+    "submit": "Change address",
+    "cancel": "Cancel",
+    "pairAgain": "Pair with this hub",
+    "errors": {
+      "badUrl": "Enter the hub's address, starting with http:// or https://.",
+      "unreachable": "Could not reach a hub at this address. Check the address and that the hub is running.",
+      "hubOff": "This server has the hub turned off. An admin turns it on in Settings → General.",
+      "unknownDevice": "The hub at this address doesn't know this connector: it isn't the same hub, nor one restored from its backup. Pair with it to use it, with a new code from its Hub management."
+    }
+  },
   "user": {
     "change": "Change user",
     "intro": "Ask an admin for a code. They make one on this connector's page in Hub management in the web app. A code works once, for 10 minutes, only on this connector.",

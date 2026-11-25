@@ -96,7 +96,7 @@ Creating the first admin from the public name still needs the setup token. Only 
 
 ## Hubs and connectors
 
-A [hub](Hub-Setup.md) on a server is reached by the connectors on your computers ([Connector setup](Connector-Setup.md)). A connector only connects out, to the hub's public address, so the computers need no open ports and no VPN. The proxy settings above are all it needs.
+A [hub](Hub-Setup.md) on a server is reached by the connectors on your computers ([Connector setup](Connector-Setup.md)). A connector only connects out, to the hub's public address, so the computers need no open ports and no VPN. The proxy settings above are all it needs. A connector paired at a LAN address moves to the **Public address** once you set one and it answers there, see [When the address changes](Hub-Setup.md#when-the-address-changes).
 
 A server outside your home can't reach a printer on your home network. Bambu Cloud printers work from anywhere. For the others, a connector on a computer at home talks to them for the hub.
 

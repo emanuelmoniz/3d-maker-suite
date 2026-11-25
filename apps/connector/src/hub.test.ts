@@ -27,12 +27,14 @@ import {
 } from "@3d-maker-suite/core";
 import { openDb, schema } from "@3d-maker-suite/db";
 import { buildApp } from "@3d-maker-suite/server/src/app.ts";
+import { loadConfig } from "@3d-maker-suite/server/src/config.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
 import { VERSION } from "@3d-maker-suite/server/src/updates/updates.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLink, type Link, PairError, sseParser } from "./hub.ts";
+import { createLink, type HubAddressError, type Link, PairError, sseParser } from "./hub.ts";
 import { openStore } from "./state.ts";
 import { createStatusPage, t } from "./status.ts";
+import { tcpProxy } from "./testProxy.ts";
 
 describe("sseParser", () => {
   it("splits events across chunks, joins data lines and skips comments", () => {
@@ -66,11 +68,15 @@ describe("connector and hub", () => {
     for (const f of cleanup.splice(0).reverse()) await f();
   });
 
-  const hub = async (opts: Parameters<typeof buildApp>[3] = {}) => {
+  /** `network`: with Settings → Network (`/api/server-config`), to set a Public address. */
+  const hub = async (opts: Parameters<typeof buildApp>[3] = {}, network = false) => {
     const db = openDb(":memory:");
     // A data dir of its own: a device folder's cover lands in <dataDir>/thumbnails.
     const dataDir = mkdtempSync(join(tmpdir(), "hub-data-"));
-    const app = await buildApp(db, { stream: { write: () => true } }, dataDir, opts);
+    const app = await buildApp(db, { stream: { write: () => true } }, dataDir, {
+      ...opts,
+      ...(network && { serverConfig: loadConfig({ APP_DATA_DIR: dataDir }, []) }),
+    });
     const passwordHash = await hashPassword("password123");
     const user = (role: "admin" | "viewer") =>
       db
@@ -167,6 +173,141 @@ describe("connector and hub", () => {
     await until(() => status(again.link) === "revoked");
     expect(again.store.token()).toBeUndefined();
     expect(again.store.get().hubUrl).toBe(h.url); // kept for the pair form
+  });
+
+  describe("a new hub address (6.3.0 Step 7b)", () => {
+    /** Another address for the hub, closed when the test ends (or earlier, as the hub moving). */
+    const proxy = async (url: string) => {
+      const p = await tcpProxy(url);
+      cleanup.push(() => p.close());
+      return p;
+    };
+    const deviceOf = async (h: Awaited<ReturnType<typeof hub>>) =>
+      (await h.send("GET", "/api/hub/devices")).json()[0];
+
+    it(
+      "follows a new Public address: tried first, the old one dropped once it answered",
+      async () => {
+        const h = await hub({}, true);
+        const old = await proxy(h.url);
+        const c = connector();
+        await c.link.pair(old.url, await h.code(), "WS-1");
+        await until(() => status(c.link) === "online");
+        // The machine page shows the address it uses.
+        await until(async () => (await deviceOf(h)).hubUrl === old.url);
+
+        // Set before the move: told live, kept while the stream on the old address lasts.
+        const patch = await h.send("PATCH", "/api/server-config", { publicUrl: `${h.url}/` });
+        expect(patch.statusCode).toBe(200);
+        await until(() => c.store.get().nextHubUrls?.[0] === h.url);
+        expect(c.store.get().hubUrl).toBe(old.url);
+        const identity = c.store.get().link;
+
+        // The hub "moves": the old address goes, the connector reconnects at the new one.
+        await old.close();
+        await until(() => c.store.get().hubUrl === h.url && status(c.link) === "online");
+        expect(c.store.get().nextHubUrls).toEqual([]);
+        expect(c.store.get().link).toBe(identity); // sync.json and presets.json are kept
+        await until(async () => (await deviceOf(h)).hubUrl === h.url);
+        expect(c.store.token()).toBeTruthy();
+      },
+      testTimeout(30_000),
+    );
+
+    it(
+      "an announced address that doesn't answer stays in line; the old one keeps working",
+      async () => {
+        const h = await hub({}, true);
+        const gone = await tcpProxy(h.url);
+        await gone.close(); // nothing answers there
+        const c = connector();
+        await c.link.pair(h.url, await h.code(), "WS-1");
+        await until(() => status(c.link) === "online");
+        await h.send("PATCH", "/api/server-config", { publicUrl: gone.url });
+        await until(() => c.store.get().nextHubUrls?.[0] === gone.url);
+
+        // A reconnect tries it first, then the one that answered last.
+        c.link.start();
+        await until(() => status(c.link) === "online");
+        expect(c.store.get()).toMatchObject({ hubUrl: h.url, nextHubUrls: [gone.url] });
+        // Every connect says it again, without growing the list.
+        expect(c.store.get().nextHubUrls).toHaveLength(1);
+      },
+      testTimeout(30_000),
+    );
+
+    it(
+      "drops an announced address that leads to another hub, never the pairing",
+      async () => {
+        const h = await hub({}, true);
+        const other = await hub();
+        const c = connector();
+        await c.link.pair(h.url, await h.code(), "WS-1");
+        await until(() => status(c.link) === "online");
+        await h.send("PATCH", "/api/server-config", { publicUrl: other.url });
+        await until(() => c.store.get().nextHubUrls?.[0] === other.url);
+        c.link.start();
+        await until(() => status(c.link) === "online" && !c.store.get().nextHubUrls?.length);
+        expect(c.store.get().hubUrl).toBe(h.url);
+        expect(c.store.token()).toBeTruthy();
+        // The header says it again at that connect: refused for this run, it isn't taken back.
+        expect(c.store.get().nextHubUrls).toEqual([]);
+      },
+      testTimeout(30_000),
+    );
+
+    it(
+      "changes the address by hand after the move, and an unknown hub says to pair again",
+      async () => {
+        const h = await hub();
+        const old = await proxy(h.url);
+        const c = connector();
+        await c.link.pair(old.url, await h.code(), "WS-1");
+        await until(() => status(c.link) === "online");
+        const identity = c.store.get().link;
+        await old.close();
+        await until(() => status(c.link) === "offline");
+
+        const fail = (url: string) => c.link.changeHub(url).catch((e: HubAddressError) => e.code);
+        expect(await fail("nas:4300")).toBe("badUrl");
+        expect(await fail(old.url)).toBe("unreachable");
+        const other = await hub();
+        expect(await fail(other.url)).toBe("unknownDevice");
+        expect(c.store.get().hubUrl).toBe(old.url); // nothing changed
+        expect(c.store.token()).toBeTruthy();
+
+        await c.link.changeHub(`${h.url}/`);
+        await until(() => status(c.link) === "online");
+        expect(c.store.get()).toMatchObject({ hubUrl: h.url, link: identity, nextHubUrls: [] });
+        await until(async () => (await deviceOf(h)).hubUrl === h.url);
+
+        // A hub with the hub switch off says so, not "pair again".
+        await h.send("PATCH", "/api/preferences", { hubEnabled: false });
+        expect(await fail(h.url)).toBe("hubOff");
+      },
+      testTimeout(30_000),
+    );
+
+    it(
+      "keeps its event cursor's place on a hub restored from an older backup",
+      async () => {
+        const h = await hub();
+        const c = connector();
+        await c.link.pair(h.url, await h.code(), "WS-1");
+        await until(() => status(c.link) === "online");
+        const device = await deviceOf(h);
+        // As if the backup was older than what the connector has seen.
+        c.link.close();
+        c.store.set({ cursor: 500 });
+        const again = connector(c.dir);
+        again.link.start();
+        await until(() => status(again.link) === "online");
+        await h.send("PATCH", `/api/hub/devices/${device.id}`, { name: "Restored" });
+        await until(() => again.store.get().deviceName === "Restored");
+        expect(again.store.get().cursor).toBeGreaterThan(500);
+      },
+      testTimeout(30_000),
+    );
   });
 
   it("knows its hub user, follows a rename, and forgets it when unpaired", async () => {

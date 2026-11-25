@@ -504,6 +504,7 @@
       "invalid": "Enter an address that starts with http:// or https://.",
       "link": "Alerts link to {{value}}. Applies at once, no restart.",
       "noLink": "Alerts carry no link. Choose an address above to add one.",
+      "connectors": "Paired connectors are told a new address you choose here, or a new port without one. Each switches once the hub answers there, so you can set it before the hub moves.",
       "fixed": "Set by the APP_PUBLIC_URL environment variable: {{value}}",
       "test": "Test",
       "open": "Open address",

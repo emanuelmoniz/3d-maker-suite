@@ -174,6 +174,7 @@ export function PublicAddress({
               ? t("settings:server.public.link", { value: link })
               : t("settings:server.public.noLink")}
         </p>
+        <p className="text-muted">{t("settings:server.public.connectors")}</p>
       </fieldset>
       {link && (
         <div className="flex flex-wrap items-center gap-2">

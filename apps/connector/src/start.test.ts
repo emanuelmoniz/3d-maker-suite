@@ -9,9 +9,11 @@ import { buildApp } from "@3d-maker-suite/server/src/app.ts";
 import { hashPassword } from "@3d-maker-suite/server/src/lib/password.ts";
 import { VERSION } from "@3d-maker-suite/server/src/updates/updates.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLink, PairError } from "./hub.ts";
-import { openSpentCodes, pairAtStart, startOptions } from "./start.ts";
+import { testTimeout } from "../../../test-timeout.ts";
+import { createLink, HubAddressError, PairError } from "./hub.ts";
+import { followHubAtStart, openSpentCodes, pairAtStart, startOptions } from "./start.ts";
 import { openStore } from "./state.ts";
+import { tcpProxy } from "./testProxy.ts";
 
 describe("startOptions", () => {
   it("reads the flags first, then the environment", () => {
@@ -40,6 +42,8 @@ describe("startOptions", () => {
       startOptions([], { CONNECTOR_HUB_URL: "http://h", CONNECTOR_PAIRING_CODE: "C" }).pair,
     ).toMatchObject({ name: hostname().slice(0, 100) });
     expect(startOptions([], { CONNECTOR_HUB_URL: "http://h" }).pair).toBeUndefined();
+    // Alone it still moves a paired connector (6.3.0 Step 7b).
+    expect(startOptions([], { CONNECTOR_HUB_URL: "http://h" }).hubUrl).toBe("http://h");
     expect(
       startOptions([], { CONNECTOR_PAIRING_CODE: "C", CONNECTOR_HUB_URL: " " }).pair,
     ).toBeUndefined();
@@ -158,8 +162,10 @@ describe("pairing at start", () => {
         spent: openSpentCodes(dir),
         log: (l) => lines.push(l),
       });
+    const follow = (hubUrl: string) =>
+      followHubAtStart({ link, store, hubUrl, log: (l) => lines.push(l), retryMs: 1 });
     link.start();
-    return { store, link, sent, lines, run };
+    return { store, link, sent, lines, run, follow };
   };
   const folder = () => {
     const dir = mkdtempSync(join(tmpdir(), "connector-"));
@@ -274,9 +280,112 @@ describe("pairing at start", () => {
     expect(await listed()).toEqual([]);
   });
 
+  it(
+    "moves to a new CONNECTOR_HUB_URL at the next start, and an unchanged one does nothing",
+    async () => {
+      const h = await hub();
+      const old = await tcpProxy(h.url);
+      cleanup.push(() => old.close());
+      const dir = folder();
+      const { code } = await h.code();
+      const first = start(dir);
+      await first.run(old.url, code);
+      await until(() => first.link.state().status === "online");
+      expect(first.store.get().startedWith).toBe(old.url);
+      first.link.close();
+      await old.close(); // the hub moved
+
+      // The compose file now has the new address; the code in it is spent and stays unsent.
+      const moved = start(dir);
+      await moved.follow(`${h.url}/`);
+      await moved.run(h.url, code);
+      expect(moved.sent).toEqual([]);
+      await until(() => moved.link.state().status === "online");
+      expect(moved.store.get()).toMatchObject({ hubUrl: h.url, startedWith: h.url });
+      expect(moved.store.token()).toBeTruthy();
+      const [device] = (await h.send("GET", "/api/hub/devices")).json();
+      expect(device.hubUrl).toBe(h.url);
+      moved.link.close();
+
+      // Started again with the same address: nothing to do, even if the hub announced another since.
+      moved.store.set({ hubUrl: "http://announced.example" });
+      const again = start(dir);
+      await again.follow(h.url);
+      expect(again.lines).toEqual([]);
+      expect(again.store.get().hubUrl).toBe("http://announced.example");
+    },
+    testTimeout(30_000),
+  );
+
+  it(
+    "unpairs for a hub that doesn't know it, and pairs there with a new code",
+    async () => {
+      const h = await hub();
+      const other = await hub();
+      const dir = folder();
+      const first = start(dir);
+      await first.run(h.url, (await h.code()).code);
+      await until(() => first.link.state().status === "online");
+      first.link.close();
+
+      const moved = start(dir);
+      await moved.follow(other.url);
+      expect(moved.lines.at(-1)).toMatch(/doesn't know this device; pair it again/);
+      expect(moved.store.token()).toBeUndefined();
+      expect(moved.store.get().hubUrl).toBe(other.url); // kept for the pair form
+      await moved.run(other.url, (await other.code()).code);
+      await until(() => moved.link.state().status === "online");
+      expect(moved.store.get().startedWith).toBe(other.url);
+    },
+    testTimeout(30_000),
+  );
+
+  it("tries a new address again while it can't be reached, and records one already in use", async () => {
+    const lines: string[] = [];
+    const state = { hubUrl: "http://old:4300", startedWith: "http://old:4300" };
+    const store = {
+      token: () => "t",
+      get: () => state,
+      set: (patch: object) => Object.assign(state, patch),
+    };
+    let tries = 0;
+    const link = {
+      changeHub: async (url: string) => {
+        if (++tries < 3) throw new HubAddressError("unreachable");
+        state.hubUrl = url;
+      },
+      unpair: () => {},
+    };
+    await followHubAtStart({
+      link,
+      store,
+      hubUrl: "http://new:4300",
+      log: (l) => lines.push(l),
+      retryMs: 1,
+    });
+    expect(tries).toBe(3);
+    expect(state).toEqual({ hubUrl: "http://new:4300", startedWith: "http://new:4300" });
+    expect(lines).toEqual([
+      "hub address: started with http://new:4300, moving there from http://old:4300",
+      "hub address: unreachable at http://new:4300, trying again in 0 s",
+      "hub address: unreachable at http://new:4300, trying again in 0 s",
+    ]);
+
+    // Paired before 6.3.0 (none recorded): the address in use is only recorded.
+    const before = { hubUrl: "http://nas:4300" } as Record<string, string>;
+    await followHubAtStart({
+      link,
+      store: { token: () => "t", get: () => before, set: (p: object) => Object.assign(before, p) },
+      hubUrl: "http://nas:4300/",
+      log: (l) => lines.push(l),
+    });
+    expect(before).toEqual({ hubUrl: "http://nas:4300", startedWith: "http://nas:4300" });
+    expect(tries).toBe(3);
+  });
+
   it("tries an unreachable hub again, and stops for a bad address", async () => {
     const lines: string[] = [];
-    const store = { token: () => undefined };
+    const store = { token: () => undefined, set: () => {} };
     let tries = 0;
     const link = {
       pair: async () => {

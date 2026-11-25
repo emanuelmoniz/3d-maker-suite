@@ -1,0 +1,1 @@
+ALTER TABLE `devices` ADD `hub_url` text;

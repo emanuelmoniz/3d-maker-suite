@@ -49,11 +49,20 @@ Every connector has to open the hub's address. It is the same address you type i
 1. **Same network.** Use the server's address on that network, with the port: `http://192.168.1.20:4300`. For this the server must listen on the network. See [Use from another device](Use-From-Another-Device.md).
 2. **Over the internet.** Put a reverse proxy with HTTPS in front of the hub and use its name: `https://maker.example.com`. The steps, with Caddy, nginx and Traefik, are on [Public access](Public-Access.md).
 3. If you set `APP_ALLOWED_HOSTS`, the name or address the connectors use must be in the list. Otherwise the hub answers `403 forbidden_host` and the connector says it can't reach the hub.
-4. Optional: set **Public address** in **Settings → Network**, so the app shows the right address in links.
+4. Optional: set **Public address** in **Settings → Network**, so the app shows the right address in links. Paired connectors are told a new Public address too, see below.
 
 The connector only connects out to the hub. The computers need no open ports and no VPN. Behind Caddy, nginx or Traefik, the default settings work, because the hub marks its live stream as unbuffered and sends a heartbeat every 15 seconds.
 
 If you put the hub behind a proxy, set `APP_TRUST_PROXY` too. Without it the hub sees every computer at the proxy's address.
+
+### When the address changes
+
+Connectors keep their pairing when the hub gets a new address: a domain added later, a new IP, or a move to a new computer with a backup.
+
+- **Change it in the app first.** Set the new **Public address** in **Settings → Network**. The hub tells every paired connector at once, and a connector that is offline hears it when it next connects. Each connector tries the new address first, switches once the hub answers there, and keeps the old one until then. So you can set it before you move the hub. Without a Public address, a new **Port** saved there is told the same way, with each connector's own address.
+- **Already moved?** Give each connector the new address: **Change hub address** on its own page, or a new `CONNECTOR_HUB_URL` for a NAS, server or container. See [Change the hub address](Connector-Setup.md#change-the-hub-address).
+
+Each machine's page in **Hub management** shows the address its connector uses. A Public address that connectors can't reach (for example, one only for the internet) costs them a few seconds at each reconnect, because they try it first.
 
 ## Pair the first computer
 
@@ -95,7 +104,7 @@ Turn **Hub** off in **Settings → General**. Nothing is deleted. The connectors
 
 - **No Hub management tab.** The hub is off, or you aren't an admin. Check **Settings → General**.
 - **The hub switch can't be turned on.** Turn on **User accounts** and sign in as an admin first.
-- **The connector says it can't reach the hub.** Check the address, and that the hub is running. With `APP_ALLOWED_HOSTS` set, add the name the connector uses, then restart the app.
+- **The connector says it can't reach the hub.** Check the address, and that the hub is running. With `APP_ALLOWED_HOSTS` set, add the name the connector uses, then restart the app. If the hub moved, see [When the address changes](#when-the-address-changes).
 - **The connector says the hub is off.** Turn **Hub** on in **Settings → General**.
 - **Every computer is locked out after a few wrong codes.** Behind a reverse proxy, set `APP_TRUST_PROXY`. See [Public access](Public-Access.md#problems-and-fixes).
 

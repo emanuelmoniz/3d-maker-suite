@@ -6,7 +6,8 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { ConnectorInstall } from "@3d-maker-suite/core";
-import { type Link, PairError } from "./hub.ts";
+import { HubAddressError, type Link, PairError } from "./hub.ts";
+import { normalizeHubUrl } from "./hubUrls.ts";
 import type { Store } from "./state.ts";
 
 export type StartOptions = {
@@ -14,6 +15,8 @@ export type StartOptions = {
   install?: ConnectorInstall;
   /** No screen at the machine: no start at login (systemd or Docker start it), its user changes on the hub. */
   headless: boolean;
+  /** `CONNECTOR_HUB_URL` (or `--hub-url`): a paired connector moves there when it changes. */
+  hubUrl?: string;
   /** `CONNECTOR_HUB_URL` and `CONNECTOR_PAIRING_CODE` (or the flags), both set. */
   pair?: { hubUrl: string; code: string; name: string };
 };
@@ -53,7 +56,12 @@ export function startOptions(
   const hubUrl = str(values["hub-url"], env.CONNECTOR_HUB_URL);
   const code = str(values["pairing-code"], env.CONNECTOR_PAIRING_CODE);
   const name = str(values.name, env.CONNECTOR_NAME)?.slice(0, 100) ?? hostname().slice(0, 100);
-  return { install, headless, ...(hubUrl && code && { pair: { hubUrl, code, name } }) };
+  return {
+    install,
+    headless,
+    ...(hubUrl && { hubUrl }),
+    ...(hubUrl && code && { pair: { hubUrl, code, name } }),
+  };
 }
 
 /** Any case, with or without the dash, as the hub reads a code. */
@@ -118,7 +126,7 @@ export async function pairAtStart({
   signal,
 }: {
   link: Pick<Link, "pair">;
-  store: Pick<Store, "token">;
+  store: Pick<Store, "token" | "set">;
   given: StartOptions["pair"];
   spent: SpentCodes;
   log: (line: string) => void;
@@ -133,6 +141,7 @@ export async function pairAtStart({
     try {
       await link.pair(given.hubUrl, given.code, given.name);
       spent.add(given.code);
+      store.set({ startedWith: normalizeHubUrl(given.hubUrl) });
       return;
     } catch (e) {
       if (!(e instanceof PairError)) throw e;
@@ -144,6 +153,57 @@ export async function pairAtStart({
         return log(`pairing: ${given.hubUrl} is not an http:// or https:// address`);
       // unreachable, hubOff, tooManyAttempts: none of them is the code's fault.
       log(`pairing: ${e.code} at ${given.hubUrl}, trying again in ${Math.round(delay / 1000)} s`);
+      await sleep(delay, signal);
+    }
+  }
+}
+
+/**
+ * A paired connector started with another hub address than last time (6.3.0 Step 7b): the hub
+ * moved. It moves there once a hub there knows its token (the same hub, or one restored from its
+ * backup), trying again while it can't be reached, `retryMs` doubling up to 5 minutes. A hub that
+ * doesn't know it means pairing again: it unpairs, with that address kept, and `pairAtStart` pairs
+ * with the code it was started with if that is a new one. An unchanged address does nothing, so a
+ * compose file never undoes an address the hub announced since.
+ */
+export async function followHubAtStart({
+  link,
+  store,
+  hubUrl,
+  log,
+  retryMs = 5000,
+  signal,
+}: {
+  link: Pick<Link, "changeHub" | "unpair">;
+  store: Pick<Store, "token" | "get" | "set">;
+  hubUrl: string | undefined;
+  log: (line: string) => void;
+  retryMs?: number;
+  signal?: AbortSignal;
+}) {
+  if (!hubUrl || !store.token()) return;
+  const hub = normalizeHubUrl(hubUrl);
+  if (!hub) return log(`hub address: ${hubUrl} is not an http:// or https:// address`);
+  const { startedWith, hubUrl: current } = store.get();
+  if (hub === startedWith) return;
+  if (hub === current) return store.set({ startedWith: hub });
+  log(`hub address: started with ${hub}, moving there from ${current}`);
+  for (let delay = retryMs; !signal?.aborted; delay = Math.min(delay * 2, 5 * 60_000)) {
+    if (!store.token()) return; // unpaired meanwhile
+    try {
+      await link.changeHub(hub);
+      store.set({ startedWith: hub });
+      return;
+    } catch (e) {
+      if (!(e instanceof HubAddressError)) throw e;
+      if (e.code === "unknownDevice") {
+        log(`hub address: the hub at ${hub} doesn't know this device; pair it again: ${NEW_CODE}`);
+        link.unpair();
+        store.set({ hubUrl: hub });
+        return;
+      }
+      // unreachable, hubOff: it may start after this machine. The old address is still tried meanwhile.
+      log(`hub address: ${e.code} at ${hub}, trying again in ${Math.round(delay / 1000)} s`);
       await sleep(delay, signal);
     }
   }

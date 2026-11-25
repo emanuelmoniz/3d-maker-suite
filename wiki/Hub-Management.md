@@ -84,10 +84,11 @@ The CPU load, memory, disks and network addresses, as the connector last reporte
 
 ### Connection
 
+- **Reaches the hub at {address}:** the hub address the connector used when it last connected, shown offline too. **Hub address: not reported yet** for one that hasn't connected since 6.3.0. A connector moves to a new **Public address** by itself, see [When the address changes](Hub-Setup.md#when-the-address-changes).
 - **Local page port:** the port of the connector's own page. A new port applies after a restart, and the page says **Saved. Restart the connector…**.
 - **Start with the computer:** starts the connector when you log in.
 
-These need the connector online. Offline, the card says so. A connector too old for this says **Update or restart it on its computer**.
+The port and the switch need the connector online. Offline, the card says so. A connector too old for this says **Update or restart it on its computer**.
 
 ### Slicers
 
@@ -203,6 +204,7 @@ The hub's one library of slicer presets is a tab of Catalog settings, not of Hub
 | The **Use slicer as server worker** switch is greyed out | The machine is Linux on ARM, which can't slice. Use a worker on x64, or a Mac |
 | **This is the hub's slicer…** | Pick another slicer in **Integrations** first |
 | **Turn the hub on to reach printers…** | Switch the hub on in **Settings → General** |
+| A computer stays **Offline** after the hub moved | Its connector still uses the old address. Give it the new one, see [Change the hub address](Connector-Setup.md#change-the-hub-address) |
 
 ## Related pages
 

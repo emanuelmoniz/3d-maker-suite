@@ -230,6 +230,8 @@
     "localPage": "You're on this machine: open its local page",
     "nameIs": "Name: {{name}}",
     "portIs": "Local page port: {{port}}",
+    "hubAddressIs": "Reaches the hub at {{address}}",
+    "hubAddressUnknown": "Hub address: not reported yet",
     "valueOn": "{{label}}: on",
     "valueOff": "{{label}}: off",
     "slicers": "Slicers",

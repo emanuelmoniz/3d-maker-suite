@@ -91,7 +91,17 @@ export function writeConfig(dir: string, patch: { port?: number; autostart?: boo
  * them (roots.ts, ADR-0021).
  */
 type State = {
+  /** The hub address that answered last (hubUrls.ts). */
   hubUrl?: string;
+  /** Newer addresses the hub announced that haven't answered yet, newest first (6.3.0 Step 7b). */
+  nextHubUrls?: string[];
+  /**
+   * The pairing `sync.json` and `presets.json` belong to (`<hub address at pairing>|<device id>`),
+   * so a new hub address keeps them; unset before 6.3.0, then it is the address in use.
+   */
+  link?: string;
+  /** The `CONNECTOR_HUB_URL` (or `--hub-url`) last applied: an unchanged one is not applied again. */
+  startedWith?: string;
   deviceId?: string;
   deviceName?: string;
   cursor?: number;

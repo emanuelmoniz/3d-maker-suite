@@ -13,6 +13,7 @@ import {
 } from "./presets.ts";
 import { projectFileSchema, projectGallerySchema, projectModelSchema } from "./projects.ts";
 import { rootMountSchema } from "./roots.ts";
+import { publicUrlSchema } from "./serverConfig.ts";
 
 /**
  * Why a connector stays on its version (`X-Connector-Update` on the event stream, as JSON):
@@ -161,6 +162,12 @@ export const connectorInstallSchema = z.enum(CONNECTOR_INSTALLS);
 export const isHeadless = (install: ConnectorInstall | null | undefined) =>
   install === "headless" || install === "docker";
 
+/**
+ * An address a connector reaches the hub at (6.3.0 Step 7b): http(s), no trailing slash, as the
+ * Public address is saved. `X-Connector-Hub` and `hub.address` carry it.
+ */
+export const hubAddressSchema = publicUrlSchema.refine((v) => v.length <= 2048);
+
 /** A connector paired with the hub (ADR-0014), as Hub management lists it. */
 export const deviceSchema = z.object({
   id,
@@ -176,6 +183,8 @@ export const deviceSchema = z.object({
   online: z.boolean(),
   /** Its local page's port, for the `/api/whoami` probe; null = offline or not reported. */
   port: z.number().int().nullable(),
+  /** The hub address its connector used when its stream last opened; null = not reported. */
+  hubUrl: z.string().nullable(),
   /** Its connector version isn't the hub's. */
   outdated: z.boolean(),
   /** What it reported last time its stream opened; null = no failed update. */
@@ -381,6 +390,12 @@ export const hubEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("device.renamed"), name }),
   /** Live only: the name of the user it acts as changed (a reconnect has it in `X-Device-User`). */
   z.object({ type: z.literal("device.user"), name: z.string() }),
+  /**
+   * Live only (6.3.0 Step 7b): the address to reach the hub at from now on (a new Public address,
+   * or a new port). The connector tries it first and drops its old one once it has answered. A
+   * reconnect has it in `X-Hub-Address`. An older connector skips it.
+   */
+  z.object({ type: z.literal("hub.address"), url: hubAddressSchema }),
   /** Update now (an admin): download the hub's version at once, even one that rolled back. */
   z.object({ type: z.literal("connector.update") }),
   /** Its roots were added, changed or removed, or a scan was asked for: read them, sync them all. */
@@ -599,6 +614,9 @@ export const deviceSliceSchema = z.object({ code: z.number().int().nullable() })
 export const connectorInfoSchema = pairSchema
   .pick({ connectorVersion: true, os: true, install: true })
   .extend({ system: slicerSystemSchema.optional() });
+
+/** `GET /api/hub/device/me`: the device a token belongs to, checked before a connector moves to another hub address. */
+export const deviceMeSchema = z.object({ id });
 
 /** A `: hb` comment this often keeps the device online and proxies from closing a quiet stream. */
 export const HUB_HEARTBEAT_MS = 15_000;

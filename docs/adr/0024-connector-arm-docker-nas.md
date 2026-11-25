@@ -238,3 +238,7 @@ The S4U task of Step 3b has no network credentials, so a project folder on `\\na
 - **The machine page** shows `install` and the architecture (the last word of the connector's `os`), and for `docker` the update command instead of **Update now** (a container never updates itself).
 - **Slicing on ARM:** `deviceCanSlice(os)` (`packages/core/src/services/managedSlicer.ts`) is false for Linux on ARM. The switch **Use slicer as server worker** is greyed out there, and `PATCH /api/hub/devices/:id` with `useAsWorker: true` answers 409 `slicing_unsupported`, the same code as a managed slicer install on an ARM hub.
 - **A missing sync folder's held deletes** (`Delete on the hub too`, `Restore them`) and **Change user** on a `headless` or `docker` connector use the hub routes of Step 2, from the machine page.
+
+## Amendment (2026-11-25): a new hub address at start (6.3.0 Step 7b)
+
+- `CONNECTOR_HUB_URL` (`--hub-url`, `/HUBURL`) is no longer read only to pair. A paired connector started with another address than the last one it applied moves there, keeping its pairing, once a hub there knows its token. It tries an unreachable one again (5 s doubling to 5 minutes), and unpairs for a hub that doesn't know it, so a new `CONNECTOR_PAIRING_CODE` pairs it. An unchanged address does nothing, so a compose file never undoes an address the hub announced since (ADR-0014, 2026-11-25). `install.sh --headless --hub-url` and the Windows setup with `/HUBURL` alone keep the rest of what the service or task has.

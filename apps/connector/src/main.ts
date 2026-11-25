@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { createAutostart } from "@3d-maker-suite/host";
 import { createLink } from "./hub.ts";
 import { sourceAdapters } from "./sources/registry.ts";
-import { openSpentCodes, pairAtStart, startOptions } from "./start.ts";
+import { followHubAtStart, openSpentCodes, pairAtStart, startOptions } from "./start.ts";
 import {
   dataDir,
   localHub,
@@ -93,14 +93,18 @@ const page = createStatusPage({
 page.listen(port, "127.0.0.1", () => log(`${VERSION}, status page on http://127.0.0.1:${port}/`));
 link.start();
 // No screen to pair on: the hub and code it was started with (ADR-0024). Never exits for a refusal.
-void pairAtStart({
-  link,
-  store,
-  given: started.pair,
-  spent: openSpentCodes(dir),
-  log,
-  signal: pairing.signal,
-}).catch((e) => log(`pairing: ${e.message}`));
+// A paired one started with a new hub address moves there first (6.3.0 Step 7b).
+void (async () => {
+  await followHubAtStart({ link, store, hubUrl: started.hubUrl, log, signal: pairing.signal });
+  await pairAtStart({
+    link,
+    store,
+    given: started.pair,
+    spent: openSpentCodes(dir),
+    log,
+    signal: pairing.signal,
+  });
+})().catch((e) => log(`pairing: ${e.message}`));
 
 autostart?.set(startAtLogin).catch((e) => log(`start at login: ${e.message}`));
 

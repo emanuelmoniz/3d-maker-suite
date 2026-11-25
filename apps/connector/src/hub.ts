@@ -8,6 +8,7 @@ import {
   catalogDirsSchema,
   catalogSourcesSchema,
   type DeviceUserChange,
+  deviceMeSchema,
   deviceUserPreviewSchema,
   deviceUserResultSchema,
   HUB_HEARTBEAT_MS,
@@ -21,6 +22,7 @@ import { systemInfo } from "@3d-maker-suite/host";
 import { z } from "zod";
 import { createCatalogSend } from "./catalog.ts";
 import { createCatalogInstall } from "./catalogInstall.ts";
+import { announced, answered, linkOf, normalizeHubUrl } from "./hubUrls.ts";
 import { createPresetInstall } from "./presetInstall.ts";
 import { createPresetShare, openPresetState } from "./presets.ts";
 import { createRootSync, type Request } from "./roots.ts";
@@ -35,6 +37,18 @@ export type PairErrorCode = "badUrl" | "unreachable" | "invalidCode" | "tooManyA
 export class PairError extends Error {
   readonly code: PairErrorCode;
   constructor(code: PairErrorCode) {
+    super(code);
+    this.code = code;
+  }
+}
+/**
+ * Why a new hub address wasn't taken (6.3.0 Step 7b). `unknownDevice`: a hub answers there, but
+ * not one that knows this device (not the same hub, nor one restored from its backup).
+ */
+export type HubAddressErrorCode = "badUrl" | "unreachable" | "hubOff" | "unknownDevice";
+export class HubAddressError extends Error {
+  readonly code: HubAddressErrorCode;
+  constructor(code: HubAddressErrorCode) {
     super(code);
     this.code = code;
   }
@@ -196,13 +210,11 @@ export function createLink({
     createHubSync({
       request,
       ...syncAt,
-      identity: () => `${store.get().hubUrl}|${store.get().deviceId}`,
+      identity: () => linkOf(store.get()),
       log,
     });
   const slicers = createSlicers({ request, store, log, dataDir: syncAt?.dataDir, ...slicerHooks });
-  const presetState =
-    syncAt &&
-    openPresetState(syncAt.dataDir, () => `${store.get().hubUrl}|${store.get().deviceId}`);
+  const presetState = syncAt && openPresetState(syncAt.dataDir, () => linkOf(store.get()));
   const presets =
     presetState &&
     createPresetShare({
@@ -315,6 +327,7 @@ export function createLink({
         userName = event.data.name;
         return;
       }
+      if (event.success && event.data.type === "hub.address") return heard(event.data.url);
       if (
         event.success &&
         (event.data.type === "connector.settings.get" ||
@@ -427,6 +440,8 @@ export function createLink({
           accept: "text/event-stream",
           "x-connector-version": version,
           "x-connector-os": os,
+          // The address it reached the hub at, for its machine page (6.3.0 Step 7b).
+          "x-connector-hub": hub,
           ...(install && { "x-connector-install": install }),
           "x-connector-system": JSON.stringify(systemInfo()),
           ...(port && { "x-connector-port": String(port) }),
@@ -455,6 +470,8 @@ export function createLink({
         // A hub before 5.5.0 doesn't say: it shares.
         shareProjects: res.headers.get("x-share-projects") !== "0",
       });
+      const moveTo = res.headers.get("x-hub-address");
+      if (moveTo) heard(moveTo);
       const owner = res.headers.get("x-device-user");
       userName = owner ? decodeURIComponent(owner) : undefined;
       status = "online";
@@ -532,14 +549,77 @@ export function createLink({
     } catch {} // keeps what it had; the page falls back to the connector name
   }
 
+  /** Announced addresses that led to a hub that doesn't know this device: not tried again this run. */
+  const refused = new Set<string>();
+  /** An address the hub announced (`hub.address`, `X-Hub-Address`): tried first from the next connect. */
+  const heard = (url: string) => {
+    const patch = announced(store.get(), url, refused);
+    if (!patch) return;
+    store.set(patch);
+    log(`the hub announced a new address: ${patch.nextHubUrls[0]}`);
+  };
+
+  /**
+   * Whether `hub` is this device's hub: it answers `/api/health`, and `/api/hub/device/me` knows the
+   * token as this device. Nothing is changed.
+   */
+  async function check(
+    hub: string,
+    token: string,
+    signal?: AbortSignal,
+  ): Promise<"ok" | Exclude<HubAddressErrorCode, "badUrl">> {
+    const within = () =>
+      signal ? AbortSignal.any([signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000);
+    try {
+      const health = await fetch(`${hub}/api/health`, { signal: within() });
+      const body = (await health.json().catch(() => null)) as { status?: unknown } | null;
+      if (!health.ok || body?.status !== "ok") return "unreachable";
+      const me = await fetch(`${hub}/api/hub/device/me`, {
+        headers: { authorization: `Bearer ${token}` },
+        signal: within(),
+      });
+      if (me.status === 401) return "unknownDevice";
+      if (me.status === 404) return "hubOff";
+      const answer = deviceMeSchema.safeParse(await me.json().catch(() => null));
+      if (!me.ok || !answer.success) return "unreachable";
+      return answer.data.id === store.get().deviceId ? "ok" : "unknownDevice";
+    } catch {
+      return "unreachable";
+    }
+  }
+
+  /**
+   * The announced addresses, newest first, before the one in use: the first that is this device's
+   * hub becomes the one in use, and the older ones go. One that leads to another hub is dropped,
+   * never the pairing (hubUrls.ts).
+   */
+  async function tryAnnounced(token: string, signal: AbortSignal) {
+    for (const hub of store.get().nextHubUrls ?? []) {
+      const result = await check(hub, token, signal);
+      if (signal.aborted) return;
+      if (result === "ok") {
+        const patch = answered(store.get(), hub);
+        if (patch) store.set(patch);
+        return log(`the hub answered at ${hub}: using it from now on`);
+      }
+      if (result === "unknownDevice") {
+        refused.add(hub);
+        store.set({ nextHubUrls: (store.get().nextHubUrls ?? []).filter((u) => u !== hub) });
+        log(`${hub} is not this device's hub; dropped it`);
+      }
+    }
+  }
+
   async function run(signal: AbortSignal) {
     for (let delay = 1000; !signal.aborted; delay = Math.min(delay * 2, MAX_DELAY_MS)) {
       const token = store.token();
-      const hub = store.get().hubUrl;
-      if (!token || !hub) {
+      if (!token || !store.get().hubUrl) {
         status = "unpaired";
         return;
       }
+      if (store.get().nextHubUrls?.length) await tryAnnounced(token, signal);
+      if (signal.aborted) return;
+      const hub = store.get().hubUrl as string;
       let next: LinkStatus = "offline";
       let failure: string | undefined;
       try {
@@ -625,15 +705,8 @@ export function createLink({
 
     /** Exchanges a pairing code for a device token, then connects. */
     async pair(hubUrl: string, code: string, name: string) {
-      let url: URL;
-      try {
-        url = new URL(hubUrl.trim());
-      } catch {
-        throw new PairError("badUrl");
-      }
-      if (url.protocol !== "http:" && url.protocol !== "https:") throw new PairError("badUrl");
-      // A hub behind a path prefix (https://x.example/maker) keeps it.
-      const hub = `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+      const hub = normalizeHubUrl(hubUrl);
+      if (!hub) throw new PairError("badUrl");
       const res = await fetch(`${hub}/api/hub/pair`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -648,8 +721,36 @@ export function createLink({
       const result = pairResultSchema.safeParse(await res.json().catch(() => null));
       if (!res.ok || !result.success) throw new PairError("unreachable");
       const { token, deviceId } = result.data;
-      store.set({ hubUrl: hub, deviceId, deviceName: name, cursor: 0, token });
+      store.set({
+        hubUrl: hub,
+        nextHubUrls: [],
+        link: `${hub}|${deviceId}`,
+        deviceId,
+        deviceName: name,
+        cursor: 0,
+        token,
+      });
       log(`paired with ${hub}`);
+      status = "connecting";
+      error = undefined;
+      start();
+    },
+
+    /**
+     * Reach the hub at another address, keeping the pairing (6.3.0 Step 7b): the hub moved, or got
+     * a new address, before this connector heard it. Only once a hub there knows this device's
+     * token (the same hub, or one restored from its backup); then it reconnects there.
+     */
+    async changeHub(hubUrl: string) {
+      const hub = normalizeHubUrl(hubUrl);
+      if (!hub) throw new HubAddressError("badUrl");
+      const token = store.token();
+      if (!token) throw new HubAddressError("unknownDevice");
+      const result = await check(hub, token);
+      if (result !== "ok") throw new HubAddressError(result);
+      refused.delete(hub);
+      store.set({ ...answered(store.get(), hub), nextHubUrls: [] });
+      log(`now reaches the hub at ${hub}`);
       status = "connecting";
       error = undefined;
       start();

@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { createLink, type Link, PairError } from "./hub.ts";
+import { createLink, HubAddressError, type Link, PairError } from "./hub.ts";
 import { openStore } from "./state.ts";
 import { allowed, createStatusPage, t } from "./status.ts";
 
@@ -227,6 +227,58 @@ it.each([
   expect(res.body).toContain(t(key));
 });
 
+it("changes the hub address on its own page, and offers to pair with a hub that doesn't know it", async () => {
+  const tried: string[] = [];
+  let status: ReturnType<Link["state"]>["status"] = "offline";
+  const s = await serve({
+    state: () => ({ status, error: undefined }),
+    changeHub: async (url) => {
+      tried.push(url);
+      if (url.includes("other")) throw new HubAddressError("unknownDevice");
+      if (url.includes("down")) throw new HubAddressError("unreachable");
+    },
+  });
+  // Unpaired: the pair form has the address.
+  expect((await s.call("GET", "/hub")).location).toBe("/local");
+  s.store.set({ hubUrl: "http://old.example:4300", deviceId: "d", token: "t" });
+  expect((await s.call("GET", "/local")).body).toContain('href="/hub"');
+
+  const form = await s.call("GET", "/hub");
+  expect(form.body).toContain(t("connector:hub.intro"));
+  expect(form.body).toContain('value="http://old.example:4300"');
+  expect(form.body).not.toContain('http-equiv="refresh"'); // would wipe the address being typed
+
+  const type = { "content-type": "application/x-www-form-urlencoded" };
+  const post = (path: string, body: string, origin = s.origin()) =>
+    s.call("POST", path, { ...type, origin }, body);
+  expect((await post("/hub", "hub=http%3A%2F%2Fnew", "https://evil.example")).status).toBe(403);
+  expect((await post("/hub/pair", "hub=http%3A%2F%2Fnew", "https://evil.example")).status).toBe(
+    403,
+  );
+  expect(tried).toEqual([]);
+
+  expect(await post("/hub", "hub=http%3A%2F%2Fnew.example")).toMatchObject({
+    status: 303,
+    location: "/local",
+  });
+  const down = await post("/hub", "hub=http%3A%2F%2Fdown.example");
+  expect(down.status).toBe(400);
+  expect(down.body).toContain(t("connector:hub.errors.unreachable"));
+  expect(down.body).toContain('value="http://down.example"'); // kept as typed
+  expect(down.body).not.toContain('action="/hub/pair"');
+
+  const other = await post("/hub", "hub=http%3A%2F%2Fother.example");
+  expect(other.body).toContain(t("connector:hub.errors.unknownDevice"));
+  expect(other.body).toContain('action="/hub/pair"');
+  expect(s.store.token()).toBe("t"); // only once asked
+  expect(await post("/hub/pair", "hub=http%3A%2F%2Fother.example")).toMatchObject({ status: 303 });
+  expect(s.store.token()).toBeUndefined();
+  // The pair form starts with that hub's address.
+  status = "unpaired";
+  expect((await s.call("GET", "/local")).body).toContain('value="http://other.example"');
+  expect(tried).toEqual(["http://new.example", "http://down.example", "http://other.example"]);
+});
+
 it("tells only its hub's page which device it is", async () => {
   const s = await serve();
   const hub = "http://hub.example:3000";
@@ -252,6 +304,10 @@ it("tells only its hub's page which device it is", async () => {
   expect(pre.headers["access-control-allow-private-network"]).toBe("true");
   // Still no other route for another origin's preflight.
   expect((await s.call("OPTIONS", "/pair", { origin: hub })).status).toBe(403);
+  // An address the hub announced counts too: it may be opened there already (6.3.0 Step 7b).
+  s.store.set({ nextHubUrls: ["https://maker.example.com"] });
+  const announced = await s.call("GET", "/api/whoami", { origin: "https://maker.example.com" });
+  expect(announced.headers["access-control-allow-origin"]).toBe("https://maker.example.com");
 });
 
 it("opens the machine's page on the hub when paired and online, else the local page", async () => {

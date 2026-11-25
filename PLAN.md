@@ -5145,7 +5145,7 @@ Do Step 6 of the 6.3.0 plan in PLAN.md. Tell me first what I have to set up for 
 Do Step 7 of the 6.3.0 plan in PLAN.md.
 ```
 
-### [ ] Step 7b - Connectors follow the hub's new address  **[plan mode]**
+### [x] Step 7b - Connectors follow the hub's new address  **[plan mode]**
 **Model:** Opus · **Effort:** High
 **Why:** a connector keeps the hub address it was paired with (`hubUrl` in `apps/connector/src/state.ts`). When the hub moves (a new machine, a new IP, a domain added later), every connector loses it and is paired again, although its device token is still valid (it is in the hub's database, which a backup carries). Found in the Wiki plan's Step 8 (`wiki/Move-or-Uninstall.md`); agreed with the user.
 **Scope:**
@@ -5154,6 +5154,16 @@ Do Step 7 of the 6.3.0 plan in PLAN.md.
 - The machine page shows which address each connector uses.
 - Tests: the address push and the fallback order; a connector with a stale address reaches the hub after a change on its page and with a new env var; an unknown device is told to pair. The e2e spec for **Change hub address**.
 - Wiki: `Move-or-Uninstall` (moving a hub), `Hub-Setup`, `Connector-Setup`, `Hub-Management`. `docs/architecture.md` and ADR-0014.
+
+**Done (2026-11-25):**
+- **The hub tells its connectors** with the new live operation `hub.address`. A new **Public address** goes to every connector. Agreed with the user: without a Public address, a port saved for the next restart goes too, as each connector's own address with that port (not in Docker, nor when a flag or env var sets the port). The same address rides on every connect as `X-Hub-Address`, so an offline connector hears it later (`connectorAddress` in `apps/server/src/config.ts`).
+- **The connector's address list** (`apps/connector/src/hubUrls.ts`): the address that answered last plus up to 4 newer announced ones. It tries the newest first; one "answers" when `GET /api/hub/device/me` (new) knows its token. A 401 from an announced address drops only that address. The pairing identity of `sync.json` and `presets.json` no longer includes the address (`link`), so a move keeps them.
+- **After the move:** **Change hub address** on the connector's page (`/hub`), with **Pair with this hub** for a hub that doesn't know it. Headless, a changed `CONNECTOR_HUB_URL` (`followHubAtStart`) moves it at the next start, and an unchanged one does nothing.
+- **The machine page** shows "Reaches the hub at …" under **Connection** (`devices.hub_url`, migration 0145, from `X-Connector-Hub`). Settings → Network says connectors are told.
+- Not in the plan, added because a restored backup needs it: a connect whose `Last-Event-ID` is above the `hub_events` sequence moves the sequence past it, so a hub restored from an older backup doesn't send events the connector skips as seen.
+- Tests: `hubUrls.test.ts`, the push, fallback, 401-candidate, change-by-hand, unknown-device and cursor cases in `apps/connector/src/hub.test.ts` (a TCP proxy as the old address, `testProxy.ts`), `followHubAtStart` in `start.test.ts`, the page in `status.test.ts`, `connectorAddress` in `config.test.ts`, the header, `/device/me` and the announce in `apps/server/src/hub.test.ts`, and `e2e/connector-hub-address.e2e.ts` (a real connector process).
+- Docs: wiki `Move-or-Uninstall`, `Hub-Setup` (When the address changes), `Connector-Setup` (Change the hub address), `Hub-Management`, `Settings-General`, `Configuration`, `Public-Access`; `docs/architecture.md`; ADR-0014 and ADR-0024 amendments; the compose and `install.sh` comments; README; the `wiki-hub-machine` and `wiki-settings` screenshots.
+- Fixed on the way: `roots.test.ts` "skips a root that isn't there…" failed 2 times in 5 before this step (the root showed up half-made, and the test checked before the index was sent).
 
 **Done when:** a hub moved to a new address keeps every connector without pairing again, whether the address was changed before or after the move; tests, lint, `pnpm typecheck` and `pnpm i18n:check` pass.
 **Prompt:**
